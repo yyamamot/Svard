@@ -514,8 +514,6 @@ fn config_normalizes_invalid_http_proxy_to_disabled_and_trims_url() {
 
 fn load_config_schema_persistence_contract() -> ConfigSchemaPersistenceContract {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("docs")
         .join("contracts")
         .join("config-schema-persistence.json");
     let source = fs::read_to_string(path).expect("read config persistence contract");

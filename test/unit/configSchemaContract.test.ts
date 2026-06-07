@@ -11,7 +11,7 @@ interface ConfigSchemaPersistenceContract {
 }
 
 const contract = JSON.parse(
-  fs.readFileSync("docs/contracts/config-schema-persistence.json", "utf8"),
+  fs.readFileSync("src-tauri/contracts/config-schema-persistence.json", "utf8"),
 ) as ConfigSchemaPersistenceContract;
 
 describe("config schema persistence contract", () => {
