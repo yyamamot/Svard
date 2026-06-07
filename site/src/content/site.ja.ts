@@ -1,4 +1,5 @@
 import { screenshot } from './screenshots';
+import { sitePath } from './paths';
 
 export const site = {
   locale: 'ja',
@@ -9,7 +10,7 @@ export const site = {
     features: '機能',
     download: 'ダウンロード',
     languageLabel: 'English',
-    languageHref: '/en/',
+    languageHref: sitePath('en/'),
   },
   footer: {
     summary: 'Svard はローカルの技術文書を読む、探す、比較するためのデスクトップビューアです。',
@@ -21,8 +22,8 @@ export const site = {
     heading: 'Svard',
     lead: 'AsciiDoc / Markdown を読むためのデスクトップビューア。',
     body: 'ローカルの技術文書を安全に開き、文書内検索、ワークスペース検索、プレビューベースの差分確認、図表レンダリングを読み手中心に扱います。',
-    primaryLink: { label: 'ダウンロード', href: '/ja/download/' },
-    secondaryLink: { label: '機能', href: '/ja/features/' },
+    primaryLink: { label: 'ダウンロード', href: sitePath('ja/download/') },
+    secondaryLink: { label: '機能', href: sitePath('ja/features/') },
     screenshot: {
       ...screenshot('hero-plantuml.png', 'PlantUML図表', '実際のスクリーンショットは未準備です。合成fixture文書または公開サンプル文書を使った画像だけをここに配置します。', 'SvardでPlantUMLのAliceからBobへのシーケンス図を開いている画面'),
     },

@@ -1,11 +1,13 @@
 ---
+import { sitePath } from '../content/paths';
+
 const { site } = Astro.props;
-const base = `/${site.locale}/`;
+const base = sitePath(`${site.locale}/`);
 ---
 
 <header class="site-header">
   <a class="brand" href={base} aria-label="Svard home">
-    <img src="/favicon.png" alt="" width="26" height="26" />
+    <img src={sitePath('favicon.png')} alt="" width="26" height="26" />
     <span>Svard</span>
   </a>
   <nav class="nav" aria-label="Primary navigation">

@@ -1,4 +1,5 @@
 import { screenshot } from './screenshots';
+import { sitePath } from './paths';
 
 export const site = {
   locale: 'en',
@@ -9,7 +10,7 @@ export const site = {
     features: 'Features',
     download: 'Download',
     languageLabel: 'Japanese',
-    languageHref: '/ja/',
+    languageHref: sitePath('ja/'),
   },
   footer: {
     summary: 'Svard is a desktop viewer for reading, searching, and comparing local technical documents.',
@@ -21,8 +22,8 @@ export const site = {
     heading: 'Svard',
     lead: 'A desktop viewer for reading AsciiDoc and Markdown.',
     body: 'Open local technical documents safely, search the current file or workspace, review preview-based diffs, and handle diagrams around a reader-focused workflow.',
-    primaryLink: { label: 'Download', href: '/en/download/' },
-    secondaryLink: { label: 'Features', href: '/en/features/' },
+    primaryLink: { label: 'Download', href: sitePath('en/download/') },
+    secondaryLink: { label: 'Features', href: sitePath('en/features/') },
     screenshot: {
       ...screenshot('hero-plantuml.png', 'PlantUML diagram', 'A real screenshot is not ready yet. This space should only use a synthetic fixture document or a public sample document.', 'Svard showing a PlantUML Alice to Bob sequence diagram'),
     },

@@ -1,4 +1,7 @@
 ---
+import { sitePath } from '../content/paths';
+
+const englishHref = sitePath('en/');
 ---
 
 <!doctype html>
@@ -6,11 +9,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="refresh" content="0; url=/en/" />
-    <link rel="canonical" href="/en/" />
+    <meta http-equiv="refresh" content={`0; url=${englishHref}`} />
+    <link rel="canonical" href={englishHref} />
     <title>Svard</title>
   </head>
   <body>
-    <p><a href="/en/">Continue to English</a></p>
+    <p><a href={englishHref}>Continue to English</a></p>
   </body>
 </html>

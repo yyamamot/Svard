@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import { sitePath } from '../content/paths';
 
 const { site, pageTitle, pageDescription } = Astro.props;
 const title = pageTitle ? `${pageTitle} · ${site.title}` : site.title;
@@ -15,8 +16,8 @@ const description = pageDescription ?? site.description;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href={sitePath('favicon.png')} />
+    <link rel="apple-touch-icon" href={sitePath('apple-touch-icon.png')} />
     <title>{title}</title>
   </head>
   <body>
