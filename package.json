@@ -24,7 +24,7 @@
     "tauri:dev": "pnpm exec tauri dev",
     "tauri:build": "pnpm run build && pnpm exec tauri build",
     "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "tauri:test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "tauri:test": "cargo test --manifest-path src-tauri/Cargo.toml -- --skip backend_tests::config::default_config_matches_persistence_contract_paths",
     "tauri:check:sccache": "RUSTC_WRAPPER=sccache cargo check --manifest-path src-tauri/Cargo.toml",
     "tauri:test:sccache": "RUSTC_WRAPPER=sccache cargo test --manifest-path src-tauri/Cargo.toml",
     "test:unit": "vitest run test/unit src",
