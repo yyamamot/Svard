@@ -1,0 +1,446 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Manual run mode"
+        required: true
+        default: "smoke"
+        type: choice
+        options:
+          - build
+          - smoke
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RELEASE_ROOT: .artifacts/release
+
+jobs:
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      is_release: ${{ steps.meta.outputs.is_release }}
+      tag: ${{ steps.meta.outputs.tag }}
+      release_version: ${{ steps.meta.outputs.release_version }}
+      artifact_version: ${{ steps.meta.outputs.artifact_version }}
+      run_smoke: ${{ steps.meta.outputs.run_smoke }}
+    steps:
+      - name: Resolve mode and version
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            tag="${GITHUB_REF_NAME}"
+            if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Tag '$tag' does not match ^v[0-9]+\.[0-9]+\.[0-9]+$" >&2
+              exit 1
+            fi
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "run_smoke=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "release_version=${tag#v}" >> "$GITHUB_OUTPUT"
+            echo "artifact_version=${tag#v}" >> "$GITHUB_OUTPUT"
+          else
+            artifact_version="manual-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "run_smoke=${{ inputs.mode == 'smoke' }}" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            echo "release_version=" >> "$GITHUB_OUTPUT"
+            echo "artifact_version=$artifact_version" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-smoke:
+    name: ${{ matrix.label }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: windows-x86_64
+            label: Windows x86_64 build and smoke
+            os: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+            bundle: nsis
+          - id: macos-apple-silicon
+            label: macOS Apple Silicon build and smoke
+            os: macos-14
+            rust_target: aarch64-apple-darwin
+            bundle: dmg
+    env:
+      WINDOWS_SMOKE_ARTIFACT_ROOT: .artifacts/windows-smoke/${{ github.run_id }}-${{ github.run_attempt }}
+      MACOS_SMOKE_ARTIFACT_ROOT: .artifacts/macos-smoke/${{ github.run_id }}-${{ github.run_attempt }}
+      CROSS_PLATFORM_ARTIFACT_ROOT: .artifacts/cross-platform/${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check release version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.release_version }}
+        run: |
+          node scripts/check-release-version.mjs
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.30.3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Cache Rust build
+        id: rust_cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-rust
+          workspaces: src-tauri -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-bin: false
+
+      - name: Install dependencies
+        id: install
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          mkdir -p .artifacts/install
+          pnpm install --frozen-lockfile 2>&1 | tee .artifacts/install/install.log
+
+      - name: Unit smoke
+        id: unit
+        if: needs.prepare.outputs.run_smoke == 'true'
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          mkdir -p .artifacts/unit-smoke
+          pnpm exec vitest run \
+            test/unit/extractDiagrams.test.ts \
+            test/unit/asciidocInclude.test.ts \
+            test/unit/localImage.test.ts \
+            test/unit/documentHtml.test.ts \
+            test/unit/linkHover.test.ts \
+            test/unit/workspaceBoot.test.ts \
+            test/unit/path.test.ts \
+            test/unit/tauriHostAdapter.test.ts \
+            test/unit/renderPlantUml.test.ts \
+            2>&1 | tee .artifacts/unit-smoke/unit.log
+
+      - name: Frontend typecheck and build
+        id: frontend
+        if: needs.prepare.outputs.run_smoke == 'true' && matrix.id == 'macos-apple-silicon'
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          mkdir -p "$MACOS_SMOKE_ARTIFACT_ROOT/logs"
+          pnpm run typecheck 2>&1 | tee "$MACOS_SMOKE_ARTIFACT_ROOT/logs/typecheck.log"
+          pnpm run build 2>&1 | tee "$MACOS_SMOKE_ARTIFACT_ROOT/logs/frontend-build.log"
+
+      - name: Tauri tests
+        id: tauri_test
+        if: needs.prepare.outputs.run_smoke == 'true'
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if [[ "${{ matrix.id }}" == "windows-x86_64" ]]; then
+            root="$WINDOWS_SMOKE_ARTIFACT_ROOT"
+          else
+            root="$MACOS_SMOKE_ARTIFACT_ROOT"
+          fi
+          mkdir -p "$root/logs"
+          started_at=$(node -e 'console.log(Date.now())')
+          pnpm run tauri:test 2>&1 | tee "$root/logs/tauri-test.log"
+          code=${PIPESTATUS[0]}
+          ended_at=$(node -e 'console.log(Date.now())')
+          node -e "console.log(Number(process.argv[2]) - Number(process.argv[1]))" "$started_at" "$ended_at" > "$root/tauri-test-duration-ms.txt"
+          exit "$code"
+
+      - name: Install Playwright Chromium
+        id: playwright_install
+        if: needs.prepare.outputs.run_smoke == 'true'
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if [[ "${{ matrix.id }}" == "windows-x86_64" ]]; then
+            root="$WINDOWS_SMOKE_ARTIFACT_ROOT"
+          else
+            root="$MACOS_SMOKE_ARTIFACT_ROOT"
+          fi
+          mkdir -p "$root/logs"
+          pnpm exec playwright install chromium 2>&1 | tee "$root/logs/playwright-install.log"
+
+      - name: PlantUML local smoke
+        id: plantuml
+        if: needs.prepare.outputs.run_smoke == 'true'
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if [[ "${{ matrix.id }}" == "windows-x86_64" ]]; then
+            root="$WINDOWS_SMOKE_ARTIFACT_ROOT"
+          else
+            root="$MACOS_SMOKE_ARTIFACT_ROOT"
+          fi
+          mkdir -p "$root/logs"
+          pnpm run test:plantuml-local 2>&1 | tee "$root/logs/plantuml-local.log"
+
+      - name: Build Tauri app
+        id: build
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if [[ "${{ matrix.id }}" == "windows-x86_64" ]]; then
+            root="$WINDOWS_SMOKE_ARTIFACT_ROOT"
+          else
+            root="$MACOS_SMOKE_ARTIFACT_ROOT"
+          fi
+          mkdir -p "$root/logs"
+          started_at=$(node -e 'console.log(Date.now())')
+          pnpm exec tauri build --target "${{ matrix.rust_target }}" --bundles "${{ matrix.bundle }}" 2>&1 | tee "$root/logs/build.log"
+          code=${PIPESTATUS[0]}
+          ended_at=$(node -e 'console.log(Date.now())')
+          node -e "console.log(Number(process.argv[2]) - Number(process.argv[1]))" "$started_at" "$ended_at" > "$root/build-duration-ms.txt"
+          exit "$code"
+
+      - name: Collect release asset
+        id: release_asset
+        if: needs.prepare.outputs.is_release == 'true' || needs.prepare.outputs.run_smoke != 'true'
+        shell: bash
+        continue-on-error: true
+        run: |
+          node scripts/collect-release-assets.mjs \
+            --platform "${{ matrix.id }}" \
+            --version "${{ needs.prepare.outputs.artifact_version }}" \
+            --out "$RELEASE_ROOT"
+
+      - name: Collect desktop build report
+        id: desktop_build_report
+        if: always() && (needs.prepare.outputs.is_release == 'true' || needs.prepare.outputs.run_smoke != 'true')
+        shell: bash
+        continue-on-error: true
+        env:
+          DESKTOP_PLATFORM: ${{ matrix.id }}
+          DESKTOP_ARTIFACT_VERSION: ${{ needs.prepare.outputs.artifact_version }}
+          DESKTOP_BUILD_REPORT_ROOT: .artifacts/desktop-build/${{ matrix.id }}
+          DESKTOP_BUILD_OUTCOME: ${{ steps.build.outcome }}
+          DESKTOP_RELEASE_ASSET_OUTCOME: ${{ steps.release_asset.outcome }}
+          RUST_CACHE_HIT: ${{ steps.rust_cache.outputs.cache-hit }}
+          RUST_CACHE_SAVE_ENABLED: ${{ github.ref == 'refs/heads/main' }}
+          CI_GITHUB_REF: ${{ github.ref }}
+        run: |
+          node scripts/desktop-build-report.mjs
+
+      - name: Collect Windows smoke report
+        id: windows_smoke_report
+        if: always() && needs.prepare.outputs.run_smoke == 'true' && matrix.id == 'windows-x86_64'
+        shell: bash
+        continue-on-error: true
+        env:
+          WINDOWS_INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          WINDOWS_UNIT_OUTCOME: ${{ steps.unit.outcome }}
+          WINDOWS_TAURI_TEST_OUTCOME: ${{ steps.tauri_test.outcome }}
+          WINDOWS_PLAYWRIGHT_INSTALL_OUTCOME: ${{ steps.playwright_install.outcome }}
+          WINDOWS_PLANTUML_OUTCOME: ${{ steps.plantuml.outcome }}
+          WINDOWS_BUILD_OUTCOME: ${{ steps.build.outcome }}
+          RUST_CACHE_HIT: ${{ steps.rust_cache.outputs.cache-hit }}
+          RUST_CACHE_SAVE_ENABLED: ${{ github.ref == 'refs/heads/main' }}
+          CI_GITHUB_REF: ${{ github.ref }}
+        run: |
+          node scripts/windows-basic-smoke.mjs
+
+      - name: Collect macOS smoke report
+        id: macos_smoke_report
+        if: always() && needs.prepare.outputs.run_smoke == 'true' && matrix.id == 'macos-apple-silicon'
+        shell: bash
+        continue-on-error: true
+        env:
+          MACOS_INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          MACOS_FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
+          MACOS_UNIT_OUTCOME: ${{ steps.unit.outcome }}
+          MACOS_TAURI_TEST_OUTCOME: ${{ steps.tauri_test.outcome }}
+          MACOS_PLANTUML_OUTCOME: ${{ steps.plantuml.outcome }}
+          MACOS_BUILD_OUTCOME: ${{ steps.build.outcome }}
+          RUST_CACHE_HIT: ${{ steps.rust_cache.outputs.cache-hit }}
+          RUST_CACHE_SAVE_ENABLED: ${{ github.ref == 'refs/heads/main' }}
+          CI_GITHUB_REF: ${{ github.ref }}
+        run: |
+          node scripts/macos-basic-smoke.mjs
+
+      - name: Collect cross-platform smoke report
+        id: cross_platform_report
+        if: always() && needs.prepare.outputs.run_smoke == 'true' && matrix.id == 'windows-x86_64'
+        shell: bash
+        continue-on-error: true
+        env:
+          WINDOWS_INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          WINDOWS_UNIT_OUTCOME: ${{ steps.unit.outcome }}
+          WINDOWS_TAURI_TEST_OUTCOME: ${{ steps.tauri_test.outcome }}
+          WINDOWS_PLAYWRIGHT_INSTALL_OUTCOME: ${{ steps.playwright_install.outcome }}
+          WINDOWS_PLANTUML_OUTCOME: ${{ steps.plantuml.outcome }}
+          WINDOWS_BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          node scripts/cross-platform-smoke.mjs
+
+      - name: Upload desktop bundle
+        if: always() && (needs.prepare.outputs.is_release == 'true' || needs.prepare.outputs.run_smoke != 'true')
+        uses: actions/upload-artifact@v7
+        with:
+          name: svard-${{ matrix.id }}
+          path: ${{ env.RELEASE_ROOT }}/${{ matrix.id }}/*
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload desktop build report
+        if: always() && (needs.prepare.outputs.is_release == 'true' || needs.prepare.outputs.run_smoke != 'true')
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-build-report-${{ matrix.id }}
+          path: .artifacts/desktop-build/${{ matrix.id }}/*
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Windows smoke results
+        if: always() && needs.prepare.outputs.run_smoke == 'true' && matrix.id == 'windows-x86_64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-smoke-results
+          path: .artifacts/windows-smoke/**/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS smoke results
+        if: always() && needs.prepare.outputs.run_smoke == 'true' && matrix.id == 'macos-apple-silicon'
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-smoke-results
+          path: .artifacts/macos-smoke/**/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload cross-platform smoke results
+        if: always() && needs.prepare.outputs.run_smoke == 'true' && matrix.id == 'windows-x86_64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: cross-platform-smoke-results
+          path: ${{ env.CROSS_PLATFORM_ARTIFACT_ROOT }}/*
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
+
+      - name: Fail on build artifact failure
+        if: needs.prepare.outputs.run_smoke != 'true'
+        shell: bash
+        run: |
+          if [[ "${{ steps.build.outcome }}" != "success" ]]; then
+            echo "Tauri build failed" >&2
+            exit 1
+          fi
+          if [[ "${{ steps.release_asset.outcome }}" != "success" ]]; then
+            echo "Release asset collection failed" >&2
+            exit 1
+          fi
+          test -f "$RELEASE_ROOT/${{ matrix.id }}/manifest.json"
+
+      - name: Fail on smoke failure
+        if: always() && needs.prepare.outputs.run_smoke == 'true'
+        shell: bash
+        run: |
+          if [[ "${{ needs.prepare.outputs.is_release }}" == "true" && "${{ steps.release_asset.outcome }}" != "success" ]]; then
+            echo "Release asset collection failed" >&2
+            exit 1
+          fi
+          if [[ "${{ matrix.id }}" == "windows-x86_64" ]]; then
+            node -e '
+              const fs = require("node:fs");
+              const windowsRoot = process.env.WINDOWS_SMOKE_ARTIFACT_ROOT;
+              const crossRoot = process.env.CROSS_PLATFORM_ARTIFACT_ROOT;
+              const read = (root) => JSON.parse(fs.readFileSync(`${root}/report.json`, "utf8"));
+              const windows = read(windowsRoot);
+              const cross = read(crossRoot);
+              if (windows.outcome !== "passed") throw new Error("windows smoke failed");
+              if (cross.outcome !== "passed") throw new Error("cross-platform smoke failed");
+            '
+          else
+            node -e '
+              const fs = require("node:fs");
+              const report = JSON.parse(fs.readFileSync(`${process.env.MACOS_SMOKE_ARTIFACT_ROOT}/report.json`, "utf8"));
+              if (report.outcome !== "passed") throw new Error("macOS smoke failed");
+            '
+          fi
+
+  release:
+    name: Create GitHub Release
+    needs:
+      - prepare
+      - build-smoke
+    if: needs.prepare.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: svard-*
+          path: .artifacts/release-download
+
+      - name: Generate aggregate checksums
+        shell: bash
+        run: |
+          : > SHA256SUMS.txt
+          while IFS= read -r asset; do
+            digest=$(shasum -a 256 "$asset" | awk '{print $1}')
+            printf '%s  %s\n' "$digest" "$(basename "$asset")" >> SHA256SUMS.txt
+          done < <(find .artifacts/release-download -type f \( -name '*.exe' -o -name '*.dmg' \) | sort)
+          if [[ ! -s SHA256SUMS.txt ]]; then
+            echo "No release assets were found" >&2
+            exit 1
+          fi
+          cat SHA256SUMS.txt
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          node scripts/create-release-notes.mjs \
+            --version "${{ needs.prepare.outputs.release_version }}" \
+            --checksums SHA256SUMS.txt \
+            --out .artifacts/release-notes.md
+          cat .artifacts/release-notes.md
+
+      - name: Create release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          mapfile -t assets < <(find .artifacts/release-download -type f \( -name '*.exe' -o -name '*.dmg' \) | sort)
+          gh release create "$TAG" \
+            --title "Svard $TAG" \
+            --notes-file .artifacts/release-notes.md \
+            "${assets[@]}" \
+            SHA256SUMS.txt

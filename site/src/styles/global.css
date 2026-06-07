@@ -73,15 +73,18 @@ a {
 }
 
 .nav a,
-.footer-links span,
+.footer-links a,
 .text-link,
-.status-pill {
+.status-pill,
+.resource-link {
   color: var(--muted);
   font-size: 0.92rem;
 }
 
 .nav a:hover,
-.text-link:hover {
+.text-link:hover,
+.footer-links a:hover,
+.resource-link:hover {
   color: var(--accent);
 }
 
@@ -187,6 +190,14 @@ h2 {
 .text-link.muted {
   color: var(--muted);
   font-weight: 600;
+}
+
+.resource-link {
+  display: inline-flex;
+  margin-top: 8px;
+  border-bottom: 1px solid currentColor;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .screenshot-placeholder {

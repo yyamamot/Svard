@@ -1,6 +1,11 @@
 import { screenshot } from './screenshots';
 import { sitePath } from './paths';
 
+const repositoryUrl = 'https://github.com/yyamamot/Svard';
+const releasesUrl = 'https://github.com/yyamamot/Svard/releases';
+const changelogUrl = 'https://github.com/yyamamot/Svard/blob/main/CHANGELOG.md';
+const issuesUrl = 'https://github.com/yyamamot/Svard/issues';
+
 export const site = {
   locale: 'en',
   title: 'Svard',
@@ -14,8 +19,11 @@ export const site = {
   },
   footer: {
     summary: 'Svard is a desktop viewer for reading, searching, and comparing local technical documents.',
-    github: 'GitHub TBD',
-    release: 'Release TBD',
+    links: [
+      { label: 'GitHub', href: repositoryUrl },
+      { label: 'Releases', href: releasesUrl },
+      { label: 'Issues', href: issuesUrl },
+    ],
   },
   top: {
     eyebrow: 'Local-first document viewer',
@@ -80,21 +88,23 @@ export const site = {
   },
   download: {
     eyebrow: 'Download',
-    heading: 'Public release is in preparation.',
-    lead: 'This page keeps only the practical information needed to start using Svard. Undecided links are not presented as active download buttons.',
-    status: { label: 'Release status', value: 'Coming soon' },
+    heading: 'Download Svard from GitHub Releases.',
+    lead: 'Use GitHub Releases as the official source for installers, release notes, and checksums. Review the platform notes before opening unsigned builds.',
+    status: { label: 'Release status', value: 'Available from GitHub Releases' },
     resources: {
       heading: 'Download and verification',
       items: [
         {
           title: 'GitHub Releases',
-          body: 'After public release, this will link to the latest artifacts, OS-specific assets, release notes, and SHA-256 checksums.',
-          state: 'URL TBD',
+          body: 'Download the latest macOS and Windows artifacts from the official GitHub Releases page.',
+          state: 'Official',
+          href: releasesUrl,
         },
         {
           title: 'Changelog',
-          body: 'This will link to the CHANGELOG or release notes for checking what changed in each public release.',
-          state: 'URL TBD',
+          body: 'Review user-visible changes and release notes before updating.',
+          state: 'Available',
+          href: changelogUrl,
         },
         {
           title: 'System requirements',
@@ -119,8 +129,9 @@ export const site = {
         },
         {
           title: 'Repository / Issues',
-          body: 'This will link to the public repository, issue tracker, and security policy.',
-          state: 'URL TBD',
+          body: 'Open the public repository or report issues from GitHub.',
+          state: 'Available',
+          href: issuesUrl,
         },
         {
           title: 'Security / signing',
@@ -157,8 +168,9 @@ export const site = {
       ],
     },
     notes: [
-      'GitHub Releases, Changelog, and Repository / Issues links will be replaced after public URLs are decided.',
-      'App Store badges and package-manager commands are not shown until those channels are supported.',
+      'Use the GitHub Releases page as the official download source.',
+      'Direct asset links are intentionally not hard-coded on this page.',
+      'App Store badges and package-manager commands are not shown because those channels are not supported yet.',
       'Auto-update promises are not shown until implementation and distribution are decided.',
       'Commands should only be used for artifacts obtained from the official release.',
     ],

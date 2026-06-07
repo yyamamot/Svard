@@ -21,6 +21,7 @@ import LandingLayout from '../../layouts/LandingLayout.astro';
           <span class="status-pill" aria-disabled="true">{item.state}</span>
           <h3>{item.title}</h3>
           <p>{item.body}</p>
+          {item.href && <a class="resource-link" href={item.href}>開く</a>}
           {item.details && (
             <ul>
               {item.details.map((detail) => <li>{detail}</li>)}

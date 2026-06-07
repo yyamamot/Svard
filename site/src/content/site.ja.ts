@@ -1,6 +1,11 @@
 import { screenshot } from './screenshots';
 import { sitePath } from './paths';
 
+const repositoryUrl = 'https://github.com/yyamamot/Svard';
+const releasesUrl = 'https://github.com/yyamamot/Svard/releases';
+const changelogUrl = 'https://github.com/yyamamot/Svard/blob/main/CHANGELOG.md';
+const issuesUrl = 'https://github.com/yyamamot/Svard/issues';
+
 export const site = {
   locale: 'ja',
   title: 'Svard',
@@ -14,8 +19,11 @@ export const site = {
   },
   footer: {
     summary: 'Svard はローカルの技術文書を読む、探す、比較するためのデスクトップビューアです。',
-    github: 'GitHub 未定',
-    release: 'リリース未定',
+    links: [
+      { label: 'GitHub', href: repositoryUrl },
+      { label: 'Releases', href: releasesUrl },
+      { label: 'Issues', href: issuesUrl },
+    ],
   },
   top: {
     eyebrow: 'Local-first document viewer',
@@ -80,21 +88,23 @@ export const site = {
   },
   download: {
     eyebrow: 'Download',
-    heading: '公開リリースの準備中です。',
-    lead: '利用開始に必要な情報だけを集約します。未定のリンクは有効なダウンロードボタンに見せません。',
-    status: { label: 'リリース状況', value: '準備中' },
+    heading: 'GitHub Releases からダウンロードできます。',
+    lead: 'インストーラー、リリースノート、チェックサムは GitHub Releases を公式の入手元として確認してください。未署名ビルドを開く前に、プラットフォーム別の注意を確認してください。',
+    status: { label: 'リリース状況', value: 'GitHub Releases で公開' },
     resources: {
       heading: '入手と確認',
       items: [
         {
           title: 'GitHub Releases',
-          body: '正式公開後、最新版の配布物、OS別アセット、リリースノート、SHA-256チェックサムへの導線を配置します。',
-          state: 'URL未定',
+          body: '最新版の macOS / Windows 向け配布物は、公式の GitHub Releases から入手します。',
+          state: '公式',
+          href: releasesUrl,
         },
         {
           title: 'Changelog',
-          body: '公開リリースごとの変更点を確認するためのCHANGELOGまたはリリースノートへの導線を配置します。',
-          state: 'URL未定',
+          body: '更新前に、ユーザー向けの変更点とリリースノートを確認できます。',
+          state: '公開中',
+          href: changelogUrl,
         },
         {
           title: 'System requirements',
@@ -119,8 +129,9 @@ export const site = {
         },
         {
           title: 'Repository / Issues',
-          body: '公開リポジトリ、Issue tracker、Security policyへの導線を配置します。',
-          state: 'URL未定',
+          body: '公開リポジトリの確認や issue 報告は GitHub から行えます。',
+          state: '公開中',
+          href: issuesUrl,
         },
         {
           title: 'Security / signing',
@@ -157,8 +168,9 @@ export const site = {
       ],
     },
     notes: [
-      'GitHub Releases、Changelog、Repository / Issues は公開URLが決まった後に差し替えます。',
-      'App Store バッジやパッケージマネージャーのコマンドは、対応が契約化されるまで掲載しません。',
+      'GitHub Releases を公式のダウンロード元として扱います。',
+      'このページでは配布物への直接リンクを固定せず、Releases ページへの導線を正にします。',
+      'App Store バッジやパッケージマネージャーのコマンドは、対応するまで掲載しません。',
       '自動更新の約束は、実装と配布経路が確定するまで掲載しません。',
       '確認コマンドは、公式リリースから取得した配布物に対してだけ実行してください。',
     ],

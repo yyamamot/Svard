@@ -1,11 +1,11 @@
 ---
 const { site } = Astro.props;
+const links = site.footer.links ?? [];
 ---
 
 <footer class="site-footer">
   <p>{site.footer.summary}</p>
   <div class="footer-links" aria-label="Project placeholders">
-    <span>{site.footer.github}</span>
-    <span>{site.footer.release}</span>
+    {links.map((link) => <a href={link.href}>{link.label}</a>)}
   </div>
 </footer>
