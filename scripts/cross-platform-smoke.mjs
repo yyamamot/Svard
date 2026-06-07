@@ -153,17 +153,14 @@ async function collectRendererCases() {
     fileInfo("public/vendor/plantuml-teavm/plantuml.js"),
     fileInfo("public/vendor/plantuml-teavm/viz-global.js"),
     fileInfo("public/vendor/plantuml-teavm/graphviz-worker.html"),
-    fileInfo("docs/samples/assets/svard-sample.svg"),
-    fileInfo("docs/samples/asciidoc-comprehensive-visual.adoc"),
-    fileInfo("docs/samples/diagrams-mixed-long-ja.adoc"),
-    fileInfo("docs/samples/mermaid-japanese-flow.adoc"),
-    fileInfo("docs/samples/plantuml-japanese-combined.adoc"),
+    fileInfo("demo/screenshot-fixtures/workspace/product-overview.adoc"),
+    fileInfo("demo/screenshot-fixtures/workspace/diagram-samples.adoc"),
   ]);
-  const comprehensive = await readText(
-    "docs/samples/asciidoc-comprehensive-visual.adoc",
+  const productOverview = await readText(
+    "demo/screenshot-fixtures/workspace/product-overview.adoc",
   );
   const mixedDiagrams = await readText(
-    "docs/samples/diagrams-mixed-long-ja.adoc",
+    "demo/screenshot-fixtures/workspace/diagram-samples.adoc",
   );
   const extractDiagramTests = await readText(
     "test/unit/extractDiagrams.test.ts",
@@ -179,10 +176,11 @@ async function collectRendererCases() {
       { files: requiredFiles },
     ),
     check(
-      "local-image-fixture-present",
+      "public-safe-reader-fixture-present",
       "local-image",
-      /image::assets\/svard-sample\.svg\[[^\]]*\]/u.test(comprehensive),
-      { file: "docs/samples/asciidoc-comprehensive-visual.adoc" },
+      productOverview.includes("This fixture is safe to use in screenshots") &&
+        productOverview.includes("Review checklist"),
+      { file: "demo/screenshot-fixtures/workspace/product-overview.adoc" },
     ),
     check(
       "diagram-fixtures-cover-local-renderers",
@@ -190,7 +188,7 @@ async function collectRendererCases() {
       /\[plantuml\]/u.test(mixedDiagrams) &&
         /\[mermaid\]/u.test(mixedDiagrams) &&
         /\[graphviz\]/u.test(mixedDiagrams),
-      { file: "docs/samples/diagrams-mixed-long-ja.adoc" },
+      { file: "demo/screenshot-fixtures/workspace/diagram-samples.adoc" },
     ),
     check(
       "plantuml-extraction-regression-present",
