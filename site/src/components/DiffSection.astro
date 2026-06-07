@@ -1,0 +1,14 @@
+---
+import ConceptDiagram from './ConceptDiagram.astro';
+
+const { content } = Astro.props;
+---
+
+<section class="section-shell split-note">
+  <div>
+    <p class="eyebrow">{content.label ?? 'Preview Diff'}</p>
+    <h2>{content.title}</h2>
+    <p>{content.body}</p>
+  </div>
+  <ConceptDiagram variant="rendered-diff" locale={Astro.props.locale} />
+</section>

@@ -1,0 +1,6 @@
+@startuml
+left to right direction
+actor Reader
+Reader --> (Open document)
+Reader --> (Search document)
+@enduml

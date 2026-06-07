@@ -1,0 +1,7 @@
+@startuml
+class "これは長い日本語ラベルです。句読点、全角記号「」と半角英数字abc123を含んでも欠落せず表示されることを確認します。" as LongLabel
+note right of LongLabel
+これは長い日本語ラベルを含むメモです。
+句読点、全角記号、abc123 を混在させます。
+end note
+@enduml

@@ -1,0 +1,17 @@
+---
+const { site } = Astro.props;
+const base = `/${site.locale}/`;
+---
+
+<header class="site-header">
+  <a class="brand" href={base} aria-label="Svard home">
+    <img src="/favicon.png" alt="" width="26" height="26" />
+    <span>Svard</span>
+  </a>
+  <nav class="nav" aria-label="Primary navigation">
+    <a href={base}>{site.nav.top}</a>
+    <a href={`${base}features/`}>{site.nav.features}</a>
+    <a href={`${base}download/`}>{site.nav.download}</a>
+    <a class="language" href={site.nav.languageHref}>{site.nav.languageLabel}</a>
+  </nav>
+</header>

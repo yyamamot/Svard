@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="./viz-global.js"></script>
+    <script src="./plantuml.js"></script>
+  </head>
+  <body>
+    <div id="out"></div>
+    <script>
+      plantumlLoad();
+      const target = document.getElementById("out");
+
+      function diagnosticText(svg) {
+        const text =
+          new DOMParser().parseFromString(svg, "image/svg+xml").documentElement
+            .textContent || "";
+        return /error|syntax|not recognized|cannot|too large/i.test(text)
+          ? text.trim().slice(0, 700)
+          : "";
+      }
+
+      function sendResult(requestId, svg, timings, mode, probeMode) {
+        const diagnosticStarted = performance.now();
+        const diagnostic =
+          probeMode === "skip-diagnostic" || probeMode === "dummy-svg"
+            ? ""
+            : diagnosticText(svg);
+        const diagnosticFinished = performance.now();
+        const encodeStarted = performance.now();
+        const svgBytes = new TextEncoder().encode(svg).byteLength;
+        const encodeFinished = performance.now();
+        const postMessageStarted = performance.now();
+        window.parent.postMessage(
+          {
+            type: "PLANTUML_RESULT",
+            requestId,
+            status: diagnostic ? "error" : "rendered",
+            svg,
+            diagnostics: diagnostic ? [diagnostic] : [],
+            metrics: {
+              renderMs: postMessageStarted - timings.receivedAt,
+              workerTotalMs: postMessageStarted - timings.receivedAt,
+              renderCoreMs: timings.renderFinishedAt - timings.renderStartedAt,
+              diagnosticMs: diagnosticFinished - diagnosticStarted,
+              encodeMs: encodeFinished - encodeStarted,
+              postMessageMs: performance.now() - postMessageStarted,
+              svgBytes,
+              mode,
+            },
+          },
+          "*",
+        );
+      }
+
+      window.addEventListener("message", (event) => {
+        if (!event.data || event.data.type !== "PLANTUML_RENDER") {
+          return;
+        }
+
+        const receivedAt = performance.now();
+        const requestId = event.data.requestId;
+        const probeMode = event.data.probeMode || "normal";
+        const options =
+          event.data.theme === "dark" ? { dark: true } : undefined;
+        target.innerHTML = "";
+
+        if (typeof window.plantuml.renderToString === "function") {
+          try {
+            const renderStartedAt = performance.now();
+            window.plantuml.renderToString(
+              event.data.lines,
+              (svg) => {
+                const renderFinishedAt = performance.now();
+                sendResult(
+                  requestId,
+                  probeMode === "dummy-svg" ? "<svg></svg>" : svg,
+                  { receivedAt, renderStartedAt, renderFinishedAt },
+                  probeMode === "dummy-svg" ? "dummy" : "renderToString",
+                  probeMode,
+                );
+              },
+              (error) => {
+                window.parent.postMessage(
+                  {
+                    type: "PLANTUML_ERROR",
+                    requestId,
+                    diagnostics: [String(error)],
+                    metrics: { renderMs: performance.now() - receivedAt },
+                  },
+                  "*",
+                );
+              },
+              options,
+            );
+            return;
+          } catch (_error) {
+            target.innerHTML = "";
+          }
+        }
+
+        const observer = new MutationObserver(() => {
+          if (target.querySelector("svg")) {
+            observer.disconnect();
+            const renderFinishedAt = performance.now();
+            sendResult(
+              requestId,
+              probeMode === "dummy-svg" ? "<svg></svg>" : target.innerHTML,
+              { receivedAt, renderStartedAt, renderFinishedAt },
+              probeMode === "dummy-svg" ? "dummy" : "dom",
+              probeMode,
+            );
+          }
+        });
+        observer.observe(target, { childList: true, subtree: true });
+
+        const renderStartedAt = performance.now();
+        try {
+          window.plantuml.render(event.data.lines, "out", options);
+        } catch (error) {
+          observer.disconnect();
+          window.parent.postMessage(
+            {
+              type: "PLANTUML_ERROR",
+              requestId,
+              diagnostics: [
+                String(error && error.message ? error.message : error),
+              ],
+              metrics: { renderMs: performance.now() - receivedAt },
+            },
+            "*",
+          );
+        }
+      });
+    </script>
+  </body>
+</html>

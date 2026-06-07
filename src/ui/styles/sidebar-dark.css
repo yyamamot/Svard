@@ -1,0 +1,435 @@
+.theme-dark .sidebar-tabs {
+  border-color: var(--nav-primary-border);
+  background: var(--nav-primary-bg);
+}
+
+.theme-dark .right-sidebar-tabs {
+  border-color: var(--nav-secondary-border);
+  background: transparent;
+}
+
+.theme-dark .right-sidebar-tabs button {
+  color: var(--nav-secondary-text);
+}
+
+.theme-dark .sidebar-tabs button.active {
+  color: var(--nav-primary-active-text);
+  background: var(--nav-primary-active-bg);
+}
+
+.theme-dark .right-sidebar-tabs button.active {
+  color: var(--nav-secondary-active-text);
+  background: var(--nav-secondary-active-bg);
+  box-shadow: none;
+}
+
+.theme-dark .open-files-header h2,
+.theme-dark .open-files-collapsed-bar {
+  color: #b7c6cd;
+}
+
+.theme-dark .tree-root {
+  color: #eef2f4;
+}
+
+.theme-dark .open-file-row:hover,
+.theme-dark .tree-row:hover,
+.theme-dark .bookmark-row:hover {
+  background: #1a2026;
+}
+
+.theme-dark .open-file-row.active,
+.theme-dark .tree-row.active {
+  color: #ffffff;
+  background: #1f2a32;
+  box-shadow: inset 2px 0 0 #6f8792;
+}
+
+.theme-dark .open-file-row.git-status-modified .open-file-button,
+.theme-dark .tree-row.git-status-modified,
+.theme-dark .bookmark-row.git-status-modified .bookmark-open {
+  color: inherit;
+}
+
+.theme-dark .open-file-row.git-status-added .open-file-button,
+.theme-dark .open-file-row.git-status-untracked .open-file-button,
+.theme-dark .tree-row.git-status-added,
+.theme-dark .tree-row.git-status-untracked,
+.theme-dark .bookmark-row.git-status-added .bookmark-open,
+.theme-dark .bookmark-row.git-status-untracked .bookmark-open {
+  color: inherit;
+}
+
+.theme-dark .open-file-row.git-status-deleted .open-file-button,
+.theme-dark .tree-row.git-status-deleted,
+.theme-dark .bookmark-row.git-status-deleted .bookmark-open {
+  color: inherit;
+}
+
+.theme-dark .git-status-modified .git-status-badge,
+.theme-dark .git-status-badge.git-status-modified {
+  color: #f0d88b;
+  background: #493c20;
+}
+
+.theme-dark .git-status-added .git-status-badge,
+.theme-dark .git-status-untracked .git-status-badge,
+.theme-dark .git-status-badge.git-status-added,
+.theme-dark .git-status-badge.git-status-untracked {
+  color: #a9e2be;
+  background: #213f2e;
+}
+
+.theme-dark .git-status-deleted .git-status-badge,
+.theme-dark .git-status-badge.git-status-deleted {
+  color: #f1b5af;
+  background: #502b28;
+}
+
+.theme-dark .reload-status-badge {
+  color: #dde5e9;
+  background: #253039;
+}
+
+.theme-dark .open-file-row.reload-reloading .reload-status-badge {
+  color: #d7e2e7;
+  background: #33444c;
+}
+
+.theme-dark .open-file-row.reload-error .open-file-button {
+  color: #f18b82;
+}
+
+.theme-dark .open-file-row.reload-error .reload-status-badge {
+  color: #ffddd9;
+  background: #5e2f2a;
+}
+
+.theme-dark .open-file-close {
+  color: #b7c6cd;
+}
+
+.theme-dark .open-file-close:hover {
+  color: #ffffff;
+  background: #222b33;
+}
+
+.theme-dark .git-status-diff-button:hover,
+.theme-dark .git-status-diff-button:focus-visible {
+  box-shadow: 0 3px 9px rgb(0 0 0 / 35%);
+}
+
+.theme-dark .git-status-diff-button.git-status-modified:hover,
+.theme-dark .git-status-diff-button.git-status-modified:focus-visible {
+  background: #5a4926;
+}
+
+.theme-dark .git-status-diff-button.git-status-added:hover,
+.theme-dark .git-status-diff-button.git-status-added:focus-visible,
+.theme-dark .git-status-diff-button.git-status-untracked:hover,
+.theme-dark .git-status-diff-button.git-status-untracked:focus-visible {
+  background: #2b5139;
+}
+
+.theme-dark .git-status-diff-button.git-status-deleted:hover,
+.theme-dark .git-status-diff-button.git-status-deleted:focus-visible {
+  background: #633631;
+}
+
+.theme-dark .open-files-filter {
+  border-color: #303b44;
+  color: #b7c6cd;
+  background: #0f1418;
+}
+
+.theme-dark .open-files-filter-mode {
+  border-color: #4b6470;
+  color: #b7c6cd;
+}
+
+.theme-dark .open-file-pin {
+  color: #b7c6cd;
+}
+
+.theme-dark .open-file-pin:hover {
+  color: #ffffff;
+  background: #222b33;
+}
+
+.theme-dark .open-file-row.active .open-file-close {
+  color: #eef2f4;
+}
+
+.theme-dark .bookmark-action-button {
+  border-color: #303b44;
+  color: #d7dee3;
+  background: #11161a;
+}
+
+.theme-dark .bookmark-action-button:hover:not(:disabled) {
+  border-color: #47545e;
+  background: #1a2026;
+}
+
+.theme-dark .bookmark-action-button.added {
+  border-color: #53636d;
+  color: #b8c5cb;
+  background: #171d22;
+}
+
+.theme-dark .bookmark-action-button small,
+.theme-dark .bookmark-section-title {
+  color: #9caab0;
+}
+
+.theme-dark .bookmark-empty {
+  border-color: #2b343b;
+  color: #b7c6cd;
+}
+
+.theme-dark .timeline-header,
+.theme-dark .timeline-row-main strong,
+.theme-dark .timeline-empty strong {
+  color: #d8e6e7;
+}
+
+.theme-dark .timeline-header p,
+.theme-dark .timeline-row-main span,
+.theme-dark .timeline-empty {
+  color: #b7c6cd;
+}
+
+.theme-dark .timeline-row {
+  border-color: #2b343b;
+  background: #101519;
+}
+
+.theme-dark .source-control-switch {
+  border-color: var(--nav-secondary-border);
+  background: transparent;
+}
+
+.theme-dark .source-control-switch button {
+  color: var(--nav-secondary-text);
+}
+
+.theme-dark .source-control-switch button.active {
+  border-bottom-color: var(--nav-secondary-active-border);
+  background: var(--nav-secondary-active-bg);
+  color: var(--nav-secondary-active-text);
+}
+
+.theme-dark .source-control-branch-diff-controls label,
+.theme-dark .source-control-branch-diff-range {
+  color: #b7c6cd;
+}
+
+.theme-dark .source-control-branch-diff-warning {
+  color: #e5be7a;
+}
+
+.theme-dark .source-control-branch-diff-controls select {
+  border-color: #2b343b;
+  background: #101519;
+  color: #d8e6e7;
+}
+
+.theme-dark .source-control-change-row {
+  border-color: #263039;
+  background: #0f1418;
+}
+
+.theme-dark .source-control-change-row:hover,
+.theme-dark .source-control-change-row:focus-visible {
+  border-color: #53636d;
+  background: #171d22;
+}
+
+.theme-dark .source-control-change-name {
+  color: #d8e6e7;
+}
+
+.theme-dark .source-control-change-path {
+  color: #b7c6cd;
+}
+
+.theme-dark .source-control-branch {
+  color: #9aa9af;
+}
+
+.theme-dark .source-control-head-summary,
+.theme-dark .source-control-head-hash {
+  color: #8f9da6;
+}
+
+.theme-dark .timeline-row:hover,
+.theme-dark .timeline-row:focus-visible {
+  border-color: #53636d;
+  background: #171d22;
+}
+
+.theme-dark .timeline-row.selected-for-compare {
+  border-color: #6f8792;
+  box-shadow: inset 3px 0 0 #6f8792;
+}
+
+.theme-dark .timeline-empty {
+  border-color: #2b343b;
+}
+
+.theme-dark .source-control-graph-rail::before {
+  background: #343f47;
+}
+
+.theme-dark .source-control-graph-rail::after {
+  background: #101519;
+}
+
+.theme-dark .git-commit-details-panel {
+  border-color: #2b343b;
+  background: #101519;
+}
+
+.theme-dark .git-commit-details-header {
+  border-bottom-color: #2b343b;
+}
+
+.theme-dark .git-commit-details-header h2,
+.theme-dark .git-commit-details-body h3,
+.theme-dark .git-commit-file-row {
+  color: #d8e6e7;
+}
+
+.theme-dark .git-commit-details-header p,
+.theme-dark .git-commit-details-header span,
+.theme-dark .git-commit-details-empty {
+  color: #b7c6cd;
+}
+
+.theme-dark .git-commit-file-row {
+  border-color: #2b343b;
+  background: #101519;
+}
+
+.theme-dark .git-commit-file-row:not(:disabled):hover,
+.theme-dark .git-commit-file-row:not(:disabled):focus-visible {
+  border-color: #53636d;
+  background: #171d22;
+}
+
+.theme-dark .open-files-empty {
+  border-color: #2b343b;
+  color: #b7c6cd;
+}
+
+.theme-dark .toc a {
+  color: #8fc0d2;
+}
+
+.theme-dark .toc a.active {
+  color: #ffffff;
+  background: #1f2a32;
+}
+
+.theme-dark .panel {
+  border-color: #222a31;
+}
+
+.theme-dark .search-box {
+  border-color: #2b343b;
+  background: #0b0f12;
+}
+
+.theme-dark .search-box input {
+  color: #eef2f4;
+  background: transparent;
+}
+
+.theme-dark .search-actions .icon-button {
+  border-color: #33434c;
+  color: #dce8e5;
+  background: #151f24;
+}
+
+.theme-dark .search-actions .icon-button:hover,
+.theme-dark .search-actions .icon-button:focus-visible {
+  border-color: #4d6572;
+  color: #eef7f4;
+  background: #203039;
+}
+
+.theme-dark .search-actions .icon-button.active {
+  border-color: #5da99b;
+  color: #eef7f4;
+  background: #1f4039;
+}
+
+.theme-dark .search-actions .icon-button:disabled {
+  border-color: #2a3840;
+  color: #7f949d;
+  background: #10181d;
+}
+
+.theme-dark .search-empty {
+  border-color: #2b343b;
+  color: #b7c6cd;
+}
+
+.theme-dark .search-result-item {
+  border-color: #222a31;
+  color: #eef2f4;
+  background: #101417;
+}
+
+.theme-dark .search-result-item:hover {
+  border-color: #53636d;
+  background: #1a2026;
+}
+
+.theme-dark .search-result-item.active {
+  border-color: #6f8792;
+  background: #1f2a32;
+  box-shadow: inset 2px 0 0 #6f8792;
+}
+
+.theme-dark .search-result-heading {
+  color: #ffffff;
+}
+
+.theme-dark .search-result-snippet,
+.theme-dark .search-result-count,
+.theme-dark .search-result,
+.theme-dark .search-pinned {
+  color: #b7c6cd;
+}
+
+.theme-dark .icon-button.active {
+  border-color: #6f8792;
+  color: #ffffff;
+  background: #1f2a32;
+}
+
+.theme-dark .document-body mark.search-hit {
+  color: #0f171b !important;
+  -webkit-text-fill-color: #0f171b;
+  background: #f5c542 !important;
+  box-shadow: inset 0 0 0 1px rgb(255 236 158 / 54%);
+}
+
+.theme-dark .document-body mark.search-hit.active {
+  outline-color: #6f8792;
+  background: #ff9f1c !important;
+  box-shadow: inset 0 0 0 1px rgb(255 236 158 / 62%);
+}
+
+.theme-dark .diagram-inline-action {
+  border-color: #53636d;
+  color: #eef2f4;
+  background: #202830;
+}
+
+.theme-dark .diagram-inline-action:hover,
+.theme-dark .diagram-inline-action:focus-visible {
+  border-color: #7b929d;
+  background: #26313a;
+}

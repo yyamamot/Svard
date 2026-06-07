@@ -1,0 +1,271 @@
+.git-diff-backdrop.expanded {
+  padding: 0;
+}
+
+.git-diff-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(1280px, 96vw);
+  height: min(820px, 92vh);
+  overflow: hidden;
+  border: 1px solid var(--reader-border);
+  border-radius: 8px;
+  background: var(--reader-bg);
+  box-shadow: 0 20px 48px rgb(0 0 0 / 28%);
+}
+
+.git-diff-panel.expanded {
+  width: 100vw;
+  height: 100vh;
+  border: 0;
+  border-radius: 0;
+}
+
+.git-diff-panel.zen-mode-chrome-hidden .git-diff-toolbar {
+  display: none;
+}
+
+.git-diff-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--reader-border);
+  background: var(--reader-surface);
+}
+
+.git-diff-title {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  font-weight: 700;
+}
+
+.git-diff-title span,
+.git-diff-title small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-diff-title small {
+  color: var(--muted-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.git-diff-navigation {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.git-diff-navigation [data-review-id="git-diff-change-count"] {
+  display: inline-flex;
+  align-items: center;
+  min-width: 52px;
+  min-height: 24px;
+}
+
+.git-diff-navigation button {
+  border: 1px solid var(--reader-border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  font: inherit;
+  font-size: 12px;
+}
+
+.git-diff-navigation button:disabled {
+  opacity: 0.5;
+}
+
+.git-diff-sync-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.git-diff-sync-toggle input {
+  width: 24px;
+  height: 16px;
+}
+
+.git-diff-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--reader-border);
+  border-radius: 7px;
+  background: var(--reader-bg);
+}
+
+.git-diff-view-toggle button {
+  min-width: 70px;
+  border: 0;
+  border-radius: 5px;
+  padding: 5px 10px;
+  color: var(--muted-text);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.git-diff-view-toggle button.active {
+  color: #123832;
+  background: #dff0ec;
+}
+
+.git-diff-view-toggle button:disabled {
+  opacity: 0.48;
+}
+
+.git-diff-window-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.git-diff-body-with-ruler {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+.git-diff-body-with-ruler > .git-diff-body,
+.git-diff-body-with-ruler > .git-rendered-diff-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.git-diff-change-ruler {
+  position: relative;
+  flex: 0 0 12px;
+  background: transparent;
+}
+
+.git-diff-change-ruler-marker {
+  position: absolute;
+  right: 2px;
+  left: 2px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 999px;
+  min-height: 16px;
+  padding: 0;
+  background: color-mix(in srgb, #d9970e 70%, var(--reader-border));
+  cursor: pointer;
+}
+
+.git-diff-change-ruler-marker.added {
+  background: #2d8a62;
+}
+
+.git-diff-change-ruler-marker.removed {
+  background: #c85240;
+}
+
+.git-diff-change-ruler-marker.table {
+  background: #b98000;
+}
+
+.git-diff-change-ruler-marker.diagram {
+  background: #5c6bc0;
+}
+
+.git-diff-change-ruler-marker.active {
+  right: 3px;
+  left: 3px;
+  min-height: 18px;
+  background: #2f806f;
+}
+
+.git-diff-change-ruler-marker:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.git-diff-overview {
+  flex: 1;
+  overflow: auto;
+  padding: 18px;
+  background: var(--reader-bg);
+}
+
+.git-diff-overview section {
+  margin: 0 0 18px;
+}
+
+.git-diff-overview h3 {
+  margin: 0 0 8px;
+  color: var(--reader-text);
+  font-size: 15px;
+}
+
+.git-diff-overview p,
+.git-diff-overview li {
+  color: var(--muted-text);
+}
+
+.git-diff-overview button {
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.git-diff-overview-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.git-diff-overview-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--reader-border) 76%, transparent);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: var(--muted-text);
+  background: color-mix(in srgb, var(--reader-surface) 72%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.git-diff-overview-summary strong {
+  color: var(--reader-text);
+  font-size: 12px;
+}
+
+.git-diff-overview-summary em,
+.git-diff-overview button span {
+  color: #2f806f;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.git-diff-overview button .git-diff-overview-section-separator {
+  color: var(--muted-text);
+  font-weight: 700;
+}
+
+.git-diff-overview button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -1,0 +1,43 @@
+.git-rendered-placeholder {
+  border: 1px dashed color-mix(in srgb, var(--reader-border) 80%, transparent);
+  border-radius: 6px;
+  padding: 9px 11px;
+  color: var(--muted-text);
+  background: color-mix(in srgb, var(--reader-surface) 70%, transparent);
+  font-size: 13px;
+}
+
+.git-rendered-placeholder.compact {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.git-rendered-placeholder span {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.git-inline-word-highlight {
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.git-rendered-block-content pre .git-inline-word-highlight {
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.git-inline-word-highlight.added {
+  background: color-mix(in srgb, #2d8a62 26%, transparent);
+}
+
+.git-inline-word-highlight.removed {
+  background: color-mix(in srgb, #c85240 24%, transparent);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}

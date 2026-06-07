@@ -1,0 +1,6 @@
+@startuml
+object config
+object diagram
+config --> diagram
+diagram : plantumlRenderer = local
+@enduml

@@ -1,0 +1,149 @@
+.git-rendered-diff-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.git-full-preview-diff-body .git-rendered-scroll {
+  padding-block: 30px 44px;
+}
+
+.git-rendered-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--reader-border);
+}
+
+.git-rendered-pane:last-child {
+  border-right: 0;
+}
+
+.git-rendered-pane header {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--reader-border);
+  background: var(--reader-surface-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.git-rendered-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 26px 28px 36px;
+  background: color-mix(in srgb, var(--reader-bg) 88%, var(--reader-surface));
+}
+
+.git-rendered-block {
+  position: relative;
+  margin: 0 0 14px;
+  border: 1px solid transparent;
+  border-left-width: 4px;
+  border-radius: 3px;
+  padding: 7px 10px 8px;
+  color: var(--reader-text);
+  background: transparent;
+}
+
+.git-rendered-block.unchanged {
+  padding-left: 12px;
+}
+
+.git-rendered-block.added {
+  border-left-color: #2d8a62;
+  background: color-mix(in srgb, #2d8a62 13%, var(--reader-bg));
+}
+
+.git-rendered-block.removed {
+  border-left-color: #c85240;
+  background: color-mix(in srgb, #c85240 12%, var(--reader-bg));
+}
+
+.git-rendered-block.changed {
+  border-left-color: #d9970e;
+  background: color-mix(in srgb, #d9970e 11%, var(--reader-bg));
+}
+
+.git-rendered-block.changed.left-side {
+  border-left-color: #c85240;
+  background: color-mix(in srgb, #c85240 10%, var(--reader-bg));
+}
+
+.git-rendered-block.changed.right-side {
+  border-left-color: #2d8a62;
+  background: color-mix(in srgb, #2d8a62 11%, var(--reader-bg));
+}
+
+.git-rendered-block.blank {
+  min-height: 38px;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--reader-border) 76%, transparent);
+  border-left-color: color-mix(in srgb, var(--reader-border) 76%, transparent);
+  background: color-mix(in srgb, var(--reader-surface) 52%, transparent);
+}
+
+.git-rendered-block.change-target {
+  scroll-margin: 24px;
+}
+
+.git-rendered-block-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 5px;
+  border: 1px solid color-mix(in srgb, var(--reader-border) 78%, transparent);
+  border-radius: 999px;
+  min-height: 24px;
+  padding: 2px 8px;
+  color: var(--muted-text);
+  background: color-mix(in srgb, var(--reader-bg) 72%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.git-rendered-block-meta strong {
+  color: var(--reader-text);
+  font-weight: 800;
+}
+
+.git-rendered-block-meta em {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: #2f806f;
+  font-style: normal;
+}
+
+.git-rendered-block-content {
+  overflow: visible;
+  color: var(--reader-text);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.git-rendered-block-group {
+  display: grid;
+  gap: 12px;
+}
+
+.git-rendered-scroll.format-asciidoc {
+  --asciidoc-note: #19407c;
+  --asciidoc-tip: #1d2327;
+  --asciidoc-important: #bf0000;
+  --asciidoc-warning: #bf6900;
+  --asciidoc-caution: #bf3400;
+}
+
+.git-rendered-group-item {
+  min-width: 0;
+}
+
+.git-rendered-group-item + .git-rendered-group-item {
+  border-top: 1px solid
+    color-mix(in srgb, var(--reader-border) 60%, transparent);
+  padding-top: 12px;
+}

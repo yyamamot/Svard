@@ -1,0 +1,16 @@
+---
+import ScreenshotPlaceholder from './ScreenshotPlaceholder.astro';
+const { items } = Astro.props;
+---
+
+<section class="section-shell compact">
+  <div class="feature-list">
+    {items.map((item) => (
+      <article class="feature-item">
+        <h2>{item.title}</h2>
+        <p>{item.body}</p>
+        {item.screenshot && <ScreenshotPlaceholder screenshot={item.screenshot} compact />}
+      </article>
+    ))}
+  </div>
+</section>

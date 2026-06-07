@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="./viz-global.js"></script>
+  </head>
+  <body>
+    <script>
+      let vizPromise = null;
+
+      function getViz() {
+        vizPromise ??= window.Viz.instance();
+        return vizPromise;
+      }
+
+      window.addEventListener("message", async (event) => {
+        if (!event.data || event.data.type !== "GRAPHVIZ_RENDER") {
+          return;
+        }
+
+        const started = performance.now();
+        const requestId = event.data.requestId;
+
+        try {
+          const viz = await getViz();
+          const svg = viz.renderString(event.data.source, { format: "svg" });
+          window.parent.postMessage(
+            {
+              type: "GRAPHVIZ_RESULT",
+              requestId,
+              status: "rendered",
+              svg,
+              diagnostics: [],
+              metrics: {
+                renderMs: performance.now() - started,
+                svgBytes: new TextEncoder().encode(svg).byteLength,
+              },
+            },
+            "*",
+          );
+        } catch (error) {
+          window.parent.postMessage(
+            {
+              type: "GRAPHVIZ_ERROR",
+              requestId,
+              diagnostics: [
+                String(error && error.message ? error.message : error),
+              ],
+              metrics: { renderMs: performance.now() - started },
+            },
+            "*",
+          );
+        }
+      });
+    </script>
+  </body>
+</html>

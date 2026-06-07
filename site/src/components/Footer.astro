@@ -1,0 +1,11 @@
+---
+const { site } = Astro.props;
+---
+
+<footer class="site-footer">
+  <p>{site.footer.summary}</p>
+  <div class="footer-links" aria-label="Project placeholders">
+    <span>{site.footer.github}</span>
+    <span>{site.footer.release}</span>
+  </div>
+</footer>

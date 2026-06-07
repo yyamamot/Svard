@@ -1,0 +1,18 @@
+= Kroki Fallback
+:toc:
+
+This public-safe fixture shows that remote rendering is explicit.
+
+== Diagram fallback
+
+[kroki,plantuml]
+....
+@startuml
+Alice -> Bob: Explicit fallback request
+Bob --> Alice: Rendered image
+@enduml
+....
+
+== Boundary
+
+Kroki is used only when the user configures it explicitly.

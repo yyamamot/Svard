@@ -1,0 +1,16 @@
+node_modules/
+dist/
+site/node_modules/
+site/dist/
+site/.astro/
+target/
+src-tauri/target/
+.tmp/
+.artifacts/
+.codegraph/
+.serena/
+playwright-report/
+test-results/
+.DS_Store
+zip/
+*.zip

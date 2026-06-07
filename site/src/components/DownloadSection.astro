@@ -1,0 +1,12 @@
+---
+const { content } = Astro.props;
+---
+
+<section class="section-shell download-panel">
+  <div>
+    <p class="eyebrow">{content.label ?? 'Download'}</p>
+    <h2>{content.title}</h2>
+    <p>{content.body}</p>
+  </div>
+  <span class="status-pill" aria-disabled="true">{content.status}</span>
+</section>

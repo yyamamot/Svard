@@ -1,0 +1,14 @@
+@import "./styles/tokens-global.css";
+@import "./styles/shell-layout.css";
+@import "./styles/open-files.css";
+@import "./styles/sidebar-source-control.css";
+@import "./styles/sidebar-dark.css";
+@import "./styles/file-tree-topbar.css";
+@import "./styles/viewer-markdown.css";
+@import "./styles/asciidoc-theme.css";
+@import "./styles/diagrams-overlays.css";
+@import "./styles/diff-preview.css";
+@import "./styles/right-sidebar.css";
+@import "./styles/quick-open-start-modals.css";
+@import "./styles/preferences.css";
+@import "./styles/responsive.css";

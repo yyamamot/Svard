@@ -1,0 +1,105 @@
+.git-diff-table-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.git-diff-table-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--reader-border);
+  background: var(--reader-surface);
+}
+
+.git-diff-table-list button {
+  flex-shrink: 0;
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.git-diff-table-list button.active {
+  border-color: #2f806f;
+  color: #123832;
+  background: #dff0ec;
+}
+
+.git-diff-table-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.git-diff-table-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--reader-border);
+}
+
+.git-diff-table-pane:last-child {
+  border-right: 0;
+}
+
+.git-diff-table-pane header {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--reader-border);
+  background: var(--reader-surface-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.git-diff-table-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+}
+
+.git-diff-table-scroll table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.git-diff-table-scroll td {
+  min-width: 120px;
+  height: 44px;
+  border: 1px solid var(--reader-border);
+  padding: 10px 12px;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  line-height: 1.45;
+  vertical-align: top;
+}
+
+.git-diff-table-cell.added {
+  background: color-mix(in srgb, #1f8a5f 20%, var(--reader-bg));
+}
+
+.git-diff-table-cell.removed {
+  background: color-mix(in srgb, #c2412d 18%, var(--reader-bg));
+}
+
+.git-diff-table-cell.changed {
+  background: color-mix(in srgb, #d9970e 24%, var(--reader-bg));
+}
+
+.git-diff-table-cell.blank {
+  background: color-mix(in srgb, var(--reader-surface) 56%, transparent);
+}
+
+.git-diff-table-cell.change-target {
+  scroll-margin: 24px;
+}

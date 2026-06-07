@@ -1,0 +1,4 @@
+@startgantt
+[PoC] lasts 1 day
+[Integration] starts at [PoC]'s end and lasts 2 days
+@endgantt

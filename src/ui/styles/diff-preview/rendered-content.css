@@ -1,0 +1,363 @@
+.git-rendered-block-content h1,
+.git-rendered-block-content h2,
+.git-rendered-block-content h3,
+.git-rendered-block-content h4,
+.git-rendered-block-content h5,
+.git-rendered-block-content h6 {
+  color: var(--reader-heading);
+  line-height: 1.22;
+}
+
+.git-rendered-block-content p,
+.git-rendered-block-content li {
+  color: var(--reader-text);
+}
+
+.git-rendered-block-content > :first-child {
+  margin-top: 0;
+}
+
+.git-rendered-block-content > :last-child {
+  margin-bottom: 0;
+}
+
+.git-rendered-block-content img {
+  box-sizing: border-box;
+  max-width: min(100%, 960px);
+  max-height: min(70vh, 640px);
+  height: auto;
+  object-fit: contain;
+}
+
+.git-rendered-block-content :where(.imageblock, .imageblock > .content) {
+  max-width: 100%;
+}
+
+.git-rendered-block-content .imageblock > .content {
+  overflow: hidden;
+}
+
+.git-rendered-block-content table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+}
+
+.git-rendered-block-content th,
+.git-rendered-block-content td {
+  border: 1px solid var(--reader-border);
+  padding: 7px 9px;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  text-align: left;
+  vertical-align: top;
+}
+
+.git-rendered-block-content th {
+  color: var(--reader-heading);
+  background: var(--table-header-bg);
+  font-weight: 700;
+}
+
+.git-rendered-block-content tr:nth-child(even) td {
+  background: var(--table-row-alt-bg);
+}
+
+.git-rendered-block-content td code,
+.git-rendered-block-content th code {
+  color: var(--reader-heading);
+  background: var(--code-bg);
+}
+
+.git-rendered-block-content pre {
+  overflow: auto;
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  padding: 10px;
+  color: var(--reader-text);
+  background: var(--code-bg);
+}
+
+.git-rendered-block-content pre code {
+  display: block;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  white-space: pre;
+}
+
+.git-rendered-block-content pre.hljs {
+  color: inherit;
+  background: var(--code-bg);
+}
+
+.git-rendered-block-content pre :where(*) {
+  background: transparent;
+}
+
+.git-rendered-block-content .math-inline {
+  display: inline-block;
+  max-width: 100%;
+  color: var(--reader-heading);
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: -0.18em;
+}
+
+.git-rendered-block-content .math-block,
+.git-rendered-block-content .stemblock > .content.math-block {
+  display: block;
+  max-width: 100%;
+  margin: 18px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  color: var(--reader-heading);
+  text-align: center;
+}
+
+.git-rendered-block-content .katex {
+  color: inherit;
+  font-size: 1.02em;
+}
+
+.git-rendered-block-content .math-render-error {
+  border: 1px solid #f59e0b;
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: #7c2d12;
+  background: #fff7ed;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
+    monospace;
+  font-size: 0.92em;
+}
+
+.git-rendered-block-content .math-render-error-block {
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.git-rendered-scroll.format-asciidoc .git-rendered-block-content .title {
+  margin: 0.7em 0 0.35em;
+  color: var(--muted-text);
+  font-weight: 700;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock {
+  overflow: hidden;
+  border: 1px solid var(--reader-border);
+  border-radius: 8px;
+  background: var(--reader-surface);
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  > table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+  background: transparent;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  td {
+  border: 0;
+  background: transparent;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  td.icon {
+  width: 4.75rem;
+  padding: 0.35rem 1rem 0.35rem 0;
+  border-right: 1px solid var(--reader-border);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  td.content {
+  padding: 0.25rem 0 0.25rem 1.1rem;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  td.icon
+  i {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  filter: drop-shadow(1px 1px 2px rgb(0 0 0 / 28%));
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock.note
+  td.icon
+  i {
+  color: var(--asciidoc-note);
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock.tip
+  td.icon
+  i {
+  color: var(--asciidoc-tip);
+  filter: drop-shadow(1px 1px 2px rgb(155 155 0 / 42%));
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock.important
+  td.icon
+  i {
+  color: var(--asciidoc-important);
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock.warning
+  td.icon
+  i {
+  color: var(--asciidoc-warning);
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock.caution
+  td.icon
+  i {
+  color: var(--asciidoc-caution);
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  .icon-note::before {
+  content: "i";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-sizing: border-box;
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock.note
+  .icon-note::before {
+  background: var(--asciidoc-note);
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  .icon-tip::before {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  width: 1.52rem;
+  height: 1.62rem;
+  border: 0.24rem solid currentColor;
+  border-radius: 48% 48% 42% 42%;
+  background: #fff8b8;
+  box-sizing: border-box;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  .icon-tip::after {
+  content: "";
+  position: absolute;
+  bottom: 0.18rem;
+  width: 1rem;
+  height: 0.72rem;
+  border-radius: 0 0 0.18rem 0.18rem;
+  background: currentColor;
+  box-shadow:
+    inset 0 0.18rem 0 #fff8b8,
+    0 0.22rem 0 currentColor;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  .icon-warning::before {
+  content: "\26A0";
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 2.35rem;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  .icon-important::before {
+  content: "!";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-sizing: border-box;
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock.important
+  .icon-important::before {
+  background: var(--asciidoc-important);
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  .icon-caution::before {
+  content: "";
+  position: absolute;
+  width: 2.25rem;
+  height: 2.6rem;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 80'%3E%3Cpath d='M34 2c8 16-6 23-4 38 4-7 10-11 16-15-1 12 10 18 10 31 0 12-10 20-24 20S8 68 8 56c0-14 11-21 16-31 3-7 2-14 10-23Zm-15 72h30v4H19v-4Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 80'%3E%3Cpath d='M34 2c8 16-6 23-4 38 4-7 10-11 16-15-1 12 10 18 10 31 0 12-10 20-24 20S8 68 8 56c0-14 11-21 16-31 3-7 2-14 10-23Zm-15 72h30v4H19v-4Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.git-rendered-scroll.format-asciidoc
+  .git-rendered-block-content
+  .admonitionblock
+  .icon-caution::after {
+  content: none;
+}

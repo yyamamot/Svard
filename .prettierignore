@@ -1,0 +1,12 @@
+Arto
+plantuml.js
+public/vendor/plantuml-teavm/plantuml.js
+public/vendor/plantuml-teavm/viz-global.js
+LICENSE
+dist
+node_modules
+src-tauri/target
+src-tauri/gen
+.artifacts
+docs/arto-research.md
+pnpm-lock.yaml

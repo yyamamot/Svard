@@ -1,0 +1,18 @@
+---
+import ScreenshotPlaceholder from './ScreenshotPlaceholder.astro';
+const { content } = Astro.props;
+---
+
+<section class="hero section-shell">
+  <div class="hero-copy">
+    <p class="eyebrow">{content.eyebrow}</p>
+    <h1>{content.heading}</h1>
+    <p class="lead">{content.lead}</p>
+    <p class="body-copy">{content.body}</p>
+    <div class="hero-actions">
+      <a class="text-link" href={content.primaryLink.href}>{content.primaryLink.label}</a>
+      <a class="text-link muted" href={content.secondaryLink.href}>{content.secondaryLink.label}</a>
+    </div>
+  </div>
+  <ScreenshotPlaceholder screenshot={content.screenshot} />
+</section>

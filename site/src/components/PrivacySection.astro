@@ -1,0 +1,14 @@
+---
+import ConceptDiagram from './ConceptDiagram.astro';
+
+const { content } = Astro.props;
+---
+
+<section class="section-shell statement">
+  <div class="statement-copy">
+    <p class="eyebrow">{content.label ?? 'Privacy boundary'}</p>
+    <h2>{content.title}</h2>
+    <p>{content.body}</p>
+  </div>
+  <ConceptDiagram variant="privacy-boundary" locale={Astro.props.locale} />
+</section>

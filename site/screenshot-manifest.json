@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 2,
+  "fixtureRoot": "../Svard/demo/screenshot-fixtures",
+  "outputDir": "site/public/screenshots",
+  "window": {
+    "appName": "Svard",
+    "title": "Svard",
+    "x": 60,
+    "y": 48,
+    "width": 1440,
+    "height": 960
+  },
+  "captures": [
+    {
+      "id": "hero-plantuml",
+      "scenario": "hero-plantuml",
+      "output": "hero-plantuml.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/hero-plantuml.adoc",
+      "description": "PlantUML Alice to Bob diagram in the main native window."
+    },
+    {
+      "id": "reader-main",
+      "scenario": "reader-main",
+      "output": "reader-main.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/reader-main.md",
+      "description": "Main reading view with a Markdown product guide."
+    },
+    {
+      "id": "search",
+      "scenario": "search",
+      "output": "search.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/search.md",
+      "description": "Current document search state."
+    },
+    {
+      "id": "source-control",
+      "scenario": "source-control",
+      "output": "source-control.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 7000,
+      "description": "Source Control view with public-safe changed files."
+    },
+    {
+      "id": "files",
+      "scenario": "files",
+      "output": "files.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 5000,
+      "description": "Files tree with public-safe Git status badges."
+    },
+    {
+      "id": "rendered-diff",
+      "scenario": "rendered-diff",
+      "output": "rendered-diff.png",
+      "fixture": "workspace/rendered-diff.md",
+      "description": "Rendered diff workspace for the static site gallery."
+    },
+    {
+      "id": "kroki-fallback",
+      "scenario": "kroki-fallback",
+      "output": "kroki-fallback.png",
+      "fixture": "workspace/site-captures/kroki-fallback.adoc",
+      "description": "Preferences page with explicit Kroki fallback settings."
+    },
+    {
+      "id": "navigation",
+      "scenario": "navigation",
+      "output": "navigation.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/navigation.md",
+      "fixtureSource": "workspace/site-captures/navigation.md",
+      "extraFixtureSources": [
+        {
+          "source": "workspace/site-captures/navigation-reference.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-reference.md"
+        },
+        {
+          "source": "workspace/site-captures/navigation-bookmarks.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-bookmarks.md"
+        }
+      ],
+      "description": "Bookmarks sidebar for managing frequently used folders and documents."
+    },
+    {
+      "id": "preferences",
+      "scenario": "preferences",
+      "output": "preferences.png",
+      "fixture": "workspace/site-captures/preferences.md",
+      "description": "Preferences page showing mouse gesture settings."
+    },
+    {
+      "id": "zen-mode",
+      "scenario": "zen-mode",
+      "output": "zen-mode.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/zen-mode.md",
+      "fixtureSource": "workspace/site-captures/zen-mode.md",
+      "settleMs": 5000,
+      "description": "Focused document reading state with Zen Mode active."
+    },
+    {
+      "id": "privacy-boundary",
+      "scenario": "privacy-boundary",
+      "output": "privacy-boundary.png",
+      "fixture": "workspace/site-captures/privacy-boundary.md",
+      "description": "Preferences page showing privacy and security settings."
+    }
+  ]
+}

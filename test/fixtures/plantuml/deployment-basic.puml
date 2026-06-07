@@ -1,0 +1,5 @@
+@startuml
+node "Svard" {
+  artifact "TeaVM Renderer"
+}
+@enduml

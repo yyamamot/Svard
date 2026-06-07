@@ -1,0 +1,80 @@
+---
+const { screenshot } = Astro.props;
+---
+
+<figure class:list={['screenshot-placeholder', screenshot.src && 'real-shot', Astro.props.compact && 'compact-shot']} aria-label={screenshot.title}>
+  {!screenshot.src && <div class="window-bar" aria-hidden="true"><span></span><span></span><span></span></div>}
+  {screenshot.src ? (
+    <>
+      <a class="screenshot-link" href={screenshot.src} data-lightbox-image data-title={screenshot.title} aria-label={screenshot.alt ?? screenshot.title}>
+        <img class="screenshot-image" src={screenshot.src} alt={screenshot.alt ?? screenshot.title} loading="lazy" />
+      </a>
+      <figcaption>{screenshot.title}</figcaption>
+    </>
+  ) : (
+    <div class="placeholder-body">
+      <p class="placeholder-title">{screenshot.title}</p>
+      <p>{screenshot.body}</p>
+    </div>
+  )}
+</figure>
+
+<script>
+  const lightboxId = 'screenshot-lightbox';
+
+  const ensureLightbox = () => {
+    let lightbox = document.getElementById(lightboxId);
+    if (lightbox) return lightbox;
+
+    lightbox = document.createElement('div');
+    lightbox.id = lightboxId;
+    lightbox.className = 'screenshot-lightbox';
+    lightbox.setAttribute('aria-hidden', 'true');
+    lightbox.innerHTML = `
+      <button class="screenshot-lightbox-backdrop" type="button" aria-label="Close screenshot preview"></button>
+      <figure class="screenshot-lightbox-frame">
+        <img alt="" />
+        <figcaption></figcaption>
+      </figure>
+    `;
+    document.body.append(lightbox);
+
+    lightbox.addEventListener('click', () => {
+      closeLightbox();
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeLightbox();
+    });
+
+    return lightbox;
+  };
+
+  const openLightbox = (link) => {
+    const lightbox = ensureLightbox();
+    const image = lightbox.querySelector('img');
+    const caption = lightbox.querySelector('figcaption');
+    const source = link.querySelector('img');
+    image.src = link.href;
+    image.alt = source?.alt ?? link.dataset.title ?? '';
+    caption.textContent = link.dataset.title ?? '';
+    lightbox.classList.add('is-open');
+    lightbox.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('has-screenshot-lightbox');
+  };
+
+  const closeLightbox = () => {
+    const lightbox = document.getElementById(lightboxId);
+    if (!lightbox) return;
+    lightbox.classList.remove('is-open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    document.documentElement.classList.remove('has-screenshot-lightbox');
+  };
+
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('[data-lightbox-image]');
+    if (!link) return;
+    event.preventDefault();
+    openLightbox(link);
+  });
+</script>

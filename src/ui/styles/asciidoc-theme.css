@@ -1,0 +1,525 @@
+.document-body.format-asciidoc {
+  max-width: min(100%, 62.5rem);
+  margin: 0 auto;
+  --asciidoc-caption: #7a2d1f;
+  --asciidoc-heading: #ba3925;
+  --asciidoc-note: #19407c;
+  --asciidoc-tip: #1d2327;
+  --asciidoc-important: #bf0000;
+  --asciidoc-warning: #bf6900;
+  --asciidoc-caution: #bf3400;
+  font-family: "Noto Serif", "DejaVu Serif", Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.62;
+}
+
+.document-body.format-asciidoc h1,
+.document-body.format-asciidoc h2,
+.document-body.format-asciidoc h3,
+.document-body.format-asciidoc h4,
+.document-body.format-asciidoc h5,
+.document-body.format-asciidoc h6 {
+  margin: 1.6em 0 0.65em;
+  color: var(--reader-heading);
+  font-family: "Noto Serif", "DejaVu Serif", Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.document-body.format-asciidoc .sect1 > h2,
+.document-body.format-asciidoc .sect2 > h3,
+.document-body.format-asciidoc .sect3 > h4,
+.document-body.format-asciidoc .sect4 > h5,
+.document-body.format-asciidoc .sect5 > h6,
+.document-body.format-asciidoc h1 {
+  color: var(--asciidoc-heading);
+}
+
+.document-body.format-asciidoc h1 a,
+.document-body.format-asciidoc h2 a,
+.document-body.format-asciidoc h3 a,
+.document-body.format-asciidoc h4 a,
+.document-body.format-asciidoc h5 a,
+.document-body.format-asciidoc h6 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.document-body.format-asciidoc h1 a:hover,
+.document-body.format-asciidoc h2 a:hover,
+.document-body.format-asciidoc h3 a:hover,
+.document-body.format-asciidoc h4 a:hover,
+.document-body.format-asciidoc h5 a:hover,
+.document-body.format-asciidoc h6 a:hover {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+.document-body.format-asciidoc h1 {
+  margin-top: 0.85em;
+  margin-bottom: 0.9em;
+  font-size: 2.25em;
+}
+
+.document-body.format-asciidoc h2 {
+  font-size: 1.7em;
+}
+
+.document-body.format-asciidoc h3 {
+  font-size: 1.35em;
+}
+
+.document-body.format-asciidoc h4,
+.document-body.format-asciidoc h5,
+.document-body.format-asciidoc h6 {
+  font-size: 1.12em;
+}
+
+.document-body.format-asciidoc p {
+  margin: 0 0 1.25em;
+}
+
+.document-body.format-asciidoc .paragraph,
+.document-body.format-asciidoc .ulist,
+.document-body.format-asciidoc .olist,
+.document-body.format-asciidoc .dlist,
+.document-body.format-asciidoc .literalblock,
+.document-body.format-asciidoc .listingblock,
+.document-body.format-asciidoc .imageblock,
+.document-body.format-asciidoc .openblock,
+.document-body.format-asciidoc .exampleblock,
+.document-body.format-asciidoc .sidebarblock,
+.document-body.format-asciidoc .quoteblock,
+.document-body.format-asciidoc .verseblock,
+.document-body.format-asciidoc .admonitionblock,
+.document-body.format-asciidoc table.tableblock {
+  margin: 1.1em 0;
+}
+
+.document-body.format-asciidoc .imageblock img {
+  box-sizing: border-box;
+  width: auto;
+  max-width: min(100%, 960px) !important;
+  max-height: min(70vh, 640px) !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
+.document-body.format-asciidoc .imageblock > .content {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.document-body.format-asciidoc ul,
+.document-body.format-asciidoc ol {
+  margin: 0.35em 0 1.25em 1.25em;
+  padding-left: 1.25em;
+}
+
+.document-body.format-asciidoc li {
+  margin: 0.45em 0;
+}
+
+.document-body.format-asciidoc li > p {
+  margin: 0.35em 0;
+}
+
+.document-body.format-asciidoc li > ul,
+.document-body.format-asciidoc li > ol {
+  margin-bottom: 0.4em;
+}
+
+.document-body.format-asciidoc .dlist dt {
+  margin-top: 0.8em;
+  color: var(--reader-heading);
+  font-weight: 700;
+}
+
+.document-body.format-asciidoc .dlist dd {
+  margin: 0.25em 0 0.75em 1.25em;
+}
+
+.document-body.format-asciidoc .title,
+.document-body.format-asciidoc caption.title {
+  margin: 0 0 0.45em;
+  color: var(--asciidoc-caption);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05em;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.document-body.format-asciidoc .exampleblock > .content,
+.document-body.format-asciidoc .sidebarblock > .content,
+.document-body.format-asciidoc .quoteblock,
+.document-body.format-asciidoc .verseblock {
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  color: var(--reader-text);
+  background: var(--reader-surface);
+}
+
+.document-body.format-asciidoc .exampleblock > .content,
+.document-body.format-asciidoc .sidebarblock > .content {
+  padding: 14px 16px;
+}
+
+.document-body.format-asciidoc .quoteblock,
+.document-body.format-asciidoc .verseblock {
+  padding: 12px 18px;
+}
+
+.document-body.format-asciidoc .quoteblock blockquote {
+  margin: 0;
+  border: 0;
+  color: var(--reader-text);
+  background: transparent;
+}
+
+.document-body.format-asciidoc .quoteblock .attribution {
+  margin-top: 0.75em;
+  color: var(--reader-muted);
+  font-size: 0.92em;
+  text-align: right;
+}
+
+.document-body.format-asciidoc .verseblock pre {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--reader-text);
+  background: transparent;
+  font-family: "Noto Serif", "DejaVu Serif", Georgia, "Times New Roman", serif;
+}
+
+.document-body.format-asciidoc table.tableblock {
+  display: table;
+  width: auto;
+  max-width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.document-body.format-asciidoc table.tableblock.stretch {
+  width: 100%;
+}
+
+.document-body.format-asciidoc table.tableblock caption.title {
+  caption-side: top;
+}
+
+.document-body.format-asciidoc table.tableblock th,
+.document-body.format-asciidoc table.tableblock td {
+  border: 1px solid var(--reader-border);
+  padding: 7px 10px;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  vertical-align: top;
+}
+
+.document-body.format-asciidoc table.tableblock th {
+  color: var(--reader-heading);
+  background: var(--table-header-bg);
+  font-weight: 700;
+}
+
+.document-body.format-asciidoc table.tableblock tr:nth-child(even) td {
+  background: var(--table-row-alt-bg);
+}
+
+.document-body.format-asciidoc table.tableblock p.tableblock {
+  margin: 0;
+}
+
+.document-body.format-asciidoc .halign-center {
+  text-align: center;
+}
+
+.document-body.format-asciidoc .halign-right {
+  text-align: right;
+}
+
+.document-body.format-asciidoc .valign-middle {
+  vertical-align: middle;
+}
+
+.document-body.format-asciidoc .valign-bottom {
+  vertical-align: bottom;
+}
+
+.document-body.format-asciidoc .admonitionblock {
+  border: 0;
+  color: var(--reader-text);
+  background: transparent;
+}
+
+.document-body.format-asciidoc .admonitionblock > table {
+  display: table;
+  width: 100%;
+  border: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: transparent;
+}
+
+.document-body.format-asciidoc .admonitionblock td {
+  border: 0;
+  background: transparent;
+}
+
+.document-body.format-asciidoc .admonitionblock td.icon {
+  width: 4.75rem;
+  padding: 0.35rem 1rem 0.35rem 0;
+  border-right: 1px solid var(--reader-border);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.document-body.format-asciidoc .admonitionblock td.content {
+  padding: 0.25rem 0 0.25rem 1.1rem;
+}
+
+.document-body.format-asciidoc .admonitionblock td.content > :first-child {
+  margin-top: 0;
+}
+
+.document-body.format-asciidoc .admonitionblock td.content > :last-child {
+  margin-bottom: 0;
+}
+
+.document-body.format-asciidoc .admonitionblock td.icon i {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  filter: drop-shadow(1px 1px 2px rgb(0 0 0 / 28%));
+}
+
+.document-body.format-asciidoc .admonitionblock.note td.icon i {
+  color: var(--asciidoc-note);
+}
+
+.document-body.format-asciidoc .admonitionblock.tip td.icon i {
+  color: var(--asciidoc-tip);
+  filter: drop-shadow(1px 1px 2px rgb(155 155 0 / 42%));
+}
+
+.document-body.format-asciidoc .admonitionblock.important td.icon i {
+  color: var(--asciidoc-important);
+}
+
+.document-body.format-asciidoc .admonitionblock.warning td.icon i {
+  color: var(--asciidoc-warning);
+}
+
+.document-body.format-asciidoc .admonitionblock.caution td.icon i {
+  color: var(--asciidoc-caution);
+}
+
+.document-body.format-asciidoc .admonitionblock .icon-note::before {
+  content: "i";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-sizing: border-box;
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.document-body.format-asciidoc .admonitionblock.note .icon-note::before {
+  background: var(--asciidoc-note);
+}
+
+.document-body.format-asciidoc .admonitionblock .icon-tip::before {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  width: 1.52rem;
+  height: 1.62rem;
+  border: 0.24rem solid currentColor;
+  border-radius: 48% 48% 42% 42%;
+  background: #fff8b8;
+  box-sizing: border-box;
+}
+
+.document-body.format-asciidoc .admonitionblock .icon-tip::after {
+  content: "";
+  position: absolute;
+  bottom: 0.18rem;
+  width: 1rem;
+  height: 0.72rem;
+  border-radius: 0 0 0.18rem 0.18rem;
+  background: currentColor;
+  box-shadow:
+    inset 0 0.18rem 0 #fff8b8,
+    0 0.22rem 0 currentColor;
+}
+
+.document-body.format-asciidoc .admonitionblock .icon-warning::before {
+  content: "\26A0";
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 2.35rem;
+}
+
+.document-body.format-asciidoc .admonitionblock .icon-important::before {
+  content: "!";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-sizing: border-box;
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.document-body.format-asciidoc
+  .admonitionblock.important
+  .icon-important::before {
+  background: var(--asciidoc-important);
+}
+
+.document-body.format-asciidoc .admonitionblock .icon-caution::before {
+  content: "";
+  position: absolute;
+  width: 2.25rem;
+  height: 2.6rem;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 80'%3E%3Cpath d='M34 2c8 16-6 23-4 38 4-7 10-11 16-15-1 12 10 18 10 31 0 12-10 20-24 20S8 68 8 56c0-14 11-21 16-31 3-7 2-14 10-23Zm-15 72h30v4H19v-4Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 80'%3E%3Cpath d='M34 2c8 16-6 23-4 38 4-7 10-11 16-15-1 12 10 18 10 31 0 12-10 20-24 20S8 68 8 56c0-14 11-21 16-31 3-7 2-14 10-23Zm-15 72h30v4H19v-4Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.document-body.format-asciidoc .admonitionblock .icon-caution::after {
+  content: none;
+}
+
+.theme-dark .document-body.format-asciidoc {
+  --asciidoc-caption: #d7a08f;
+  --asciidoc-heading: #e07d6d;
+  --asciidoc-note: #6da2d8;
+  --asciidoc-tip: #d8ca64;
+  --asciidoc-important: #f06d6d;
+  --asciidoc-warning: #e0a34a;
+  --asciidoc-caution: #ec7f62;
+}
+
+.theme-dark .document-body.format-asciidoc .exampleblock > .content,
+.theme-dark .document-body.format-asciidoc .sidebarblock > .content,
+.theme-dark .document-body.format-asciidoc .quoteblock,
+.theme-dark .document-body.format-asciidoc .verseblock {
+  border-color: var(--reader-border);
+  color: var(--reader-text);
+  background: var(--reader-surface);
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora {
+  max-width: min(100%, 64rem);
+  --asciidoc-caption: #5f6a72;
+  --asciidoc-heading: #263238;
+  font-family:
+    "Noto Sans", "DejaVu Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.64;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora h1,
+.document-body.format-asciidoc.asciidoc-theme-antora h2,
+.document-body.format-asciidoc.asciidoc-theme-antora h3,
+.document-body.format-asciidoc.asciidoc-theme-antora h4,
+.document-body.format-asciidoc.asciidoc-theme-antora h5,
+.document-body.format-asciidoc.asciidoc-theme-antora h6 {
+  color: var(--asciidoc-heading);
+  font-family:
+    "Noto Sans", "DejaVu Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora h1 {
+  margin-top: 0.7em;
+  margin-bottom: 0.8em;
+  font-size: 2.15em;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora h2 {
+  margin-top: 1.8em;
+  border-bottom: 1px solid var(--reader-border);
+  padding-bottom: 0.28em;
+  font-size: 1.58em;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora h3 {
+  font-size: 1.28em;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora .paragraph,
+.document-body.format-asciidoc.asciidoc-theme-antora .ulist,
+.document-body.format-asciidoc.asciidoc-theme-antora .olist,
+.document-body.format-asciidoc.asciidoc-theme-antora .dlist,
+.document-body.format-asciidoc.asciidoc-theme-antora .literalblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .listingblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .imageblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .openblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .exampleblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .sidebarblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .quoteblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .verseblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .admonitionblock,
+.document-body.format-asciidoc.asciidoc-theme-antora table.tableblock {
+  margin: 1em 0;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora .title,
+.document-body.format-asciidoc.asciidoc-theme-antora caption.title {
+  color: var(--asciidoc-caption);
+  font-family:
+    "Noto Sans", "DejaVu Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.95em;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora .exampleblock > .content,
+.document-body.format-asciidoc.asciidoc-theme-antora .sidebarblock > .content,
+.document-body.format-asciidoc.asciidoc-theme-antora .quoteblock,
+.document-body.format-asciidoc.asciidoc-theme-antora .verseblock {
+  border-radius: 3px;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora .admonitionblock td.icon {
+  width: 4.25rem;
+}
+
+.document-body.format-asciidoc.asciidoc-theme-antora
+  .admonitionblock
+  td.icon
+  i {
+  width: 2.35rem;
+  height: 2.35rem;
+  font-family:
+    "Noto Sans", "DejaVu Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.45rem;
+}
+
+.theme-dark .document-body.format-asciidoc.asciidoc-theme-antora {
+  --asciidoc-caption: #aab6be;
+  --asciidoc-heading: #eef2f4;
+}

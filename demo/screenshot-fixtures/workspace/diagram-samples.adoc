@@ -1,0 +1,42 @@
+= Diagram Samples
+:toc:
+
+This document is a public-safe fixture for local diagram rendering screenshots.
+
+== Mermaid flow
+
+[mermaid]
+....
+flowchart TD
+  Start[Open workspace] --> Read[Read document]
+  Read --> Search[Search current file]
+  Read --> Compare[Review rendered diff]
+  Compare --> Done[Publish screenshot]
+....
+
+== PlantUML sequence
+
+[plantuml]
+....
+@startuml
+actor Reader
+participant Svard
+participant "Local Renderer" as Renderer
+Reader -> Svard: Open diagram document
+Svard -> Renderer: Render locally
+Renderer --> Svard: SVG result
+Svard --> Reader: Display diagram
+@enduml
+....
+
+== Graphviz dependency sketch
+
+[graphviz]
+....
+digraph G {
+  rankdir=LR;
+  Document -> Renderer;
+  Renderer -> Preview;
+  Preview -> Screenshot;
+}
+....

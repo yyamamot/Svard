@@ -1,0 +1,22 @@
+{
+  "fixtures": [
+    {
+      "id": "dot-basic",
+      "file": "dot-basic.dot",
+      "expectedStatus": "rendered",
+      "expectedText": ["A", "B"]
+    },
+    {
+      "id": "digraph-japanese",
+      "file": "digraph-japanese.dot",
+      "expectedStatus": "rendered",
+      "expectedText": ["開始", "処理", "完了"]
+    },
+    {
+      "id": "graphviz-syntax-error",
+      "file": "syntax-error.dot",
+      "expectedStatus": "error",
+      "expectedText": ["syntax"]
+    }
+  ]
+}

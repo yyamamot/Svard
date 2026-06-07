@@ -1,0 +1,6 @@
+@import "./diff-preview/shell.css";
+@import "./diff-preview/source.css";
+@import "./diff-preview/table.css";
+@import "./diff-preview/rendered-layout.css";
+@import "./diff-preview/rendered-content.css";
+@import "./diff-preview/markers.css";

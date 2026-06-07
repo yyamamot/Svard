@@ -1,0 +1,43 @@
+[package]
+name = "svard"
+version = "1.0.0"
+description = "Specification Viewer and Rendered Diff for local-first technical documents"
+authors = ["Svard Contributors"]
+edition = "2021"
+license = "MIT"
+default-run = "svard"
+rust-version = "1.82"
+
+[lib]
+name = "svard_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+gix = { version = "0.83", default-features = false, features = ["basic", "status", "sha1"] }
+notify = "8"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+tauri = { version = "2.11.2", features = [] }
+tauri-plugin-dialog = "2.7.1"
+tauri-plugin-opener = "2.5.4"
+tauri-plugin-single-instance = "2.4.2"
+url = "2.5"
+urlencoding = "2.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6.3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3.6.3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6.3", features = ["sync-secret-service", "crypto-rust"] }
+
+[dev-dependencies]
+tempfile = "3.23.0"

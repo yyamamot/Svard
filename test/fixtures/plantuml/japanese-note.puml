@@ -1,0 +1,10 @@
+@startuml
+participant "利用者" as User
+participant "ビューア" as Viewer
+User -> Viewer: 検索結果を確認する
+note right of Viewer
+複数行の日本語メモ
+検索結果のハイライト
+確認する
+end note
+@enduml

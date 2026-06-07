@@ -1,0 +1,198 @@
+import { useEffect, useMemo, useState, type RefObject } from "react";
+import type { DiffView } from "./types";
+
+export type DiffChangeRulerMarkerKind =
+  | "added"
+  | "removed"
+  | "changed"
+  | "table"
+  | "diagram";
+
+export interface DiffChangeRulerMarker {
+  index: number;
+  kind: DiffChangeRulerMarkerKind;
+  topPercent: number;
+}
+
+export function clampRulerPercent(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, value));
+}
+
+export function changeRulerMarkerTopPercent({
+  scrollHeight,
+  targetTop,
+}: {
+  scrollHeight: number;
+  targetTop: number;
+}) {
+  if (scrollHeight <= 0) {
+    return 0;
+  }
+  return clampRulerPercent((targetTop / scrollHeight) * 100);
+}
+
+function changeRulerEnabled(view: DiffView) {
+  return view === "preview" || view === "rendered" || view === "source";
+}
+
+function targetTopInPane(target: HTMLElement, pane: HTMLElement) {
+  return (
+    target.getBoundingClientRect().top -
+    pane.getBoundingClientRect().top +
+    pane.scrollTop
+  );
+}
+
+function markerKind(target: HTMLElement): DiffChangeRulerMarkerKind {
+  if (
+    target.querySelector('[data-review-id="git-diff-asciidoc-table-badge"]') ||
+    target.querySelector('[data-review-id="git-diff-table-cell"]')
+  ) {
+    return "table";
+  }
+  if (
+    target.querySelector('[data-review-id="diagram-inline-image"]') ||
+    target.querySelector('[data-review-id="diagram-inline-diagnostic"]') ||
+    target.querySelector(".mermaid, .plantuml, .graphviz")
+  ) {
+    return "diagram";
+  }
+  if (target.classList.contains("added")) {
+    return "added";
+  }
+  if (target.classList.contains("removed")) {
+    return "removed";
+  }
+  return "changed";
+}
+
+function measureMarker(
+  index: number,
+  panes: readonly (HTMLDivElement | null)[],
+): DiffChangeRulerMarker | null {
+  for (const pane of panes) {
+    const target = pane?.querySelector<HTMLElement>(
+      `[data-change-index="${index}"]`,
+    );
+    if (!pane || !target) {
+      continue;
+    }
+    return {
+      index,
+      kind: markerKind(target),
+      topPercent: changeRulerMarkerTopPercent({
+        scrollHeight: pane.scrollHeight,
+        targetTop: targetTopInPane(target, pane),
+      }),
+    };
+  }
+  return null;
+}
+
+export function DiffChangeRuler({
+  activeChangeIndex,
+  changeCount,
+  leftRef,
+  onSelectChange,
+  renderedLeftRef,
+  renderedRightRef,
+  rightRef,
+  view,
+}: {
+  activeChangeIndex: number;
+  changeCount: number;
+  leftRef: RefObject<HTMLDivElement | null>;
+  onSelectChange: (index: number) => void;
+  renderedLeftRef: RefObject<HTMLDivElement | null>;
+  renderedRightRef: RefObject<HTMLDivElement | null>;
+  rightRef: RefObject<HTMLDivElement | null>;
+  view: DiffView;
+}) {
+  const [markers, setMarkers] = useState<DiffChangeRulerMarker[]>([]);
+  const paneRefs = useMemo(
+    () =>
+      view === "source"
+        ? ([rightRef, leftRef] as const)
+        : ([renderedRightRef, renderedLeftRef] as const),
+    [leftRef, renderedLeftRef, renderedRightRef, rightRef, view],
+  );
+
+  useEffect(() => {
+    if (!changeRulerEnabled(view) || changeCount <= 0) {
+      setMarkers([]);
+      return;
+    }
+
+    let frame = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const panes = paneRefs
+      .map((ref) => ref.current)
+      .filter((pane): pane is HTMLDivElement => Boolean(pane));
+
+    function measure() {
+      frame = 0;
+      const nextMarkers = Array.from({ length: changeCount }, (_, index) =>
+        measureMarker(index, panes),
+      ).filter((marker): marker is DiffChangeRulerMarker => Boolean(marker));
+      setMarkers(nextMarkers);
+    }
+
+    function scheduleMeasure() {
+      if (frame) {
+        return;
+      }
+      frame = window.requestAnimationFrame(measure);
+    }
+
+    panes.forEach((pane) =>
+      pane.addEventListener("scroll", scheduleMeasure, { passive: true }),
+    );
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      panes.forEach((pane) => resizeObserver?.observe(pane));
+    }
+    window.addEventListener("resize", scheduleMeasure);
+    scheduleMeasure();
+
+    return () => {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+      panes.forEach((pane) =>
+        pane.removeEventListener("scroll", scheduleMeasure),
+      );
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [changeCount, paneRefs, view]);
+
+  if (!changeRulerEnabled(view) || changeCount <= 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="git-diff-change-ruler"
+      data-review-id="git-diff-change-ruler"
+      aria-label="Diff change ruler"
+    >
+      {markers.map((marker) => (
+        <button
+          key={`change-ruler-marker:${marker.index}`}
+          type="button"
+          className={`git-diff-change-ruler-marker ${marker.kind} ${
+            marker.index === activeChangeIndex ? "active" : ""
+          }`}
+          style={{ top: `${marker.topPercent}%` }}
+          data-review-id="git-diff-change-ruler-marker"
+          data-change-index={marker.index}
+          aria-label={`Go to change ${marker.index + 1}`}
+          onClick={() => onSelectChange(marker.index)}
+        />
+      ))}
+    </div>
+  );
+}

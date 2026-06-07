@@ -1,0 +1,5 @@
+@startuml
+class "設定画面\nKroki確認\nローカル描画" as Preferences
+class "文書ビュー<br>複数行ラベル" as Viewer
+Preferences --> Viewer
+@enduml

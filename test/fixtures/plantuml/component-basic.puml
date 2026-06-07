@@ -1,0 +1,6 @@
+@startuml
+package "Svard" {
+  [Viewer UI] --> [HostAdapter]
+  [HostAdapter] --> [Diagram Renderer]
+}
+@enduml

@@ -1,0 +1,20 @@
+{
+  "name": "svard-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "dev": "astro dev --host 127.0.0.1",
+    "build": "astro build",
+    "preview": "astro preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@tailwindcss/vite": "^4.1.0",
+    "astro": "^5.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^6.0.0"
+  },
+  "devDependencies": {}
+}

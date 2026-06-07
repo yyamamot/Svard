@@ -1,0 +1,5 @@
+@startuml
+[*] --> Disabled
+Disabled --> Local : enable
+Local --> [*]
+@enduml

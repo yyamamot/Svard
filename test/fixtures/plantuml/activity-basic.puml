@@ -1,0 +1,7 @@
+@startuml
+start
+:Open AsciiDoc;
+:Extract PlantUML block;
+:Render SVG locally;
+stop
+@enduml

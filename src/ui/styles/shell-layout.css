@@ -1,0 +1,225 @@
+.sidebar {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-color: var(--shell-border);
+  background: #ffffff;
+}
+
+.sidebar-content {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sidebar.right .sidebar-content {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.preferences-right-sidebar-placeholder {
+  background: var(--reader-bg);
+}
+
+.left-sidebar-content {
+  display: grid;
+  grid-template-rows: var(--open-files-height) 16px minmax(180px, 1fr);
+  overflow: hidden;
+}
+
+.left-sidebar-content.open-files-collapsed {
+  grid-template-rows: auto minmax(180px, 1fr);
+}
+
+.theme-dark .sidebar,
+.theme-dark .topbar,
+.theme-dark .viewer-shell {
+  border-color: var(--shell-border);
+  background: #101417;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: var(--z-context-menu);
+  min-width: 196px;
+  max-width: min(320px, calc(100vw - 16px));
+  border: 1px solid #c7d2d8;
+  border-radius: 8px;
+  padding: 5px;
+  background: #ffffff;
+  color: #172026;
+  box-shadow: 0 16px 38px rgb(15 23 42 / 18%);
+}
+
+.theme-dark .context-menu {
+  border-color: #2b343b;
+  background: #11161a;
+  color: #eef2f4;
+  box-shadow: 0 16px 38px rgb(0 0 0 / 36%);
+}
+
+.context-menu-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: transparent;
+  color: inherit;
+  gap: 8px;
+  text-align: left;
+}
+
+.context-menu-item:hover,
+.context-menu-item:focus-visible {
+  outline: 0;
+  background: #e8f2ef;
+}
+
+.context-menu-item:disabled {
+  cursor: not-allowed;
+  color: #8a99a3;
+}
+
+.context-menu-item:disabled:hover,
+.context-menu-item:disabled:focus-visible {
+  background: transparent;
+}
+
+.context-menu-item.with-separator {
+  border-top: 1px solid #e1e8ed;
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
+.context-menu-item.with-separator:first-child {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 5px;
+}
+
+.theme-dark .context-menu-item.with-separator {
+  border-top-color: #2c3740;
+}
+
+.theme-dark .context-menu-item:hover,
+.theme-dark .context-menu-item:focus-visible {
+  background: #1a2026;
+}
+
+.theme-dark .context-menu-item:disabled {
+  color: #64727c;
+}
+
+.context-menu-item.danger {
+  color: #b42318;
+}
+
+.theme-dark .context-menu-item.danger {
+  color: #fda29b;
+}
+
+.context-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #52656e;
+}
+
+.theme-dark .context-menu-icon {
+  color: #b7c6cd;
+}
+
+.context-menu-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu-shortcut {
+  color: #6a7c84;
+  font-size: 11px;
+}
+
+.left {
+  border-right: 1px solid var(--shell-border);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.right {
+  border-left: 1px solid var(--shell-border);
+}
+
+.sidebar-resizer {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: rgb(0 0 0 / 0.001);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.sidebar-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: transparent;
+  content: "";
+  transition: background 120ms ease;
+}
+
+.sidebar-resizer:hover::after,
+.sidebar-resizer.active::after {
+  background: #2f7f6c;
+}
+
+.left-resizer {
+  right: -12px;
+}
+
+.left-resizer::after {
+  right: 11px;
+}
+
+.right-resizer {
+  left: -12px;
+}
+
+.right-resizer::after {
+  left: 11px;
+}
+
+.app-shell.is-resizing-sidebar {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.app-shell.is-resizing-sidebar-split {
+  cursor: row-resize;
+  user-select: none;
+}
+
+.app-shell.is-resizing-viewer-split {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.theme-dark .sidebar-resizer:hover::after,
+.theme-dark .sidebar-resizer.active::after {
+  background: #6f8792;
+}
+
+.theme-dark .open-files-split-resizer:hover::after,
+.theme-dark .open-files-split-resizer.active::after {
+  background: #6f8792;
+}

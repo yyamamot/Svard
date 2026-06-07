@@ -1,0 +1,269 @@
+use super::shared::git;
+use super::*;
+
+#[test]
+fn local_image_resolver_reads_registered_root_images_only() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let document = docs.join("guide.adoc");
+    let image = project.join("images").join("sample.svg");
+    let drawio_image = project.join("images").join("diagram.drawio.svg");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::create_dir_all(image.parent().unwrap()).expect("create assets");
+    fs::write(&document, "= Guide\n").expect("write document");
+    fs::write(
+        &image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Safe</text></svg>"#,
+    )
+    .expect("write image");
+    fs::write(
+        &drawio_image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Drawio</text></svg>"#,
+    )
+    .expect("write drawio image");
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register root");
+
+    let result =
+        resolve_local_image_from_path("../images/sample.svg", &document.to_string_lossy(), &roots)
+            .expect("local image");
+    let drawio_result = resolve_local_image_from_path(
+        "../images/diagram.drawio.svg",
+        &document.to_string_lossy(),
+        &roots,
+    )
+    .expect("drawio image");
+
+    assert_eq!(result.status, "resolved");
+    assert_eq!(result.media_type.as_deref(), Some("image/svg+xml"));
+    assert_eq!(result.encoding.as_deref(), Some("utf8"));
+    assert!(result.content.unwrap().contains("Safe"));
+    assert_eq!(drawio_result.status, "resolved");
+    assert_eq!(drawio_result.media_type.as_deref(), Some("image/svg+xml"));
+    assert!(drawio_result.content.unwrap().contains("Drawio"));
+}
+
+#[test]
+fn local_image_resolver_blocks_outside_unsupported_and_oversize_images() {
+    let dir = tempdir().expect("temp dir");
+    let document = dir.path().join("guide.adoc");
+    let unsupported = dir.path().join("notes.txt");
+    fs::write(&document, "= Guide\n").expect("write document");
+    fs::write(&unsupported, "plain\n").expect("write unsupported");
+    let outside = tempfile::Builder::new()
+        .suffix(".svg")
+        .tempfile()
+        .expect("outside image");
+    fs::write(outside.path(), "<svg />").expect("write outside image");
+    let large = dir.path().join("large.png");
+    fs::write(&large, vec![0_u8; LOCAL_IMAGE_MAX_BYTES as usize + 1]).expect("write large image");
+    let roots = AllowedRoots::default();
+    register_allowed_root_for_file(&document.canonicalize().unwrap(), &roots)
+        .expect("register root");
+
+    let outside_result = resolve_local_image_from_path(
+        &outside.path().to_string_lossy(),
+        &document.to_string_lossy(),
+        &roots,
+    )
+    .expect("outside image");
+    let unsupported_result = resolve_local_image_from_path(
+        &unsupported.to_string_lossy(),
+        &document.to_string_lossy(),
+        &roots,
+    )
+    .expect("unsupported image");
+    let large_result = resolve_local_image_from_path(
+        &large.to_string_lossy(),
+        &document.to_string_lossy(),
+        &roots,
+    )
+    .expect("large image");
+    let file_url_result = resolve_local_image_from_path(
+        "file:///tmp/sample.svg",
+        &document.to_string_lossy(),
+        &roots,
+    )
+    .expect("file URL image");
+    let asset_url_result = resolve_local_image_from_path(
+        "asset://localhost/sample.svg",
+        &document.to_string_lossy(),
+        &roots,
+    )
+    .expect("asset URL image");
+
+    assert_eq!(outside_result.status, "blocked");
+    assert_eq!(unsupported_result.status, "blocked");
+    assert_eq!(large_result.status, "blocked");
+    assert_eq!(file_url_result.status, "blocked");
+    assert_eq!(asset_url_result.status, "blocked");
+}
+
+#[test]
+fn local_image_resolver_decodes_percent_encoded_relative_paths() {
+    let dir = tempdir().expect("temp dir");
+    let document = dir.path().join("guide.adoc");
+    let image = dir.path().join("image space.drawio.svg");
+    fs::write(&document, "= Guide\n").expect("write document");
+    fs::write(
+        &image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Encoded</text></svg>"#,
+    )
+    .expect("write image");
+    let roots = AllowedRoots::default();
+    register_allowed_root_for_file(&document.canonicalize().unwrap(), &roots)
+        .expect("register root");
+
+    let result = resolve_local_image_from_path(
+        "image%20space.drawio.svg",
+        &document.to_string_lossy(),
+        &roots,
+    )
+    .expect("encoded image");
+
+    assert_eq!(result.status, "resolved");
+    assert!(result.content.unwrap().contains("Encoded"));
+}
+
+#[test]
+fn antora_page_image_resolver_falls_back_to_module_images_for_plain_name() {
+    let dir = tempdir().expect("temp dir");
+    let module = dir.path().join("project").join("modules").join("module-a");
+    let pages = module.join("pages");
+    let images = module.join("images");
+    let document = pages.join("index.adoc");
+    let image = images.join("state.drawio.svg");
+    fs::create_dir_all(&pages).expect("create pages");
+    fs::create_dir_all(&images).expect("create images");
+    fs::write(&document, "= Guide\n\nimage:state.drawio.svg[]\n").expect("write document");
+    fs::write(
+        &image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Module image</text></svg>"#,
+    )
+    .expect("write image");
+    let roots = AllowedRoots::default();
+    register_allowed_root_for_file(&document.canonicalize().unwrap(), &roots)
+        .expect("register module root");
+
+    let result =
+        resolve_local_image_from_path("state.drawio.svg", &document.to_string_lossy(), &roots)
+            .expect("module image");
+
+    assert_eq!(result.status, "resolved");
+    assert_eq!(result.media_type.as_deref(), Some("image/svg+xml"));
+    assert!(result.content.unwrap().contains("Module image"));
+}
+
+#[test]
+fn local_image_resolver_uses_asciidoc_context_base_dir_for_section_files() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let sections = project.join("book").join("07-git-tools").join("sections");
+    let images = project.join("images");
+    let document = sections.join("advanced-merging.adoc");
+    let image = images.join("undomerge-start.png");
+    fs::create_dir_all(&sections).expect("create sections");
+    fs::create_dir_all(&images).expect("create images");
+    fs::write(
+        &document,
+        "= Advanced Merging\n\nimage::images/undomerge-start.png[]\n",
+    )
+    .expect("write document");
+    fs::write(&image, [137, 80, 78, 71]).expect("write image");
+    git(&project, &["init"]);
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register project root");
+    let payload = open_document_from_canonical_path_with_roots(
+        &document.canonicalize().expect("canonical document"),
+        Some(&roots),
+    )
+    .expect("open document");
+    let context = payload.asciidoc_context.as_ref().expect("asciidoc context");
+    let result = resolve_local_image_from_path_with_context(
+        "images/undomerge-start.png",
+        &payload.path,
+        &roots,
+        Some(context),
+    )
+    .expect("project image");
+
+    assert_eq!(
+        context.base_dir,
+        path_to_ui_string(&project.canonicalize().unwrap())
+    );
+    assert_eq!(result.status, "resolved");
+    assert_eq!(result.media_type.as_deref(), Some("image/png"));
+}
+
+#[test]
+fn local_image_resolver_uses_document_imagesdir_for_manual_pages() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let manual = project.join("docs").join("samples").join("manual");
+    let assets = manual.join("assets");
+    let document = manual.join("index.adoc");
+    let image = assets.join("oversized-diagram.svg");
+    fs::create_dir_all(&assets).expect("create assets");
+    fs::write(
+        &document,
+        "= Manual\n:imagesdir: assets\n\nimage::oversized-diagram.svg[]\n",
+    )
+    .expect("write document");
+    fs::write(
+        &image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Oversized SVG</text></svg>"#,
+    )
+    .expect("write image");
+    git(&project, &["init"]);
+
+    let roots = AllowedRoots::default();
+    register_allowed_root_for_file(&document.canonicalize().unwrap(), &roots)
+        .expect("register git worktree root");
+    let payload = open_document_from_canonical_path_with_roots(
+        &document.canonicalize().expect("canonical document"),
+        Some(&roots),
+    )
+    .expect("open document");
+    let context = payload.asciidoc_context.as_ref().expect("asciidoc context");
+    let source_result = resolve_local_image_from_path_with_context(
+        "oversized-diagram.svg",
+        &payload.path,
+        &roots,
+        Some(context),
+    )
+    .expect("manual image");
+    let rendered_src_result = resolve_local_image_from_path_with_context(
+        "assets/oversized-diagram.svg",
+        &payload.path,
+        &roots,
+        Some(context),
+    )
+    .expect("manual rendered src image");
+    let missing_result = resolve_local_image_from_path_with_context(
+        "assets/missing-manual-image.png",
+        &payload.path,
+        &roots,
+        Some(context),
+    )
+    .expect("manual missing image");
+
+    assert_eq!(
+        context.attributes.get("imagesdir").map(String::as_str),
+        Some("assets")
+    );
+    assert_eq!(source_result.status, "resolved");
+    assert_eq!(source_result.media_type.as_deref(), Some("image/svg+xml"));
+    assert!(source_result.content.unwrap().contains("Oversized SVG"));
+    assert_eq!(rendered_src_result.status, "resolved");
+    assert_eq!(
+        rendered_src_result.media_type.as_deref(),
+        Some("image/svg+xml")
+    );
+    assert_eq!(missing_result.status, "blocked");
+    assert_eq!(
+        missing_result.placeholder_text.as_deref(),
+        Some("Local image is not available.")
+    );
+}

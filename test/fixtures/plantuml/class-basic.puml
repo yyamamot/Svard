@@ -1,0 +1,7 @@
+@startuml
+class Document
+class Renderer
+class Cache
+Document --> Renderer
+Renderer --> Cache
+@enduml

@@ -1,0 +1,560 @@
+.sidebar-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 8px 11px;
+  border: 1px solid var(--nav-primary-border);
+  border-radius: 6px;
+  padding: 3px;
+  background: var(--nav-primary-bg);
+}
+
+.sidebar-tabs button {
+  min-height: 28px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--nav-primary-text);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.sidebar-tabs button.active {
+  color: var(--nav-primary-active-text);
+  background: var(--nav-primary-active-bg);
+  box-shadow: 0 1px 2px rgba(15, 28, 33, 0.1);
+}
+
+.bookmarks-panel {
+  display: grid;
+  gap: 9px;
+  padding: 0 8px 12px;
+}
+
+.bookmark-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.bookmark-action-button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+  min-height: 42px;
+  column-gap: 6px;
+  border: 1px solid #c5d1d7;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: #1f2d33;
+  background: #f8fbfc;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.bookmark-action-button:hover:not(:disabled) {
+  background: #eef6f5;
+  border-color: #a8bdc5;
+}
+
+.bookmark-action-button.added {
+  color: #5b6970;
+  background: #f2f6f7;
+  border-color: #d2dce1;
+}
+
+.bookmark-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.bookmark-action-button span,
+.bookmark-action-button small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-action-button small {
+  grid-column: 2;
+  color: #617279;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.bookmark-list {
+  display: grid;
+  gap: 8px;
+}
+
+.bookmark-section {
+  display: grid;
+  gap: 2px;
+}
+
+.bookmark-section-title {
+  margin: 0;
+  padding: 0 7px;
+  color: #62737a;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.bookmark-section-list {
+  display: grid;
+  gap: 2px;
+}
+
+.bookmark-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  position: relative;
+  border-radius: 5px;
+}
+
+.bookmark-row:hover {
+  background: #e7f0ef;
+}
+
+.bookmark-open {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 32px;
+  gap: 6px;
+  border: 0;
+  padding: 4px 7px;
+  color: inherit;
+  background: transparent;
+  cursor: grab;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  touch-action: none;
+  user-select: none;
+}
+
+.bookmark-open span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-controls {
+  display: flex;
+  gap: 2px;
+  padding-right: 4px;
+}
+
+.bookmark-row .bookmark-remove {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease;
+}
+
+.bookmark-row:hover .bookmark-remove,
+.bookmark-row:focus-within .bookmark-remove {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .bookmark-row .bookmark-remove {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookmark-row .bookmark-remove {
+    transition: none;
+  }
+}
+
+.bookmark-empty {
+  border: 1px dashed #c7d2d8;
+  border-radius: 6px;
+  padding: 14px 10px;
+  color: #5f7178;
+  font-size: 12px;
+  text-align: center;
+}
+
+.timeline-panel {
+  display: grid;
+  gap: 9px;
+  padding: 0 8px 12px;
+}
+
+.timeline-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: #173f39;
+}
+
+.timeline-header h2 {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.timeline-header p {
+  margin: 2px 0 0;
+  color: #5f7178;
+  font-size: 12px;
+}
+
+.source-control-head {
+  display: grid;
+  min-width: 0;
+  gap: 0;
+  padding: 1px 0 2px;
+}
+
+.source-control-branch {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  gap: 5px;
+  color: #6a7b82;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.source-control-branch span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-branch-name {
+  flex: 0 1 max-content;
+  min-width: 0;
+}
+
+.source-control-branch .source-control-head-hash {
+  flex: 0 0 auto;
+  min-width: auto;
+  overflow: visible;
+  color: #7a8990;
+}
+
+.source-control-head-summary {
+  min-width: 0;
+  color: #7a8990;
+}
+
+.source-control-head-hash {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.source-control-head-commit {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 19px;
+  color: #7a8990;
+  font-size: 11px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.source-control-switch {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  width: max-content;
+  max-width: 100%;
+  border-bottom: 1px solid var(--nav-secondary-border);
+  padding: 1px 0 0;
+  background: transparent;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.source-control-switch::-webkit-scrollbar {
+  display: none;
+}
+
+.source-control-switch.compact {
+  margin-bottom: 2px;
+}
+
+.source-control-switch button {
+  flex: 0 1 auto;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  overflow: visible;
+  padding: 4px 0 5px;
+  background: transparent;
+  color: var(--nav-secondary-text);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.source-control-switch button.active {
+  border-bottom-color: var(--nav-secondary-active-border);
+  background: var(--nav-secondary-active-bg);
+  color: var(--nav-secondary-active-text);
+}
+
+.source-control-branch-diff-controls {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 7px;
+}
+
+.source-control-branch-diff-controls label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  color: #50666d;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.source-control-branch-diff-controls select {
+  min-width: 0;
+  border: 1px solid #d5e0e4;
+  border-radius: 5px;
+  padding: 4px 6px;
+  background: #ffffff;
+  color: #213238;
+  font: inherit;
+}
+
+.source-control-branch-diff-range {
+  overflow: hidden;
+  color: #5f7178;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-branch-diff-warning {
+  color: #8a5a1f;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.source-control-change-list {
+  display: grid;
+  gap: 3px;
+}
+
+.source-control-change-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  align-items: start;
+  border: 1px solid #dce6ea;
+  border-radius: 5px;
+  padding: 5px 7px;
+  background: #fcfdfd;
+  text-align: left;
+  cursor: pointer;
+}
+
+.source-control-change-row:hover,
+.source-control-change-row:focus-visible {
+  border-color: #9fc0c3;
+  background: #f6fbfa;
+  outline: none;
+}
+
+.source-control-change-row.disabled {
+  opacity: 0.68;
+  cursor: default;
+}
+
+.source-control-change-main {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+
+.source-control-change-main .git-status-badge {
+  width: auto;
+  min-width: 22px;
+  height: 15px;
+  margin-left: 0;
+}
+
+.source-control-change-name,
+.source-control-change-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-change-name {
+  min-width: 0;
+  color: #213238;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.source-control-change-path {
+  color: #5f7178;
+  font-size: 11px;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 7px;
+}
+
+.timeline-row {
+  display: block;
+  border: 1px solid #d5e0e4;
+  border-radius: 6px;
+  padding: 8px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timeline-row:hover,
+.timeline-row:focus-visible {
+  border-color: #9fc0c3;
+  background: #f6fbfa;
+  outline: none;
+}
+
+.timeline-row.selected-for-compare {
+  border-color: #2f7d6d;
+  box-shadow: inset 3px 0 0 #2f7d6d;
+}
+
+.source-control-graph-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 7px;
+  align-items: stretch;
+}
+
+.source-control-graph-rail {
+  position: relative;
+  min-height: 30px;
+}
+
+.source-control-graph-rail::before {
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: #b9c9cd;
+  content: "";
+}
+
+.source-control-graph-rail::after {
+  position: absolute;
+  top: 10px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #2f7d6d;
+  border-radius: 50%;
+  background: #ffffff;
+  content: "";
+}
+
+.timeline-row-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.timeline-row-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #213238;
+  font-size: 12px;
+}
+
+.timeline-row-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #5f7178;
+  font-size: 11px;
+}
+
+.timeline-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.timeline-load-more button {
+  border: 1px solid #c7d2d8;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: #f7fafb;
+  color: #33454d;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.timeline-load-more button:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.timeline-empty {
+  border: 1px dashed #c7d2d8;
+  border-radius: 6px;
+  padding: 14px 10px;
+  color: #5f7178;
+  font-size: 12px;
+}
+
+.timeline-empty strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #33454d;
+}
+
+.timeline-empty p {
+  margin: 0;
+}
+
+.open-files-empty {
+  margin: 4px 6px;
+  border: 1px dashed #c7d2d8;
+  border-radius: 6px;
+  padding: 12px 8px;
+  color: #5f7178;
+  font-size: 12px;
+  text-align: center;
+}

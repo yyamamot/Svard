@@ -1,0 +1,1 @@
+export const UI_REVIEW_SCHEMA_VERSION = 2;

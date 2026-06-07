@@ -1,0 +1,148 @@
+{
+  "fixtures": [
+    {
+      "id": "sequence-basic",
+      "diagramType": "sequence",
+      "file": "sequence-basic.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["Authentication Request", "Authentication Response"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "class-basic",
+      "diagramType": "class",
+      "file": "class-basic.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["Document", "Renderer", "Cache"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "component-basic",
+      "diagramType": "component",
+      "file": "component-basic.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["Viewer UI", "HostAdapter", "Diagram Renderer"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "activity-basic",
+      "diagramType": "activity",
+      "file": "activity-basic.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["Open AsciiDoc", "Render SVG locally"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "state-basic",
+      "diagramType": "state",
+      "file": "state-basic.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["Disabled", "Local"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "usecase-basic",
+      "diagramType": "usecase",
+      "file": "usecase-basic.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["Reader", "Open document", "Search document"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "object-basic",
+      "diagramType": "object",
+      "file": "object-basic.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["config", "diagram"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "deployment-basic",
+      "diagramType": "deployment",
+      "file": "deployment-basic.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["Svard", "TeaVM Renderer"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "japanese-sequence",
+      "diagramType": "sequence",
+      "file": "japanese-sequence.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["利用者", "ビューア", "文書を開く", "表示完了"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "japanese-note",
+      "diagramType": "sequence",
+      "file": "japanese-note.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["複数行の日本語メモ", "検索結果", "確認する"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "japanese-multiline",
+      "diagramType": "class",
+      "file": "japanese-multiline.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["設定画面", "Kroki確認", "ローカル描画"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "japanese-long-text",
+      "diagramType": "class",
+      "file": "japanese-long-text.puml",
+      "expectedStatus": "rendered",
+      "required": true,
+      "expectedText": ["これは長い日本語ラベル", "句読点、全角記号", "abc123"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "mindmap-basic",
+      "diagramType": "mindmap",
+      "file": "mindmap-basic.puml",
+      "expectedStatus": "rendered",
+      "required": false,
+      "expectedText": ["Svard", "Local PlantUML"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "gantt-basic",
+      "diagramType": "gantt",
+      "file": "gantt-basic.puml",
+      "expectedStatus": "rendered",
+      "required": false,
+      "expectedText": ["PoC", "Integration"],
+      "visualChecks": ["svg-present", "nonzero-bounds"]
+    },
+    {
+      "id": "syntax-error",
+      "diagramType": "error",
+      "file": "syntax-error.puml",
+      "expectedStatus": "error",
+      "required": true,
+      "expectedDiagnostic": ["Syntax Error"],
+      "visualChecks": ["svg-present"]
+    },
+    {
+      "id": "large-generated",
+      "diagramType": "class",
+      "generated": "large-class-chain",
+      "expectedStatus": "error",
+      "required": true,
+      "expectedDiagnostic": ["too large", "4096"],
+      "visualChecks": ["svg-present"]
+    }
+  ]
+}

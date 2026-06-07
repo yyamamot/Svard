@@ -1,0 +1,7 @@
+digraph G {
+  rankdir=LR;
+  start [label="開始"];
+  process [label="処理"];
+  done [label="完了"];
+  start -> process -> done;
+}

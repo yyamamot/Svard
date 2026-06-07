@@ -1,0 +1,45 @@
+= Svard Product Overview
+:toc:
+:sectnums:
+
+Svard is a local-first desktop viewer for reading AsciiDoc and Markdown technical documents.
+
+This fixture is safe to use in screenshots. It contains no private paths, tokens, or unpublished repository URLs.
+
+== Reader-first workflow
+
+Svard focuses on reading, navigation, and comparison. It is not an editor or IDE.
+
+Common reading actions include:
+
+* Open a local document or folder
+* Search the current document
+* Search all files in a workspace
+* Open related documents in tabs
+* Compare rendered output changes
+
+== Privacy boundary
+
+Diagram sources, full document text, private paths, tokens, and endpoint URLs should not be sent to remote services by default.
+
+Kroki is treated as an explicit fallback, not as an implicit public-service default.
+
+== Review checklist
+
+[cols="1,2", options="header"]
+|===
+|Area
+|Expected screenshot signal
+
+|Reader
+|The document is easy to scan and the table of contents is visible.
+
+|Search
+|Current document search and workspace search are separate concepts.
+
+|Rendered diff
+|Changes are reviewed as rendered output, not only as source lines.
+
+|Diagrams
+|Local rendering is the primary path.
+|===

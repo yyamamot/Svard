@@ -1,0 +1,58 @@
+---
+import { site } from '../../content/site.ja';
+import LandingLayout from '../../layouts/LandingLayout.astro';
+---
+
+<LandingLayout site={site} pageTitle="Download" pageDescription={site.download.lead}>
+  <section class="download-hero section-shell">
+    <p class="eyebrow">{site.download.eyebrow}</p>
+    <h1>{site.download.heading}</h1>
+    <p class="lead">{site.download.lead}</p>
+    <div class="release-status">
+      <span>{site.download.status.label}</span>
+      <strong>{site.download.status.value}</strong>
+    </div>
+  </section>
+  <section class="section-shell resource-section">
+    <h2>{site.download.resources.heading}</h2>
+    <div class="resource-grid">
+      {site.download.resources.items.map((item) => (
+        <article>
+          <span class="status-pill" aria-disabled="true">{item.state}</span>
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+          {item.details && (
+            <ul>
+              {item.details.map((detail) => <li>{detail}</li>)}
+            </ul>
+          )}
+        </article>
+      ))}
+    </div>
+  </section>
+  <section class="section-shell platform-support">
+    <h2>{site.download.platformSupport.heading}</h2>
+    <div class="platform-list">
+      {site.download.platformSupport.rows.map((row) => (
+        <article>
+          <div>
+            <h3>{row.platform}</h3>
+            <span class="platform-status">{row.status}</span>
+          </div>
+          <dl>
+            <dt>確認コマンド</dt>
+            <dd><code>{row.command}</code></dd>
+            <dt>注記</dt>
+            <dd>{row.note}</dd>
+          </dl>
+        </article>
+      ))}
+    </div>
+  </section>
+  <section class="section-shell note-list">
+    <h2>注記</h2>
+    <ul>
+      {site.download.notes.map((note) => <li>{note}</li>)}
+    </ul>
+  </section>
+</LandingLayout>

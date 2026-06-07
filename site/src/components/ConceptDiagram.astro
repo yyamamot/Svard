@@ -1,0 +1,498 @@
+---
+type Variant = 'privacy-boundary' | 'rendered-diff';
+type Locale = 'ja' | 'en';
+
+const { variant, locale = 'en' } = Astro.props as {
+  variant: Variant;
+  locale?: Locale;
+};
+
+const copy = {
+  ja: {
+    privacy: {
+      viewer: 'ビューア画面',
+      localRenderer: 'Local Renderer',
+      localTypes: 'Mermaid / PlantUML / Graphviz',
+      externalRenderer: 'Kroki',
+      output: '表示用画像',
+      primary: '標準経路',
+      fallback: '明示設定時のみ',
+      remoteBoundary: 'Remote boundary',
+    },
+    diff: {
+      before: '変更前',
+      after: '変更後',
+      rendered: 'レンダリング結果',
+      sourceDiff: 'プレビュー上の変更箇所',
+      changed: '変更箇所',
+      tab: 'Preview diff',
+      items: ['導入手順', '対応フォーマット', '図表レンダリング'],
+      changedItem: 'Git差分レビュー',
+    },
+  },
+  en: {
+    privacy: {
+      viewer: 'Viewer',
+      localRenderer: 'Local Renderer',
+      localTypes: 'Mermaid / PlantUML / Graphviz',
+      externalRenderer: 'Kroki',
+      output: 'Rendered image',
+      primary: 'Primary path',
+      fallback: 'Explicit fallback only',
+      remoteBoundary: 'Remote boundary',
+    },
+    diff: {
+      before: 'Before',
+      after: 'After',
+      rendered: 'Rendered output',
+      sourceDiff: 'Changed preview area',
+      changed: 'Changed area',
+      tab: 'Preview diff',
+      items: ['Getting started', 'Supported formats', 'Diagram rendering'],
+      changedItem: 'Git diff review',
+    },
+  },
+}[locale];
+---
+
+{
+  variant === 'privacy-boundary' ? (
+    <figure class="concept-diagram privacy-diagram" aria-label={locale === 'ja' ? 'ローカルファーストの境界図' : 'Local-first boundary diagram'}>
+      <div class="renderer-path primary-path">
+        <div class="flow-label">{copy.privacy.primary}</div>
+        <div class="path-row">
+          <div class="diagram-node viewer-node">{copy.privacy.viewer}</div>
+          <div class="diagram-arrow" aria-hidden="true"></div>
+          <div class="diagram-node renderer-node">
+            <strong>{copy.privacy.localRenderer}</strong>
+            <span>{copy.privacy.localTypes}</span>
+          </div>
+        </div>
+        <div class="output-row primary-output">
+          <span>{copy.privacy.output}</span>
+        </div>
+      </div>
+      <div class="renderer-path fallback-path">
+        <div class="flow-label muted-label">{copy.privacy.fallback}</div>
+        <div class="path-row">
+          <div class="diagram-node viewer-node">{copy.privacy.viewer}</div>
+          <div class="diagram-arrow" aria-hidden="true"></div>
+          <div class="diagram-node subtle-node">{copy.privacy.localRenderer}</div>
+          <div class="remote-boundary" aria-hidden="true">
+            <span>{copy.privacy.remoteBoundary}</span>
+            <i></i>
+          </div>
+          <div class="diagram-node ghost-node">{copy.privacy.externalRenderer}</div>
+        </div>
+        <div class="output-row remote-output">
+          <span>{copy.privacy.output}</span>
+        </div>
+      </div>
+    </figure>
+  ) : (
+    <figure class="concept-diagram diff-diagram" aria-label={locale === 'ja' ? 'プレビューベースの差分確認図' : 'Preview-based diff review diagram'}>
+      <div class="editor-frame">
+        <div class="editor-bar" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <strong>{copy.diff.tab}</strong>
+        </div>
+        <div class="editor-panes">
+          <div class="diff-pane">
+            <div class="pane-label">{copy.diff.before}</div>
+            <div class="render-card">
+              <p>{copy.diff.rendered}</p>
+              <ul class="preview-list">
+                {copy.diff.items.map((item) => <li>{item}</li>)}
+              </ul>
+            </div>
+          </div>
+          <div class="diff-pane">
+            <div class="pane-label">{copy.diff.after}</div>
+            <div class="render-card">
+              <p>{copy.diff.rendered}</p>
+              <ul class="preview-list">
+                <li>{copy.diff.items[0]}</li>
+                <li class="changed-item">{copy.diff.changedItem}</li>
+                <li>{copy.diff.items[2]}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="source-strip">
+          <span>{copy.diff.sourceDiff}</span>
+          <strong>{copy.diff.changed}</strong>
+        </div>
+      </div>
+    </figure>
+  )
+}
+
+<style>
+  .concept-diagram {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(246, 241, 231, 0.3)),
+      radial-gradient(circle at top right, rgba(40, 88, 68, 0.12), transparent 18rem);
+  }
+
+  .privacy-diagram {
+    display: grid;
+    gap: 22px;
+    padding: 28px;
+  }
+
+  .flow-label {
+    color: var(--accent);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .muted-label {
+    color: var(--muted);
+  }
+
+  .renderer-path {
+    display: grid;
+    gap: 12px;
+  }
+
+  .fallback-path {
+    opacity: 0.72;
+  }
+
+  .path-row {
+    display: grid;
+    grid-template-columns: 150px 36px 160px 36px 160px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .fallback-path .path-row {
+    grid-template-columns: 150px 32px 150px 32px minmax(128px, 150px);
+  }
+
+  .diagram-node {
+    min-height: 84px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(40, 88, 68, 0.18);
+    border-radius: 18px;
+    padding: 18px;
+    color: var(--ink);
+    background: rgba(251, 248, 241, 0.82);
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .viewer-node {
+    color: #fff;
+    background: var(--accent);
+  }
+
+  .subtle-node {
+    color: var(--accent);
+    background: rgba(40, 88, 68, 0.08);
+  }
+
+  .ghost-node {
+    border-style: dashed;
+    background: rgba(255, 255, 255, 0.38);
+  }
+
+  .renderer-node {
+    gap: 4px;
+  }
+
+  .renderer-node strong {
+    font: inherit;
+  }
+
+  .renderer-node span {
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 700;
+    white-space: normal;
+  }
+
+  .diagram-arrow {
+    position: relative;
+    min-height: 1px;
+    border-top: 1px solid rgba(40, 88, 68, 0.42);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .diagram-arrow::after {
+    position: absolute;
+    right: -1px;
+    top: -5px;
+    width: 9px;
+    height: 9px;
+    border-top: 1px solid rgba(40, 88, 68, 0.42);
+    border-right: 1px solid rgba(40, 88, 68, 0.42);
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  .diagram-arrow span {
+    position: relative;
+    top: -28px;
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--paper-soft);
+    white-space: nowrap;
+  }
+
+  .fallback-arrow {
+    border-style: dashed;
+  }
+
+  .remote-boundary {
+    position: relative;
+    display: grid;
+    min-height: 92px;
+    place-items: center;
+  }
+
+  .remote-boundary::before {
+    position: absolute;
+    top: -16px;
+    bottom: -16px;
+    left: 50%;
+    border-left: 1px dashed rgba(40, 88, 68, 0.58);
+    content: "";
+  }
+
+  .remote-boundary::after {
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    width: calc(100% - 2px);
+    border-top: 1px solid rgba(40, 88, 68, 0.42);
+    content: "";
+  }
+
+  .remote-boundary span {
+    position: absolute;
+    z-index: 1;
+    top: -16px;
+    left: calc(50% + 6px);
+    display: inline-block;
+    color: var(--accent);
+    background: var(--paper-soft);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .remote-boundary i {
+    position: absolute;
+    top: calc(50% - 4px);
+    right: 2px;
+    width: 9px;
+    height: 9px;
+    border-top: 1px solid rgba(40, 88, 68, 0.42);
+    border-right: 1px solid rgba(40, 88, 68, 0.42);
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  .output-row {
+    display: grid;
+    grid-template-columns: 150px 36px 160px 36px 160px;
+    gap: 12px;
+    color: var(--accent);
+    font-size: 0.76rem;
+    font-weight: 800;
+  }
+
+  .output-row span {
+    display: inline-flex;
+    justify-self: center;
+    border: 1px solid rgba(40, 88, 68, 0.2);
+    border-radius: 999px;
+    padding: 5px 10px;
+    background: rgba(40, 88, 68, 0.08);
+  }
+
+  .primary-output {
+    padding-right: 0;
+  }
+
+  .primary-output span {
+    grid-column: 3;
+  }
+
+  .remote-output span {
+    grid-column: 5;
+  }
+
+  .remote-output span {
+    border-style: dashed;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.32);
+  }
+
+  .diff-diagram {
+    padding: 24px;
+  }
+
+  .editor-frame {
+    overflow: hidden;
+    border: 1px solid rgba(40, 88, 68, 0.14);
+    border-radius: 18px;
+    background: rgba(251, 248, 241, 0.72);
+  }
+
+  .editor-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 14px;
+    background: rgba(246, 241, 231, 0.76);
+  }
+
+  .editor-bar span {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #c8bda9;
+  }
+
+  .editor-bar strong {
+    margin-left: 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .editor-panes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .diff-pane {
+    display: grid;
+    gap: 10px;
+    padding: 18px;
+  }
+
+  .diff-pane + .diff-pane {
+    border-left: 1px solid var(--line);
+  }
+
+  .pane-label {
+    color: var(--accent);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .render-card {
+    min-height: 188px;
+    border: 1px solid rgba(40, 88, 68, 0.14);
+    border-radius: 14px;
+    padding: 18px;
+    background: rgba(251, 248, 241, 0.9);
+  }
+
+  .render-card p {
+    margin-bottom: 22px;
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .preview-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .preview-list li {
+    border: 1px solid rgba(40, 88, 68, 0.12);
+    border-radius: 12px;
+    padding: 9px 11px;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.42);
+    font-size: 0.86rem;
+    font-weight: 700;
+  }
+
+  .preview-list .changed-item {
+    border-color: rgba(40, 88, 68, 0.34);
+    color: var(--accent);
+    background: rgba(40, 88, 68, 0.12);
+  }
+
+  .source-strip {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    border-top: 1px solid var(--line);
+    padding: 12px 16px;
+    color: var(--muted);
+    font-size: 0.84rem;
+  }
+
+  .source-strip strong {
+    color: var(--accent);
+  }
+
+  @media (max-width: 680px) {
+    .path-row,
+    .fallback-path .path-row,
+    .output-row,
+    .diff-diagram {
+      grid-template-columns: 1fr;
+    }
+
+    .output-row span {
+      justify-self: center;
+    }
+
+    .diagram-arrow {
+      min-height: 42px;
+      border-top: 0;
+      border-left: 1px solid rgba(40, 88, 68, 0.42);
+      justify-self: center;
+    }
+
+    .diagram-arrow::after {
+      right: auto;
+      left: -5px;
+      top: auto;
+      bottom: 0;
+      transform: rotate(135deg);
+    }
+
+    .diagram-arrow span {
+      top: 8px;
+      left: 12px;
+    }
+
+    .editor-panes {
+      grid-template-columns: 1fr;
+    }
+
+    .diff-pane + .diff-pane {
+      border-top: 1px solid var(--line);
+      border-left: 0;
+    }
+  }
+</style>

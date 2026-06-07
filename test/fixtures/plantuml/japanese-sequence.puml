@@ -1,0 +1,6 @@
+@startuml
+participant "利用者" as User
+participant "ビューア" as Viewer
+User -> Viewer: 文書を開く
+Viewer --> User: 表示完了
+@enduml

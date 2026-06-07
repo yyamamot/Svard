@@ -1,0 +1,421 @@
+.topbar,
+.preferences-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.open-files {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  border-top: 1px solid var(--shell-border);
+  border-bottom: 1px solid var(--shell-border);
+  padding: 9px 8px;
+  overflow: hidden;
+}
+
+.open-files.collapsed {
+  grid-template-rows: auto;
+  padding: 6px 8px;
+}
+
+.open-files-collapsed-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  gap: 8px;
+  padding: 0 4px;
+  color: #52656e;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.file-open,
+.directory-open {
+  min-width: 0;
+}
+
+.open-files-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 8px;
+}
+
+.open-files-header h2 {
+  margin: 0;
+  color: #52656e;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.open-files-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.open-files-filter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 4px 6px;
+  border: 1px solid #c7d2d8;
+  border-radius: 5px;
+  padding: 4px 6px;
+  color: #52656e;
+  background: #fff;
+}
+
+.open-files-filter input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+
+.open-files-filter-mode {
+  border: 1px solid #b8c7ce;
+  border-radius: 4px;
+  padding: 1px 4px;
+  color: #52656e;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.icon-button.compact {
+  width: 28px;
+  min-height: 28px;
+  padding: 4px;
+}
+
+.open-files-list {
+  display: grid;
+  gap: 1px;
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+}
+
+.open-files-split-resizer {
+  position: relative;
+  min-height: 16px;
+  background: rgb(0 0 0 / 0.001);
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.open-files-split-resizer::after {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  left: 8px;
+  height: 1px;
+  background: transparent;
+  content: "";
+  transition: background 120ms ease;
+}
+
+.open-files-split-resizer:hover::after,
+.open-files-split-resizer.active::after {
+  background: #2f7f6c;
+}
+
+.sidebar-lower-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-tab-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.open-file-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 24px 28px;
+  align-items: center;
+  position: relative;
+  border-radius: 5px;
+}
+
+.open-file-row.active,
+.open-file-row:hover {
+  background: #e7f0ef;
+}
+
+.open-file-row.pinned .open-file-button {
+  font-weight: 700;
+}
+
+.open-file-row[data-tab-kind="preferences"] .open-file-close {
+  grid-column: 4;
+}
+
+.open-file-button {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 32px;
+  gap: 6px;
+  border: 0;
+  padding: 4px 7px;
+  color: inherit;
+  background: transparent;
+  cursor: grab;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  touch-action: none;
+  user-select: none;
+}
+
+.open-file-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-file-status-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 4px;
+}
+
+.git-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 24px;
+  height: 16px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.git-status-diff-button {
+  border: 0;
+  min-width: 28px;
+  min-height: 24px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.git-status-diff-button:hover,
+.git-status-diff-button:focus-visible {
+  box-shadow: 0 3px 9px rgb(15 28 33 / 18%);
+  transform: translateY(-1px);
+}
+
+.git-status-diff-button:focus-visible {
+  outline: 2px solid #287466;
+  outline-offset: 2px;
+}
+
+.reload-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  max-width: 86px;
+  height: 16px;
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 0 5px;
+  color: #23423d;
+  background: #d9ebe7;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-file-button .git-status-badge,
+.bookmark-open .git-status-badge,
+.tree-row .git-status-badge {
+  min-width: 24px;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.open-file-row.git-status-modified .open-file-button,
+.tree-row.git-status-modified,
+.bookmark-row.git-status-modified .bookmark-open {
+  color: inherit;
+}
+
+.open-file-row.git-status-added .open-file-button,
+.open-file-row.git-status-untracked .open-file-button,
+.tree-row.git-status-added,
+.tree-row.git-status-untracked,
+.bookmark-row.git-status-added .bookmark-open,
+.bookmark-row.git-status-untracked .bookmark-open {
+  color: inherit;
+}
+
+.open-file-row.git-status-deleted .open-file-button,
+.tree-row.git-status-deleted,
+.bookmark-row.git-status-deleted .bookmark-open {
+  color: inherit;
+}
+
+.git-status-modified .git-status-badge,
+.git-status-badge.git-status-modified {
+  color: #6d530d;
+  background: #f6e7b0;
+}
+
+.git-status-added .git-status-badge,
+.git-status-untracked .git-status-badge,
+.git-status-badge.git-status-added,
+.git-status-badge.git-status-untracked {
+  color: #256044;
+  background: #d9efe1;
+}
+
+.git-status-deleted .git-status-badge,
+.git-status-badge.git-status-deleted {
+  color: #8a3932;
+  background: #f4d6d2;
+}
+
+.git-status-diff-button.git-status-modified:hover,
+.git-status-diff-button.git-status-modified:focus-visible {
+  background: #f2dd98;
+}
+
+.git-status-diff-button.git-status-added:hover,
+.git-status-diff-button.git-status-added:focus-visible,
+.git-status-diff-button.git-status-untracked:hover,
+.git-status-diff-button.git-status-untracked:focus-visible {
+  background: #c7e7d1;
+}
+
+.git-status-diff-button.git-status-deleted:hover,
+.git-status-diff-button.git-status-deleted:focus-visible {
+  background: #efc5c0;
+}
+
+.open-file-row.reload-reloading .reload-status-badge {
+  color: #3f4c55;
+  background: #e8eef1;
+}
+
+.open-file-row.reload-error .open-file-button {
+  color: #9b2f26;
+}
+
+.open-file-row.reload-error .reload-status-badge {
+  color: #6f1f19;
+  background: #f0b2ab;
+}
+
+.open-file-close,
+.open-file-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  color: #52656e;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease;
+}
+
+.open-file-row:hover .open-file-close,
+.open-file-row:focus-within .open-file-close,
+.open-file-row.active .open-file-close,
+.open-file-row:hover .open-file-pin,
+.open-file-row:focus-within .open-file-pin,
+.open-file-row.active .open-file-pin,
+.open-file-row.pinned .open-file-pin {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.open-file-row[data-tab-kind="preferences"]:hover .open-file-close,
+.open-file-row[data-tab-kind="preferences"]:focus-within .open-file-close,
+.open-file-row[data-tab-kind="preferences"].active .open-file-close {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.open-file-close:hover,
+.open-file-pin:hover {
+  background: #d7e6e3;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .open-file-close,
+  .open-file-pin {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .open-file-close,
+  .open-file-pin {
+    transition: none;
+  }
+}
+
+.open-file-row.dragging,
+.bookmark-row.dragging {
+  opacity: 0.45;
+}
+
+.open-file-row.dragging .open-file-button,
+.bookmark-row.dragging .bookmark-open {
+  cursor: grabbing;
+}
+
+.open-file-row.drop-before::before,
+.bookmark-row.drop-before::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: 4px;
+  left: 4px;
+  height: 2px;
+  border-radius: 999px;
+  background: #2e7d6c;
+}
