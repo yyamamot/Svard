@@ -101,6 +101,7 @@ function markerForBlock({
       kind: "removed",
       anchorBlockId,
       changeIndex,
+      highlightBlock: false,
     };
   }
 

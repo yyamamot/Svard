@@ -420,6 +420,56 @@ describe("ViewerPane", () => {
     expect(inlineHighlight?.textContent).toBe("token");
   });
 
+  it("renders deletion-only post-diff markers without highlighting the anchor block", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+          },
+        },
+        documentHtml: markSafeHtml("<h2>Following section</h2><p>Context</p>"),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          markers: [
+            {
+              id: "post-diff-marker:0:removed-source-block",
+              kind: "removed",
+              anchorBlockId: "rendered-block:0",
+              changeIndex: 0,
+              highlightBlock: false,
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const marker = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="post-diff-git-marker"]',
+    );
+    expect(marker?.dataset.markerKind).toBe("removed");
+    expect(marker?.title).toBe("Go to removed content near here");
+    expect(container.querySelector(".post-diff-git-highlight")).toBeNull();
+
+    act(() => {
+      marker?.click();
+    });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+  });
+
   it("keeps post-diff inline highlights stable during viewer scroll", async () => {
     await act(async () =>
       renderPane({

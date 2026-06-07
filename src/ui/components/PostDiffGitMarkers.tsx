@@ -100,7 +100,7 @@ function markerLabel(kind: PostDiffGitMarkerKind): string {
     return "Go to added change";
   }
   if (kind === "removed") {
-    return "Go to removed change";
+    return "Go to removed content near here";
   }
   return "Go to changed block";
 }
@@ -136,6 +136,9 @@ function clearPostDiffHighlights(article: HTMLElement | null) {
 function applyPostDiffHighlights(markers: PositionedPostDiffGitMarker[]) {
   const seenTargets = new Set<HTMLElement>();
   for (const marker of markers) {
+    if (marker.highlightBlock === false) {
+      continue;
+    }
     if (seenTargets.has(marker.target)) {
       continue;
     }
@@ -156,6 +159,9 @@ function applyPostDiffHighlights(markers: PositionedPostDiffGitMarker[]) {
 }
 
 function hasPostDiffHighlight(marker: PositionedPostDiffGitMarker): boolean {
+  if (marker.highlightBlock === false) {
+    return true;
+  }
   if (!marker.target.classList.contains("post-diff-git-highlight")) {
     return false;
   }

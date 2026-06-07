@@ -284,6 +284,7 @@ describe("post-diff git markers", () => {
       expect.objectContaining({
         kind: "removed",
         anchorBlockId: "rendered-block:1",
+        highlightBlock: false,
       }),
     ]);
   });

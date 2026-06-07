@@ -80,6 +80,7 @@ export interface PostDiffGitMarker {
   kind: PostDiffGitMarkerKind;
   anchorBlockId: string | null;
   changeIndex: number;
+  highlightBlock?: boolean;
   inlineDiffRanges?: InlineDiffRange[];
   includeSourceBlocks?: boolean;
 }
