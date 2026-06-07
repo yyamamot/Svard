@@ -146,6 +146,23 @@ describe("quick open candidates", () => {
     );
   });
 
+  it("includes the Svard website command in command palette aliases", () => {
+    const candidates = buildQuickOpenCandidates({
+      ...baseOptions,
+      quickOpenQuery: ">homepage",
+      commandEnabled: (commandId) => commandId === "help.openWebsite",
+    });
+
+    expect(candidates).toContainEqual(
+      expect.objectContaining({
+        type: "command",
+        id: "help.openWebsite",
+        label: "Svard Website",
+        enabled: true,
+      }),
+    );
+  });
+
   it("includes file compare command in command palette", () => {
     const candidates = buildQuickOpenCandidates({
       ...baseOptions,

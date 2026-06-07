@@ -184,7 +184,7 @@ describe("app menu model", () => {
     );
   });
 
-  it("keeps Shortcuts and Gestures only in the native Help menu", () => {
+  it("keeps website and shortcuts in the native Help menu", () => {
     const model = buildAppMenuModel({
       config: defaultConfig,
       platform: "mac",
@@ -198,6 +198,11 @@ describe("app menu model", () => {
     );
     expect(help?.items).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: "command",
+          label: "Svard Website",
+          commandId: "help.openWebsite",
+        }),
         expect.objectContaining({
           type: "command",
           label: "Shortcuts and Gestures",

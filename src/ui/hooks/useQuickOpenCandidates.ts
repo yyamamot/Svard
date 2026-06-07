@@ -49,6 +49,13 @@ function matches(text: string, query: string): boolean {
 
 const commandSearchAliases: Partial<Record<CommandDefinition["id"], string[]>> =
   {
+    "help.openWebsite": [
+      "website",
+      "home page",
+      "homepage",
+      "docs",
+      "svard website",
+    ],
     "viewer.showShortcuts": [
       "help",
       "shortcuts",

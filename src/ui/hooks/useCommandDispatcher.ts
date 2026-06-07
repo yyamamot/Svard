@@ -67,6 +67,7 @@ interface UseCommandDispatcherOptions {
   onFocusPane: (paneId: PaneId) => void;
   onMoveContentCursor: (direction: "next" | "previous") => boolean;
   onOpenFocusedLink: () => void | Promise<void>;
+  onOpenWebsite: () => void | Promise<void>;
   onShowGitDiff: (path?: string) => void | Promise<void>;
   onShowGitFileHistory: (path?: string) => void | Promise<void>;
   onShowViewerShortcuts: () => void;
@@ -135,6 +136,7 @@ export function useCommandDispatcher({
   onFocusPane,
   onMoveContentCursor,
   onOpenFocusedLink,
+  onOpenWebsite,
   onShowGitDiff,
   onShowGitFileHistory,
   onShowViewerShortcuts,
@@ -418,6 +420,15 @@ export function useCommandDispatcher({
         break;
       case "viewer.showShortcuts":
         onShowViewerShortcuts();
+        break;
+      case "help.openWebsite":
+        try {
+          await onOpenWebsite();
+        } catch {
+          showInlineNotice("Could not open Svard Website", {
+            tone: "error",
+          });
+        }
         break;
       case "navigation.back":
         onClearContentCursor();

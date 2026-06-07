@@ -43,6 +43,7 @@ import { useViewerSplitResize } from "./hooks/useViewerSplitResize";
 import { useWorkspacePersistence } from "./hooks/useWorkspacePersistence";
 import { useWorkspaceBoot } from "./hooks/useWorkspaceBoot";
 import { useWorkspaceSearch } from "./hooks/useWorkspaceSearch";
+import { svardWebsiteUrl } from "../core/projectLinks";
 import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { fileName } from "./lib/path";
 import {
@@ -928,6 +929,7 @@ export function App() {
     onFocusPane: focusPane,
     onMoveContentCursor: moveActiveContentCursor,
     onOpenFocusedLink: openFocusedLink,
+    onOpenWebsite: () => host.openExternalUrl(svardWebsiteUrl),
     onCompareActiveWithPickedDocument: compareActiveWithPickedDocument,
     onCompareGitRef: compareWithGitRef,
     onComparePickedDocuments: comparePickedDocuments,
