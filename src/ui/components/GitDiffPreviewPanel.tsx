@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent, RefObject } from "react";
 import type {
   AppConfig,
@@ -10,6 +10,7 @@ import type {
   LocalImageResult,
 } from "../../core/types";
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
+import type { RenderedDiffPresentation } from "../lib/gitRenderedDiff";
 import { DiffToolbar } from "./gitDiffPreview/toolbar";
 import { DiffPreviewBody } from "./gitDiffPreview/body";
 import type { DiffView } from "./gitDiffPreview/types";
@@ -24,6 +25,11 @@ import type {
   MouseGestureAutomation,
 } from "../types";
 import type { CopyText } from "../hooks/documentLinks/types";
+
+export interface DiffPreviewCloseHandoff {
+  preview: DocumentDiffPreview;
+  renderedPresentation: RenderedDiffPresentation;
+}
 
 interface DocumentDiffPreviewPanelProps {
   preview: DocumentDiffPreview;
@@ -65,7 +71,7 @@ interface DocumentDiffPreviewPanelProps {
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
   setLastMouseGesture?: (gesture: MouseGestureAutomation | null) => void;
-  onClose: () => void;
+  onClose: (handoff?: DiffPreviewCloseHandoff) => void;
 }
 
 export function DocumentDiffPreviewPanel({
@@ -163,6 +169,9 @@ export function DocumentDiffPreviewPanel({
       setActiveChangeIndex,
       view,
     });
+  const closeWithHandoff = useCallback(() => {
+    onClose({ preview, renderedPresentation });
+  }, [onClose, preview, renderedPresentation]);
   const {
     handleContextMenuCapture,
     handleMouseGesturePointerCancel,
@@ -179,7 +188,7 @@ export function DocumentDiffPreviewPanel({
     leftRef,
     moveChange,
     onClearRenderedContentCursor: clearRenderedContentCursor,
-    onClose,
+    onClose: closeWithHandoff,
     onOpenDiagramPreview,
     openContextMenu,
     openDocument,
@@ -211,12 +220,12 @@ export function DocumentDiffPreviewPanel({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        closeWithHandoff();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [closeWithHandoff]);
 
   return (
     <div
@@ -225,7 +234,7 @@ export function DocumentDiffPreviewPanel({
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
-          onClose();
+          closeWithHandoff();
         }
       }}
     >
@@ -264,7 +273,7 @@ export function DocumentDiffPreviewPanel({
             onViewChange={setView}
             onToggleExpanded={() => setIsExpanded((current) => !current)}
             onSyncScrollChange={setSyncScrollEnabled}
-            onClose={onClose}
+            onClose={closeWithHandoff}
           />
         )}
 

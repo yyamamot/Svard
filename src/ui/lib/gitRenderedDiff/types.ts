@@ -73,6 +73,23 @@ export interface RenderedDiffContentCursorTarget {
   changeIndex: number;
 }
 
+export type PostDiffGitMarkerKind = "added" | "changed" | "removed";
+
+export interface PostDiffGitMarker {
+  id: string;
+  kind: PostDiffGitMarkerKind;
+  anchorBlockId: string | null;
+  changeIndex: number;
+  inlineDiffRanges?: InlineDiffRange[];
+  includeSourceBlocks?: boolean;
+}
+
+export interface PostDiffGitMarkerContext {
+  markers: PostDiffGitMarker[];
+  renderedCount: number;
+  totalCount: number;
+}
+
 export interface GitRenderedDiffSummary {
   blocks: RenderedBlockDiff[];
   fallbackMessage?: string;

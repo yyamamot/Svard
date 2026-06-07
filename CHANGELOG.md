@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added opt-in Git change markers in the viewer so working tree changes are visible without opening Diff Preview.
+
 ## 1.0.1
 
 - Initial usable public release of Svard, a local-first desktop viewer for AsciiDoc and Markdown documents.

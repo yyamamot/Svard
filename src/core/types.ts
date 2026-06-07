@@ -234,6 +234,7 @@ export interface ExperimentalConfig {
   searchHitRuler: boolean;
   restoreAdditionalWindowsOnStartup: boolean;
   diagramPlaceholderRendering: boolean;
+  postDiffGitMarkers: boolean;
 }
 
 export interface KeybindingsConfig {

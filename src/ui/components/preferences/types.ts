@@ -36,6 +36,7 @@ export interface GeneralSectionProps {
   ) => void;
   onUpdateZoom: (zoom: number) => void;
   onUpdateZoomWithMouseWheel: (enabled: boolean) => void;
+  onUpdatePostDiffGitMarkers: (enabled: boolean) => void;
 }
 
 export interface ZenModeSectionProps {

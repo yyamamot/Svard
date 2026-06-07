@@ -10,6 +10,9 @@ export type {
   RenderedDiffNavigationTarget,
   RenderedDiffPresentation,
   RenderedDiffPresentationEntry,
+  PostDiffGitMarker,
+  PostDiffGitMarkerContext,
+  PostDiffGitMarkerKind,
   WordDiffPart,
 } from "./gitRenderedDiff/types";
 export {
@@ -35,4 +38,9 @@ export {
   renderedTextOverlap,
   wordDiffParts,
 } from "./gitRenderedDiff/text";
+export { applyInlineDiffHighlights } from "./gitRenderedDiff/inlineHighlights";
 export { deriveGitRenderedDiffSummary } from "./gitRenderedDiff/renderSummary";
+export {
+  buildPostDiffGitMarkerContext,
+  postDiffGitMarkerBudget,
+} from "./gitRenderedDiff/postDiffGitMarkers";

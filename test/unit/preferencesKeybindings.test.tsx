@@ -215,6 +215,21 @@ describe("PreferencesPanel settings and recording", () => {
     });
   });
 
+  it("stores General git marker toggle in the next config payload", async () => {
+    render();
+
+    const postDiffGitMarkers = harness.inputByReviewId(
+      "general-post-diff-git-markers-control",
+    );
+
+    expect(harness.byReviewId("preferences-tab-general")).toBeTruthy();
+    expect(postDiffGitMarkers?.checked).toBe(false);
+
+    await harness.click(postDiffGitMarkers);
+
+    expect(config.experimental.postDiffGitMarkers).toBe(true);
+  });
+
   it("stores Experimental feature toggles in the next config payload", async () => {
     render();
     await harness.click(harness.buttonByText("Experimental"));
@@ -228,7 +243,6 @@ describe("PreferencesPanel settings and recording", () => {
     const diagramPlaceholderRendering = harness.inputByReviewId(
       "experimental-diagram-placeholder-rendering-control",
     );
-
     expect(harness.byReviewId("preferences-tab-experimental")).toBeTruthy();
     expect(searchHitRuler?.checked).toBe(false);
     expect(restoreAdditionalWindows?.checked).toBe(false);

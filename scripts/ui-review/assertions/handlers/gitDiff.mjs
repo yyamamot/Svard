@@ -1,5 +1,6 @@
 import { buildGitDiffFileCompareAssertions } from "./gitDiff/fileCompare.mjs";
 import { buildGitDiffNavigationAssertions } from "./gitDiff/navigation.mjs";
+import { buildGitDiffPostDiffMarkerAssertions } from "./gitDiff/postDiffMarkers.mjs";
 import { buildGitDiffRenderedAssertions } from "./gitDiff/rendered.mjs";
 import { buildGitDiffSourceControlAssertions } from "./gitDiff/sourceControl.mjs";
 import { buildGitDiffSourceDiffAssertions } from "./gitDiff/sourceDiff.mjs";
@@ -169,6 +170,7 @@ export async function buildGitDiffAssertions(context) {
       renderedPlaceholderGrouping,
     })),
     ...(await buildGitDiffNavigationAssertions(context)),
+    ...(await buildGitDiffPostDiffMarkerAssertions(context)),
     ...(await buildGitDiffFileCompareAssertions(context)),
   };
 }

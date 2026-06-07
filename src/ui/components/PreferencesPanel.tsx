@@ -454,6 +454,15 @@ export function PreferencesPanel({
             onUpdateZoomWithMouseWheel={(zoomWithMouseWheel) =>
               onChange({ ...config, zoomWithMouseWheel })
             }
+            onUpdatePostDiffGitMarkers={(postDiffGitMarkers) =>
+              onChange({
+                ...config,
+                experimental: {
+                  ...config.experimental,
+                  postDiffGitMarkers,
+                },
+              })
+            }
           />
         );
       case "zenMode":

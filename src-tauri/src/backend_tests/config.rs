@@ -379,12 +379,14 @@ fn config_preserves_experimental_search_hit_ruler() {
     value["experimental"]["searchHitRuler"] = serde_json::Value::Bool(true);
     value["experimental"]["restoreAdditionalWindowsOnStartup"] = serde_json::Value::Bool(true);
     value["experimental"]["diagramPlaceholderRendering"] = serde_json::Value::Bool(true);
+    value["experimental"]["postDiffGitMarkers"] = serde_json::Value::Bool(true);
 
     let config: AppConfig = serde_json::from_value(value).expect("deserialize config");
 
     assert!(config.experimental.search_hit_ruler);
     assert!(config.experimental.restore_additional_windows_on_startup);
     assert!(config.experimental.diagram_placeholder_rendering);
+    assert!(config.experimental.post_diff_git_markers);
 }
 
 #[test]
@@ -400,6 +402,7 @@ fn config_defaults_missing_experimental_to_disabled_features() {
     assert!(!config.experimental.search_hit_ruler);
     assert!(!config.experimental.restore_additional_windows_on_startup);
     assert!(!config.experimental.diagram_placeholder_rendering);
+    assert!(!config.experimental.post_diff_git_markers);
 }
 
 #[test]

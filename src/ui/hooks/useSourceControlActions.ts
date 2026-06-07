@@ -41,6 +41,7 @@ export function useSourceControlActions({
   documentPayload,
   host,
   openContextMenu,
+  onGitRefresh,
   persistWorkspace,
   rootDirectory,
   setDocumentDiffPreview,
@@ -56,6 +57,7 @@ export function useSourceControlActions({
     items: ContextMenuItem[],
     source: string,
   ) => void;
+  onGitRefresh?: (reason: string) => void;
   persistWorkspace: (patch: Partial<AppConfig["workspace"]>) => Promise<void>;
   rootDirectory: string;
   setDocumentDiffPreview: (preview: DocumentDiffPreview | null) => void;
@@ -180,6 +182,7 @@ export function useSourceControlActions({
     if (!anchorPath) {
       return;
     }
+    onGitRefresh?.(reason);
     const startedAt = perfNow();
     const { deduped, request } =
       requestsRef.current.getOrStartGitChangesRequest(anchorPath, reason);

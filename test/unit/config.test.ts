@@ -14,6 +14,7 @@ describe("config normalization", () => {
       false,
     );
     expect(defaultConfig.experimental.diagramPlaceholderRendering).toBe(false);
+    expect(defaultConfig.experimental.postDiffGitMarkers).toBe(false);
   });
 
   it("migrates missing mouse wheel zoom setting to disabled", () => {
@@ -176,6 +177,7 @@ describe("config normalization", () => {
     expect(config.experimental.searchHitRuler).toBe(false);
     expect(config.experimental.restoreAdditionalWindowsOnStartup).toBe(false);
     expect(config.experimental.diagramPlaceholderRendering).toBe(false);
+    expect(config.experimental.postDiffGitMarkers).toBe(false);
   });
 
   it("keeps explicit experimental feature opt-ins", () => {
@@ -185,12 +187,14 @@ describe("config normalization", () => {
         searchHitRuler: true,
         restoreAdditionalWindowsOnStartup: true,
         diagramPlaceholderRendering: true,
+        postDiffGitMarkers: true,
       },
     });
 
     expect(config.experimental.searchHitRuler).toBe(true);
     expect(config.experimental.restoreAdditionalWindowsOnStartup).toBe(true);
     expect(config.experimental.diagramPlaceholderRendering).toBe(true);
+    expect(config.experimental.postDiffGitMarkers).toBe(true);
   });
 
   it("normalizes HTTP proxy config and preserves custom URL", () => {

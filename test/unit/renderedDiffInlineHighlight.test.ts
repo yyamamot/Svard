@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyInlineDiffHighlights } from "../../src/ui/components/gitDiffPreview/renderedView";
+import { applyInlineDiffHighlights } from "../../src/ui/lib/gitRenderedDiff";
 
 function parseBody(html: string): HTMLElement {
   return new DOMParser().parseFromString(html, "text/html").body;

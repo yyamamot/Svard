@@ -25,7 +25,10 @@ import { DiagramPreviewPanel } from "./DiagramPreviewPanel";
 import { ExternalLinkConfirmationDialog } from "./ExternalLinkConfirmationDialog";
 import { FileComparePickerPanel } from "./FileComparePickerPanel";
 import { GitCommitDetailsPanel } from "./GitCommitDetailsPanel";
-import { DocumentDiffPreviewPanel } from "./GitDiffPreviewPanel";
+import {
+  DocumentDiffPreviewPanel,
+  type DiffPreviewCloseHandoff,
+} from "./GitDiffPreviewPanel";
 import { GitRefPicker } from "./GitRefPicker";
 import { QuickOpen, type QuickOpenCandidate } from "./QuickOpen";
 import { ShortcutGestureHints } from "./ShortcutGestureHints";
@@ -93,7 +96,7 @@ interface AppOverlaysProps {
   confirmExternalLink: (url: string) => Promise<boolean>;
   openDiffExternalUrl: (url: string) => Promise<void>;
   onCloseContextMenu: () => void;
-  onCloseDocumentDiffPreview: () => void;
+  onCloseDocumentDiffPreview: (handoff?: DiffPreviewCloseHandoff) => void;
   onCloseFileComparePicker: () => void;
   onCloseGitCommitDetails: () => void;
   onCloseGitRefPicker: () => void;

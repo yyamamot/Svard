@@ -329,6 +329,7 @@ describe("window config merge", () => {
         searchHitRuler: true,
         restoreAdditionalWindowsOnStartup: true,
         diagramPlaceholderRendering: true,
+        postDiffGitMarkers: true,
       },
       workspace: {
         ...defaultConfig.workspace,
@@ -349,6 +350,7 @@ describe("window config merge", () => {
         searchHitRuler: false,
         restoreAdditionalWindowsOnStartup: false,
         diagramPlaceholderRendering: false,
+        postDiffGitMarkers: false,
       },
       workspace: {
         ...defaultConfig.workspace,
@@ -370,6 +372,7 @@ describe("window config merge", () => {
         searchHitRuler: true,
         restoreAdditionalWindowsOnStartup: true,
         diagramPlaceholderRendering: true,
+        postDiffGitMarkers: true,
       },
       workspace: {
         windowSessions: {

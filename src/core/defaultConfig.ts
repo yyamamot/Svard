@@ -95,6 +95,7 @@ export const defaultConfig: AppConfig = {
     searchHitRuler: false,
     restoreAdditionalWindowsOnStartup: false,
     diagramPlaceholderRendering: false,
+    postDiffGitMarkers: false,
   },
   keybindings: {
     preset: "native",

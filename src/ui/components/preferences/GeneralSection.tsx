@@ -7,6 +7,7 @@ export function GeneralSection({
   onUpdateAsciiDocTheme,
   onUpdateZoom,
   onUpdateZoomWithMouseWheel,
+  onUpdatePostDiffGitMarkers,
 }: GeneralSectionProps) {
   return (
     <section
@@ -38,52 +39,6 @@ export function GeneralSection({
             </label>
           ))}
         </div>
-        <label className="checkbox-row checkbox-row-detailed">
-          <input
-            type="checkbox"
-            data-review-id="zoom-wheel-toggle"
-            checked={config.zoomWithMouseWheel}
-            onChange={(event) =>
-              onUpdateZoomWithMouseWheel(event.target.checked)
-            }
-          />
-          <span className="checkbox-copy">
-            <span>Zoom with mouse wheel</span>
-            <span className="preference-help-text">
-              Use Command + scroll on macOS or Ctrl + scroll on Windows and
-              Linux.
-            </span>
-          </span>
-        </label>
-      </div>
-      <div className="preference-field" data-review-id="zoom-control">
-        <div className="zoom-header">
-          <span className="preference-label">Zoom</span>
-          <output data-review-id="zoom-value">{zoomValue}%</output>
-        </div>
-        <div className="zoom-slider-row">
-          <span className="zoom-bound">80</span>
-          <input
-            type="range"
-            data-review-id="zoom-slider"
-            min="80"
-            max="140"
-            step="10"
-            value={zoomValue}
-            aria-label="Zoom"
-            onChange={(event) => onUpdateZoom(Number(event.target.value))}
-          />
-          <span className="zoom-bound">140</span>
-          <button
-            type="button"
-            className="button subtle"
-            data-review-id="zoom-reset"
-            disabled={zoomValue === 100}
-            onClick={() => onUpdateZoom(100)}
-          >
-            Reset
-          </button>
-        </div>
       </div>
       <div className="preference-field">
         <span className="preference-label">AsciiDoc theme</span>
@@ -113,6 +68,72 @@ export function GeneralSection({
             </label>
           ))}
         </div>
+      </div>
+      <div className="preference-field" data-review-id="zoom-control">
+        <div className="zoom-header">
+          <span className="preference-label">Zoom</span>
+          <output data-review-id="zoom-value">{zoomValue}%</output>
+        </div>
+        <div className="zoom-slider-row">
+          <span className="zoom-bound">80</span>
+          <input
+            type="range"
+            data-review-id="zoom-slider"
+            min="80"
+            max="140"
+            step="10"
+            value={zoomValue}
+            aria-label="Zoom"
+            onChange={(event) => onUpdateZoom(Number(event.target.value))}
+          />
+          <span className="zoom-bound">140</span>
+          <button
+            type="button"
+            className="button subtle"
+            data-review-id="zoom-reset"
+            disabled={zoomValue === 100}
+            onClick={() => onUpdateZoom(100)}
+          >
+            Reset
+          </button>
+        </div>
+        <label className="checkbox-row checkbox-row-detailed">
+          <input
+            type="checkbox"
+            data-review-id="zoom-wheel-toggle"
+            checked={config.zoomWithMouseWheel}
+            onChange={(event) =>
+              onUpdateZoomWithMouseWheel(event.target.checked)
+            }
+          />
+          <span className="checkbox-copy">
+            <span>Zoom with mouse wheel</span>
+            <span className="preference-help-text">
+              Use Command + scroll on macOS or Ctrl + scroll on Windows and
+              Linux.
+            </span>
+          </span>
+        </label>
+      </div>
+      <div className="preference-field">
+        <span className="preference-label">Diff</span>
+        <label className="checkbox-row checkbox-row-detailed">
+          <input
+            type="checkbox"
+            data-review-id="general-post-diff-git-markers-control"
+            checked={config.experimental.postDiffGitMarkers}
+            onChange={(event) =>
+              onUpdatePostDiffGitMarkers(event.target.checked)
+            }
+          />
+          <span className="checkbox-copy">
+            <span>Git change markers</span>
+            <span className="preference-help-text">
+              Show working tree change markers in the viewer, and keep Diff
+              Preview handoff markers for the current document.
+            </span>
+          </span>
+        </label>
       </div>
     </section>
   );

@@ -1,0 +1,332 @@
+import { useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, RefObject } from "react";
+import type {
+  PostDiffGitMarker,
+  PostDiffGitMarkerKind,
+} from "../lib/gitRenderedDiff";
+import { applyInlineDiffHighlights } from "../lib/gitRenderedDiff";
+import { perfBasename, tracePerf } from "../lib/perfTrace";
+import type { ViewerPostDiffGitMarkerContext } from "../types";
+
+interface PositionedPostDiffGitMarker extends PostDiffGitMarker {
+  top: number;
+  target: HTMLElement;
+}
+
+interface DisplayPostDiffGitMarker extends PositionedPostDiffGitMarker {
+  markerCount: number;
+  targetMarkers: PositionedPostDiffGitMarker[];
+}
+
+interface PostDiffGitMarkersProps {
+  articleRef: RefObject<HTMLElement | null>;
+  context: ViewerPostDiffGitMarkerContext | null;
+}
+
+const blockSelector =
+  "h1,h2,h3,h4,h5,h6,p,ul,ol,table,pre,blockquote,.admonitionblock,.markdown-alert,.imageblock,.diagram-slot,img,.math-block";
+
+function blockKindForElement(element: Element): string | null {
+  const tagName = element.tagName.toLowerCase();
+  if (/^h[1-6]$/.test(tagName)) {
+    return "heading";
+  }
+  if (element.classList.contains("diagram-slot")) {
+    return "diagram";
+  }
+  if (element.querySelector(".diagram-slot")) {
+    return "diagram";
+  }
+  if (tagName === "img" || element.querySelector("img")) {
+    return "image";
+  }
+  if (
+    tagName === "p" ||
+    element.classList.contains("math-block") ||
+    tagName === "ul" ||
+    tagName === "ol" ||
+    tagName === "table" ||
+    tagName === "pre" ||
+    tagName === "blockquote" ||
+    element.classList.contains("admonitionblock") ||
+    element.classList.contains("markdown-alert")
+  ) {
+    return tagName;
+  }
+  return null;
+}
+
+function shouldSkipDescendantBlock(element: Element): boolean {
+  if (
+    element.tagName.toLowerCase() === "img" &&
+    element.parentElement &&
+    blockKindForElement(element.parentElement) === "image"
+  ) {
+    return true;
+  }
+  if (
+    !element.classList.contains("diagram-slot") &&
+    element.parentElement?.closest(".diagram-slot")
+  ) {
+    return true;
+  }
+  if (
+    element.classList.contains("diagram-slot") &&
+    element.parentElement &&
+    blockKindForElement(element.parentElement) === "diagram"
+  ) {
+    return true;
+  }
+  return Boolean(
+    element.parentElement?.closest(
+      "table, pre, blockquote, ul, ol, .admonitionblock, .markdown-alert, .stemblock",
+    ) && !element.classList.contains("math-block"),
+  );
+}
+
+function collectBlockAnchors(article: HTMLElement): Map<string, HTMLElement> {
+  const anchors = new Map<string, HTMLElement>();
+  Array.from(article.querySelectorAll<HTMLElement>(blockSelector))
+    .filter((element) => blockKindForElement(element) !== null)
+    .filter((element) => !shouldSkipDescendantBlock(element))
+    .forEach((element, index) => {
+      anchors.set(`rendered-block:${index}`, element);
+    });
+  return anchors;
+}
+
+function markerLabel(kind: PostDiffGitMarkerKind): string {
+  if (kind === "added") {
+    return "Go to added change";
+  }
+  if (kind === "removed") {
+    return "Go to removed change";
+  }
+  return "Go to changed block";
+}
+
+function clearPostDiffHighlights(article: HTMLElement | null) {
+  article
+    ?.querySelectorAll<HTMLElement>(".post-diff-git-highlight")
+    .forEach((element) => {
+      element.classList.remove(
+        "post-diff-git-highlight",
+        "post-diff-git-highlight-added",
+        "post-diff-git-highlight-changed",
+        "post-diff-git-highlight-removed",
+      );
+      delete element.dataset.postDiffGitMarkerKind;
+      delete element.dataset.reviewIdPostDiffGitHighlight;
+    });
+  article
+    ?.querySelectorAll<HTMLElement>(".git-inline-word-highlight")
+    .forEach((element) => {
+      const parent = element.parentNode;
+      if (!parent) {
+        return;
+      }
+      while (element.firstChild) {
+        parent.insertBefore(element.firstChild, element);
+      }
+      parent.removeChild(element);
+      parent.normalize();
+    });
+}
+
+function applyPostDiffHighlights(markers: PositionedPostDiffGitMarker[]) {
+  const seenTargets = new Set<HTMLElement>();
+  for (const marker of markers) {
+    if (seenTargets.has(marker.target)) {
+      continue;
+    }
+    seenTargets.add(marker.target);
+    marker.target.classList.add(
+      "post-diff-git-highlight",
+      `post-diff-git-highlight-${marker.kind}`,
+    );
+    marker.target.dataset.postDiffGitMarkerKind = marker.kind;
+    marker.target.dataset.reviewIdPostDiffGitHighlight =
+      "post-diff-git-highlight";
+    if (marker.inlineDiffRanges && marker.inlineDiffRanges.length > 0) {
+      applyInlineDiffHighlights(marker.target, marker.inlineDiffRanges, {
+        includeSourceBlocks: marker.includeSourceBlocks,
+      });
+    }
+  }
+}
+
+function hasPostDiffHighlight(marker: PositionedPostDiffGitMarker): boolean {
+  if (!marker.target.classList.contains("post-diff-git-highlight")) {
+    return false;
+  }
+  if (!marker.inlineDiffRanges || marker.inlineDiffRanges.length === 0) {
+    return true;
+  }
+  return marker.inlineDiffRanges.every((range) =>
+    marker.target.querySelector(`.git-inline-word-highlight.${range.kind}`),
+  );
+}
+
+function compactDisplayMarkers(
+  markers: PositionedPostDiffGitMarker[],
+): DisplayPostDiffGitMarker[] {
+  const groups: DisplayPostDiffGitMarker[] = [];
+  for (const marker of markers) {
+    const previous = groups[groups.length - 1];
+    const previousLast =
+      previous?.targetMarkers[previous.targetMarkers.length - 1] ?? null;
+    const isAdjacent =
+      previousLast &&
+      previousLast.kind === marker.kind &&
+      Math.abs(previousLast.changeIndex - marker.changeIndex) <= 1 &&
+      Math.abs(previousLast.top - marker.top) <= 72;
+    if (previous && isAdjacent) {
+      previous.targetMarkers.push(marker);
+      previous.markerCount += 1;
+      previous.top =
+        previous.targetMarkers.reduce((total, item) => total + item.top, 0) /
+        previous.targetMarkers.length;
+      continue;
+    }
+    groups.push({
+      ...marker,
+      markerCount: 1,
+      targetMarkers: [marker],
+    });
+  }
+  return groups;
+}
+
+export function PostDiffGitMarkers({
+  articleRef,
+  context,
+}: PostDiffGitMarkersProps) {
+  const [markers, setMarkers] = useState<DisplayPostDiffGitMarker[]>([]);
+  const [overlayStyle, setOverlayStyle] = useState<CSSProperties | null>(null);
+  const highlightedContextRef = useRef<ViewerPostDiffGitMarkerContext | null>(
+    null,
+  );
+
+  useLayoutEffect(() => {
+    if (!context || context.markers.length === 0) {
+      setMarkers([]);
+      setOverlayStyle(null);
+      clearPostDiffHighlights(articleRef.current);
+      highlightedContextRef.current = null;
+      return;
+    }
+
+    let animationFrame = 0;
+    const updateMarkers = () => {
+      const article = articleRef.current;
+      const pane = article?.closest<HTMLElement>(".viewer-pane") ?? null;
+      if (!article || !pane) {
+        setMarkers([]);
+        setOverlayStyle(null);
+        return;
+      }
+
+      const articleRect = article.getBoundingClientRect();
+      const paneRect = pane.getBoundingClientRect();
+      const anchors = collectBlockAnchors(article);
+      const positioned = context.markers
+        .map((marker) => {
+          const target = marker.anchorBlockId
+            ? anchors.get(marker.anchorBlockId)
+            : article;
+          if (!target) {
+            return null;
+          }
+          const rect = target.getBoundingClientRect();
+          return {
+            ...marker,
+            target,
+            top: rect.top + rect.height / 2,
+          };
+        })
+        .filter(
+          (marker): marker is PositionedPostDiffGitMarker => marker !== null,
+        );
+      const needsHighlight =
+        highlightedContextRef.current !== context ||
+        positioned.some((marker) => !hasPostDiffHighlight(marker));
+      if (needsHighlight && positioned.length > 0) {
+        clearPostDiffHighlights(article);
+        applyPostDiffHighlights(positioned);
+        highlightedContextRef.current = context;
+      }
+
+      setOverlayStyle({
+        left: `${Math.max(paneRect.left + 4, articleRect.left - 18)}px`,
+        top: "0px",
+      });
+      setMarkers(compactDisplayMarkers(positioned));
+    };
+
+    animationFrame = window.requestAnimationFrame(updateMarkers);
+    const pane = articleRef.current?.closest<HTMLElement>(".viewer-pane");
+    const article = articleRef.current;
+    const observer =
+      article && typeof MutationObserver !== "undefined"
+        ? new MutationObserver(() => {
+            window.cancelAnimationFrame(animationFrame);
+            animationFrame = window.requestAnimationFrame(updateMarkers);
+          })
+        : null;
+    if (article) {
+      observer?.observe(article, {
+        childList: true,
+        subtree: true,
+      });
+    }
+    pane?.addEventListener("scroll", updateMarkers, { passive: true });
+    window.addEventListener("resize", updateMarkers);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      observer?.disconnect();
+      clearPostDiffHighlights(articleRef.current);
+      highlightedContextRef.current = null;
+      pane?.removeEventListener("scroll", updateMarkers);
+      window.removeEventListener("resize", updateMarkers);
+    };
+  }, [articleRef, context]);
+
+  if (!context || markers.length === 0 || !overlayStyle) {
+    return null;
+  }
+
+  return (
+    <nav
+      className="post-diff-git-markers"
+      data-review-id="post-diff-git-markers"
+      data-marker-count={String(context.totalCount)}
+      data-rendered-marker-count={String(markers.length)}
+      aria-label="Post-diff git markers"
+      style={overlayStyle}
+    >
+      {markers.map((marker) => (
+        <button
+          key={marker.id}
+          type="button"
+          className={`post-diff-git-marker ${marker.kind}`}
+          data-review-id="post-diff-git-marker"
+          data-marker-kind={marker.kind}
+          aria-label={`${markerLabel(marker.kind)} ${marker.changeIndex + 1} of ${context.totalCount}`}
+          title={markerLabel(marker.kind)}
+          style={{ top: `${marker.top}px` }}
+          onClick={() => {
+            const target = marker.targetMarkers[0]?.target ?? marker.target;
+            target.scrollIntoView({ block: "center" });
+            tracePerf("postDiffGitMarkers.click", {
+              basename: perfBasename(context.documentPath),
+              kind: marker.kind,
+              markerCount: context.totalCount,
+              renderedCount: context.renderedCount,
+              clicked: true,
+            });
+          }}
+        />
+      ))}
+    </nav>
+  );
+}

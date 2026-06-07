@@ -57,6 +57,7 @@ type RawAppConfig = Partial<AppConfig> & {
     searchHitRuler?: unknown;
     restoreAdditionalWindowsOnStartup?: unknown;
     diagramPlaceholderRendering?: unknown;
+    postDiffGitMarkers?: unknown;
   };
 };
 
@@ -262,6 +263,7 @@ function normalizeExperimentalConfig(
       rawConfig.experimental?.restoreAdditionalWindowsOnStartup === true,
     diagramPlaceholderRendering:
       rawConfig.experimental?.diagramPlaceholderRendering === true,
+    postDiffGitMarkers: rawConfig.experimental?.postDiffGitMarkers === true,
   };
 }
 

@@ -6,6 +6,7 @@ import type {
 } from "../core/types";
 import type { ReactNode } from "react";
 import type { SafeHtml } from "./lib/safeHtml";
+import type { PostDiffGitMarkerContext } from "./lib/gitRenderedDiff";
 
 export type PaneId = "left" | "right";
 
@@ -61,6 +62,12 @@ export interface LightweightActionFeedback {
   id: number;
   message: string;
   autoDismissMs: number;
+}
+
+export interface ViewerPostDiffGitMarkerContext
+  extends PostDiffGitMarkerContext {
+  documentPath: string;
+  documentUpdatedAt?: string | null;
 }
 
 export type OpenFileReloadStatus = "reloading" | "reloaded" | "error";

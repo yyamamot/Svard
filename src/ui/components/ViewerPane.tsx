@@ -16,6 +16,7 @@ import type {
 import { StartPage } from "./StartPage";
 import { MouseGestureTrail } from "./MouseGestureTrail";
 import { SearchHitRuler } from "./SearchHitRuler";
+import { PostDiffGitMarkers } from "./PostDiffGitMarkers";
 import { fileName } from "../lib/path";
 import { detectPlatform } from "../../core/keybindings";
 import {
@@ -43,6 +44,7 @@ import type {
   PaneId,
   SearchHitSummary,
   ViewerPaneSnapshot,
+  ViewerPostDiffGitMarkerContext,
 } from "../types";
 
 export const loadingMessageDelayMs = 200;
@@ -65,6 +67,7 @@ interface ViewerPaneProps {
   documentPayload: DocumentPayload | null;
   renderResult: ViewerPaneSnapshot["renderResult"];
   documentHtml: SafeHtml;
+  postDiffGitMarkers: ViewerPostDiffGitMarkerContext | null;
   query: string;
   searchHits: SearchHitSummary[];
   searchIndex: number;
@@ -116,6 +119,7 @@ export function ViewerPane({
   documentPayload,
   renderResult,
   documentHtml,
+  postDiffGitMarkers,
   query,
   searchHits,
   searchIndex,
@@ -210,6 +214,14 @@ export function ViewerPane({
   const documentPath = payload?.path ?? null;
   const documentFormat = payload?.format ?? null;
   const hasRenderResult = result !== null;
+  const activePostDiffGitMarkers: ViewerPostDiffGitMarkerContext | null =
+    config?.experimental.postDiffGitMarkers &&
+    payload &&
+    postDiffGitMarkers?.documentPath === payload.path &&
+    (postDiffGitMarkers.documentUpdatedAt ?? null) ===
+      (payload.updatedAt ?? null)
+      ? postDiffGitMarkers
+      : null;
 
   useLayoutEffect(() => {
     const article = articleNodeRef.current;
@@ -426,6 +438,12 @@ export function ViewerPane({
           searchHits={searchHits}
           searchIndex={searchIndex}
           onActivateSearchHit={onActivateSearchHit}
+        />
+      )}
+      {isFocused && result && payload && activePostDiffGitMarkers && (
+        <PostDiffGitMarkers
+          articleRef={articleNodeRef}
+          context={activePostDiffGitMarkers}
         />
       )}
       {result && payload && (

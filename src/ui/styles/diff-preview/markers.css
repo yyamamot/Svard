@@ -26,7 +26,8 @@
   padding: 0 2px;
 }
 
-.git-rendered-block-content pre .git-inline-word-highlight {
+.git-rendered-block-content pre .git-inline-word-highlight,
+.document-body pre .git-inline-word-highlight {
   padding: 0 1px;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;

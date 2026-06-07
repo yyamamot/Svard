@@ -92,6 +92,7 @@ describe("ViewerPane", () => {
         searchHitRuler: false,
         restoreAdditionalWindowsOnStartup: false,
         diagramPlaceholderRendering: false,
+        postDiffGitMarkers: false,
       },
     },
     documentPayload = payload("asciidoc"),
@@ -104,6 +105,7 @@ describe("ViewerPane", () => {
     query = "",
     searchHits = [],
     searchIndex = 0,
+    postDiffGitMarkers = null,
   }: {
     config?: AppConfig;
     documentPayload?: DocumentPayload | null;
@@ -116,6 +118,9 @@ describe("ViewerPane", () => {
     query?: string;
     searchHits?: ViewerPaneSnapshot["searchHits"];
     searchIndex?: number;
+    postDiffGitMarkers?: Parameters<
+      typeof ViewerPane
+    >[0]["postDiffGitMarkers"];
   } = {}) {
     root.render(
       <ViewerPane
@@ -132,6 +137,7 @@ describe("ViewerPane", () => {
         documentPayload={documentPayload}
         renderResult={nextRenderResult}
         documentHtml={documentHtml}
+        postDiffGitMarkers={postDiffGitMarkers}
         query={query}
         searchHits={searchHits}
         searchIndex={searchIndex}
@@ -242,6 +248,7 @@ describe("ViewerPane", () => {
             searchHitRuler: true,
             restoreAdditionalWindowsOnStartup: false,
             diagramPlaceholderRendering: false,
+            postDiffGitMarkers: false,
           },
         },
         documentHtml: markSafeHtml(
@@ -312,6 +319,228 @@ describe("ViewerPane", () => {
     expect(
       container.querySelector('[data-review-id="search-hit-ruler"]'),
     ).toBeNull();
+  });
+
+  it("renders opt-in post-diff git markers and scrolls to the target block", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+          },
+        },
+        documentHtml: markSafeHtml("<p>Intro</p><p>Changed token</p>"),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:1",
+              kind: "changed",
+              anchorBlockId: "rendered-block:1",
+              changeIndex: 0,
+              inlineDiffRanges: [{ kind: "added", start: 8, end: 13 }],
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const marker = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="post-diff-git-marker"]',
+    );
+    expect(
+      container.querySelector('[data-review-id="post-diff-git-markers"]'),
+    ).not.toBeNull();
+    expect(marker?.dataset.markerKind).toBe("changed");
+    const highlightedBlock = container.querySelector<HTMLElement>(
+      ".post-diff-git-highlight",
+    );
+    expect(highlightedBlock?.textContent).toBe("Changed token");
+    expect(highlightedBlock?.dataset.postDiffGitMarkerKind).toBe("changed");
+    const inlineHighlight = highlightedBlock?.querySelector<HTMLElement>(
+      ".git-inline-word-highlight.added",
+    );
+    expect(inlineHighlight?.textContent).toBe("token");
+
+    act(() => {
+      marker?.click();
+    });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+  });
+
+  it("renders removed inline post-diff highlights when the active side has deleted text", async () => {
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+          },
+        },
+        documentHtml: markSafeHtml("<p>Deleted token remains</p>"),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:0",
+              kind: "changed",
+              anchorBlockId: "rendered-block:0",
+              changeIndex: 0,
+              inlineDiffRanges: [{ kind: "removed", start: 8, end: 13 }],
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const inlineHighlight = container.querySelector<HTMLElement>(
+      ".git-inline-word-highlight.removed",
+    );
+    expect(inlineHighlight?.textContent).toBe("token");
+  });
+
+  it("keeps post-diff inline highlights stable during viewer scroll", async () => {
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+          },
+        },
+        documentHtml: markSafeHtml("<p>Intro</p><p>Changed token</p>"),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:1",
+              kind: "changed",
+              anchorBlockId: "rendered-block:1",
+              changeIndex: 0,
+              inlineDiffRanges: [{ kind: "added", start: 8, end: 13 }],
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const viewerPane = container.querySelector<HTMLElement>(".viewer-pane");
+    expect(
+      container.querySelectorAll(".git-inline-word-highlight.added"),
+    ).toHaveLength(1);
+
+    await act(async () => {
+      viewerPane?.dispatchEvent(new Event("scroll"));
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const inlineHighlights = container.querySelectorAll(
+      ".git-inline-word-highlight.added",
+    );
+    expect(inlineHighlights).toHaveLength(1);
+    expect(inlineHighlights[0]?.textContent).toBe("token");
+  });
+
+  it("keeps post-diff git markers hidden while the opt-in flag is disabled", async () => {
+    await act(async () =>
+      renderPane({
+        documentHtml: markSafeHtml("<p>Changed</p>"),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:0",
+              kind: "changed",
+              anchorBlockId: "rendered-block:0",
+              changeIndex: 0,
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    expect(
+      container.querySelector('[data-review-id="post-diff-git-markers"]'),
+    ).toBeNull();
+    expect(container.querySelector(".post-diff-git-highlight")).toBeNull();
+  });
+
+  it("keeps stale post-diff git markers hidden after document reload", async () => {
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+          },
+        },
+        documentHtml: markSafeHtml("<p>Changed</p>"),
+        documentPayload: {
+          ...payload("asciidoc"),
+          updatedAt: "2026-05-20T00:00:00.000Z",
+        },
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:0",
+              kind: "changed",
+              anchorBlockId: "rendered-block:0",
+              changeIndex: 0,
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    expect(
+      container.querySelector('[data-review-id="post-diff-git-markers"]'),
+    ).toBeNull();
+    expect(container.querySelector(".post-diff-git-highlight")).toBeNull();
   });
 
   it("does not dispatch mouse wheel zoom while the opt-in setting is disabled", async () => {

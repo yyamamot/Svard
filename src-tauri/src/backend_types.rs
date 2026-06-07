@@ -278,6 +278,8 @@ pub struct ExperimentalConfig {
     pub restore_additional_windows_on_startup: bool,
     #[serde(default)]
     pub diagram_placeholder_rendering: bool,
+    #[serde(default)]
+    pub post_diff_git_markers: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -973,6 +975,7 @@ fn default_experimental_config() -> ExperimentalConfig {
         search_hit_ruler: false,
         restore_additional_windows_on_startup: false,
         diagram_placeholder_rendering: false,
+        post_diff_git_markers: false,
     }
 }
 
