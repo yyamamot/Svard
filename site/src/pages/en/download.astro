@@ -8,10 +8,6 @@ import LandingLayout from '../../layouts/LandingLayout.astro';
     <p class="eyebrow">{site.download.eyebrow}</p>
     <h1>{site.download.heading}</h1>
     <p class="lead">{site.download.lead}</p>
-    <div class="release-status">
-      <span>{site.download.status.label}</span>
-      <strong>{site.download.status.value}</strong>
-    </div>
   </section>
   <section class="section-shell resource-section">
     <h2>{site.download.resources.heading}</h2>
@@ -49,11 +45,5 @@ import LandingLayout from '../../layouts/LandingLayout.astro';
         </article>
       ))}
     </div>
-  </section>
-  <section class="section-shell note-list">
-    <h2>Notes</h2>
-    <ul>
-      {site.download.notes.map((note) => <li>{note}</li>)}
-    </ul>
   </section>
 </LandingLayout>

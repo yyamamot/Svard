@@ -56,11 +56,6 @@ export const site = {
       title: 'Preview-based diff review',
       body: 'Git and file-to-file comparison are organized around reviewing document changes in the preview, not only around line-based source diffs.',
     },
-    download: {
-      title: 'Download',
-      body: 'Platform status, platform-specific notes, and known limitations are collected on the Download page.',
-      status: 'Coming soon',
-    },
     faq: [
       { question: 'Is Svard an editor?', answer: 'No. Svard focuses on reading, navigation, and comparison as a desktop viewer.' },
       { question: 'Does Svard use public Kroki by default?', answer: 'No. Public Kroki is not an implicit default. Fallback requires explicit user configuration.' },
@@ -90,7 +85,6 @@ export const site = {
     eyebrow: 'Download',
     heading: 'Download Svard from GitHub Releases.',
     lead: 'Use GitHub Releases as the official source for installers, release notes, and checksums. Review the platform notes before opening unsigned builds.',
-    status: { label: 'Release status', value: 'Available from GitHub Releases' },
     resources: {
       heading: 'Download and verification',
       items: [
@@ -123,7 +117,6 @@ export const site = {
           details: [
             'Linux is not supported at this time',
             'macOS and Windows builds are planned as unsigned builds',
-            'Auto-update is not supported yet',
             'Performance and Git reference resolution may be limited when using WSL environments or files located inside WSL because file watching and I/O can be slower across that boundary.',
           ],
         },
@@ -163,16 +156,9 @@ export const site = {
           platform: 'Linux',
           status: 'Unsupported',
           command: 'None',
-          note: 'Linux artifacts, package-manager commands, and launch instructions are not provided at this time.',
+          note: 'Linux artifacts and launch instructions are not provided at this time.',
         },
       ],
     },
-    notes: [
-      'Use the GitHub Releases page as the official download source.',
-      'Direct asset links are intentionally not hard-coded on this page.',
-      'App Store badges and package-manager commands are not shown because those channels are not supported yet.',
-      'Auto-update promises are not shown until implementation and distribution are decided.',
-      'Commands should only be used for artifacts obtained from the official release.',
-    ],
   },
 };

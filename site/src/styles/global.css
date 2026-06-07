@@ -166,9 +166,7 @@ h2 {
 .feature-item p,
 .statement p,
 .split-note p,
-.download-panel p,
 .download-card p,
-.note-list li,
 .faq-list p,
 .site-footer p,
 .placeholder-body p {
@@ -431,10 +429,7 @@ h2 {
 
 .statement,
 .split-note,
-.download-panel,
-.resource-section,
-.platform-support,
-.note-list {
+.platform-support {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
@@ -451,41 +446,15 @@ h2 {
 }
 
 .statement h2,
-.split-note h2,
-.download-panel h2 {
+.split-note h2 {
   font-size: clamp(2rem, 4vw, 3.4rem);
 }
 
-.split-note,
-.download-panel {
+.split-note {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
   gap: 48px;
   align-items: center;
-}
-
-.download-panel {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.release-status {
-  display: inline-flex;
-  gap: 16px;
-  align-items: center;
-  margin-top: 28px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 10px 15px;
-  background: rgba(255, 255, 255, 0.5);
-  color: var(--muted);
-}
-
-.release-status strong {
-  color: var(--accent);
-}
-
-.note-list {
-  max-width: 840px;
 }
 
 .resource-section h2 {
@@ -589,11 +558,6 @@ h2 {
   line-height: 1.45;
 }
 
-.note-list ul {
-  margin: 16px 0 0;
-  padding-left: 1.1rem;
-}
-
 .site-footer {
   display: flex;
   align-items: center;
@@ -617,8 +581,7 @@ h2 {
   .hero,
   .page-hero,
   .statement,
-  .split-note,
-  .download-panel {
+  .split-note {
     grid-template-columns: 1fr;
     min-height: auto;
     gap: 32px;

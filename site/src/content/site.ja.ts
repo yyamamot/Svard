@@ -56,11 +56,6 @@ export const site = {
       title: 'プレビューベースの差分確認',
       body: 'Git やファイル同士の比較は、行単位の差分だけではなく、プレビュー上で文書として読める変化を確認するワークスペースとして整理します。',
     },
-    download: {
-      title: 'ダウンロード',
-      body: '対応状況、プラットフォーム別の注意、既知の制限をDownloadページに集約します。',
-      status: '準備中',
-    },
     faq: [
       { question: 'Svard は編集ツールですか？', answer: 'いいえ。Svard は閲覧、ナビゲーション、比較に集中したデスクトップビューアです。' },
       { question: '公開Krokiを標準で使いますか？', answer: 'いいえ。公開Krokiを暗黙の標準にはしません。フォールバックはユーザーが明示した場合に限定します。' },
@@ -90,7 +85,6 @@ export const site = {
     eyebrow: 'Download',
     heading: 'GitHub Releases からダウンロードできます。',
     lead: 'インストーラー、リリースノート、チェックサムは GitHub Releases を公式の入手元として確認してください。未署名ビルドを開く前に、プラットフォーム別の注意を確認してください。',
-    status: { label: 'リリース状況', value: 'GitHub Releases で公開' },
     resources: {
       heading: '入手と確認',
       items: [
@@ -123,7 +117,6 @@ export const site = {
           details: [
             'Linuxは現状非サポート',
             'macOS / Windows は未署名ビルドとして配布予定',
-            '自動更新は未対応',
             'WSL環境やWSL上のファイルを対象にした利用では、ファイル監視やI/Oの性能、Git参照の解決に問題が出る場合があります。',
           ],
         },
@@ -163,16 +156,9 @@ export const site = {
           platform: 'Linux',
           status: '非サポート',
           command: 'なし',
-          note: '現状はLinux向け配布物、パッケージマネージャー、起動手順を提供しません。',
+          note: '現状はLinux向け配布物と起動手順を提供しません。',
         },
       ],
     },
-    notes: [
-      'GitHub Releases を公式のダウンロード元として扱います。',
-      'このページでは配布物への直接リンクを固定せず、Releases ページへの導線を正にします。',
-      'App Store バッジやパッケージマネージャーのコマンドは、対応するまで掲載しません。',
-      '自動更新の約束は、実装と配布経路が確定するまで掲載しません。',
-      '確認コマンドは、公式リリースから取得した配布物に対してだけ実行してください。',
-    ],
   },
 };

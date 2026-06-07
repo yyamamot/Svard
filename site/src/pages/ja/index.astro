@@ -5,7 +5,6 @@ import Hero from '../../components/Hero.astro';
 import FeatureGrid from '../../components/FeatureGrid.astro';
 import PrivacySection from '../../components/PrivacySection.astro';
 import DiffSection from '../../components/DiffSection.astro';
-import DownloadSection from '../../components/DownloadSection.astro';
 import FaqSection from '../../components/FaqSection.astro';
 ---
 
@@ -14,6 +13,5 @@ import FaqSection from '../../components/FaqSection.astro';
   <FeatureGrid items={site.top.highlights} />
   <PrivacySection content={site.top.privacy} locale={site.locale} />
   <DiffSection content={site.top.diff} locale={site.locale} />
-  <DownloadSection content={site.top.download} />
   <FaqSection items={site.top.faq} label="FAQ" />
 </LandingLayout>
