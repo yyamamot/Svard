@@ -54,6 +54,7 @@
     "check:ui-scenarios": "node scripts/check-ui-scenarios.mjs",
     "version:set": "node scripts/set-release-version.mjs",
     "version:check": "node scripts/check-release-version.mjs",
+    "mirror:commit-last": "node scripts/mirror-commit-last.mjs",
     "check": "pnpm run typecheck && pnpm run build && pnpm --dir site run build",
     "verify": "pnpm run check"
   },
