@@ -44,8 +44,7 @@ import { useWorkspacePersistence } from "./hooks/useWorkspacePersistence";
 import { useWorkspaceBoot } from "./hooks/useWorkspaceBoot";
 import { useWorkspaceSearch } from "./hooks/useWorkspaceSearch";
 import { svardWebsiteUrl } from "../core/projectLinks";
-import { isSupportedDocumentPath } from "../core/documentFormat";
-import type { DiffPreviewCloseHandoff } from "./components/GitDiffPreviewPanel";
+import { usePostDiffGitMarkerState } from "./hooks/usePostDiffGitMarkerState";
 import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { fileName } from "./lib/path";
 import {
@@ -67,11 +66,6 @@ import {
   moveContentCursor,
   type ContentCursorCommandHandler,
 } from "./lib/contentCursor";
-import {
-  buildPostDiffGitMarkerContext,
-  buildRenderedDiffPresentation,
-  deriveGitRenderedDiffSummary,
-} from "./lib/gitRenderedDiff";
 import { scrollViewer } from "./lib/viewerScroll";
 import {
   mergePersistedSharedConfigIntoWindow,
@@ -89,7 +83,6 @@ import type {
   RightSidebarTab,
   SearchHitSummary,
   SmartScrollAnchor,
-  ViewerPostDiffGitMarkerContext,
   ViewerPaneSnapshot,
   WorkspaceTab,
 } from "./types";
@@ -110,35 +103,9 @@ import type {
 import { defaultConfig } from "../core/defaultConfig";
 import { getBoundedTabs } from "../core/tabLayout";
 import { nextRecentTabPath } from "../core/workspaceState";
-import { perfBasename, tracePerf } from "./lib/perfTrace";
-import { shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange } from "./lib/postDiffGitMarkerRefresh";
+import { tracePerf } from "./lib/perfTrace";
 
 const host = createHostAdapter();
-
-function sortedValues(values: ReadonlySet<string>): string[] {
-  return Array.from(values).sort();
-}
-
-function postDiffGitMarkerRenderSignature({
-  config,
-  confirmedRemoteDiagramKeys,
-  krokiFallbackDiagramKeys,
-}: {
-  config: AppConfig;
-  confirmedRemoteDiagramKeys: ReadonlySet<string>;
-  krokiFallbackDiagramKeys: ReadonlySet<string>;
-}): string {
-  return JSON.stringify({
-    theme: config.theme,
-    diagram: config.diagram,
-    kroki: config.kroki,
-    security: config.security,
-    diagramPlaceholderRendering:
-      config.experimental.diagramPlaceholderRendering,
-    confirmedRemoteDiagramKeys: sortedValues(confirmedRemoteDiagramKeys),
-    krokiFallbackDiagramKeys: sortedValues(krokiFallbackDiagramKeys),
-  });
-}
 
 export function App() {
   const viewerRef = useRef<HTMLElement | null>(null);
@@ -193,15 +160,6 @@ export function App() {
     useState<DiagramPreviewState | null>(null);
   const [documentDiffPreview, setDocumentDiffPreview] =
     useState<DocumentDiffPreview | null>(null);
-  const [postDiffGitMarkersByPath, setPostDiffGitMarkersByPath] = useState<
-    Record<string, ViewerPostDiffGitMarkerContext>
-  >({});
-  const [postDiffGitMarkerRefreshToken, setPostDiffGitMarkerRefreshToken] =
-    useState(0);
-  const initialPostDiffGitMarkerSignaturesRef = useRef<Record<string, string>>(
-    {},
-  );
-  const initialPostDiffGitMarkerGenerationRef = useRef(0);
   const [workspaceEnvironment, setWorkspaceEnvironment] =
     useState<WorkspaceEnvironment | null>(null);
   const wslWorkspaceNoticeShownRef = useRef(false);
@@ -231,103 +189,6 @@ export function App() {
   });
   const preferencesOpen =
     preferencesTabOpen && activeWorkspaceTabKind === "preferences";
-
-  function clearPostDiffGitMarkers(reason: string) {
-    setPostDiffGitMarkersByPath((current) => {
-      const activePath = documentPayload?.path ?? null;
-      if (!activePath) {
-        return current;
-      }
-      const markerContext = current[activePath];
-      if (!markerContext) {
-        return current;
-      }
-      tracePerf("postDiffGitMarkers.clear", {
-        basename: perfBasename(markerContext.documentPath),
-        markerCount: markerContext.totalCount,
-        renderedCount: markerContext.renderedCount,
-        reason,
-        cleared: true,
-      });
-      const next = { ...current };
-      delete next[activePath];
-      return next;
-    });
-  }
-
-  function invalidatePostDiffGitMarkersForActiveDocument(reason: string) {
-    const path = documentPayload?.path ?? null;
-    if (!path) {
-      return;
-    }
-    delete initialPostDiffGitMarkerSignaturesRef.current[path];
-    clearPostDiffGitMarkers(reason);
-    setPostDiffGitMarkerRefreshToken((current) => current + 1);
-  }
-
-  function closeDocumentDiffPreview(handoff?: DiffPreviewCloseHandoff) {
-    setDocumentDiffPreview(null);
-
-    if (
-      !handoff ||
-      !config?.experimental.postDiffGitMarkers ||
-      !documentPayload
-    ) {
-      clearPostDiffGitMarkers(handoff ? "disabled-or-missing-document" : "no-handoff");
-      return;
-    }
-
-    const context = buildPostDiffGitMarkerContext({
-      activeDocumentPath: documentPayload.path,
-      preview: handoff.preview,
-      renderedPresentation: handoff.renderedPresentation,
-    });
-
-    if (!context) {
-      clearPostDiffGitMarkers("no-matching-context");
-      return;
-    }
-
-    const nextContext: ViewerPostDiffGitMarkerContext = {
-      ...context,
-      documentPath: documentPayload.path,
-      documentUpdatedAt: documentPayload.updatedAt ?? null,
-    };
-    setPostDiffGitMarkersByPath((current) => ({
-      ...current,
-      [documentPayload.path]: nextContext,
-    }));
-    tracePerf("postDiffGitMarkers.context", {
-      basename: perfBasename(documentPayload.path),
-      markerCount: context.totalCount,
-      renderedCount: context.renderedCount,
-      visible: context.renderedCount > 0,
-    });
-  }
-
-  useEffect(() => {
-    if (documentDiffPreview) {
-      clearPostDiffGitMarkers("diff-preview-open");
-    }
-  }, [documentDiffPreview]);
-
-  useEffect(() => {
-    if (!config?.experimental.postDiffGitMarkers) {
-      initialPostDiffGitMarkerSignaturesRef.current = {};
-      setPostDiffGitMarkersByPath((current) => {
-        Object.values(current).forEach((markerContext) => {
-          tracePerf("postDiffGitMarkers.clear", {
-            basename: perfBasename(markerContext.documentPath),
-            markerCount: markerContext.totalCount,
-            renderedCount: markerContext.renderedCount,
-            reason: "setting-disabled",
-            cleared: true,
-          });
-        });
-        return {};
-      });
-    }
-  }, [config?.experimental.postDiffGitMarkers]);
   const activeDocumentPayload = preferencesOpen ? null : documentPayload;
   const [windowSessionId, setWindowSessionId] = useState(
     MAIN_WINDOW_SESSION_ID,
@@ -691,6 +552,60 @@ export function App() {
     tabs,
     viewerRef,
   });
+
+  const resolveDiffLocalImage = useCallback(
+    (
+      source: string,
+      documentPath: string,
+      context: DocumentPayload["asciidocContext"],
+    ): Promise<LocalImageResult> =>
+      host.resolveLocalImage(source, documentPath, context),
+    [],
+  );
+  const loadDiffDocumentContext = useCallback(
+    async (
+      documentPath: string,
+    ): Promise<Pick<
+      DocumentPayload,
+      "includeFiles" | "asciidocContext"
+    > | null> => {
+      const document = await host.openDocument(documentPath);
+      return {
+        includeFiles: document.includeFiles,
+        asciidocContext: document.asciidocContext,
+      };
+    },
+    [],
+  );
+  const renderDiffDiagram = useCallback(
+    (request: KrokiRequest): Promise<KrokiResult> =>
+      host.renderDiagram(request),
+    [],
+  );
+  const getGitDiffPreview = useCallback(
+    (path: string): Promise<DocumentDiffPreview> => host.getGitDiffPreview(path),
+    [],
+  );
+
+  const {
+    activePostDiffGitMarkers,
+    closeDocumentDiffPreview,
+    handleWorkspaceFileChangeRefresh,
+    invalidatePostDiffGitMarkersForActiveDocument,
+  } = usePostDiffGitMarkerState({
+    config,
+    documentPayload,
+    documentDiffPreview,
+    renderResult,
+    confirmedRemoteDiagramKeys,
+    krokiFallbackDiagramKeys,
+    getGitDiffPreview,
+    loadDiffDocumentContext,
+    resolveDiffLocalImage,
+    renderDiffDiagram,
+    setDocumentDiffPreview,
+  });
+
   const {
     effectiveGitTimelinePath,
     gitBranchDiff,
@@ -744,20 +659,8 @@ export function App() {
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
     showInlineNotice,
   });
-  refreshSourceControlFromFileTreeRef.current = (event) => {
-    const reason = `file-tree-${event.reason}`;
-    const decision = shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
-      activeDocumentPath: documentPayload?.path ?? null,
-      changedPath: event.changedPath,
-      reason,
-    });
-    if (decision.shouldInvalidate) {
-      invalidatePostDiffGitMarkersForActiveDocument("git-refresh");
-    } else {
-      tracePerf("postDiffGitMarkers.refreshSkip", decision.trace);
-    }
-    refreshGitChanges(reason);
-  };
+  refreshSourceControlFromFileTreeRef.current = (event) =>
+    handleWorkspaceFileChangeRefresh(event, refreshGitChanges);
 
   const matchCount = searchHits.length;
   const {
@@ -922,181 +825,6 @@ export function App() {
     setPreferencesTabOpen,
     setTabMoreOpen,
   });
-  const resolveDiffLocalImage = useCallback(
-    (
-      source: string,
-      documentPath: string,
-      context: DocumentPayload["asciidocContext"],
-    ): Promise<LocalImageResult> =>
-      host.resolveLocalImage(source, documentPath, context),
-    [],
-  );
-  const loadDiffDocumentContext = useCallback(
-    async (
-      documentPath: string,
-    ): Promise<Pick<
-      DocumentPayload,
-      "includeFiles" | "asciidocContext"
-    > | null> => {
-      const document = await host.openDocument(documentPath);
-      return {
-        includeFiles: document.includeFiles,
-        asciidocContext: document.asciidocContext,
-      };
-    },
-    [],
-  );
-  const renderDiffDiagram = useCallback(
-    (request: KrokiRequest): Promise<KrokiResult> =>
-      host.renderDiagram(request),
-    [],
-  );
-
-  useEffect(() => {
-    const path = documentPayload?.path ?? null;
-    if (!config?.experimental.postDiffGitMarkers || !documentPayload || !path) {
-      return;
-    }
-    if (!renderResult) {
-      return;
-    }
-    if (documentDiffPreview) {
-      return;
-    }
-    if (!isSupportedDocumentPath(path)) {
-      clearPostDiffGitMarkers("unsupported-document");
-      return;
-    }
-
-    const activePath = path;
-    const documentUpdatedAt = documentPayload.updatedAt ?? null;
-    const existingContext = postDiffGitMarkersByPath[activePath] ?? null;
-    if (
-      existingContext &&
-      (existingContext.documentUpdatedAt ?? null) === documentUpdatedAt
-    ) {
-      return;
-    }
-    if (existingContext) {
-      clearPostDiffGitMarkers("document-updated");
-    }
-
-    const renderSignature = postDiffGitMarkerRenderSignature({
-      config,
-      confirmedRemoteDiagramKeys,
-      krokiFallbackDiagramKeys,
-    });
-    const requestSignature = JSON.stringify({
-      path: activePath,
-      updatedAt: documentUpdatedAt,
-      refreshToken: postDiffGitMarkerRefreshToken,
-      renderSignature,
-    });
-    if (
-      initialPostDiffGitMarkerSignaturesRef.current[activePath] ===
-      requestSignature
-    ) {
-      return;
-    }
-
-    const generation = initialPostDiffGitMarkerGenerationRef.current + 1;
-    initialPostDiffGitMarkerGenerationRef.current = generation;
-    let cancelled = false;
-
-    async function buildInitialMarkerContext() {
-      try {
-        const preview = await host.getGitDiffPreview(activePath);
-        if (cancelled) {
-          return;
-        }
-        if (preview.status === "clean" || preview.hunks.length === 0) {
-          clearPostDiffGitMarkers("initial-clean");
-          tracePerf("postDiffGitMarkers.initialSkip", {
-            basename: perfBasename(activePath),
-            status: preview.status,
-            reason: preview.status === "clean" ? "clean" : "empty",
-          });
-          return;
-        }
-        const renderedSummary = await deriveGitRenderedDiffSummary(preview, {
-          config,
-          loadDocumentContext: loadDiffDocumentContext,
-          resolveLocalImage: resolveDiffLocalImage,
-          renderDiagram: renderDiffDiagram,
-          confirmedRemoteDiagramKeys,
-          krokiFallbackDiagramKeys,
-        });
-        if (
-          cancelled ||
-          initialPostDiffGitMarkerGenerationRef.current !== generation
-        ) {
-          return;
-        }
-        const renderedPresentation = buildRenderedDiffPresentation(
-          renderedSummary.blocks,
-        );
-        const context = buildPostDiffGitMarkerContext({
-          activeDocumentPath: activePath,
-          preview,
-          renderedPresentation,
-        });
-        if (!context) {
-          clearPostDiffGitMarkers("initial-no-matching-context");
-          tracePerf("postDiffGitMarkers.initialSkip", {
-            basename: perfBasename(activePath),
-            status: preview.status,
-            reason: "no-matching-context",
-          });
-          return;
-        }
-        const nextContext: ViewerPostDiffGitMarkerContext = {
-          ...context,
-          documentPath: activePath,
-          documentUpdatedAt,
-        };
-        initialPostDiffGitMarkerSignaturesRef.current[activePath] =
-          requestSignature;
-        setPostDiffGitMarkersByPath((current) => ({
-          ...current,
-          [activePath]: nextContext,
-        }));
-        tracePerf("postDiffGitMarkers.initialContext", {
-          basename: perfBasename(activePath),
-          status: preview.status,
-          markerCount: context.totalCount,
-          renderedCount: context.renderedCount,
-          visible: context.renderedCount > 0,
-        });
-      } catch {
-        if (cancelled) {
-          return;
-        }
-        clearPostDiffGitMarkers("initial-error");
-        tracePerf("postDiffGitMarkers.initialSkip", {
-          basename: perfBasename(activePath),
-          reason: "error",
-        });
-      }
-    }
-
-    void buildInitialMarkerContext();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    config,
-    confirmedRemoteDiagramKeys,
-    documentDiffPreview,
-    documentPayload,
-    krokiFallbackDiagramKeys,
-    loadDiffDocumentContext,
-    postDiffGitMarkersByPath,
-    postDiffGitMarkerRefreshToken,
-    renderResult,
-    renderDiffDiagram,
-    resolveDiffLocalImage,
-  ]);
 
   const resolveDiffDocumentLink = useCallback(
     (href: string, documentPath: string): Promise<DocumentLinkResolution> =>
@@ -1699,11 +1427,7 @@ export function App() {
         documentPayload={documentPayload}
         renderResult={renderResult}
         documentHtml={documentHtml}
-        postDiffGitMarkers={
-          documentPayload?.path
-            ? (postDiffGitMarkersByPath[documentPayload.path] ?? null)
-            : null
-        }
+        postDiffGitMarkers={activePostDiffGitMarkers}
         query={query}
         searchHits={searchHits}
         searchIndex={searchIndex}
