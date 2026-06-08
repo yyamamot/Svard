@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
-import { AppOverlays } from "./components/AppOverlays";
-import { LeftSidebar } from "./components/LeftSidebar";
-import { LinkPreviewPopover } from "./components/LinkPreviewPopover";
-import { PreferencesPanel } from "./components/PreferencesPanel";
-import { RightSidebar } from "./components/RightSidebar";
-import { Topbar } from "./components/Topbar";
-import { ViewerPane } from "./components/ViewerPane";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { AppMainShell } from "./components/AppMainShell";
 import { useActiveHeadingTracking } from "./hooks/useActiveHeadingTracking";
 import { useBookmarksState } from "./hooks/useBookmarksState";
+import { useAppShellViewState } from "./hooks/useAppShellViewState";
+import { useAppWindowActions } from "./hooks/useAppWindowActions";
+import { useContentCursorActions } from "./hooks/useContentCursorActions";
 import { useDocumentLifecycle } from "./hooks/useDocumentLifecycle";
 import { useDocumentLinks } from "./hooks/useDocumentLinks";
 import { useDocumentRender } from "./hooks/useDocumentRender";
@@ -46,26 +43,13 @@ import { useWorkspaceSearch } from "./hooks/useWorkspaceSearch";
 import { svardWebsiteUrl } from "../core/projectLinks";
 import { usePostDiffGitMarkerState } from "./hooks/usePostDiffGitMarkerState";
 import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
-import { fileName } from "./lib/path";
-import {
-  shouldHideDiffPreviewChromeForZenMode,
-  shouldHideTopbarForZenMode,
-  shouldShowZenModeExitControl,
-} from "./lib/zenMode";
+import { useZenModeActions } from "./hooks/useZenModeActions";
 import {
   activeWorkspaceTabId as resolveActiveWorkspaceTabId,
   buildWorkspaceTabs,
 } from "./lib/workspaceTabs";
-import {
-  MAIN_WINDOW_SESSION_ID,
-  clampOpenFilesHeight,
-  normalizeConfig,
-} from "./lib/config";
-import {
-  clearContentCursor,
-  moveContentCursor,
-  type ContentCursorCommandHandler,
-} from "./lib/contentCursor";
+import { MAIN_WINDOW_SESSION_ID, normalizeConfig } from "./lib/config";
+import type { ContentCursorCommandHandler } from "./lib/contentCursor";
 import { scrollViewer } from "./lib/viewerScroll";
 import {
   mergePersistedSharedConfigIntoWindow,
@@ -78,12 +62,10 @@ import type {
   MouseGestureAutomation,
   NavigationLocation,
   OpenFileReloadState,
-  PaneId,
   RecentlyVisitedLocation,
   RightSidebarTab,
   SearchHitSummary,
   SmartScrollAnchor,
-  ViewerPaneSnapshot,
   WorkspaceTab,
 } from "./types";
 import { createHostAdapter } from "../adapters/createHostAdapter";
@@ -96,11 +78,8 @@ import type {
   KrokiResult,
   LocalImageResult,
   RenderResult,
-  SplitSessionState,
-  ViewerWindowOpenRequest,
   WorkspaceEnvironment,
 } from "../core/types";
-import { defaultConfig } from "../core/defaultConfig";
 import { getBoundedTabs } from "../core/tabLayout";
 import { nextRecentTabPath } from "../core/workspaceState";
 import { tracePerf } from "./lib/perfTrace";
@@ -114,6 +93,7 @@ export function App() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const openFilesFilterInputRef = useRef<HTMLInputElement | null>(null);
   const quickOpenInputRef = useRef<HTMLInputElement | null>(null);
+  const closeTabRef = useRef<((path: string) => void) | null>(null);
   const diffContentCursorCommandRef =
     useRef<ContentCursorCommandHandler | null>(null);
   const diffContentCursorClearRef = useRef<(() => void) | null>(null);
@@ -686,6 +666,30 @@ export function App() {
     setTabQueries,
     showLightweightActionFeedback,
   });
+  const {
+    duplicateWindow,
+    moveTabToNewWindow,
+    openCurrentDocumentInNewWindow,
+    openDocumentInNewWindow,
+    openNewWindow,
+  } = useAppWindowActions({
+    activeHeadingId,
+    closeTabRef,
+    config,
+    documentPayload,
+    expandedDirectories,
+    focusedPaneId,
+    host,
+    orderedTabs,
+    paneSnapshots,
+    pinnedTabs,
+    rootDirectory,
+    sidebarLayout,
+    showLightweightActionFeedback,
+    splitEnabled,
+    splitRatio,
+    viewerRef,
+  });
 
   const {
     copyHeadingLink,
@@ -794,6 +798,7 @@ export function App() {
     snapshotForPath,
     tabs,
   });
+  closeTabRef.current = closeTab;
   activateTabForHistoryRef.current = activateTab;
 
   function openPreferencesTab() {
@@ -836,89 +841,14 @@ export function App() {
     [],
   );
 
-  function clearActiveContentCursor() {
-    clearContentCursor(articleRef.current);
-    diffContentCursorClearRef.current?.();
-    clearContentCursor(...visibleDiffContentCursorRoots());
-  }
-
-  function visibleDiffContentCursorRoots() {
-    const paneReviewIds = [
-      "git-full-preview-right-pane",
-      "git-rendered-right-pane",
-      "git-full-preview-left-pane",
-      "git-rendered-left-pane",
-    ];
-    return paneReviewIds
-      .map((reviewId) =>
-        document.querySelector<HTMLElement>(
-          `[data-review-id="${reviewId}"] .git-rendered-scroll`,
-        ),
-      )
-      .filter((root): root is HTMLElement => root !== null);
-  }
-
-  function moveActiveContentCursor(direction: "next" | "previous") {
-    if (documentDiffPreview) {
-      return diffContentCursorCommandRef.current?.(direction) ?? false;
-    }
-    return moveContentCursor({
-      root: articleRef.current,
-      scrollContainer: viewerRef.current,
-      direction,
+  const { clearActiveContentCursor, moveActiveContentCursor } =
+    useContentCursorActions({
+      articleRef,
+      viewerRef,
+      documentDiffPreview,
+      diffContentCursorCommandRef,
+      diffContentCursorClearRef,
     });
-  }
-
-  const zenModeConfig = config?.zenMode ?? defaultConfig.zenMode;
-  const zenModeApplies =
-    zenModeActive &&
-    !preferencesOpen &&
-    !(documentDiffPreview && !zenModeConfig.applyToDiffPreview);
-  const effectiveSidebarVisible =
-    (config?.sidebarVisible ?? true) &&
-    !(zenModeApplies && zenModeConfig.hideLeftSidebar);
-  const effectiveRightSidebarVisible =
-    (config?.rightSidebarVisible ?? true) &&
-    !(zenModeApplies && zenModeConfig.hideRightSidebar);
-  const zenModeBlockingOverlay = Boolean(
-    preferencesOpen ||
-    quickOpenOpen ||
-    fileComparePickerOpen ||
-    viewerShortcutHintsOpen ||
-    diagramPreview ||
-    documentDiffPreview ||
-    externalLinkConfirmation ||
-    gitCommitDetails ||
-    gitRefPicker ||
-    contextMenu,
-  );
-  const centeredContentWidth =
-    zenModeApplies && zenModeConfig.centerLayout && !splitEnabled
-      ? zenModeConfig.maxContentWidth
-      : null;
-  const topbarHidden = shouldHideTopbarForZenMode(
-    zenModeApplies,
-    zenModeConfig,
-  );
-  const diffPreviewChromeHidden = shouldHideDiffPreviewChromeForZenMode(
-    zenModeApplies,
-    zenModeConfig,
-  );
-  const showZenModeExitControl = shouldShowZenModeExitControl({
-    blockingOverlay: zenModeBlockingOverlay,
-    diffPreviewOpen: Boolean(documentDiffPreview),
-    topbarHidden,
-    zenModeApplies,
-  });
-  const siteScreenshotScenario = import.meta.env.VITE_SVARD_SITE_SCREENSHOT_SCENARIO as string | undefined;
-  const hasSiteScreenshotGitWorkspaceTab = orderedTabs.some((tab) =>
-    tab.path.includes("/source-control-workspace/"),
-  );
-  const hideOpenFilesForSiteScreenshot = Boolean(
-    hasSiteScreenshotGitWorkspaceTab &&
-      (siteScreenshotScenario === "source-control" ||
-        config?.workspace.sidebarTab === "sourceControl"),
-  );
 
   const recentTabPath = nextRecentTabPath(
     config?.workspace.recentTabs ?? [],
@@ -931,6 +861,61 @@ export function App() {
       void activateDocumentWorkspaceTab(recentTabPath);
     }
   }
+
+  const {
+    activeTitle,
+    appShellStyle,
+    centeredContentWidth,
+    diffPreviewChromeHidden,
+    effectiveRightSidebarVisible,
+    effectiveSidebarVisible,
+    hideOpenFilesForSiteScreenshot,
+    nativeAppMenuStateKey,
+    rootEntries,
+    showZenModeExitControl,
+    topbarHidden,
+    zenModeApplies,
+    zenModeConfig,
+    zenModeBlockingOverlay,
+  } = useAppShellViewState({
+    activeDocumentPayload,
+    activeWorkspaceTabId,
+    childrenByDirectory,
+    config,
+    contextMenu,
+    documentDiffPreview,
+    documentPayload,
+    externalLinkConfirmation,
+    fileComparePickerOpen,
+    focusedPaneId,
+    gitCommitDetails,
+    gitRefPicker,
+    isLoading,
+    lastClosedTabs,
+    navigationBackStackLength: navigationBackStack.length,
+    navigationForwardStackLength: navigationForwardStack.length,
+    orderedTabs,
+    paneSnapshots,
+    pinnedTabs,
+    preferencesOpen,
+    quickOpenOpen,
+    recentlyVisitedLocations,
+    rootDirectory,
+    sidebarLayout,
+    splitEnabled,
+    splitRatio,
+    viewerShortcutHintsOpen,
+    workspaceTabs,
+    zenModeActive,
+    maxOpenFilesHeightForDisplay,
+    diagramPreview,
+  });
+  const { exitZenMode, toggleZenMode } = useZenModeActions({
+    zenModeActive,
+    zenModeConfig,
+    setZenModeActive,
+    showLightweightActionFeedback,
+  });
 
   const { dispatchCommand, isCommandEnabled } = useCommandDispatcher({
     config,
@@ -1099,13 +1084,6 @@ export function App() {
     dispatchCommand,
     setLastMouseGesture,
   });
-  const activeTitle = preferencesOpen
-    ? "Preferences"
-    : documentPayload
-      ? fileName(documentPayload.path)
-      : isLoading
-        ? "Loading"
-        : "Start";
   const leftSidebarSourceControlProps = buildLeftSidebarSourceControlProps({
     config,
     effectiveGitTimelinePath,
@@ -1152,29 +1130,6 @@ export function App() {
     recentDocuments: config?.workspace.recentDocuments ?? [],
     renderResult,
     tabs,
-  });
-  const nativeAppMenuStateKey = JSON.stringify({
-    activePath: activeDocumentPayload?.path ?? null,
-    bookmarks: bookmarks.map((bookmark) => `${bookmark.kind}:${bookmark.path}`),
-    keybindings: config?.keybindings ?? null,
-    lastClosed: lastClosedTabs.map((tab) => tab.path),
-    navigationBack: navigationBackStack.length,
-    navigationForward: navigationForwardStack.length,
-    openTabs: orderedTabs.map((tab) => tab.path),
-    pinnedTabs,
-    recentTabs: config?.workspace.recentTabs ?? [],
-    preferencesOpen,
-    recentDirectories: config?.workspace.recentDirectories ?? [],
-    recentDocuments: config?.workspace.recentDocuments ?? [],
-    recentlyVisited: recentlyVisitedLocations.map(
-      (location) =>
-        `${location.path}:${location.headingId ?? ""}:${location.label ?? ""}:${location.visitedAt}`,
-    ),
-    rightSidebarVisible: config?.rightSidebarVisible ?? false,
-    rootDirectory,
-    sidebarVisible: config?.sidebarVisible ?? false,
-    splitEnabled,
-    zenModeActive,
   });
   useNativeAppMenu({
     config,
@@ -1255,150 +1210,7 @@ export function App() {
     );
   }
 
-  async function openNewWindow() {
-    const request: ViewerWindowOpenRequest = {
-      path: null,
-      rootDirectory: rootDirectory || null,
-      expandedDirectories: [...expandedDirectories],
-      sidebarTab: config?.workspace.sidebarTab ?? "files",
-      sidebarVisible: config?.sidebarVisible ?? true,
-      rightSidebarVisible: config?.rightSidebarVisible ?? true,
-      layout: sidebarLayout,
-      bookmarks: config?.workspace.bookmarks ?? [],
-    };
-    await host.openNewWindow(request);
-  }
-
-  async function duplicateWindow() {
-    const activePath = documentPayload?.path ?? null;
-    const nextScrollPositions = { ...(config?.workspace.scrollPositions ?? {}) };
-    const nextActiveHeadingByPath = {
-      ...(config?.workspace.activeHeadingByPath ?? {}),
-    };
-    if (activePath) {
-      nextScrollPositions[activePath] = Math.round(
-        viewerRef.current?.scrollTop ?? 0,
-      );
-      if (activeHeadingId) {
-        nextActiveHeadingByPath[activePath] = activeHeadingId;
-      }
-    }
-    const splitSession: SplitSessionState | null =
-      splitEnabled && documentPayload
-        ? {
-            enabled: true,
-            focusedPaneId,
-            splitRatio,
-            panePaths: {
-              left:
-                (focusedPaneId === "left"
-                  ? documentPayload
-                  : paneSnapshots.left.documentPayload
-                )?.path ?? null,
-              right:
-                (focusedPaneId === "right"
-                  ? documentPayload
-                  : paneSnapshots.right.documentPayload
-                )?.path ?? null,
-            },
-          }
-        : null;
-    const request: ViewerWindowOpenRequest = {
-      path: activePath,
-      activePath,
-      openTabs: orderedTabs.map((tab) => tab.path),
-      pinnedTabs,
-      scrollPositions: nextScrollPositions,
-      activeHeadingByPath: nextActiveHeadingByPath,
-      recentTabs: config?.workspace.recentTabs ?? [],
-      splitSession,
-      rootDirectory: rootDirectory || null,
-      expandedDirectories: [...expandedDirectories],
-      sidebarTab: config?.workspace.sidebarTab ?? "files",
-      sidebarVisible: config?.sidebarVisible ?? true,
-      rightSidebarVisible: config?.rightSidebarVisible ?? true,
-      layout: sidebarLayout,
-      bookmarks: config?.workspace.bookmarks ?? [],
-    };
-    await host.openNewWindow(request);
-  }
-
-  async function openDocumentInNewWindow(
-    path: string,
-    options: { pinned?: boolean; recentTabs?: string[] } = {},
-  ) {
-    const request: ViewerWindowOpenRequest = {
-      path,
-      rootDirectory: rootDirectory || null,
-      expandedDirectories: [...expandedDirectories],
-      sidebarTab: config?.workspace.sidebarTab ?? "files",
-      sidebarVisible: config?.sidebarVisible ?? true,
-      rightSidebarVisible: config?.rightSidebarVisible ?? true,
-      layout: sidebarLayout,
-      ...(options.pinned ? { pinned: true } : {}),
-      ...(options.recentTabs ? { recentTabs: options.recentTabs } : {}),
-      bookmarks: config?.workspace.bookmarks ?? [],
-    };
-    await host.openDocumentInNewWindow(request);
-  }
-
-  async function moveTabToNewWindow(path: string) {
-    await openDocumentInNewWindow(path, {
-      pinned: pinnedTabs.includes(path),
-      recentTabs: [path],
-    });
-    closeTab(path);
-    showLightweightActionFeedback("Moved tab to new window");
-  }
-
-  async function openCurrentDocumentInNewWindow(path: string) {
-    await openDocumentInNewWindow(path);
-  }
-
-  async function toggleZenMode() {
-    if (zenModeActive) {
-      await exitZenMode();
-    } else {
-      await enterZenMode();
-    }
-  }
-
-  async function enterZenMode() {
-    setZenModeActive(true);
-    if (zenModeConfig.fullScreen && !document.fullscreenElement) {
-      try {
-        await document.documentElement.requestFullscreen();
-      } catch {
-        // Zen mode is still useful without OS fullscreen; avoid covering the reader.
-      }
-    }
-    showLightweightActionFeedback("Zen mode");
-  }
-
-  async function exitZenMode() {
-    setZenModeActive(false);
-    if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen();
-      } catch {
-        // Leaving Zen mode should not be blocked by the platform fullscreen API.
-      }
-    }
-    showLightweightActionFeedback("Exited Zen mode");
-  }
-
   const theme = config?.theme ?? "light";
-  const rootEntries = childrenByDirectory[rootDirectory] ?? [];
-  const appShellStyle = {
-    "--left-sidebar-width": `${sidebarLayout.leftSidebarWidth}px`,
-    "--right-sidebar-width": `${sidebarLayout.rightSidebarWidth}px`,
-    "--zen-content-width": `${zenModeConfig.maxContentWidth}px`,
-    "--open-files-height": `${clampOpenFilesHeight(
-      sidebarLayout.openFilesHeight,
-      maxOpenFilesHeightForDisplay(),
-    )}px`,
-    "--split-left-width": `${Math.round(splitRatio * 100)}%`,
-  } as CSSProperties;
 
   function clearRecentDocuments() {
     void persistWorkspace({ recentDocuments: [] });
@@ -1408,69 +1220,21 @@ export function App() {
     void persistWorkspace({ recentDirectories: [] });
   }
 
-  function renderViewerPane(paneId: PaneId, snapshot: ViewerPaneSnapshot) {
-    return (
-      <ViewerPane
-        articleRef={articleRef}
-        config={config}
-        error={error}
-        inlineNotice={inlineNotice}
-        lightweightActionFeedback={lightweightActionFeedback}
-        isLoading={isLoading}
-        mouseGestureTrail={mouseGestureTrail}
-        paneId={paneId}
-        snapshot={snapshot}
-        splitEnabled={splitEnabled}
-        focusedPaneId={focusedPaneId}
-        centeredContentWidth={centeredContentWidth}
-        hideStatusFeedback={zenModeApplies && zenModeConfig.hideStatusBar}
-        documentPayload={documentPayload}
-        renderResult={renderResult}
-        documentHtml={documentHtml}
-        postDiffGitMarkers={activePostDiffGitMarkers}
-        query={query}
-        searchHits={searchHits}
-        searchIndex={searchIndex}
-        viewerRef={viewerRef}
-        onArticleClick={handleArticleClick}
-        onArticleContextMenu={handleArticleContextMenu}
-        onArticleDoubleClick={handleArticleDoubleClick}
-        onArticleBlur={handleArticleBlur}
-        onArticleFocus={handleArticleFocus}
-        onArticlePointerLeave={handleArticlePointerLeave}
-        onArticlePointerMove={handleArticlePointerMove}
-        onClearContentCursor={clearActiveContentCursor}
-        onDismissInlineNotice={dismissInlineNotice}
-        onDispatchCommand={(commandId) => void dispatchCommand(commandId)}
-        onFocusPane={focusPane}
-        onActivateSearchHit={(index) => {
-          clearActiveContentCursor();
-          activateSearchHit(index);
-        }}
-        onConsumePendingMouseGestureContextMenu={
-          consumePendingMouseGestureContextMenu
-        }
-        onMouseGestureContextMenu={handleMouseGestureContextMenu}
-        onMouseGesturePointerCancel={handleMouseGesturePointerCancel}
-        onMouseGesturePointerDown={handleMouseGesturePointerDown}
-        onMouseGesturePointerMove={handleMouseGesturePointerMove}
-        onMouseGesturePointerUp={handleMouseGesturePointerUp}
-        onOpenDirectory={(path) => void openDirectory(path)}
-        onOpenDocument={(path) => void openDocument(path)}
-        onPickDirectory={() => void pickAndOpenDirectory()}
-        onPickDocument={() => void pickAndOpenDocument()}
-        onClearRecentDocuments={clearRecentDocuments}
-        onClearRecentDirectories={clearRecentDirectories}
-      />
-    );
-  }
-
   return (
-    <div
+    <AppMainShell
+      appShellStyle={appShellStyle}
       className={`app-shell theme-${theme} ${effectiveSidebarVisible ? "" : "left-collapsed"} ${effectiveRightSidebarVisible ? "" : "right-collapsed"} ${zenModeApplies ? "zen-mode-active" : ""} ${sidebarResizeState ? "is-resizing-sidebar" : ""} ${openFilesSplitResizeState ? "is-resizing-sidebar-split" : ""} ${splitResizeState ? "is-resizing-viewer-split" : ""}`}
-      data-zen-mode-active={zenModeApplies ? "true" : undefined}
-      data-review-id="shell"
-      style={appShellStyle}
+      effectiveRightSidebarVisible={effectiveRightSidebarVisible}
+      effectiveSidebarVisible={effectiveSidebarVisible}
+      linkHoverDestination={linkHoverDestination}
+      linkPreview={linkPreview}
+      preferencesOpen={preferencesOpen}
+      showLinkHoverStatus={!(zenModeApplies && zenModeConfig.hideStatusBar)}
+      showZenModeExitControl={showZenModeExitControl}
+      splitEnabled={splitEnabled}
+      splitResizeState={splitResizeState}
+      topbarHidden={topbarHidden}
+      paneSnapshots={paneSnapshots}
       onPointerMove={(event) => {
         updateSidebarResize(event);
         updateOpenFilesSplitResize(event);
@@ -1483,246 +1247,240 @@ export function App() {
         cancelSidebarResize(event);
         cancelOpenFilesSplitResize(event);
       }}
-      onContextMenu={handleShellContextMenu}
-    >
-      {effectiveSidebarVisible && (
-        <LeftSidebar
-          activePath={preferencesOpen ? undefined : documentPayload?.path}
-          preferencesTabOpen={preferencesTabOpen}
-          preferencesActive={preferencesOpen}
-          bookmarks={bookmarks}
-          childrenByDirectory={childrenByDirectory}
-          directoryErrors={directoryErrors}
-          expandedDirectories={expandedDirectories}
-          loadingDirectories={loadingDirectories}
-          openFilesFilter={openFilesFilter}
-          hideOpenFiles={hideOpenFilesForSiteScreenshot}
-          openFilesCollapsed={sidebarLayout.openFilesCollapsed}
-          openFilesFilterInputRef={openFilesFilterInputRef}
-          openFilesPaneRef={openFilesPaneRef}
-          openFilesSplitResizeState={openFilesSplitResizeState}
-          orderedTabs={orderedTabs}
-          pinnedTabs={pinnedTabs}
-          rootDirectory={rootDirectory}
-          rootEntries={rootEntries}
-          gitStatusByPath={gitStatusByPath}
-          openFileReloadStates={openFileReloadStates}
-          sidebarResizeState={sidebarResizeState}
-          sidebarTab={config?.workspace.sidebarTab ?? "files"}
-          leftSidebarContentRef={leftSidebarContentRef}
-          {...leftSidebarSourceControlProps}
-          onActivateTab={activateDocumentWorkspaceTab}
-          onActivatePreferences={openPreferencesTab}
-          onAddActiveBookmark={() => void addActiveBookmark()}
-          onAddRootBookmark={() => void addRootBookmark()}
-          onBeginOpenFilesSplitResize={beginOpenFilesSplitResize}
-          onBeginSidebarResize={beginSidebarResize}
-          onCloseTab={closeTab}
-          onClosePreferences={closePreferencesTab}
-          onCollapseTree={() => void collapseTree()}
-          onOpenBookmark={(bookmark) => void openBookmark(bookmark)}
-          onOpenFile={(path) => void openDocumentWorkspaceTab(path)}
-          onPickDirectory={() => void pickAndOpenDirectory()}
-          onPickDocument={() => void pickAndOpenDocument()}
-          onRefreshTree={() => void refreshTree()}
-          onRemoveBookmark={(path) => void removeBookmarkEntry(path)}
-          onReorderBookmarks={(fromIndex, toIndex) =>
-            void moveBookmark(fromIndex, toIndex)
+      onShellContextMenu={handleShellContextMenu}
+      onBeginViewerSplitResize={beginViewerSplitResize}
+      onUpdateViewerSplitResize={updateViewerSplitResize}
+      onEndViewerSplitResize={endViewerSplitResize}
+      onBeginRightSidebarResize={(event) => beginSidebarResize("right", event)}
+      onResetRightSidebarWidth={() => resetSidebarWidth("right")}
+      onExitZenMode={() => void dispatchCommand("view.exitZenMode")}
+      leftSidebarProps={{
+        activePath: preferencesOpen ? undefined : documentPayload?.path,
+        preferencesTabOpen,
+        preferencesActive: preferencesOpen,
+        bookmarks,
+        childrenByDirectory,
+        directoryErrors,
+        expandedDirectories,
+        loadingDirectories,
+        openFilesFilter,
+        hideOpenFiles: hideOpenFilesForSiteScreenshot,
+        openFilesCollapsed: sidebarLayout.openFilesCollapsed,
+        openFilesFilterInputRef,
+        openFilesPaneRef,
+        openFilesSplitResizeState,
+        orderedTabs,
+        pinnedTabs,
+        rootDirectory,
+        rootEntries,
+        gitStatusByPath,
+        openFileReloadStates,
+        sidebarResizeState,
+        sidebarTab: config?.workspace.sidebarTab ?? "files",
+        leftSidebarContentRef,
+        ...leftSidebarSourceControlProps,
+        onActivateTab: activateDocumentWorkspaceTab,
+        onActivatePreferences: openPreferencesTab,
+        onAddActiveBookmark: () => void addActiveBookmark(),
+        onAddRootBookmark: () => void addRootBookmark(),
+        onBeginOpenFilesSplitResize: beginOpenFilesSplitResize,
+        onBeginSidebarResize: beginSidebarResize,
+        onCloseTab: closeTab,
+        onClosePreferences: closePreferencesTab,
+        onCollapseTree: () => void collapseTree(),
+        onOpenBookmark: (bookmark) => void openBookmark(bookmark),
+        onOpenFile: (path) => void openDocumentWorkspaceTab(path),
+        onPickDirectory: () => void pickAndOpenDirectory(),
+        onPickDocument: () => void pickAndOpenDocument(),
+        onRefreshTree: () => void refreshTree(),
+        onRemoveBookmark: (path) => void removeBookmarkEntry(path),
+        onReorderBookmarks: (fromIndex, toIndex) =>
+          void moveBookmark(fromIndex, toIndex),
+        onReorderOpenTabs: reorderOpenTabs,
+        onResetOpenFilesSplitHeight: resetOpenFilesSplitHeight,
+        onResetSidebarWidth: resetSidebarWidth,
+        onSelectSidebarTab: (tab) => void setSidebarTab(tab),
+        onSetOpenFilesFilter: setOpenFilesFilter,
+        onToggleDirectory: (path) => void toggleDirectory(path),
+        onToggleOpenFilesCollapsed: toggleOpenFilesCollapsed,
+        onTogglePinned: toggleActivePinnedTab,
+      }}
+      topbarProps={{
+        sidebarVisible: effectiveSidebarVisible,
+        activeTitle,
+        activeTabId: activeWorkspaceTabId,
+        tabs: workspaceTabs,
+        visibleTabs: visibleWorkspaceTabs,
+        overflowTabs: overflowWorkspaceTabs,
+        tabMoreOpen,
+        splitEnabled,
+        rightSidebarVisible: effectiveRightSidebarVisible,
+        rightSidebarAvailable: !preferencesOpen,
+        zenModeActive: zenModeApplies,
+        hideTabs: zenModeApplies && zenModeConfig.hideTabs,
+        onActivateTab: (tab) => {
+          if (tab.kind === "preferences") {
+            openPreferencesTab();
+          } else {
+            activateDocumentWorkspaceTab(tab.path);
           }
-          onReorderOpenTabs={reorderOpenTabs}
-          onResetOpenFilesSplitHeight={resetOpenFilesSplitHeight}
-          onResetSidebarWidth={resetSidebarWidth}
-          onSelectSidebarTab={(tab) => void setSidebarTab(tab)}
-          onSetOpenFilesFilter={setOpenFilesFilter}
-          onToggleDirectory={(path) => void toggleDirectory(path)}
-          onToggleOpenFilesCollapsed={toggleOpenFilesCollapsed}
-          onTogglePinned={toggleActivePinnedTab}
-        />
-      )}
-
-      <main className={`main-column ${topbarHidden ? "topbar-hidden" : ""}`}>
-        {!topbarHidden && (
-          <Topbar
-            sidebarVisible={effectiveSidebarVisible}
-            activeTitle={activeTitle}
-            activeTabId={activeWorkspaceTabId}
-            tabs={workspaceTabs}
-            visibleTabs={visibleWorkspaceTabs}
-            overflowTabs={overflowWorkspaceTabs}
-            tabMoreOpen={tabMoreOpen}
-            splitEnabled={splitEnabled}
-            rightSidebarVisible={effectiveRightSidebarVisible}
-            rightSidebarAvailable={!preferencesOpen}
-            zenModeActive={zenModeApplies}
-            hideTabs={zenModeApplies && zenModeConfig.hideTabs}
-            onActivateTab={(tab) => {
-              if (tab.kind === "preferences") {
-                openPreferencesTab();
-              } else {
-                activateDocumentWorkspaceTab(tab.path);
-              }
-            }}
-            onCloseTab={closeWorkspaceTab}
-            onToggleTabMore={() => {
-              setTabMoreOpen((current) => !current);
-            }}
-            onDispatchCommand={(commandId) => void dispatchCommand(commandId)}
-          />
-        )}
-
-        {preferencesOpen && config ? (
-          <PreferencesPanel
-            config={config}
-            mode="page"
-            onChange={(nextConfig) => void saveConfig(nextConfig)}
-            onClearKrokiCache={() => void clearKrokiCache()}
-            onTestKroki={testKrokiPlantUml}
-            host={host}
-            onClose={closePreferencesTab}
-          />
-        ) : splitEnabled ? (
-          <div className="viewer-split" data-review-id="viewer-split">
-            {renderViewerPane("left", paneSnapshots.left)}
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize split panes"
-              className={`viewer-split-resizer ${splitResizeState ? "active" : ""}`}
-              data-review-id="viewer-split-resizer"
-              onPointerDown={beginViewerSplitResize}
-              onPointerMove={updateViewerSplitResize}
-              onPointerUp={endViewerSplitResize}
-              onPointerCancel={endViewerSplitResize}
-            />
-            {renderViewerPane("right", paneSnapshots.right)}
-          </div>
-        ) : (
-          renderViewerPane("left", paneSnapshots.left)
-        )}
-      </main>
-      {showZenModeExitControl && (
-        <button
-          type="button"
-          className="zen-mode-exit-control"
-          data-review-id="zen-mode-exit-control"
-          aria-label="Exit Zen Mode"
-          title="Exit Zen Mode"
-          onClick={() => void dispatchCommand("view.exitZenMode")}
-        >
-          ×
-        </button>
-      )}
-
-      {effectiveRightSidebarVisible && preferencesOpen ? (
-        <aside
-          className="sidebar right preferences-right-sidebar-placeholder"
-          data-review-id="preferences-right-sidebar-placeholder"
-          aria-hidden="true"
-        />
-      ) : effectiveRightSidebarVisible ? (
-        <aside className="sidebar right" data-review-id="right-sidebar">
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize right sidebar"
-            className={`sidebar-resizer right-resizer ${sidebarResizeState?.side === "right" ? "active" : ""}`}
-            data-review-id="right-sidebar-resizer"
-            onPointerDown={(event) => beginSidebarResize("right", event)}
-            onDoubleClick={() => resetSidebarWidth("right")}
-          />
-          <RightSidebar
-            activeHeadingId={activeHeadingId}
-            matchCount={matchCount}
-            pinnedSearch={config?.workspace.pinnedSearch ?? null}
-            query={searchInputQuery}
-            renderResult={renderResult}
-            rightSidebarTab={rightSidebarTab}
-            searchScope={searchScope}
-            searchHits={searchHits}
-            searchIndex={searchIndex}
-            searchInputRef={searchInputRef}
-            workspaceSearch={workspaceSearch}
-            workspaceSearchIndex={workspaceSearchIndex}
-            onActivateSearchHit={(index) => {
-              clearActiveContentCursor();
-              activateSearchHit(index);
-            }}
-            onActivateWorkspaceSearchResult={(index) =>
-              void activateWorkspaceSearchResult(index)
+        },
+        onCloseTab: closeWorkspaceTab,
+        onToggleTabMore: () => {
+          setTabMoreOpen((current) => !current);
+        },
+        onDispatchCommand: (commandId) => void dispatchCommand(commandId),
+      }}
+      preferencesPanelProps={
+        preferencesOpen && config
+          ? {
+              config,
+              mode: "page",
+              onChange: (nextConfig) => void saveConfig(nextConfig),
+              onClearKrokiCache: () => void clearKrokiCache(),
+              onTestKroki: testKrokiPlantUml,
+              host,
+              onClose: closePreferencesTab,
             }
-            onClearSearch={handleSearchClear}
-            onDispatchCommand={(commandId) => void dispatchCommand(commandId)}
-            onNavigateHeading={(headingId) => {
-              clearActiveContentCursor();
-              navigateToHeading(headingId);
-            }}
-            onPinQuery={() => void pinQuery()}
-            onSetSearchScope={setSearchScope}
-            onSetRightSidebarTab={setRightSidebarTab}
-            onSearchInputKeyDown={handleSearchKeyDown}
-            onUpdateQuery={updateSearchQuery}
-            onWorkspaceSearchIndexChange={updateWorkspaceSearchIndex}
-          />
-        </aside>
-      ) : null}
-      <AppOverlays
-        chooseCompareDocument={chooseCompareDocument}
-        config={config}
-        confirmedRemoteDiagramKeys={confirmedRemoteDiagramKeys}
-        contextMenu={contextMenu}
-        confirmExternalLink={confirmExternalLink}
-        copyText={copyText}
-        diagramPreview={diagramPreview}
-        diffContentCursorClearRef={diffContentCursorClearRef}
-        diffContentCursorCommandRef={diffContentCursorCommandRef}
-        documentDiffPreview={documentDiffPreview}
-        diffPreviewChromeHidden={diffPreviewChromeHidden}
-        documentPayload={documentPayload}
-        externalLinkConfirmation={externalLinkConfirmation}
-        fileComparePickerOpen={fileComparePickerOpen}
-        gitCommitDetails={gitCommitDetails}
-        gitRefPicker={gitRefPicker}
-        host={host}
-        krokiFallbackDiagramKeys={krokiFallbackDiagramKeys}
-        loadDiffDocumentContext={loadDiffDocumentContext}
-        openContextMenu={openContextMenu}
-        openDiffExternalUrl={openDiffExternalUrl}
-        quickOpenCandidates={quickOpenCandidates}
-        quickOpenInputRef={quickOpenInputRef}
-        quickOpenOpen={quickOpenOpen}
-        quickOpenQuery={quickOpenQuery}
-        resolveDiffLocalImage={resolveDiffLocalImage}
-        resolveDiffDocumentLink={resolveDiffDocumentLink}
-        renderDiffDiagram={renderDiffDiagram}
-        viewerShortcutHintsOpen={viewerShortcutHintsOpen}
-        onCloseContextMenu={closeContextMenu}
-        onCloseDocumentDiffPreview={closeDocumentDiffPreview}
-        onCloseFileComparePicker={() => setFileComparePickerOpen(false)}
-        onCloseGitCommitDetails={() => setGitCommitDetails(null)}
-        onCloseGitRefPicker={() => setGitRefPicker(null)}
-        onCloseQuickOpen={closeQuickOpen}
-        onCompareDocuments={compareDocumentPaths}
-        onExternalLinkConfirmation={resolveExternalLinkConfirmation}
-        onOpenDiagramPreview={setDiagramPreview}
-        onOpenDocument={openDocument}
-        onOpenGitCommitDetailsFile={openGitCommitDetailsFile}
-        onOpenGitRefDiff={openGitRefDiff}
-        onLoadMoreGitRefs={loadMoreGitRefs}
-        onReloadGitRefs={reloadGitRefs}
-        onOpenPathInEditor={openPathInEditor}
-        onOpenQuickOpenCandidate={openQuickOpenCandidate}
-        onSetLastMouseGesture={setLastMouseGesture}
-        onSetQuickOpenQuery={setQuickOpenQuery}
-        onSetViewerShortcutHintsOpen={setViewerShortcutHintsOpen}
-        showInlineNotice={showInlineNotice}
-      />
-      {linkHoverDestination &&
-        !(zenModeApplies && zenModeConfig.hideStatusBar) && (
-          <div className="link-hover-status" data-review-id="link-hover-status">
-            {linkHoverDestination}
-          </div>
-        )}
-      <LinkPreviewPopover preview={linkPreview} />
-    </div>
+          : null
+      }
+      viewerPaneProps={{
+        articleRef,
+        config,
+        error,
+        inlineNotice,
+        lightweightActionFeedback,
+        isLoading,
+        mouseGestureTrail,
+        splitEnabled,
+        focusedPaneId,
+        centeredContentWidth,
+        hideStatusFeedback: zenModeApplies && zenModeConfig.hideStatusBar,
+        documentPayload,
+        renderResult,
+        documentHtml,
+        postDiffGitMarkers: activePostDiffGitMarkers,
+        query,
+        searchHits,
+        searchIndex,
+        viewerRef,
+        onArticleClick: handleArticleClick,
+        onArticleContextMenu: handleArticleContextMenu,
+        onArticleDoubleClick: handleArticleDoubleClick,
+        onArticleBlur: handleArticleBlur,
+        onArticleFocus: handleArticleFocus,
+        onArticlePointerLeave: handleArticlePointerLeave,
+        onArticlePointerMove: handleArticlePointerMove,
+        onClearContentCursor: clearActiveContentCursor,
+        onDismissInlineNotice: dismissInlineNotice,
+        onDispatchCommand: (commandId) => void dispatchCommand(commandId),
+        onFocusPane: focusPane,
+        onActivateSearchHit: (index) => {
+          clearActiveContentCursor();
+          activateSearchHit(index);
+        },
+        onConsumePendingMouseGestureContextMenu:
+          consumePendingMouseGestureContextMenu,
+        onMouseGestureContextMenu: handleMouseGestureContextMenu,
+        onMouseGesturePointerCancel: handleMouseGesturePointerCancel,
+        onMouseGesturePointerDown: handleMouseGesturePointerDown,
+        onMouseGesturePointerMove: handleMouseGesturePointerMove,
+        onMouseGesturePointerUp: handleMouseGesturePointerUp,
+        onOpenDirectory: (path) => void openDirectory(path),
+        onOpenDocument: (path) => void openDocument(path),
+        onPickDirectory: () => void pickAndOpenDirectory(),
+        onPickDocument: () => void pickAndOpenDocument(),
+        onClearRecentDocuments: clearRecentDocuments,
+        onClearRecentDirectories: clearRecentDirectories,
+      }}
+      rightSidebarProps={
+        preferencesOpen
+          ? null
+          : {
+              activeHeadingId,
+              matchCount,
+              pinnedSearch: config?.workspace.pinnedSearch ?? null,
+              query: searchInputQuery,
+              renderResult,
+              rightSidebarTab,
+              searchScope,
+              searchHits,
+              searchIndex,
+              searchInputRef,
+              workspaceSearch,
+              workspaceSearchIndex,
+              onActivateSearchHit: (index) => {
+                clearActiveContentCursor();
+                activateSearchHit(index);
+              },
+              onActivateWorkspaceSearchResult: (index) =>
+                void activateWorkspaceSearchResult(index),
+              onClearSearch: handleSearchClear,
+              onDispatchCommand: (commandId) => void dispatchCommand(commandId),
+              onNavigateHeading: (headingId) => {
+                clearActiveContentCursor();
+                navigateToHeading(headingId);
+              },
+              onPinQuery: () => void pinQuery(),
+              onSetSearchScope: setSearchScope,
+              onSetRightSidebarTab: setRightSidebarTab,
+              onSearchInputKeyDown: handleSearchKeyDown,
+              onUpdateQuery: updateSearchQuery,
+              onWorkspaceSearchIndexChange: updateWorkspaceSearchIndex,
+            }
+      }
+      rightSidebarResizeActive={sidebarResizeState?.side === "right"}
+      overlaysProps={{
+        chooseCompareDocument,
+        config,
+        confirmedRemoteDiagramKeys,
+        contextMenu,
+        confirmExternalLink,
+        copyText,
+        diagramPreview,
+        diffContentCursorClearRef,
+        diffContentCursorCommandRef,
+        documentDiffPreview,
+        diffPreviewChromeHidden,
+        documentPayload,
+        externalLinkConfirmation,
+        fileComparePickerOpen,
+        gitCommitDetails,
+        gitRefPicker,
+        host,
+        krokiFallbackDiagramKeys,
+        loadDiffDocumentContext,
+        openContextMenu,
+        openDiffExternalUrl,
+        quickOpenCandidates,
+        quickOpenInputRef,
+        quickOpenOpen,
+        quickOpenQuery,
+        resolveDiffLocalImage,
+        resolveDiffDocumentLink,
+        renderDiffDiagram,
+        viewerShortcutHintsOpen,
+        onCloseContextMenu: closeContextMenu,
+        onCloseDocumentDiffPreview: closeDocumentDiffPreview,
+        onCloseFileComparePicker: () => setFileComparePickerOpen(false),
+        onCloseGitCommitDetails: () => setGitCommitDetails(null),
+        onCloseGitRefPicker: () => setGitRefPicker(null),
+        onCloseQuickOpen: closeQuickOpen,
+        onCompareDocuments: compareDocumentPaths,
+        onExternalLinkConfirmation: resolveExternalLinkConfirmation,
+        onOpenDiagramPreview: setDiagramPreview,
+        onOpenDocument: openDocument,
+        onOpenGitCommitDetailsFile: openGitCommitDetailsFile,
+        onOpenGitRefDiff: openGitRefDiff,
+        onLoadMoreGitRefs: loadMoreGitRefs,
+        onReloadGitRefs: reloadGitRefs,
+        onOpenPathInEditor: openPathInEditor,
+        onOpenQuickOpenCandidate: openQuickOpenCandidate,
+        onSetLastMouseGesture: setLastMouseGesture,
+        onSetQuickOpenQuery: setQuickOpenQuery,
+        onSetViewerShortcutHintsOpen: setViewerShortcutHintsOpen,
+        showInlineNotice,
+      }}
+    />
   );
 }
