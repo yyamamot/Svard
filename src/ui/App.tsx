@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { AppMainShell } from "./components/AppMainShell";
 import { useActiveHeadingTracking } from "./hooks/useActiveHeadingTracking";
 import { useBookmarksState } from "./hooks/useBookmarksState";
+import { useAppCommandWiring } from "./hooks/useAppCommandWiring";
+import { useAppRightSidebarWiring } from "./hooks/useAppRightSidebarWiring";
 import { useAppShellViewState } from "./hooks/useAppShellViewState";
+import { useAppSidebarWiring } from "./hooks/useAppSidebarWiring";
 import { useAppWindowActions } from "./hooks/useAppWindowActions";
 import { useContentCursorActions } from "./hooks/useContentCursorActions";
 import { useDocumentLifecycle } from "./hooks/useDocumentLifecycle";
@@ -12,12 +14,9 @@ import { useDocumentRender } from "./hooks/useDocumentRender";
 import { useExternalLinkConfirmation } from "./hooks/useExternalLinkConfirmation";
 import { useFileTreeState } from "./hooks/useFileTreeState";
 import { useFileCompareActions } from "./hooks/useFileCompareActions";
-import { useGitStatusHints } from "./hooks/useGitStatusHints";
 import { useInlineNotice } from "./hooks/useInlineNotice";
 import { useKrokiActions } from "./hooks/useKrokiActions";
-import { buildLeftSidebarSourceControlProps } from "./hooks/useLeftSidebarSourceControlProps";
 import { useLightweightActionFeedback } from "./hooks/useLightweightActionFeedback";
-import { useCommandDispatcher } from "./hooks/useCommandDispatcher";
 import { useContextMenuState } from "./hooks/useContextMenuState";
 import { useMouseGestures } from "./hooks/useMouseGestures";
 import { useMarkdownWorkerWarmupProbe } from "./hooks/useMarkdownWorkerWarmupProbe";
@@ -40,7 +39,6 @@ import { useViewerSplitResize } from "./hooks/useViewerSplitResize";
 import { useWorkspacePersistence } from "./hooks/useWorkspacePersistence";
 import { useWorkspaceBoot } from "./hooks/useWorkspaceBoot";
 import { useWorkspaceSearch } from "./hooks/useWorkspaceSearch";
-import { svardWebsiteUrl } from "../core/projectLinks";
 import { usePostDiffGitMarkerState } from "./hooks/usePostDiffGitMarkerState";
 import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { useZenModeActions } from "./hooks/useZenModeActions";
@@ -50,7 +48,6 @@ import {
 } from "./lib/workspaceTabs";
 import { MAIN_WINDOW_SESSION_ID, normalizeConfig } from "./lib/config";
 import type { ContentCursorCommandHandler } from "./lib/contentCursor";
-import { scrollViewer } from "./lib/viewerScroll";
 import {
   mergePersistedSharedConfigIntoWindow,
   mergeWindowConfigForSave,
@@ -81,7 +78,6 @@ import type {
   WorkspaceEnvironment,
 } from "../core/types";
 import { getBoundedTabs } from "../core/tabLayout";
-import { nextRecentTabPath } from "../core/workspaceState";
 import { tracePerf } from "./lib/perfTrace";
 
 const host = createHostAdapter();
@@ -850,18 +846,6 @@ export function App() {
       diffContentCursorClearRef,
     });
 
-  const recentTabPath = nextRecentTabPath(
-    config?.workspace.recentTabs ?? [],
-    activeDocumentPayload?.path ?? null,
-    orderedTabs.map((tab) => tab.path),
-  );
-
-  function switchToRecentTab() {
-    if (recentTabPath) {
-      void activateDocumentWorkspaceTab(recentTabPath);
-    }
-  }
-
   const {
     activeTitle,
     appShellStyle,
@@ -917,9 +901,9 @@ export function App() {
     showLightweightActionFeedback,
   });
 
-  const { dispatchCommand, isCommandEnabled } = useCommandDispatcher({
+  const { dispatchCommand, isCommandEnabled } = useAppCommandWiring({
+    activeDocumentPayload,
     config,
-    documentPayload: activeDocumentPayload,
     focusedPaneId,
     lastClosedTabs,
     lastMouseGesture,
@@ -930,7 +914,7 @@ export function App() {
     splitEnabled,
     tabs,
     zenModeActive,
-    canSwitchToRecentTab: Boolean(recentTabPath),
+    orderedTabs,
     zenModeEscapeBlocked: zenModeBlockingOverlay,
     onActivateRelativeTab: activateRelativeDocumentTab,
     onActivateTabByIndex: activateDocumentTabByIndex,
@@ -944,7 +928,7 @@ export function App() {
     onFocusPane: focusPane,
     onMoveContentCursor: moveActiveContentCursor,
     onOpenFocusedLink: openFocusedLink,
-    onOpenWebsite: () => host.openExternalUrl(svardWebsiteUrl),
+    onOpenExternalUrl: (url) => host.openExternalUrl(url),
     onCompareActiveWithPickedDocument: compareActiveWithPickedDocument,
     onCompareGitRef: compareWithGitRef,
     onComparePickedDocuments: comparePickedDocuments,
@@ -959,7 +943,6 @@ export function App() {
     onPickAndOpenDirectory: pickAndOpenDirectory,
     onPickAndOpenDocument: pickAndOpenDocument,
     onSaveConfig: saveConfig,
-    onScrollViewer: (kind) => scrollViewer(viewerRef, kind),
     onSearchIndexChange: updateSearchIndex,
     onSetPreferencesOpen: setPreferencesTabVisible,
     onSetRightSidebarTab: setRightSidebarTab,
@@ -972,7 +955,7 @@ export function App() {
     onTogglePinned: toggleActivePinnedTab,
     onNavigateHistory: navigateHistory,
     onRestoreClosedTab: restoreClosedDocumentTab,
-    onSwitchToRecentTab: switchToRecentTab,
+    onActivateDocumentWorkspaceTab: activateDocumentWorkspaceTab,
     searchInputRef,
     openFilesFilterInputRef,
     viewerRef,
@@ -1051,23 +1034,33 @@ export function App() {
     toggleActivePinnedTab,
   });
 
-  function handleSearchClear() {
-    if (searchScope === "workspace") {
-      handleWorkspaceSearchClear();
-      return;
-    }
-    void dispatchCommand("search.clear");
-  }
-
-  function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
-    if (handleWorkspaceSearchEnterKey(event)) {
-      return;
-    }
-    if (event.key === "Enter") {
-      clearActiveContentCursor();
-    }
-    handleSearchInputKeyDown(event);
-  }
+  const { rightSidebarProps } = useAppRightSidebarWiring({
+    activeHeadingId,
+    activateSearchHit,
+    activateWorkspaceSearchResult,
+    clearActiveContentCursor,
+    config,
+    dispatchCommand,
+    handleSearchInputKeyDown,
+    handleWorkspaceSearchClear,
+    handleWorkspaceSearchEnterKey,
+    matchCount,
+    navigateToHeading,
+    pinQuery,
+    renderResult,
+    rightSidebarTab,
+    searchHits,
+    searchIndex,
+    searchInputQuery,
+    searchInputRef,
+    searchScope,
+    setRightSidebarTab,
+    setSearchScope,
+    updateSearchQuery,
+    updateWorkspaceSearchIndex,
+    workspaceSearch,
+    workspaceSearchIndex,
+  });
   const {
     mouseGestureTrail,
     consumePendingMouseGestureContextMenu,
@@ -1084,42 +1077,85 @@ export function App() {
     dispatchCommand,
     setLastMouseGesture,
   });
-  const leftSidebarSourceControlProps = buildLeftSidebarSourceControlProps({
-    config,
-    effectiveGitTimelinePath,
-    gitBranchDiff,
-    gitBranchDiffLoading,
-    gitChanges,
-    gitChangesLoading,
-    gitCommitGraph,
-    gitCommitGraphLoading,
-    gitCommitGraphLoadingMore,
-    gitTimelineCompareBase,
-    gitTimelineHistory,
-    gitTimelineLoading,
-    gitTimelineLoadingMore,
-    loadMoreGitCommitGraph,
-    loadMoreGitFileHistory,
-    openGitBranchDiffItem,
-    openSourceControlBranchDiffContextMenu,
-    openSourceControlChange,
-    openSourceControlChangeContextMenu,
-    openSourceControlGraphContextMenu,
-    openSourceControlGraphItem,
-    openTimelineChanges,
-    openTimelineItemContextMenu,
-    setSourceControlBranchDiffBaseRef,
-    setSourceControlGraphScope,
-    setSourceControlView,
-    showGitDiff,
-  });
   const bookmarks = config?.workspace.bookmarks ?? [];
-  const gitStatusByPath = useGitStatusHints({
+  const { leftSidebarProps } = useAppSidebarWiring({
+    activePath: preferencesOpen ? undefined : documentPayload?.path,
     bookmarks,
     childrenByDirectory,
+    config,
+    directoryErrors,
+    expandedDirectories,
+    gitSourceControl: {
+      effectiveGitTimelinePath,
+      gitBranchDiff,
+      gitBranchDiffLoading,
+      gitChanges,
+      gitChangesLoading,
+      gitCommitGraph,
+      gitCommitGraphLoading,
+      gitCommitGraphLoadingMore,
+      gitTimelineCompareBase,
+      gitTimelineHistory,
+      gitTimelineLoading,
+      gitTimelineLoadingMore,
+      loadMoreGitCommitGraph,
+      loadMoreGitFileHistory,
+      openGitBranchDiffItem,
+      openSourceControlBranchDiffContextMenu,
+      openSourceControlChange,
+      openSourceControlChangeContextMenu,
+      openSourceControlGraphContextMenu,
+      openSourceControlGraphItem,
+      openTimelineChanges,
+      openTimelineItemContextMenu,
+      setSourceControlBranchDiffBaseRef,
+      setSourceControlGraphScope,
+      setSourceControlView,
+      showGitDiff,
+    },
+    hideOpenFiles: hideOpenFilesForSiteScreenshot,
     host,
+    leftSidebarContentRef,
+    loadingDirectories,
+    openFileReloadStates,
+    openFilesCollapsed: sidebarLayout.openFilesCollapsed,
+    openFilesFilter,
+    openFilesFilterInputRef,
+    openFilesPaneRef,
+    openFilesSplitResizeState,
+    orderedTabs,
+    pinnedTabs,
+    preferencesActive: preferencesOpen,
+    preferencesTabOpen,
+    rootDirectory,
+    rootEntries,
+    sidebarResizeState,
     tabs,
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
+    onActivateTab: activateDocumentWorkspaceTab,
+    onActivatePreferences: openPreferencesTab,
+    onAddActiveBookmark: addActiveBookmark,
+    onAddRootBookmark: addRootBookmark,
+    onBeginOpenFilesSplitResize: beginOpenFilesSplitResize,
+    onBeginSidebarResize: beginSidebarResize,
+    onCloseTab: closeTab,
+    onClosePreferences: closePreferencesTab,
+    onCollapseTree: collapseTree,
+    onOpenBookmark: openBookmark,
+    onOpenFile: openDocumentWorkspaceTab,
+    onPickDirectory: pickAndOpenDirectory,
+    onPickDocument: pickAndOpenDocument,
+    onRefreshTree: refreshTree,
+    onRemoveBookmark: removeBookmarkEntry,
+    onReorderBookmarks: moveBookmark,
+    onReorderOpenTabs: reorderOpenTabs,
+    onResetOpenFilesSplitHeight: resetOpenFilesSplitHeight,
+    onResetSidebarWidth: resetSidebarWidth,
+    onSelectSidebarTab: setSidebarTab,
+    onSetOpenFilesFilter: setOpenFilesFilter,
+    onToggleDirectory: toggleDirectory,
+    onToggleOpenFilesCollapsed: toggleOpenFilesCollapsed,
+    onTogglePinned: toggleActivePinnedTab,
   });
   const quickOpenCandidates = useQuickOpenCandidates({
     bookmarks,
@@ -1254,57 +1290,7 @@ export function App() {
       onBeginRightSidebarResize={(event) => beginSidebarResize("right", event)}
       onResetRightSidebarWidth={() => resetSidebarWidth("right")}
       onExitZenMode={() => void dispatchCommand("view.exitZenMode")}
-      leftSidebarProps={{
-        activePath: preferencesOpen ? undefined : documentPayload?.path,
-        preferencesTabOpen,
-        preferencesActive: preferencesOpen,
-        bookmarks,
-        childrenByDirectory,
-        directoryErrors,
-        expandedDirectories,
-        loadingDirectories,
-        openFilesFilter,
-        hideOpenFiles: hideOpenFilesForSiteScreenshot,
-        openFilesCollapsed: sidebarLayout.openFilesCollapsed,
-        openFilesFilterInputRef,
-        openFilesPaneRef,
-        openFilesSplitResizeState,
-        orderedTabs,
-        pinnedTabs,
-        rootDirectory,
-        rootEntries,
-        gitStatusByPath,
-        openFileReloadStates,
-        sidebarResizeState,
-        sidebarTab: config?.workspace.sidebarTab ?? "files",
-        leftSidebarContentRef,
-        ...leftSidebarSourceControlProps,
-        onActivateTab: activateDocumentWorkspaceTab,
-        onActivatePreferences: openPreferencesTab,
-        onAddActiveBookmark: () => void addActiveBookmark(),
-        onAddRootBookmark: () => void addRootBookmark(),
-        onBeginOpenFilesSplitResize: beginOpenFilesSplitResize,
-        onBeginSidebarResize: beginSidebarResize,
-        onCloseTab: closeTab,
-        onClosePreferences: closePreferencesTab,
-        onCollapseTree: () => void collapseTree(),
-        onOpenBookmark: (bookmark) => void openBookmark(bookmark),
-        onOpenFile: (path) => void openDocumentWorkspaceTab(path),
-        onPickDirectory: () => void pickAndOpenDirectory(),
-        onPickDocument: () => void pickAndOpenDocument(),
-        onRefreshTree: () => void refreshTree(),
-        onRemoveBookmark: (path) => void removeBookmarkEntry(path),
-        onReorderBookmarks: (fromIndex, toIndex) =>
-          void moveBookmark(fromIndex, toIndex),
-        onReorderOpenTabs: reorderOpenTabs,
-        onResetOpenFilesSplitHeight: resetOpenFilesSplitHeight,
-        onResetSidebarWidth: resetSidebarWidth,
-        onSelectSidebarTab: (tab) => void setSidebarTab(tab),
-        onSetOpenFilesFilter: setOpenFilesFilter,
-        onToggleDirectory: (path) => void toggleDirectory(path),
-        onToggleOpenFilesCollapsed: toggleOpenFilesCollapsed,
-        onTogglePinned: toggleActivePinnedTab,
-      }}
+      leftSidebarProps={leftSidebarProps}
       topbarProps={{
         sidebarVisible: effectiveSidebarVisible,
         activeTitle,
@@ -1396,38 +1382,7 @@ export function App() {
       rightSidebarProps={
         preferencesOpen
           ? null
-          : {
-              activeHeadingId,
-              matchCount,
-              pinnedSearch: config?.workspace.pinnedSearch ?? null,
-              query: searchInputQuery,
-              renderResult,
-              rightSidebarTab,
-              searchScope,
-              searchHits,
-              searchIndex,
-              searchInputRef,
-              workspaceSearch,
-              workspaceSearchIndex,
-              onActivateSearchHit: (index) => {
-                clearActiveContentCursor();
-                activateSearchHit(index);
-              },
-              onActivateWorkspaceSearchResult: (index) =>
-                void activateWorkspaceSearchResult(index),
-              onClearSearch: handleSearchClear,
-              onDispatchCommand: (commandId) => void dispatchCommand(commandId),
-              onNavigateHeading: (headingId) => {
-                clearActiveContentCursor();
-                navigateToHeading(headingId);
-              },
-              onPinQuery: () => void pinQuery(),
-              onSetSearchScope: setSearchScope,
-              onSetRightSidebarTab: setRightSidebarTab,
-              onSearchInputKeyDown: handleSearchKeyDown,
-              onUpdateQuery: updateSearchQuery,
-              onWorkspaceSearchIndexChange: updateWorkspaceSearchIndex,
-            }
+          : rightSidebarProps
       }
       rightSidebarResizeActive={sidebarResizeState?.side === "right"}
       overlaysProps={{

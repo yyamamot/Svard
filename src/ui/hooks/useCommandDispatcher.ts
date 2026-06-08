@@ -37,7 +37,7 @@ interface SvardCommands {
   getLastMouseNavigation(): MouseNavigationAutomation | null;
 }
 
-interface UseCommandDispatcherOptions {
+export interface UseCommandDispatcherOptions {
   config: AppConfig | null;
   documentPayload: DocumentPayload | null;
   focusedPaneId: PaneId;
