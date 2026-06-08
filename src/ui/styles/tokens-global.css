@@ -79,6 +79,52 @@ button {
   --notice-bg: #fff8d8;
   --notice-border: #e3c55a;
   --shell-border: #e2e8eb;
+  --git-change-added-accent: #2d8a62;
+  --git-change-removed-accent: #c85240;
+  --git-change-changed-accent: #d9970e;
+  --git-change-accent-width: 4px;
+  --git-change-accent-offset: -10px;
+  --git-change-block-radius: 4px;
+  --git-change-block-bg-added: color-mix(
+    in srgb,
+    var(--git-change-added-accent) 12%,
+    var(--reader-bg)
+  );
+  --git-change-block-bg-removed: color-mix(
+    in srgb,
+    var(--git-change-removed-accent) 10%,
+    var(--reader-bg)
+  );
+  --git-change-block-bg-changed: color-mix(
+    in srgb,
+    var(--git-change-changed-accent) 11%,
+    var(--reader-bg)
+  );
+  --git-change-item-bg-added: color-mix(
+    in srgb,
+    var(--git-change-added-accent) 11%,
+    var(--reader-bg)
+  );
+  --git-change-item-bg-removed: color-mix(
+    in srgb,
+    var(--git-change-removed-accent) 10%,
+    var(--reader-bg)
+  );
+  --git-change-item-bg-changed: color-mix(
+    in srgb,
+    var(--git-change-changed-accent) 11%,
+    var(--reader-bg)
+  );
+  --git-change-inline-bg-added: color-mix(
+    in srgb,
+    var(--git-change-added-accent) 26%,
+    transparent
+  );
+  --git-change-inline-bg-removed: color-mix(
+    in srgb,
+    var(--git-change-removed-accent) 24%,
+    transparent
+  );
   --left-sidebar-width: 260px;
   --right-sidebar-width: 320px;
   display: grid;
@@ -168,6 +214,49 @@ button {
   --notice-bg: #2a2615;
   --notice-border: #8a7530;
   --shell-border: #1b2329;
+  --git-change-added-accent: #58ba85;
+  --git-change-removed-accent: #df6b5c;
+  --git-change-changed-accent: #e0ab3f;
+  --git-change-block-bg-added: color-mix(
+    in srgb,
+    var(--git-change-added-accent) 14%,
+    var(--reader-bg)
+  );
+  --git-change-block-bg-removed: color-mix(
+    in srgb,
+    var(--git-change-removed-accent) 12%,
+    var(--reader-bg)
+  );
+  --git-change-block-bg-changed: color-mix(
+    in srgb,
+    var(--git-change-changed-accent) 13%,
+    var(--reader-bg)
+  );
+  --git-change-item-bg-added: color-mix(
+    in srgb,
+    var(--git-change-added-accent) 13%,
+    var(--reader-bg)
+  );
+  --git-change-item-bg-removed: color-mix(
+    in srgb,
+    var(--git-change-removed-accent) 12%,
+    var(--reader-bg)
+  );
+  --git-change-item-bg-changed: color-mix(
+    in srgb,
+    var(--git-change-changed-accent) 13%,
+    var(--reader-bg)
+  );
+  --git-change-inline-bg-added: color-mix(
+    in srgb,
+    var(--git-change-added-accent) 30%,
+    transparent
+  );
+  --git-change-inline-bg-removed: color-mix(
+    in srgb,
+    var(--git-change-removed-accent) 28%,
+    transparent
+  );
   color: #eef2f4;
   background: #0b0f12;
 }

@@ -173,15 +173,27 @@
 }
 
 .post-diff-git-marker.added::before {
-  background: color-mix(in srgb, #2f8f5b 80%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--git-change-added-accent) 80%,
+    transparent
+  );
 }
 
 .post-diff-git-marker.changed::before {
-  background: color-mix(in srgb, #c28a17 82%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--git-change-changed-accent) 82%,
+    transparent
+  );
 }
 
 .post-diff-git-marker.removed::before {
-  background: color-mix(in srgb, #b64848 80%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--git-change-removed-accent) 80%,
+    transparent
+  );
 }
 
 .post-diff-git-marker:hover,
@@ -201,20 +213,36 @@
 
 .document-body :where(.post-diff-git-highlight) {
   position: relative;
-  border-left: 5px solid color-mix(in srgb, #2d8a62 88%, transparent);
-  border-radius: 4px;
+  --git-change-target-accent: var(--git-change-added-accent);
+  border-radius: var(--git-change-block-radius);
   scroll-margin: 72px;
-  box-shadow: 0 0 0 1px color-mix(in srgb, #2d8a62 14%, transparent);
-  background: color-mix(in srgb, #2d8a62 12%, var(--reader-bg));
+  background: var(--git-change-block-bg-added);
 }
 
-.document-body .post-diff-git-highlight + .post-diff-git-highlight {
+.document-body
+  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item))::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--git-change-accent-offset);
+  width: var(--git-change-accent-width);
+  border-radius: 999px;
+  background: var(--git-change-target-accent);
+  content: "";
+}
+
+.document-body
+  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item))
+  + :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item)) {
   margin-top: 0;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
 
-.document-body .post-diff-git-highlight:has(+ .post-diff-git-highlight) {
+.document-body
+  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item):has(
+        + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
+      )) {
   margin-bottom: 0;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
@@ -222,65 +250,36 @@
 
 .document-body
   :where(.post-diff-git-highlight-added, .post-diff-git-highlight-changed) {
-  border-left-color: color-mix(in srgb, #2d8a62 88%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, #2d8a62 14%, transparent);
-  background: color-mix(in srgb, #2d8a62 12%, var(--reader-bg));
+  --git-change-target-accent: var(--git-change-added-accent);
+  background: var(--git-change-block-bg-added);
 }
 
 .document-body :where(.post-diff-git-highlight-removed) {
-  border-left-color: color-mix(in srgb, #c85240 86%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, #c85240 14%, transparent);
-  background: color-mix(in srgb, #c85240 10%, var(--reader-bg));
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-block-bg-removed);
 }
 
 .document-body :where(.post-diff-git-highlight-list-item) {
-  --post-diff-list-item-accent: #2d8a62;
-  border-left: 0;
+  --git-change-target-accent: var(--git-change-added-accent);
   padding-inline: 4px;
-  box-shadow: none;
-  background: color-mix(in srgb, #2d8a62 11%, var(--reader-bg));
+  background: var(--git-change-item-bg-added);
 }
 
 .document-body :where(.post-diff-git-highlight-list-item)::before {
   position: absolute;
   top: 4px;
   bottom: 4px;
-  left: -9px;
-  width: 3px;
+  left: var(--git-change-accent-offset);
+  width: var(--git-change-accent-width);
   border-radius: 999px;
-  background: var(--post-diff-list-item-accent);
+  background: var(--git-change-target-accent);
   content: "";
 }
 
 .document-body
   :where(.post-diff-git-highlight-list-item.post-diff-git-highlight-removed) {
-  --post-diff-list-item-accent: #c85240;
-  background: color-mix(in srgb, #c85240 10%, var(--reader-bg));
-}
-
-.theme-dark .document-body :where(.post-diff-git-highlight) {
-  border-left-color: color-mix(in srgb, #58ba85 84%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, #58ba85 18%, transparent);
-  background: color-mix(in srgb, #58ba85 14%, var(--reader-bg));
-}
-
-.theme-dark .document-body :where(.post-diff-git-highlight-removed) {
-  border-left-color: color-mix(in srgb, #df6b5c 84%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, #df6b5c 18%, transparent);
-  background: color-mix(in srgb, #df6b5c 12%, var(--reader-bg));
-}
-
-.theme-dark .document-body :where(.post-diff-git-highlight-list-item) {
-  border-left: 0;
-  box-shadow: none;
-  background: color-mix(in srgb, #58ba85 13%, var(--reader-bg));
-}
-
-.theme-dark
-  .document-body
-  :where(.post-diff-git-highlight-list-item.post-diff-git-highlight-removed) {
-  --post-diff-list-item-accent: #df6b5c;
-  background: color-mix(in srgb, #df6b5c 12%, var(--reader-bg));
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-item-bg-removed);
 }
 
 .content-cursor-active {
@@ -1253,4 +1252,34 @@
   color: var(--notice-text);
   background: var(--notice-bg);
   font-size: 13px;
+}
+
+.document-body
+  .post-diff-git-highlight:not(.post-diff-git-highlight-list-item):has(
+    + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
+  ) {
+  margin-bottom: 0 !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.document-body
+  .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
+  + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item) {
+  margin-top: 0 !important;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.document-body.markdown-body
+  :is(h1, h2, h3, h4, h5, h6).post-diff-git-highlight:has(
+    + :is(ul, ol).post-diff-git-highlight
+  ) {
+  margin-bottom: 4px !important;
+}
+
+.document-body.markdown-body
+  :is(h1, h2, h3, h4, h5, h6).post-diff-git-highlight
+  + :is(ul, ol).post-diff-git-highlight {
+  margin-top: 0 !important;
 }

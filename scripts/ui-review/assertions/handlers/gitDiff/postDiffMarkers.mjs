@@ -9,6 +9,10 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-list-item-after-diff",
   "viewer-normal-git-markers-list-item-deletion-fallback",
   "viewer-normal-git-markers-list-item-privacy",
+  "viewer-git-change-visual-contract-block",
+  "viewer-git-change-visual-contract-list-item",
+  "viewer-git-change-visual-contract-inline",
+  "viewer-git-change-visual-contract-deletion-fallback",
 ]);
 
 export async function buildGitDiffPostDiffMarkerAssertions(context) {
@@ -28,6 +32,12 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
     !serialized.includes("diff --git") &&
     !serialized.includes("diagramSource") &&
     !serialized.includes("endpointUrl");
+  const visualContract = await page.evaluate(
+    () => window.__SVARD_GIT_CHANGE_VISUAL_CONTRACT__ ?? null,
+  );
+  const visualContractPrivate = !JSON.stringify(visualContract).includes(
+    "/workspace/",
+  );
 
   return {
     hasPostDiffGitMarkerSummary: Boolean(summary),
@@ -100,6 +110,46 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
         ? privacySafe &&
           summary?.listItemMarker === true &&
           summary?.itemHighlightCount > 0
+        : true,
+    hasGitChangeVisualContractBlock:
+      scenario === "viewer-git-change-visual-contract-block"
+        ? visualContractPrivate &&
+          visualContract?.rendered?.blockCount > 0 &&
+          visualContract?.normal?.blockCount > 0 &&
+          visualContract?.normal?.tokenCount === 5 &&
+          visualContract?.rendered?.blockBar?.width ===
+            visualContract?.normal?.blockBar?.width &&
+          visualContract?.rendered?.blockBar?.left ===
+            visualContract?.normal?.blockBar?.left
+        : true,
+    hasGitChangeVisualContractListItem:
+      scenario === "viewer-git-change-visual-contract-list-item"
+        ? visualContractPrivate &&
+          visualContract?.rendered?.itemCount > 0 &&
+          visualContract?.normal?.itemCount > 0 &&
+          visualContract?.rendered?.parentListTargetCount === 0 &&
+          visualContract?.normal?.parentListTargetCount === 0 &&
+          visualContract?.rendered?.itemBar?.width ===
+            visualContract?.normal?.itemBar?.width &&
+          visualContract?.rendered?.itemBar?.left ===
+            visualContract?.normal?.itemBar?.left
+        : true,
+    hasGitChangeVisualContractInline:
+      scenario === "viewer-git-change-visual-contract-inline"
+        ? visualContractPrivate &&
+          visualContract?.rendered?.inlineCount > 0 &&
+          visualContract?.normal?.inlineCount > 0 &&
+          visualContract?.rendered?.inline?.backgroundColor ===
+            visualContract?.normal?.inline?.backgroundColor
+        : true,
+    hasGitChangeVisualContractDeletionFallback:
+      scenario === "viewer-git-change-visual-contract-deletion-fallback"
+        ? visualContractPrivate &&
+          visualContract?.rendered === null &&
+          visualContract?.normal?.markerCount > 0 &&
+          visualContract?.normal?.blockCount === 0 &&
+          visualContract?.normal?.itemCount === 0 &&
+          visualContract?.normal?.inlineCount === 0
         : true,
   };
 }

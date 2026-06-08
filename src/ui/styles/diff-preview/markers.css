@@ -34,11 +34,11 @@
 }
 
 .git-inline-word-highlight.added {
-  background: color-mix(in srgb, #2d8a62 26%, transparent);
+  background: var(--git-change-inline-bg-added);
 }
 
 .git-inline-word-highlight.removed {
-  background: color-mix(in srgb, #c85240 24%, transparent);
+  background: var(--git-change-inline-bg-removed);
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }

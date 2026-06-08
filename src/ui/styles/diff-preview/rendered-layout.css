@@ -41,11 +41,23 @@
   position: relative;
   margin: 0 0 14px;
   border: 1px solid transparent;
-  border-left-width: 4px;
-  border-radius: 3px;
+  border-radius: var(--git-change-block-radius);
   padding: 7px 10px 8px;
   color: var(--reader-text);
   background: transparent;
+}
+
+.git-rendered-block.added::before,
+.git-rendered-block.removed::before,
+.git-rendered-block.changed::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--git-change-accent-offset);
+  width: var(--git-change-accent-width);
+  border-radius: 999px;
+  background: var(--git-change-target-accent);
+  content: "";
 }
 
 .git-rendered-block.unchanged {
@@ -53,33 +65,36 @@
 }
 
 .git-rendered-block.added {
-  border-left-color: #2d8a62;
-  background: color-mix(in srgb, #2d8a62 13%, var(--reader-bg));
+  --git-change-target-accent: var(--git-change-added-accent);
+  background: var(--git-change-block-bg-added);
 }
 
 .git-rendered-block.removed {
-  border-left-color: #c85240;
-  background: color-mix(in srgb, #c85240 12%, var(--reader-bg));
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-block-bg-removed);
 }
 
 .git-rendered-block.changed {
-  border-left-color: #d9970e;
-  background: color-mix(in srgb, #d9970e 11%, var(--reader-bg));
+  --git-change-target-accent: var(--git-change-changed-accent);
+  background: var(--git-change-block-bg-changed);
 }
 
 .git-rendered-block.changed.left-side {
-  border-left-color: #c85240;
-  background: color-mix(in srgb, #c85240 10%, var(--reader-bg));
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-block-bg-removed);
 }
 
 .git-rendered-block.changed.right-side {
-  border-left-color: #2d8a62;
-  background: color-mix(in srgb, #2d8a62 11%, var(--reader-bg));
+  --git-change-target-accent: var(--git-change-added-accent);
+  background: var(--git-change-block-bg-added);
 }
 
 .git-rendered-block.has-list-item-changes.changed {
-  border-left-color: transparent;
   background: transparent;
+}
+
+.git-rendered-block.has-list-item-changes.changed::before {
+  content: none;
 }
 
 .git-rendered-block.blank {
@@ -131,9 +146,9 @@
 }
 
 .git-rendered-list-item-change {
-  --git-rendered-list-item-accent: #d9970e;
+  --git-change-target-accent: var(--git-change-changed-accent);
   position: relative;
-  border-radius: 4px;
+  border-radius: var(--git-change-block-radius);
   margin-block: 2px;
   padding: 1px 5px;
   scroll-margin: 24px;
@@ -143,36 +158,36 @@
   position: absolute;
   top: 4px;
   bottom: 4px;
-  left: -9px;
-  width: 3px;
+  left: var(--git-change-accent-offset);
+  width: var(--git-change-accent-width);
   border-radius: 999px;
-  background: var(--git-rendered-list-item-accent);
+  background: var(--git-change-target-accent);
   content: "";
 }
 
 .git-rendered-list-item-change.added {
-  --git-rendered-list-item-accent: #2d8a62;
-  background: color-mix(in srgb, #2d8a62 13%, transparent);
+  --git-change-target-accent: var(--git-change-added-accent);
+  background: var(--git-change-item-bg-added);
 }
 
 .git-rendered-list-item-change.removed {
-  --git-rendered-list-item-accent: #c85240;
-  background: color-mix(in srgb, #c85240 12%, transparent);
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-item-bg-removed);
 }
 
 .git-rendered-list-item-change.changed {
-  --git-rendered-list-item-accent: #d9970e;
-  background: color-mix(in srgb, #d9970e 12%, transparent);
+  --git-change-target-accent: var(--git-change-changed-accent);
+  background: var(--git-change-item-bg-changed);
 }
 
 .git-rendered-block.left-side .git-rendered-list-item-change.changed {
-  --git-rendered-list-item-accent: #c85240;
-  background: color-mix(in srgb, #c85240 10%, transparent);
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-item-bg-removed);
 }
 
 .git-rendered-block.right-side .git-rendered-list-item-change.changed {
-  --git-rendered-list-item-accent: #2d8a62;
-  background: color-mix(in srgb, #2d8a62 11%, transparent);
+  --git-change-target-accent: var(--git-change-added-accent);
+  background: var(--git-change-item-bg-added);
 }
 
 .git-rendered-list-item-change.content-cursor-active {
