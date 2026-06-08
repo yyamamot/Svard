@@ -127,10 +127,10 @@ export function GeneralSection({
             }
           />
           <span className="checkbox-copy">
-            <span>Git change markers</span>
+            <span>Change Review Mode</span>
             <span className="preference-help-text">
-              Show working tree change markers in the viewer, and keep Diff
-              Preview handoff markers for the current document.
+              Show working tree changes directly in the viewer. Diff Preview
+              handoff markers are also kept for the current document.
             </span>
           </span>
         </label>
