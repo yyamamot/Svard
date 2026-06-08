@@ -27,9 +27,12 @@ interface UseFileTreeStateOptions {
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
-  onWorkspaceFileChange?: (
-    reason: "manual-refresh" | "directory-watch",
-  ) => void;
+  onWorkspaceFileChange?: (event: WorkspaceFileChangeEvent) => void;
+}
+
+export interface WorkspaceFileChangeEvent {
+  reason: "manual-refresh" | "directory-watch";
+  changedPath: string | null;
 }
 
 export function useFileTreeState({
@@ -151,7 +154,10 @@ export function useFileTreeState({
       ...current,
       ...Object.fromEntries(refreshed),
     }));
-    onWorkspaceFileChangeRef.current?.("manual-refresh");
+    onWorkspaceFileChangeRef.current?.({
+      reason: "manual-refresh",
+      changedPath: null,
+    });
     showInlineNotice("File tree refreshed", { tone: "success" });
   }
 
@@ -218,7 +224,10 @@ export function useFileTreeState({
               });
             });
         }
-        onWorkspaceFileChangeRef.current?.("directory-watch");
+        onWorkspaceFileChangeRef.current?.({
+          reason: "directory-watch",
+          changedPath,
+        });
         void host
           .listDirectory(path)
           .then((entries) => {

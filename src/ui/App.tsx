@@ -111,6 +111,7 @@ import { defaultConfig } from "../core/defaultConfig";
 import { getBoundedTabs } from "../core/tabLayout";
 import { nextRecentTabPath } from "../core/workspaceState";
 import { perfBasename, tracePerf } from "./lib/perfTrace";
+import { shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange } from "./lib/postDiffGitMarkerRefresh";
 
 const host = createHostAdapter();
 
@@ -519,9 +520,9 @@ export function App() {
     viewerRef,
     windowSessionId,
   });
-  const refreshSourceControlFromFileTreeRef = useRef<(reason: string) => void>(
-    () => undefined,
-  );
+  const refreshSourceControlFromFileTreeRef = useRef<
+    (event: { reason: string; changedPath: string | null }) => void
+  >(() => undefined);
   const {
     rootDirectory,
     setRootDirectory,
@@ -540,8 +541,8 @@ export function App() {
     persistWorkspace,
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
     showInlineNotice,
-    onWorkspaceFileChange: (reason) =>
-      refreshSourceControlFromFileTreeRef.current(`file-tree-${reason}`),
+    onWorkspaceFileChange: (event) =>
+      refreshSourceControlFromFileTreeRef.current(event),
   });
   const {
     leftSidebarContentRef,
@@ -743,8 +744,18 @@ export function App() {
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
     showInlineNotice,
   });
-  refreshSourceControlFromFileTreeRef.current = (reason) => {
-    invalidatePostDiffGitMarkersForActiveDocument("git-refresh");
+  refreshSourceControlFromFileTreeRef.current = (event) => {
+    const reason = `file-tree-${event.reason}`;
+    const decision = shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
+      activeDocumentPath: documentPayload?.path ?? null,
+      changedPath: event.changedPath,
+      reason,
+    });
+    if (decision.shouldInvalidate) {
+      invalidatePostDiffGitMarkersForActiveDocument("git-refresh");
+    } else {
+      tracePerf("postDiffGitMarkers.refreshSkip", decision.trace);
+    }
     refreshGitChanges(reason);
   };
 

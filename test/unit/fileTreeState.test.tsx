@@ -140,6 +140,7 @@ describe("useFileTreeState directory watching", () => {
         },
       ),
     };
+    const onWorkspaceFileChange = vi.fn();
     let api: ReturnType<typeof useFileTreeState> | undefined;
     const current = () => {
       if (!api) {
@@ -155,6 +156,7 @@ describe("useFileTreeState directory watching", () => {
           async (_partial: Partial<AppConfig["workspace"]>) => undefined,
         ),
         showInlineNotice: vi.fn(),
+        onWorkspaceFileChange,
       });
       useEffect(() => {
         api = state;
@@ -182,6 +184,10 @@ describe("useFileTreeState directory watching", () => {
     expect(host.clearDocumentLinkCache).toHaveBeenCalledWith(
       "/workspace/docs/new.md",
     );
+    expect(onWorkspaceFileChange).toHaveBeenCalledWith({
+      reason: "directory-watch",
+      changedPath: "/workspace/docs/new.md",
+    });
     expect(current().childrenByDirectory["/workspace/docs"]).toEqual(
       refreshedEntries,
     );
@@ -337,6 +343,7 @@ describe("useFileTreeState directory watching", () => {
         }),
       ),
     };
+    const onWorkspaceFileChange = vi.fn();
     let api: ReturnType<typeof useFileTreeState> | undefined;
     const current = () => {
       if (!api) {
@@ -353,6 +360,7 @@ describe("useFileTreeState directory watching", () => {
         ),
         workspacePerformanceMode: "wsl-mitigated",
         showInlineNotice: vi.fn(),
+        onWorkspaceFileChange,
       });
       useEffect(() => {
         api = state;
@@ -374,6 +382,10 @@ describe("useFileTreeState directory watching", () => {
     });
 
     expect(host.listDirectory).toHaveBeenCalledWith("/workspace/docs");
+    expect(onWorkspaceFileChange).toHaveBeenCalledWith({
+      reason: "manual-refresh",
+      changedPath: null,
+    });
     expect(current().childrenByDirectory["/workspace/docs"]).toEqual(
       refreshedEntries,
     );
