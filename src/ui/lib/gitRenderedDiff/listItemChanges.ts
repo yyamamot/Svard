@@ -32,6 +32,7 @@ export function matchRenderedListItemChanges(
   const childChanges: RenderedListItemChildChange[] = [];
   let leftIndex = 0;
   let rightIndex = 0;
+  let matchedBefore = false;
 
   while (leftIndex < leftItems.length || rightIndex < rightItems.length) {
     const left = leftItems[leftIndex];
@@ -40,6 +41,7 @@ export function matchRenderedListItemChanges(
     if (left && right && sameItem(left, right)) {
       leftIndex += 1;
       rightIndex += 1;
+      matchedBefore = true;
       continue;
     }
 
@@ -94,7 +96,16 @@ export function matchRenderedListItemChanges(
         continue;
       }
 
-      if (!isHighConfidenceChangedItem(left, right)) {
+      if (
+        !isHighConfidenceChangedItem(left, right) &&
+        !isAnchoredReplacement({
+          leftItems,
+          rightItems,
+          leftIndex,
+          rightIndex,
+          matchedBefore,
+        })
+      ) {
         return { childChanges: [], fallback: { reason: "low-overlap" } };
       }
       childChanges.push({
@@ -106,10 +117,63 @@ export function matchRenderedListItemChanges(
       });
       leftIndex += 1;
       rightIndex += 1;
+      matchedBefore = true;
     }
   }
 
   return { childChanges };
+}
+
+function isAnchoredReplacement({
+  leftItems,
+  rightItems,
+  leftIndex,
+  rightIndex,
+  matchedBefore,
+}: {
+  leftItems: readonly RenderedListItemSnapshot[];
+  rightItems: readonly RenderedListItemSnapshot[];
+  leftIndex: number;
+  rightIndex: number;
+  matchedBefore: boolean;
+}): boolean {
+  const left = leftItems[leftIndex];
+  const right = rightItems[rightIndex];
+  if (!left || !right) {
+    return false;
+  }
+  if (
+    Math.min(left.textLength, right.textLength) < changedItemMinimumLength
+  ) {
+    return false;
+  }
+  return (
+    (matchedBefore && isEndPair(leftItems, rightItems, leftIndex, rightIndex)) ||
+    hasCommonItemAfter(leftItems, rightItems, leftIndex + 1, rightIndex + 1)
+  );
+}
+
+function isEndPair(
+  leftItems: readonly RenderedListItemSnapshot[],
+  rightItems: readonly RenderedListItemSnapshot[],
+  leftIndex: number,
+  rightIndex: number,
+): boolean {
+  return leftIndex === leftItems.length - 1 && rightIndex === rightItems.length - 1;
+}
+
+function hasCommonItemAfter(
+  leftItems: readonly RenderedListItemSnapshot[],
+  rightItems: readonly RenderedListItemSnapshot[],
+  leftStart: number,
+  rightStart: number,
+): boolean {
+  const rightHashes = new Set(
+    rightItems.slice(rightStart).map((item) => item.normalizedTextHash),
+  );
+  return leftItems
+    .slice(leftStart)
+    .some((item) => rightHashes.has(item.normalizedTextHash));
 }
 
 function hasEmptyItems(items: readonly RenderedListItemSnapshot[]): boolean {

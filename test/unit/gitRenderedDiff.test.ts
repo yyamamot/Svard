@@ -1055,6 +1055,49 @@ make -f Makefile.private mirror-commit</code></pre>
     ]);
   });
 
+  it("keeps item-level changes for low-overlap list item replacements with stable anchors", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        [
+          "<ul>",
+          "<li>Read local AsciiDoc and Markdown documents</li>",
+          "<li>Compare Git changes against a merge target</li>",
+          "<li>Review diagrams with local rendering first</li>",
+          "<li>Avoid rewriting source for viewer convenience</li>",
+          "</ul>",
+        ].join(""),
+      ),
+      extractRenderedBlocksFromHtml(
+        [
+          "<ul>",
+          "<li>Read local AsciiDoc and Markdown documents</li>",
+          "<li>Compare Git changes against a merge target</li>",
+          "<li>Review changed list items and tables in the preview</li>",
+          "<li>Keep Git change markers stable while nearby files update</li>",
+          "<li>Avoid rewriting source for viewer convenience</li>",
+          "</ul>",
+        ].join(""),
+      ),
+    );
+
+    expect(block?.childChanges).toEqual([
+      {
+        kind: "changed",
+        side: "both",
+        confidence: "high",
+        leftIndex: 2,
+        rightIndex: 2,
+      },
+      {
+        kind: "added",
+        side: "right",
+        confidence: "high",
+        rightIndex: 3,
+      },
+    ]);
+    expect(block?.childChangeFallback).toBeUndefined();
+  });
+
   it("falls back instead of producing low-confidence reordered list item changes", () => {
     const [block] = compareRenderedBlocks(
       extractRenderedBlocksFromHtml(

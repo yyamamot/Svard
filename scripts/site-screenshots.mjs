@@ -365,6 +365,92 @@ This added document appears in Source Control as a public-safe working tree chan
   return id === "files" ? filesFixturePath : fixturePath;
 }
 
+async function prepareRenderedDiffWorkspace({ artifactRoot }) {
+  const workspaceRoot = path.join(
+    artifactRoot,
+    "fixtures",
+    "rendered-diff-workspace",
+  );
+  const fixturePath = path.join(workspaceRoot, "rendered-diff.md");
+  const baseContent = `# Rendered Diff Fixture
+
+This Markdown file is intended for screenshots of rendered comparison workflows.
+
+## Release note draft
+
+Svard helps readers inspect documentation changes as rendered output.
+
+- Read local AsciiDoc and Markdown documents
+- Compare Git changes against a merge target
+- Review diagrams with local rendering first
+- Avoid rewriting source for viewer convenience
+
+## Example change area
+
+The rendered diff view should make reader-visible changes easy to inspect.
+
+| Section | Before | After |
+| --- | --- | --- |
+| Search | Current file only | Current file and all files |
+| Diff | Source line diff | Rendered output comparison |
+| Diagrams | Remote fallback first | Local rendering first |
+
+## Public-safe note
+
+This fixture intentionally avoids private paths, tokens, repository URLs, and endpoint URLs.
+`;
+  const changedContent = `# Rendered Diff Fixture
+
+This Markdown file is intended for screenshots of rendered comparison workflows.
+
+## Release note draft
+
+Svard helps reviewers inspect documentation changes directly in the rendered preview.
+
+- Read local AsciiDoc and Markdown documents
+- Compare Git changes against a merge target
+- Review changed list items and tables in the preview
+- Keep Git change markers stable while nearby files update
+- Avoid rewriting source for viewer convenience
+
+## Example change area
+
+The rendered diff view should make reader-visible changes easy to inspect and navigate.
+
+| Section | Before | After |
+| --- | --- | --- |
+| Search | Current file only | Current file and all files |
+| Diff | Source line diff | Rendered output comparison |
+| Git markers | Manual diff preview | Viewer markers stay in context |
+| Diagrams | Remote fallback first | Local rendering first |
+
+## Public-safe note
+
+This fixture intentionally avoids private paths, tokens, repository URLs, and endpoint URLs.
+`;
+
+  await fs.rm(workspaceRoot, { recursive: true, force: true });
+  await ensureDir(workspaceRoot);
+  await fs.writeFile(fixturePath, baseContent);
+  await run("git", ["init"], { cwd: workspaceRoot });
+  await run("git", ["add", "."], { cwd: workspaceRoot });
+  await run(
+    "git",
+    [
+      "-c",
+      "user.name=Svard Screenshot",
+      "-c",
+      "user.email=svard-screenshot@example.invalid",
+      "commit",
+      "-m",
+      "Initial rendered diff screenshot fixture",
+    ],
+    { cwd: workspaceRoot },
+  );
+  await fs.writeFile(fixturePath, changedContent);
+  return fixturePath;
+}
+
 async function captureOne({ manifest, capture, artifactRoot }) {
   const fixtureRoot = path.resolve(repoRoot, manifest.fixtureRoot);
   let fixturePath = path.resolve(fixtureRoot, capture.fixture);
@@ -382,6 +468,8 @@ async function captureOne({ manifest, capture, artifactRoot }) {
         artifactRoot,
         id: capture.id,
       });
+    } else if (capture.id === "rendered-diff") {
+      fixturePath = await prepareRenderedDiffWorkspace({ artifactRoot });
     }
     await prepareFixtureCopies({ capture, fixtureRoot, fixturePath });
     app = launchTauri({ capture, fixturePath, profileDir, logFile });
