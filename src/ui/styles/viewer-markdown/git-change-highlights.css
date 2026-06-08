@@ -1,0 +1,100 @@
+.document-body :where(.post-diff-git-highlight) {
+  position: relative;
+  --git-change-target-accent: var(--git-change-added-accent);
+  border-radius: var(--git-change-block-radius);
+  scroll-margin: 72px;
+  background: var(--git-change-block-bg-added);
+}
+
+.document-body
+  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item))::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--git-change-accent-offset);
+  width: var(--git-change-accent-width);
+  border-radius: 999px;
+  background: var(--git-change-target-accent);
+  content: "";
+}
+
+.document-body
+  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item))
+  + :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item)) {
+  margin-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.document-body
+  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item):has(
+        + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
+      )) {
+  margin-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.document-body
+  :where(.post-diff-git-highlight-added, .post-diff-git-highlight-changed) {
+  --git-change-target-accent: var(--git-change-added-accent);
+  background: var(--git-change-block-bg-added);
+}
+
+.document-body :where(.post-diff-git-highlight-removed) {
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-block-bg-removed);
+}
+
+.document-body :where(.post-diff-git-highlight-list-item) {
+  --git-change-target-accent: var(--git-change-added-accent);
+  padding-inline: 4px;
+  background: var(--git-change-item-bg-added);
+}
+
+.document-body :where(.post-diff-git-highlight-list-item)::before {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: var(--git-change-accent-offset);
+  width: var(--git-change-accent-width);
+  border-radius: 999px;
+  background: var(--git-change-target-accent);
+  content: "";
+}
+
+.document-body
+  :where(.post-diff-git-highlight-list-item.post-diff-git-highlight-removed) {
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-item-bg-removed);
+}
+
+.document-body
+  .post-diff-git-highlight:not(.post-diff-git-highlight-list-item):has(
+    + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
+  ) {
+  margin-bottom: 0 !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.document-body
+  .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
+  + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item) {
+  margin-top: 0 !important;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.document-body.markdown-body
+  :is(h1, h2, h3, h4, h5, h6).post-diff-git-highlight:has(
+    + :is(ul, ol).post-diff-git-highlight
+  ) {
+  margin-bottom: 4px !important;
+}
+
+.document-body.markdown-body
+  :is(h1, h2, h3, h4, h5, h6).post-diff-git-highlight
+  + :is(ul, ol).post-diff-git-highlight {
+  margin-top: 0 !important;
+}

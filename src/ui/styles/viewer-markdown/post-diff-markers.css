@@ -1,0 +1,73 @@
+.post-diff-git-markers {
+  position: fixed;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  pointer-events: none;
+}
+
+.post-diff-git-marker {
+  position: fixed;
+  left: inherit;
+  width: 24px;
+  height: 24px;
+  transform: translateY(-50%);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.post-diff-git-marker::before {
+  position: absolute;
+  top: 5px;
+  left: 10px;
+  width: 3px;
+  height: 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #6c7983 76%, transparent);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 70%);
+  content: "";
+  opacity: 0;
+}
+
+.post-diff-git-marker.added::before {
+  background: color-mix(
+    in srgb,
+    var(--git-change-added-accent) 80%,
+    transparent
+  );
+}
+
+.post-diff-git-marker.changed::before {
+  background: color-mix(
+    in srgb,
+    var(--git-change-changed-accent) 82%,
+    transparent
+  );
+}
+
+.post-diff-git-marker.removed::before {
+  background: color-mix(
+    in srgb,
+    var(--git-change-removed-accent) 80%,
+    transparent
+  );
+}
+
+.post-diff-git-marker:hover,
+.post-diff-git-marker:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.post-diff-git-marker:hover::before,
+.post-diff-git-marker:focus-visible::before {
+  opacity: 1;
+}
+
+.theme-dark .post-diff-git-marker::before {
+  box-shadow: 0 0 0 1px rgb(18 27 31 / 74%);
+}
