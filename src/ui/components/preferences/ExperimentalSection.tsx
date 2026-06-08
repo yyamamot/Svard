@@ -75,11 +75,10 @@ export function ExperimentalSection({
           }
         />
         <span className="checkbox-copy">
-          <span>Diagram placeholder rendering</span>
+          <span>Fast diagram loading</span>
           <span className="preference-help-text">
-            Show document content before diagrams finish rendering, then replace
-            placeholders with the rendered diagrams. This is disabled by
-            default.
+            Show diagram placeholders first so the document becomes readable
+            sooner. This is disabled by default.
           </span>
         </span>
       </label>
