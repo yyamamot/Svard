@@ -77,12 +77,9 @@
   background: color-mix(in srgb, #2d8a62 11%, var(--reader-bg));
 }
 
-.git-rendered-block.has-list-item-changes.changed.left-side {
-  background: color-mix(in srgb, #c85240 4%, var(--reader-bg));
-}
-
-.git-rendered-block.has-list-item-changes.changed.right-side {
-  background: color-mix(in srgb, #2d8a62 4%, var(--reader-bg));
+.git-rendered-block.has-list-item-changes.changed {
+  border-left-color: transparent;
+  background: transparent;
 }
 
 .git-rendered-block.blank {
