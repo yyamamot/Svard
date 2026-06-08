@@ -19,20 +19,17 @@
 }
 
 .document-body
-  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item))
-  + :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item)) {
-  margin-top: 0;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
-
-.document-body
   :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item):has(
         + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
-      )) {
-  margin-bottom: 0;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+      ))::after {
+  position: absolute;
+  bottom: -1.2em;
+  left: var(--git-change-accent-offset);
+  width: var(--git-change-accent-width);
+  height: 1.2em;
+  background: var(--git-change-target-accent);
+  content: "";
+  pointer-events: none;
 }
 
 .document-body
@@ -67,36 +64,4 @@
   :where(.post-diff-git-highlight-list-item.post-diff-git-highlight-removed) {
   --git-change-target-accent: var(--git-change-removed-accent);
   background: var(--git-change-item-bg-removed);
-}
-
-.document-body
-  .post-diff-git-highlight:not(.post-diff-git-highlight-list-item):has(
-    + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
-  ) {
-  margin-bottom: 0 !important;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.document-body
-  .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
-  + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item) {
-  margin-top: 0 !important;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
-
-.document-body
-  :is(h1, h2, h3, h4, h5, h6).post-diff-git-highlight:has(
-    + :is(ul, ol).post-diff-git-highlight
-  ) {
-  margin-bottom: 0 !important;
-  padding-bottom: 0.55em;
-}
-
-.document-body
-  :is(h1, h2, h3, h4, h5, h6).post-diff-git-highlight
-  + :is(ul, ol).post-diff-git-highlight {
-  margin-top: 0 !important;
-  padding-top: 0.45em;
 }
