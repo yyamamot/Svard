@@ -130,6 +130,28 @@ export function readLabel() {
       rightText,
     };
   }
+  if (path.endsWith("/git-rendered-list-deletion.md")) {
+    const leftText = `# Git Rendered List Deletion Fixture
+
+- Stable item
+- Removed item
+`;
+    const rightText = `# Git Rendered List Deletion Fixture
+
+- Stable item
+`;
+    return {
+      repositoryRoot: null,
+      relativePath,
+      status: "modified",
+      leftLabel: "HEAD",
+      rightLabel: "Working Tree",
+      hunks: diffHunksFromText(leftText, rightText),
+      message: null,
+      leftText,
+      rightText,
+    };
+  }
   if (path.endsWith("/git-large-markdown-scroll.md")) {
     const tail = buildLargeMarkdownScrollTail();
     const leftText = `# Large Markdown Scroll Return Fixture

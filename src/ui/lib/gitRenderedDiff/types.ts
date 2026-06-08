@@ -118,10 +118,12 @@ export interface PostDiffGitMarker {
   id: string;
   kind: PostDiffGitMarkerKind;
   anchorBlockId: string | null;
+  anchorItemIndex?: number;
   changeIndex: number;
   highlightBlock?: boolean;
   inlineDiffRanges?: InlineDiffRange[];
   includeSourceBlocks?: boolean;
+  targetKind?: "block" | "list-item";
 }
 
 export interface PostDiffGitMarkerContext {

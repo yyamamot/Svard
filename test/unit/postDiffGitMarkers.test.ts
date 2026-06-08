@@ -43,6 +43,41 @@ function block(
   };
 }
 
+function listBlock(
+  id: string,
+  overrides: Partial<RenderedBlockDiff> = {},
+): RenderedBlockDiff {
+  return {
+    id,
+    kind: "changed",
+    blockKind: "list",
+    left: {
+      id,
+      kind: "list",
+      tagName: "ul",
+      text: "Stable item Status Draft Later",
+      html: "<ul><li>Stable item</li><li>Status: Draft / Later.</li></ul>",
+    },
+    right: {
+      id,
+      kind: "list",
+      tagName: "ul",
+      text: "Stable item Status Draft Paused",
+      html: "<ul><li>Stable item</li><li>Status: Draft / Paused.</li></ul>",
+    },
+    childChanges: [
+      {
+        kind: "changed",
+        side: "both",
+        confidence: "high",
+        leftIndex: 1,
+        rightIndex: 1,
+      },
+    ],
+    ...overrides,
+  };
+}
+
 function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
   return {
     entries: blocks.map((item, index) => ({
@@ -269,6 +304,208 @@ describe("post-diff git markers", () => {
         anchorBlockId: "rendered-block:2",
       }),
     ]);
+  });
+
+  it("builds item markers for changed list items without parent block markers", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([listBlock("rendered-block:0")]),
+    });
+
+    expect(context).toMatchObject({
+      totalCount: 1,
+      renderedCount: 1,
+      markers: [
+        {
+          kind: "changed",
+          anchorBlockId: "rendered-block:0",
+          anchorItemIndex: 1,
+          targetKind: "list-item",
+        },
+      ],
+    });
+    expect(context?.markers[0]?.inlineDiffRanges).toEqual([
+      expect.objectContaining({ kind: "added" }),
+    ]);
+  });
+
+  it("builds item markers for added list items on the current side", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        listBlock("rendered-block:0", {
+          left: {
+            id: "rendered-block:0",
+            kind: "list",
+            tagName: "ul",
+            text: "Stable item",
+            html: "<ul><li>Stable item</li></ul>",
+          },
+          right: {
+            id: "rendered-block:0",
+            kind: "list",
+            tagName: "ul",
+            text: "Stable item Added item",
+            html: "<ul><li>Stable item</li><li>Added item</li></ul>",
+          },
+          childChanges: [
+            {
+              kind: "added",
+              side: "right",
+              confidence: "high",
+              rightIndex: 1,
+            },
+          ],
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "added",
+        anchorBlockId: "rendered-block:0",
+        anchorItemIndex: 1,
+        targetKind: "list-item",
+      }),
+    ]);
+  });
+
+  it("builds item markers for removed list items on the active left side", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: "/workspace/docs/base.md",
+      preview: preview({
+        source: "file",
+        leftPath: "/workspace/docs/base.md",
+        rightPath: activePath,
+      }),
+      renderedPresentation: presentation([
+        listBlock("rendered-block:0", {
+          childChanges: [
+            {
+              kind: "removed",
+              side: "left",
+              confidence: "high",
+              leftIndex: 1,
+            },
+          ],
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "removed",
+        anchorBlockId: "rendered-block:0",
+        anchorItemIndex: 1,
+        targetKind: "list-item",
+      }),
+    ]);
+  });
+
+  it("falls back without highlighting when a removed list item is hidden on the active side", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        listBlock("rendered-block:0", {
+          childChanges: [
+            {
+              kind: "removed",
+              side: "left",
+              confidence: "high",
+              leftIndex: 1,
+            },
+          ],
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "removed",
+        anchorBlockId: "rendered-block:0",
+        highlightBlock: false,
+        targetKind: "block",
+      }),
+    ]);
+    expect(context?.markers[0]?.anchorItemIndex).toBeUndefined();
+  });
+
+  it("keeps low-confidence list changes as block-level markers", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        listBlock("rendered-block:0", {
+          childChanges: undefined,
+          childChangeFallback: { reason: "reorder" },
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "changed",
+        anchorBlockId: "rendered-block:0",
+        targetKind: "block",
+      }),
+    ]);
+    expect(context?.markers[0]?.anchorItemIndex).toBeUndefined();
+  });
+
+  it("caps markers after expanding list item markers", () => {
+    const childChanges = Array.from(
+      { length: postDiffGitMarkerBudget + 5 },
+      (_, index) => ({
+        kind: "added" as const,
+        side: "right" as const,
+        confidence: "high" as const,
+        rightIndex: index,
+      }),
+    );
+    const rightItems = childChanges
+      .map((_, index) => `<li>Added item ${index}</li>`)
+      .join("");
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        listBlock("rendered-block:0", {
+          right: {
+            id: "rendered-block:0",
+            kind: "list",
+            tagName: "ul",
+            text: "Added items",
+            html: `<ul>${rightItems}</ul>`,
+          },
+          childChanges,
+        }),
+      ]),
+    });
+
+    expect(context?.totalCount).toBe(postDiffGitMarkerBudget + 5);
+    expect(context?.renderedCount).toBe(postDiffGitMarkerBudget);
+    expect(context?.markers).toHaveLength(postDiffGitMarkerBudget);
+    expect(context?.markers[0]).toMatchObject({
+      anchorItemIndex: 0,
+      targetKind: "list-item",
+    });
+  });
+
+  it("keeps list item marker context privacy-safe", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([listBlock("rendered-block:0")]),
+    });
+    const serialized = JSON.stringify(context);
+
+    expect(serialized).not.toContain("Status: Draft / Later");
+    expect(serialized).not.toContain("Status: Draft / Paused");
+    expect(serialized).not.toContain("@@");
+    expect(serialized).not.toContain(activePath);
   });
 
   it("anchors deletion-only working tree markers to the nearest following current block", () => {

@@ -95,6 +95,27 @@ function collectBlockAnchors(article: HTMLElement): Map<string, HTMLElement> {
   return anchors;
 }
 
+function topLevelListItemTarget(
+  block: HTMLElement,
+  itemIndex: number | undefined,
+): HTMLElement | null {
+  if (itemIndex === undefined) {
+    return null;
+  }
+  if (
+    block.tagName.toLowerCase() !== "ul" &&
+    block.tagName.toLowerCase() !== "ol"
+  ) {
+    return null;
+  }
+  return (
+    Array.from(block.children).filter(
+      (child): child is HTMLElement =>
+        child instanceof HTMLElement && child.tagName.toLowerCase() === "li",
+    )[itemIndex] ?? null
+  );
+}
+
 function markerLabel(kind: PostDiffGitMarkerKind): string {
   if (kind === "added") {
     return "Go to added change";
@@ -114,6 +135,7 @@ function clearPostDiffHighlights(article: HTMLElement | null) {
         "post-diff-git-highlight-added",
         "post-diff-git-highlight-changed",
         "post-diff-git-highlight-removed",
+        "post-diff-git-highlight-list-item",
       );
       delete element.dataset.postDiffGitMarkerKind;
       delete element.dataset.reviewIdPostDiffGitHighlight;
@@ -147,6 +169,9 @@ function applyPostDiffHighlights(markers: PositionedPostDiffGitMarker[]) {
       "post-diff-git-highlight",
       `post-diff-git-highlight-${marker.kind}`,
     );
+    if (marker.targetKind === "list-item") {
+      marker.target.classList.add("post-diff-git-highlight-list-item");
+    }
     marker.target.dataset.postDiffGitMarkerKind = marker.kind;
     marker.target.dataset.reviewIdPostDiffGitHighlight =
       "post-diff-git-highlight";
@@ -237,12 +262,17 @@ export function PostDiffGitMarkers({
       const anchors = collectBlockAnchors(article);
       const positioned = context.markers
         .map((marker) => {
-          const target = marker.anchorBlockId
+          const blockTarget = marker.anchorBlockId
             ? anchors.get(marker.anchorBlockId)
             : article;
-          if (!target) {
+          if (!blockTarget) {
             return null;
           }
+          const itemTarget =
+            marker.targetKind === "list-item"
+              ? topLevelListItemTarget(blockTarget, marker.anchorItemIndex)
+              : null;
+          const target = itemTarget ?? blockTarget;
           const rect = target.getBoundingClientRect();
           return {
             ...marker,

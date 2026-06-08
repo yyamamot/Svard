@@ -381,6 +381,72 @@ describe("ViewerPane", () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
   });
 
+  it("renders post-diff git markers on changed list items without highlighting the parent list", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+          },
+        },
+        documentHtml: markSafeHtml(
+          "<ul><li>Stable item</li><li>Changed token</li></ul>",
+        ),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:0:item:1",
+              kind: "changed",
+              anchorBlockId: "rendered-block:0",
+              anchorItemIndex: 1,
+              changeIndex: 0,
+              inlineDiffRanges: [{ kind: "added", start: 8, end: 13 }],
+              targetKind: "list-item",
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const marker = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="post-diff-git-marker"]',
+    );
+    const parentList = container.querySelector("ul");
+    const highlightedItem = container.querySelector<HTMLElement>(
+      "li.post-diff-git-highlight-list-item",
+    );
+
+    expect(marker?.dataset.markerKind).toBe("changed");
+    expect(parentList?.classList.contains("post-diff-git-highlight")).toBe(
+      false,
+    );
+    expect(highlightedItem?.textContent).toBe("Changed token");
+    expect(highlightedItem?.dataset.postDiffGitMarkerKind).toBe("changed");
+    expect(
+      highlightedItem?.querySelector(".git-inline-word-highlight.added")
+        ?.textContent,
+    ).toBe("token");
+
+    act(() => {
+      marker?.click();
+    });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+  });
+
   it("renders removed inline post-diff highlights when the active side has deleted text", async () => {
     await act(async () =>
       renderPane({

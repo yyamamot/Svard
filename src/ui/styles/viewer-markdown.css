@@ -233,6 +233,31 @@
   background: color-mix(in srgb, #c85240 10%, var(--reader-bg));
 }
 
+.document-body :where(.post-diff-git-highlight-list-item) {
+  --post-diff-list-item-accent: #2d8a62;
+  border-left: 0;
+  padding-inline: 4px;
+  box-shadow: none;
+  background: color-mix(in srgb, #2d8a62 11%, var(--reader-bg));
+}
+
+.document-body :where(.post-diff-git-highlight-list-item)::before {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: -9px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--post-diff-list-item-accent);
+  content: "";
+}
+
+.document-body
+  :where(.post-diff-git-highlight-list-item.post-diff-git-highlight-removed) {
+  --post-diff-list-item-accent: #c85240;
+  background: color-mix(in srgb, #c85240 10%, var(--reader-bg));
+}
+
 .theme-dark .document-body :where(.post-diff-git-highlight) {
   border-left-color: color-mix(in srgb, #58ba85 84%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, #58ba85 18%, transparent);
@@ -242,6 +267,19 @@
 .theme-dark .document-body :where(.post-diff-git-highlight-removed) {
   border-left-color: color-mix(in srgb, #df6b5c 84%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, #df6b5c 18%, transparent);
+  background: color-mix(in srgb, #df6b5c 12%, var(--reader-bg));
+}
+
+.theme-dark .document-body :where(.post-diff-git-highlight-list-item) {
+  border-left: 0;
+  box-shadow: none;
+  background: color-mix(in srgb, #58ba85 13%, var(--reader-bg));
+}
+
+.theme-dark
+  .document-body
+  :where(.post-diff-git-highlight-list-item.post-diff-git-highlight-removed) {
+  --post-diff-list-item-accent: #df6b5c;
   background: color-mix(in srgb, #df6b5c 12%, var(--reader-bg));
 }
 

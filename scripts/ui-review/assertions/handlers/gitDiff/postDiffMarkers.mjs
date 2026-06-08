@@ -5,6 +5,10 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-no-prior-diff",
   "viewer-normal-git-markers-context-clear",
   "viewer-normal-git-markers-privacy",
+  "viewer-normal-git-markers-list-item-initial-working-tree",
+  "viewer-normal-git-markers-list-item-after-diff",
+  "viewer-normal-git-markers-list-item-deletion-fallback",
+  "viewer-normal-git-markers-list-item-privacy",
 ]);
 
 export async function buildGitDiffPostDiffMarkerAssertions(context) {
@@ -66,5 +70,36 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
         : true,
     keepsPostDiffGitMarkerArtifactPrivacySafe:
       scenario === "viewer-normal-git-markers-privacy" ? privacySafe : true,
+    hasInitialWorkingTreeListItemGitMarkers:
+      scenario === "viewer-normal-git-markers-list-item-initial-working-tree"
+        ? summary?.visible === true &&
+          summary?.initialWorkingTree === true &&
+          summary?.listItemMarker === true &&
+          summary?.itemHighlightCount > 0 &&
+          summary?.markerCount > 0 &&
+          summary?.clickResult === true
+        : true,
+    hasPostDiffListItemGitMarkers:
+      scenario === "viewer-normal-git-markers-list-item-after-diff"
+        ? summary?.visible === true &&
+          summary?.listItemMarker === true &&
+          summary?.itemHighlightCount > 0 &&
+          summary?.markerCount > 0 &&
+          summary?.clickResult === true
+        : true,
+    fallsBackForHiddenDeletedListItems:
+      scenario === "viewer-normal-git-markers-list-item-deletion-fallback"
+        ? summary?.visible === true &&
+          summary?.deletionFallback === true &&
+          summary?.itemHighlightCount === 0 &&
+          summary?.blockHighlightCount === 0 &&
+          summary?.markerCount > 0
+        : true,
+    keepsPostDiffListItemMarkerArtifactPrivacySafe:
+      scenario === "viewer-normal-git-markers-list-item-privacy"
+        ? privacySafe &&
+          summary?.listItemMarker === true &&
+          summary?.itemHighlightCount > 0
+        : true,
   };
 }

@@ -5,6 +5,10 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-no-prior-diff",
   "viewer-normal-git-markers-context-clear",
   "viewer-normal-git-markers-privacy",
+  "viewer-normal-git-markers-list-item-initial-working-tree",
+  "viewer-normal-git-markers-list-item-after-diff",
+  "viewer-normal-git-markers-list-item-deletion-fallback",
+  "viewer-normal-git-markers-list-item-privacy",
 ]);
 
 async function enablePostDiffGitMarkers(page) {
@@ -58,14 +62,18 @@ async function markerSummary(page, extra = {}) {
     const inlineRemovedCount = document.querySelectorAll(
       ".document-body .git-inline-word-highlight.removed",
     ).length;
-    const blockHighlightCount = document.querySelectorAll(
-      ".document-body .post-diff-git-highlight",
+    const itemHighlightCount = document.querySelectorAll(
+      ".document-body .post-diff-git-highlight-list-item",
     ).length;
+    const blockHighlightCount =
+      document.querySelectorAll(".document-body .post-diff-git-highlight")
+        .length - itemHighlightCount;
     const summary = {
       documentBasename: "git-rendered-markdown.md",
       markerCount: Number(markerRoot?.getAttribute("data-marker-count") ?? 0),
       renderedMarkerCount: markers.length,
       blockHighlightCount,
+      itemHighlightCount,
       inlineAddedCount,
       inlineRemovedCount,
       visible: Boolean(markerRoot),
@@ -88,7 +96,10 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     await enablePostDiffGitMarkers(page);
   }
 
-  if (scenario === "viewer-normal-git-markers-initial-working-tree-opt-in") {
+  if (
+    scenario === "viewer-normal-git-markers-initial-working-tree-opt-in" ||
+    scenario === "viewer-normal-git-markers-list-item-initial-working-tree"
+  ) {
     await page
       .locator(
         '[data-review-id="tree-file"][data-path="/workspace/docs/git-rendered-markdown.md"]',
@@ -110,7 +121,12 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
         ).length > 0,
     );
     await page.locator('[data-review-id="post-diff-git-marker"]').first().click();
-    await markerSummary(page, { initialWorkingTree: true, clickResult: true });
+    await markerSummary(page, {
+      initialWorkingTree: true,
+      clickResult: true,
+      listItemMarker:
+        scenario === "viewer-normal-git-markers-list-item-initial-working-tree",
+    });
     return true;
   }
 
@@ -128,15 +144,48 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     return true;
   }
 
+  if (scenario === "viewer-normal-git-markers-list-item-deletion-fallback") {
+    await page
+      .locator(
+        '[data-review-id="tree-file"][data-path="/workspace/docs/git-rendered-list-deletion.md"]',
+      )
+      .click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Git Rendered List Deletion Fixture" })
+      .waitFor();
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.locator('[data-review-id="git-diff-preview-close"]').click();
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor({
+      state: "detached",
+    });
+    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+    await markerSummary(page, {
+      documentBasename: "git-rendered-list-deletion.md",
+      deletionFallback: true,
+    });
+    return true;
+  }
+
   await openDiffAndClose(page);
 
   if (
     scenario === "viewer-normal-git-markers-after-diff-opt-in" ||
-    scenario === "viewer-normal-git-markers-privacy"
+    scenario === "viewer-normal-git-markers-privacy" ||
+    scenario === "viewer-normal-git-markers-list-item-after-diff" ||
+    scenario === "viewer-normal-git-markers-list-item-privacy"
   ) {
     await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
     await page.locator('[data-review-id="post-diff-git-marker"]').first().click();
-    await markerSummary(page, { clickResult: true });
+    await markerSummary(page, {
+      clickResult: true,
+      listItemMarker:
+        scenario === "viewer-normal-git-markers-list-item-after-diff" ||
+        scenario === "viewer-normal-git-markers-list-item-privacy",
+    });
     return true;
   }
 

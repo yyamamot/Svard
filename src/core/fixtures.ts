@@ -202,6 +202,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "git-rendered-list-deletion.md",
+      path: "/workspace/docs/git-rendered-list-deletion.md",
+      kind: "file",
+    },
+    {
       name: "git-large-markdown-scroll.md",
       path: "/workspace/docs/git-large-markdown-scroll.md",
       kind: "file",
@@ -551,6 +556,11 @@ export const fixtureEntries: DirectoryEntry[] = [
   {
     name: "git-rendered-list-reorder.md",
     path: "/workspace/docs/git-rendered-list-reorder.md",
+    kind: "file",
+  },
+  {
+    name: "git-rendered-list-deletion.md",
+    path: "/workspace/docs/git-rendered-list-deletion.md",
     kind: "file",
   },
   {
@@ -1600,6 +1610,10 @@ This rendered Markdown paragraph changed in the working tree.
 
 - Beta stable item
 - Alpha stable item
+`,
+  "/workspace/docs/git-rendered-list-deletion.md": `# Git Rendered List Deletion Fixture
+
+- Stable item
 `,
   "/workspace/docs/git-large-markdown-scroll.md":
     buildLargeMarkdownScrollDocument(),
