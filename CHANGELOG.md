@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Added opt-in Git change markers in the viewer so working tree changes are visible without opening Diff Preview.
+- Enhanced rendered Diff Preview visuals for list item changes and consistent Git change highlighting.
+- Reduced viewer flicker by keeping Git change markers stable during unrelated file updates.
 
 ## 1.0.1
 
