@@ -86,15 +86,17 @@
   border-top-right-radius: 0;
 }
 
-.document-body.markdown-body
+.document-body
   :is(h1, h2, h3, h4, h5, h6).post-diff-git-highlight:has(
     + :is(ul, ol).post-diff-git-highlight
   ) {
-  margin-bottom: 4px !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 0.55em;
 }
 
-.document-body.markdown-body
+.document-body
   :is(h1, h2, h3, h4, h5, h6).post-diff-git-highlight
   + :is(ul, ol).post-diff-git-highlight {
   margin-top: 0 !important;
+  padding-top: 0.45em;
 }
