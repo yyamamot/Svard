@@ -142,13 +142,14 @@ export function useSourceControlActions({
     persistWorkspaceRef.current = persistWorkspace;
   }, [persistWorkspace]);
 
-  useSourceControlLoaders({
+  const { refreshGitChanges } = useSourceControlLoaders({
     config,
     effectiveGitTimelinePath,
     gitTimelineRefreshToken,
     host,
     isFileHistoryView,
     isRepoGraphView,
+    onGitRefresh,
     persistWorkspaceRef,
     requestsRef,
     rootDirectory,
@@ -176,39 +177,6 @@ export function useSourceControlActions({
     workspaceSourceControlGraphScope,
     workspaceSourceControlView,
   });
-
-  function refreshGitChanges(reason = "manual-refresh") {
-    const anchorPath = sourceControlAnchorPath;
-    if (!anchorPath) {
-      return;
-    }
-    onGitRefresh?.(reason);
-    const startedAt = perfNow();
-    const { deduped, request } =
-      requestsRef.current.getOrStartGitChangesRequest(anchorPath, reason);
-    request
-      .then((changes) => {
-        tracePerf("sourceControl.getGitChanges", {
-          status: changes.status,
-          count: changes.items.length,
-          deduped,
-          reason,
-          durationMs: perfDuration(startedAt),
-        });
-        requestsRef.current.setGitChangesCache(anchorPath, changes);
-        if (anchorPath === sourceControlAnchorPath) {
-          setGitChanges(changes);
-        }
-      })
-      .catch((error) => {
-        tracePerf("sourceControl.getGitChanges.failed", {
-          durationMs: perfDuration(startedAt),
-          reason,
-          message:
-            error instanceof Error ? error.message : "Git changes failed",
-        });
-      });
-  }
 
   async function setSidebarTab(tab: AppConfig["workspace"]["sidebarTab"]) {
     setWorkspaceSidebarTab(tab);
