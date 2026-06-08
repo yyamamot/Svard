@@ -13,6 +13,9 @@ export type {
   PostDiffGitMarker,
   PostDiffGitMarkerContext,
   PostDiffGitMarkerKind,
+  RenderedListItemChildChange,
+  RenderedListItemFallback,
+  RenderedListItemSnapshot,
   WordDiffPart,
 } from "./gitRenderedDiff/types";
 export {
@@ -38,6 +41,7 @@ export {
   renderedTextOverlap,
   wordDiffParts,
 } from "./gitRenderedDiff/text";
+export { matchRenderedListItemChanges } from "./gitRenderedDiff/listItemChanges";
 export { applyInlineDiffHighlights } from "./gitRenderedDiff/inlineHighlights";
 export { deriveGitRenderedDiffSummary } from "./gitRenderedDiff/renderSummary";
 export {

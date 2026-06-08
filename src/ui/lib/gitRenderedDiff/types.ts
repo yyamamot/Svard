@@ -30,6 +30,7 @@ export interface RenderedBlock {
   text: string;
   html: string;
   signature?: string;
+  listItems?: RenderedListItemSnapshot[];
 }
 
 export interface RenderedBlockDiff {
@@ -38,6 +39,41 @@ export interface RenderedBlockDiff {
   blockKind: RenderedBlockKind;
   left?: RenderedBlock;
   right?: RenderedBlock;
+  childChanges?: RenderedListItemChildChange[];
+  childChangeFallback?: RenderedListItemFallback;
+}
+
+export interface RenderedListItemSnapshot {
+  index: number;
+  normalizedTextHash: string;
+  directTextHash: string;
+  nestedSignatureHash: string;
+  textSegmentHashes: string[];
+  textLength: number;
+  directTextLength: number;
+}
+
+export type RenderedListItemChildChangeKind = "added" | "removed" | "changed";
+
+export type RenderedListItemChangeSide = "left" | "right" | "both";
+
+export interface RenderedListItemChildChange {
+  kind: RenderedListItemChildChangeKind;
+  side: RenderedListItemChangeSide;
+  confidence: "high";
+  leftIndex?: number;
+  rightIndex?: number;
+}
+
+export type RenderedListItemFallbackReason =
+  | "ambiguous"
+  | "low-overlap"
+  | "no-items"
+  | "reorder"
+  | "short-or-empty";
+
+export interface RenderedListItemFallback {
+  reason: RenderedListItemFallbackReason;
 }
 
 export type RenderedDiffPresentationEntry =

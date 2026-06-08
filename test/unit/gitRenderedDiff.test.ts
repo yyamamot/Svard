@@ -35,6 +35,22 @@ describe("git rendered diff", () => {
     expect(blocks[2]?.html).toContain("<ul>");
   });
 
+  it("extracts privacy-safe top-level list item snapshots", () => {
+    const [block] = extractRenderedBlocksFromHtml(
+      `<ul><li>Private item text<ul><li>Nested detail</li></ul></li></ul>`,
+    );
+
+    expect(block?.listItems).toEqual([
+      expect.objectContaining({
+        index: 0,
+        textLength: "Private item textNested detail".length,
+        directTextLength: "Private item text".length,
+      }),
+    ]);
+    expect(JSON.stringify(block?.listItems)).not.toContain("Private item text");
+    expect(JSON.stringify(block?.listItems)).not.toContain("Nested detail");
+  });
+
   it("extracts rendered math blocks as diffable content blocks", () => {
     const blocks = extractRenderedBlocksFromHtml(`<div class="stemblock">
 <div class="content math-block" data-review-id="math-block"><span class="katex">E=mc2</span></div>
@@ -937,6 +953,135 @@ make -f Makefile.private mirror-commit</code></pre>
 
     expect(ranges.join(" ")).toContain("Preview-based diff");
     expect(ranges.join(" ")).toContain("diagram placeholder");
+  });
+
+  it("adds child changes for a high-confidence changed list item", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Stable item</li><li>Status: Draft / Later.</li><li>Tail item</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Stable item</li><li>Status: Draft / Paused.</li><li>Tail item</li></ul>",
+      ),
+    );
+
+    expect(block).toMatchObject({
+      kind: "changed",
+      blockKind: "list",
+      childChanges: [
+        {
+          kind: "changed",
+          side: "both",
+          confidence: "high",
+          leftIndex: 1,
+          rightIndex: 1,
+        },
+      ],
+    });
+    expect(block?.childChangeFallback).toBeUndefined();
+  });
+
+  it("adds child changes for added and removed list items on visible sides", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Stable item</li><li>Removed item</li><li>Tail item</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Stable item</li><li>Tail item</li><li>Added item</li></ul>",
+      ),
+    );
+
+    expect(block?.childChanges).toEqual([
+      {
+        kind: "removed",
+        side: "left",
+        confidence: "high",
+        leftIndex: 1,
+      },
+      {
+        kind: "added",
+        side: "right",
+        confidence: "high",
+        rightIndex: 2,
+      },
+    ]);
+  });
+
+  it("treats nested list edits as a parent top-level item change", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Parent<ul><li>Nested stable</li></ul></li><li>Tail</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Parent<ul><li>Nested changed</li></ul></li><li>Tail</li></ul>",
+      ),
+    );
+
+    expect(block?.childChanges).toEqual([
+      {
+        kind: "changed",
+        side: "both",
+        confidence: "high",
+        leftIndex: 0,
+        rightIndex: 0,
+      },
+    ]);
+  });
+
+  it("adds child changes for high-overlap Japanese list item text", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>差分プレビューを改善する</li><li>安定項目</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>差分表示を改善する</li><li>安定項目</li></ul>",
+      ),
+    );
+
+    expect(block?.childChanges).toEqual([
+      expect.objectContaining({
+        kind: "changed",
+        side: "both",
+        confidence: "high",
+        leftIndex: 0,
+        rightIndex: 0,
+      }),
+    ]);
+  });
+
+  it("falls back instead of producing low-confidence reordered list item changes", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Alpha stable item</li><li>Beta stable item</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Beta stable item</li><li>Alpha stable item</li></ul>",
+      ),
+    );
+
+    expect(block?.childChanges).toBeUndefined();
+    expect(block?.childChangeFallback).toEqual({ reason: "reorder" });
+  });
+
+  it("keeps child change fallback summaries privacy-safe", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Secret Alpha</li><li>Secret Alpha</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Secret Alpha</li><li>Secret Beta</li></ul>",
+      ),
+    );
+
+    const serialized = JSON.stringify({
+      childChanges: block?.childChanges,
+      fallback: block?.childChangeFallback,
+      leftItems: block?.left?.listItems,
+      rightItems: block?.right?.listItems,
+    });
+    expect(serialized).not.toContain("Secret Alpha");
+    expect(serialized).not.toContain("Secret Beta");
+    expect(block?.childChangeFallback).toEqual({ reason: "ambiguous" });
   });
 
   it("uses character overlap for Japanese text without whitespace", () => {

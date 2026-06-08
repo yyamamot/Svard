@@ -1,4 +1,5 @@
 import type { RenderedBlock, RenderedBlockDiff } from "./types";
+import { matchRenderedListItemChanges } from "./listItemChanges";
 import { normalizedText, renderedTextOverlap } from "./text";
 
 export function compareRenderedBlocks(
@@ -21,13 +22,15 @@ export function compareRenderedBlocks(
     const right = rightBlocks[match.rightIndex];
     const stableUnchangedMatch =
       left && right ? stableRenderedBlocksEqual(left, right) : false;
-    blocks.push({
-      id: "",
-      kind: stableUnchangedMatch ? "unchanged" : "changed",
-      blockKind: right?.kind ?? "paragraph",
-      left,
-      right,
-    });
+    blocks.push(
+      withListItemChildChanges({
+        id: "",
+        kind: stableUnchangedMatch ? "unchanged" : "changed",
+        blockKind: right?.kind ?? "paragraph",
+        left,
+        right,
+      }),
+    );
     leftIndex = match.leftIndex + 1;
     rightIndex = match.rightIndex + 1;
   }
@@ -186,13 +189,17 @@ export function pairChangedBlocksInGap(
     const right = rightGap[rightIndex];
 
     if (left && right && shouldPairChangedBlocks(left, right)) {
-      blocks.push({
-        id: "",
-        kind: stableRenderedBlocksEqual(left, right) ? "unchanged" : "changed",
-        blockKind: right.kind,
-        left,
-        right,
-      });
+      blocks.push(
+        withListItemChildChanges({
+          id: "",
+          kind: stableRenderedBlocksEqual(left, right)
+            ? "unchanged"
+            : "changed",
+          blockKind: right.kind,
+          left,
+          right,
+        }),
+      );
       leftIndex += 1;
       rightIndex += 1;
       continue;
@@ -283,4 +290,34 @@ function shouldPairChangedBlocks(
     return true;
   }
   return renderedTextOverlap(left.text, right.text) >= 0.2;
+}
+
+function withListItemChildChanges(
+  block: RenderedBlockDiff,
+): RenderedBlockDiff {
+  if (
+    block.kind !== "changed" ||
+    block.blockKind !== "list" ||
+    !block.left?.listItems ||
+    !block.right?.listItems
+  ) {
+    return block;
+  }
+  const result = matchRenderedListItemChanges(
+    block.left.listItems,
+    block.right.listItems,
+  );
+  if (result.childChanges.length > 0) {
+    return {
+      ...block,
+      childChanges: result.childChanges,
+    };
+  }
+  if (result.fallback) {
+    return {
+      ...block,
+      childChangeFallback: result.fallback,
+    };
+  }
+  return block;
 }

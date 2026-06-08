@@ -2,6 +2,7 @@ import type {
   RenderedBlock,
   RenderedBlockExtractionOptions,
   RenderedBlockKind,
+  RenderedListItemSnapshot,
 } from "./types";
 import { normalizedText } from "./text";
 
@@ -168,6 +169,76 @@ function blockText(element: Element, kind: RenderedBlockKind): string {
   return normalizedText(element.textContent);
 }
 
+function textHash(value: string): string {
+  let hash = 0x811c9dc5;
+  for (const character of value) {
+    hash ^= character.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function textSegmentHashes(value: string): string[] {
+  const normalized = normalizedText(value).toLowerCase();
+  const tokens = normalized
+    .split(/[\s、。,.():/|`*_+\-[\]{}]+/u)
+    .filter(Boolean);
+  const segments =
+    tokens.length > 1
+      ? tokens
+      : characterNgrams(normalized).filter((segment) => segment.length > 0);
+  return Array.from(new Set(segments.map(textHash))).sort();
+}
+
+function characterNgrams(value: string): string[] {
+  const compact = Array.from(value).filter(
+    (character) => !/\s/u.test(character),
+  );
+  if (compact.length <= 2) {
+    return compact.join("") ? [compact.join("")] : [];
+  }
+  const grams: string[] = [];
+  for (let index = 0; index <= compact.length - 2; index += 1) {
+    grams.push(`${compact[index]}${compact[index + 1]}`);
+  }
+  return grams;
+}
+
+function directListItemText(element: Element): string {
+  const clone = element.cloneNode(true) as Element;
+  clone.querySelectorAll("ul,ol").forEach((list) => list.remove());
+  return normalizedText(clone.textContent);
+}
+
+function nestedListSignature(element: Element): string {
+  return Array.from(element.querySelectorAll(":scope > ul, :scope > ol"))
+    .map((list) => normalizedText(list.textContent))
+    .filter(Boolean)
+    .join(" ");
+}
+
+function listItemSnapshots(element: Element): RenderedListItemSnapshot[] {
+  if (blockKindForElement(element) !== "list") {
+    return [];
+  }
+  return Array.from(element.children)
+    .filter((child) => child.tagName.toLowerCase() === "li")
+    .map((item, index) => {
+      const text = normalizedText(item.textContent);
+      const directText = directListItemText(item);
+      const nestedSignature = nestedListSignature(item);
+      return {
+        index,
+        normalizedTextHash: textHash(text),
+        directTextHash: textHash(directText),
+        nestedSignatureHash: textHash(nestedSignature),
+        textSegmentHashes: textSegmentHashes(text),
+        textLength: text.length,
+        directTextLength: directText.length,
+      };
+    });
+}
+
 function shouldSkipDescendantBlock(element: Element): boolean {
   if (
     element.tagName.toLowerCase() === "img" &&
@@ -255,6 +326,7 @@ export function extractRenderedBlocksFromHtml(
       tagName: element.tagName.toLowerCase(),
       text,
       html: safeBlockHtml(element, kind, options),
+      listItems: kind === "list" ? listItemSnapshots(element) : undefined,
       signature:
         kind === "diagram"
           ? diagramSignatureForElement(element, options.diagramSignatures)
