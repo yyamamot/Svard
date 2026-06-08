@@ -150,7 +150,7 @@ export const commandDefinitions: CommandDefinition[] = [
   { id: "view.exitZenMode", title: "Exit Zen Mode", context: "global" },
   { id: "preferences.open", title: "Open Preferences", context: "global" },
   { id: "preferences.close", title: "Close Preferences", context: "modal" },
-  { id: "help.openWebsite", title: "Svard Website", context: "global" },
+  { id: "help.openWebsite", title: "Website", context: "global" },
   { id: "theme.toggle", title: "Toggle Theme", context: "global" },
   { id: "viewer.reload", title: "Reload Document", context: "viewer" },
   {

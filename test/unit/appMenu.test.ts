@@ -200,7 +200,7 @@ describe("app menu model", () => {
       expect.arrayContaining([
         expect.objectContaining({
           type: "command",
-          label: "Svard Website",
+          label: "Website",
           commandId: "help.openWebsite",
         }),
         expect.objectContaining({

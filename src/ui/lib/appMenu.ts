@@ -403,7 +403,7 @@ export function buildAppMenuModel({
           nativeId: "about",
           enabled: true,
         },
-        command("Svard Website", "help.openWebsite"),
+        command("Website", "help.openWebsite"),
         command("Shortcuts and Gestures", "viewer.showShortcuts"),
       ],
     },

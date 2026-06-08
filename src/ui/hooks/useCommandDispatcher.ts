@@ -425,7 +425,7 @@ export function useCommandDispatcher({
         try {
           await onOpenWebsite();
         } catch {
-          showInlineNotice("Could not open Svard Website", {
+          showInlineNotice("Could not open Website", {
             tone: "error",
           });
         }

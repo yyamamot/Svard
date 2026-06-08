@@ -157,7 +157,7 @@ describe("quick open candidates", () => {
       expect.objectContaining({
         type: "command",
         id: "help.openWebsite",
-        label: "Svard Website",
+        label: "Website",
         enabled: true,
       }),
     );
