@@ -59,6 +59,7 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
         block: item,
       })),
     entryChangeIndexes: new Map(),
+    entryChildChangeIndexes: new Map(),
     entryTargetSides: new Map(),
   };
 }

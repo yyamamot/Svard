@@ -124,7 +124,10 @@ export function useDiffScrollNavigation({
   function scrollRenderedChangeToIndex(index: number) {
     const targets = renderedPaneTargetsForChange(index);
     const primaryTarget = targets[0];
-    const syncIndex = primaryTarget?.target.dataset.syncIndex;
+    const syncIndex =
+      primaryTarget?.target.dataset.syncIndex ??
+      primaryTarget?.target.closest<HTMLElement>("[data-sync-index]")?.dataset
+        .syncIndex;
     if (!syncIndex) {
       if (primaryTarget) {
         scrollRenderedTargetIntoPane(primaryTarget.pane, primaryTarget.target);
@@ -139,8 +142,14 @@ export function useDiffScrollNavigation({
     }
 
     syncingScrollRef.current = true;
-    scrollRenderedPaneToSyncIndex(renderedLeftRef.current, syncIndex);
-    scrollRenderedPaneToSyncIndex(renderedRightRef.current, syncIndex);
+    if (primaryTarget) {
+      scrollRenderedTargetIntoPane(primaryTarget.pane, primaryTarget.target);
+    }
+    for (const pane of [renderedLeftRef.current, renderedRightRef.current]) {
+      if (pane && pane !== primaryTarget?.pane) {
+        scrollRenderedPaneToSyncIndex(pane, syncIndex);
+      }
+    }
     requestAnimationFrame(() => {
       syncingScrollRef.current = false;
     });

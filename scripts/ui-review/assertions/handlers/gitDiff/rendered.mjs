@@ -182,6 +182,58 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             .locator('[data-review-id="git-diff-change-ruler-marker"].active')
             .count()) === 1
         : true,
+    hasRenderedVisualDiffListItemHighlight:
+      scenario === "viewer-rendered-visual-diff-list-item-highlight-basic"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_LIST_ITEM_DIFF__;
+            return (
+              result?.highlightCount > 0 &&
+              result?.itemTargetCount > 0 &&
+              result?.parentTargetCount === 0 &&
+              result?.fallback === false
+            );
+          })
+        : true,
+    hasRenderedVisualDiffListItemNavigation:
+      scenario === "viewer-rendered-visual-diff-list-item-navigation"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_LIST_ITEM_DIFF__;
+            return (
+              result?.highlightCount > 0 &&
+              result?.itemTargetCount > 0 &&
+              result?.parentTargetCount === 0 &&
+              result?.activeMarkerCount === 1
+            );
+          })
+        : true,
+    hasRenderedVisualDiffListItemFallback:
+      scenario ===
+      "viewer-rendered-visual-diff-list-item-low-confidence-fallback"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_LIST_ITEM_DIFF__;
+            return (
+              result?.highlightCount === 0 &&
+              result?.itemTargetCount === 0 &&
+              result?.fallback === true
+            );
+          })
+        : true,
+    hasRenderedVisualDiffListItemPrivacy:
+      scenario === "viewer-rendered-visual-diff-list-item-privacy"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_LIST_ITEM_DIFF__;
+            if (!result) {
+              return false;
+            }
+            const serialized = JSON.stringify(result);
+            return (
+              result.highlightCount > 0 &&
+              !serialized.includes("Added working-tree item") &&
+              !serialized.includes("/workspace/") &&
+              !serialized.includes("@@")
+            );
+          })
+        : true,
     hasDiffFullPreviewMarkdown:
       scenario === "viewer-diff-full-preview-markdown"
         ? bodyText.includes("Git Rendered Markdown Diff Fixture") &&

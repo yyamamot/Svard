@@ -107,6 +107,29 @@ export function readLabel() {
       rightText,
     };
   }
+  if (path.endsWith("/git-rendered-list-reorder.md")) {
+    const leftText = `# Git Rendered List Reorder Fixture
+
+- Alpha stable item
+- Beta stable item
+`;
+    const rightText = `# Git Rendered List Reorder Fixture
+
+- Beta stable item
+- Alpha stable item
+`;
+    return {
+      repositoryRoot: null,
+      relativePath,
+      status: "modified",
+      leftLabel: "HEAD",
+      rightLabel: "Working Tree",
+      hunks: diffHunksFromText(leftText, rightText),
+      message: null,
+      leftText,
+      rightText,
+    };
+  }
   if (path.endsWith("/git-large-markdown-scroll.md")) {
     const tail = buildLargeMarkdownScrollTail();
     const leftText = `# Large Markdown Scroll Return Fixture

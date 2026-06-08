@@ -26,6 +26,7 @@ export {
   nextRenderedDiffContentCursorTarget,
   renderedBlockVisualClass,
   renderedDiffContentCursorTargets,
+  renderedDiffListItemChangeIndex,
   renderedDiffPresentationEntryBlockKind,
   renderedDiffPresentationEntryBlocks,
   renderedDiffPresentationEntryChangeKind,
@@ -42,6 +43,10 @@ export {
   wordDiffParts,
 } from "./gitRenderedDiff/text";
 export { matchRenderedListItemChanges } from "./gitRenderedDiff/listItemChanges";
+export {
+  applyRenderedListItemHighlights,
+  renderedListItemHighlightsForSide,
+} from "./gitRenderedDiff/listItemHighlights";
 export { applyInlineDiffHighlights } from "./gitRenderedDiff/inlineHighlights";
 export { deriveGitRenderedDiffSummary } from "./gitRenderedDiff/renderSummary";
 export {

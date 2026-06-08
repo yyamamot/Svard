@@ -80,6 +80,7 @@ export async function getGitStatusSummary(
       path.endsWith("/git-modified.md") ||
       path.endsWith("/git-table.md") ||
       path.endsWith("/git-rendered-markdown.md") ||
+      path.endsWith("/git-rendered-list-reorder.md") ||
       path.endsWith("/git-large-markdown-scroll.md") ||
       path.endsWith("/git-rendered-asciidoc.adoc") ||
       path.endsWith("/git-rendered-diagram.adoc") ||

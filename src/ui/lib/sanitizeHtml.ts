@@ -43,6 +43,7 @@ const viewerMetadataAttributes = [
   "data-kroki-confirm-key",
   "data-kroki-fallback-key",
   "data-change-index",
+  "data-content-cursor-active",
   "data-sync-index",
   "disabled",
   "type",

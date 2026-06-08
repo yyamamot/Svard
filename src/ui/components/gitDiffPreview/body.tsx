@@ -8,7 +8,11 @@ import type {
 } from "../../lib/gitRenderedDiff";
 import type { GitTableDiffSummary } from "../../lib/gitTableDiff";
 import { DiffOverview, overviewStats } from "./overview";
-import { renderedEntryChangeIndex, RenderedDiffPane } from "./renderedView";
+import {
+  renderedEntryChangeIndex,
+  renderedListItemChangeIndex,
+  RenderedDiffPane,
+} from "./renderedView";
 import { DiffPane, sideLines } from "./sourceView";
 import {
   changedCellCount,
@@ -165,9 +169,18 @@ export function DiffPreviewBody({
             contentCursorActive={contentCursorActive}
             documentClassName={documentClassName}
             documentFormat={documentFormat}
+            activeChangeIndex={activeChangeIndex}
             showBlockMeta={false}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "left")
+            }
+            changeIndexForListItem={(entry, itemIndex) =>
+              renderedListItemChangeIndex(
+                renderedPresentation,
+                entry,
+                "left",
+                itemIndex,
+              )
             }
             syncIndexForEntry={(entry) =>
               renderedEntrySyncIndexes.get(entry.id) ?? 0
@@ -186,9 +199,18 @@ export function DiffPreviewBody({
             contentCursorActive={contentCursorActive}
             documentClassName={documentClassName}
             documentFormat={documentFormat}
+            activeChangeIndex={activeChangeIndex}
             showBlockMeta={false}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "right")
+            }
+            changeIndexForListItem={(entry, itemIndex) =>
+              renderedListItemChangeIndex(
+                renderedPresentation,
+                entry,
+                "right",
+                itemIndex,
+              )
             }
             syncIndexForEntry={(entry) =>
               renderedEntrySyncIndexes.get(entry.id) ?? 0
@@ -231,8 +253,17 @@ export function DiffPreviewBody({
             contentCursorActive={contentCursorActive}
             documentClassName={documentClassName}
             documentFormat={documentFormat}
+            activeChangeIndex={activeChangeIndex}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "left")
+            }
+            changeIndexForListItem={(entry, itemIndex) =>
+              renderedListItemChangeIndex(
+                renderedPresentation,
+                entry,
+                "left",
+                itemIndex,
+              )
             }
             syncIndexForEntry={(entry) =>
               renderedEntrySyncIndexes.get(entry.id) ?? 0
@@ -251,8 +282,17 @@ export function DiffPreviewBody({
             contentCursorActive={contentCursorActive}
             documentClassName={documentClassName}
             documentFormat={documentFormat}
+            activeChangeIndex={activeChangeIndex}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "right")
+            }
+            changeIndexForListItem={(entry, itemIndex) =>
+              renderedListItemChangeIndex(
+                renderedPresentation,
+                entry,
+                "right",
+                itemIndex,
+              )
             }
             syncIndexForEntry={(entry) =>
               renderedEntrySyncIndexes.get(entry.id) ?? 0

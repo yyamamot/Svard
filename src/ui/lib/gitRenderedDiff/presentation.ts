@@ -10,6 +10,14 @@ import type {
 } from "./types";
 import { normalizedText } from "./text";
 
+function listItemTargetKey(
+  entryId: string,
+  side: "left" | "right",
+  itemIndex: number,
+): string {
+  return `${entryId}:${side}:${itemIndex}`;
+}
+
 export function isRenderedChangeBlock(block: RenderedBlockDiff): boolean {
   return block.kind !== "unchanged";
 }
@@ -88,6 +96,43 @@ export function isRenderedDiffPresentationChangeEntry(
   return presentationEntryBlocks(entry).some(isRenderedChangeBlock);
 }
 
+function listItemChangeSideAndIndex(
+  childChange: NonNullable<RenderedBlockDiff["childChanges"]>[number],
+): { side: "left" | "right"; itemIndex: number } | null {
+  if (childChange.kind === "removed" && childChange.leftIndex !== undefined) {
+    return { side: "left", itemIndex: childChange.leftIndex };
+  }
+  if (childChange.rightIndex !== undefined) {
+    return { side: "right", itemIndex: childChange.rightIndex };
+  }
+  return null;
+}
+
+function listItemTargetSideAndIndex(
+  childChange: NonNullable<RenderedBlockDiff["childChanges"]>[number],
+  side: "left" | "right",
+): { side: "left" | "right"; itemIndex: number } | null {
+  if (side === "left" && childChange.leftIndex !== undefined) {
+    return { side, itemIndex: childChange.leftIndex };
+  }
+  if (side === "right" && childChange.rightIndex !== undefined) {
+    return { side, itemIndex: childChange.rightIndex };
+  }
+  return null;
+}
+
+function childNavigationTargetsForBlock(
+  block: RenderedBlockDiff,
+): Array<{ childChangeIndex: number; side: "left" | "right" }> {
+  if (block.kind !== "changed" || block.blockKind !== "list") {
+    return [];
+  }
+  return (block.childChanges ?? []).flatMap((childChange, childChangeIndex) => {
+    const target = listItemChangeSideAndIndex(childChange);
+    return target ? [{ childChangeIndex, side: target.side }] : [];
+  });
+}
+
 export function buildRenderedDiffPresentation(
   blocks: RenderedBlockDiff[],
 ): RenderedDiffPresentation {
@@ -137,6 +182,7 @@ export function buildRenderedDiffPresentation(
 
   const navigationTargets: RenderedDiffNavigationTarget[] = [];
   const entryChangeIndexes = new Map<string, number>();
+  const entryChildChangeIndexes = new Map<string, number>();
   const entryTargetSides = new Map<string, "left" | "right" | "both">();
 
   for (const entry of entries) {
@@ -150,6 +196,35 @@ export function buildRenderedDiffPresentation(
     if (!targetSide) {
       continue;
     }
+
+    const childTargets =
+      entry.kind === "block" ? childNavigationTargetsForBlock(targetBlock) : [];
+    if (childTargets.length > 0) {
+      for (const childTarget of childTargets) {
+        const childChange =
+          targetBlock.childChanges?.[childTarget.childChangeIndex];
+        const target = childChange
+          ? listItemTargetSideAndIndex(childChange, childTarget.side)
+          : null;
+        if (!target) {
+          continue;
+        }
+        const targetIndex = navigationTargets.length;
+        navigationTargets.push({
+          index: targetIndex,
+          entryId: entry.id,
+          side: childTarget.side,
+          block: targetBlock,
+          childChangeIndex: childTarget.childChangeIndex,
+        });
+        entryChildChangeIndexes.set(
+          listItemTargetKey(entry.id, childTarget.side, target.itemIndex),
+          targetIndex,
+        );
+      }
+      continue;
+    }
+
     const targetIndex = navigationTargets.length;
     navigationTargets.push({
       index: targetIndex,
@@ -165,8 +240,22 @@ export function buildRenderedDiffPresentation(
     entries,
     navigationTargets,
     entryChangeIndexes,
+    entryChildChangeIndexes,
     entryTargetSides,
   };
+}
+
+export function renderedDiffListItemChangeIndex(
+  presentation: RenderedDiffPresentation,
+  entry: RenderedDiffPresentationEntry,
+  side: "left" | "right",
+  itemIndex: number,
+): number | null {
+  return (
+    presentation.entryChildChangeIndexes.get(
+      listItemTargetKey(entry.id, side, itemIndex),
+    ) ?? null
+  );
 }
 
 export function renderedDiffContentCursorTargets(
@@ -180,6 +269,7 @@ export function renderedDiffContentCursorTargets(
       entryId: target.entryId,
       side: target.side === "left" ? "left" : "right",
       changeIndex: target.index,
+      childChangeIndex: target.childChangeIndex,
     }));
 }
 
@@ -202,7 +292,8 @@ export function nextRenderedDiffContentCursorTarget({
     ? targets.findIndex(
         (target) =>
           target.entryId === activeTarget.entryId &&
-          target.side === activeTarget.side,
+          target.side === activeTarget.side &&
+          target.childChangeIndex === activeTarget.childChangeIndex,
       )
     : -1;
   if (activeIndex >= 0) {

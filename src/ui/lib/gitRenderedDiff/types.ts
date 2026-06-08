@@ -94,12 +94,14 @@ export interface RenderedDiffNavigationTarget {
   entryId: string;
   side: "left" | "right" | "both";
   block: RenderedBlockDiff;
+  childChangeIndex?: number;
 }
 
 export interface RenderedDiffPresentation {
   entries: RenderedDiffPresentationEntry[];
   navigationTargets: RenderedDiffNavigationTarget[];
   entryChangeIndexes: Map<string, number>;
+  entryChildChangeIndexes: Map<string, number>;
   entryTargetSides: Map<string, "left" | "right" | "both">;
 }
 
@@ -107,6 +109,7 @@ export interface RenderedDiffContentCursorTarget {
   entryId: string;
   side: "left" | "right";
   changeIndex: number;
+  childChangeIndex?: number;
 }
 
 export type PostDiffGitMarkerKind = "added" | "changed" | "removed";

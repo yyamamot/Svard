@@ -197,6 +197,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "git-rendered-list-reorder.md",
+      path: "/workspace/docs/git-rendered-list-reorder.md",
+      kind: "file",
+    },
+    {
       name: "git-large-markdown-scroll.md",
       path: "/workspace/docs/git-large-markdown-scroll.md",
       kind: "file",
@@ -541,6 +546,11 @@ export const fixtureEntries: DirectoryEntry[] = [
   {
     name: "git-rendered-markdown.md",
     path: "/workspace/docs/git-rendered-markdown.md",
+    kind: "file",
+  },
+  {
+    name: "git-rendered-list-reorder.md",
+    path: "/workspace/docs/git-rendered-list-reorder.md",
     kind: "file",
   },
   {
@@ -1585,6 +1595,11 @@ This rendered Markdown paragraph changed in the working tree.
 
 > [!NOTE]
 > Rendered alerts are compared as blocks.
+`,
+  "/workspace/docs/git-rendered-list-reorder.md": `# Git Rendered List Reorder Fixture
+
+- Beta stable item
+- Alpha stable item
 `,
   "/workspace/docs/git-large-markdown-scroll.md":
     buildLargeMarkdownScrollDocument(),

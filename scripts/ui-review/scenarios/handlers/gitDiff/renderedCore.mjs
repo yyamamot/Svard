@@ -230,6 +230,86 @@ export async function applyGitDiffRenderedCoreScenario(context) {
       .first()
       .waitFor();
   } else if (
+    scenario === "viewer-rendered-visual-diff-list-item-highlight-basic" ||
+    scenario === "viewer-rendered-visual-diff-list-item-navigation" ||
+    scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||
+    scenario === "viewer-rendered-visual-diff-list-item-privacy"
+  ) {
+    const isFallbackScenario =
+      scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback";
+    await page
+      .locator(
+        `text=${
+          isFallbackScenario
+            ? "git-rendered-list-reorder.md"
+            : "git-rendered-markdown.md"
+        }`,
+      )
+      .click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({
+        hasText: isFallbackScenario
+          ? "Git Rendered List Reorder Fixture"
+          : "Git Rendered Markdown Diff Fixture",
+      })
+      .waitFor();
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.locator('[data-review-id="git-diff-rendered-view"]').click();
+    await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+
+    if (!isFallbackScenario) {
+      await page
+        .locator('[data-review-id="git-rendered-list-item-change"]')
+        .first()
+        .waitFor();
+    }
+
+    if (scenario === "viewer-rendered-visual-diff-list-item-navigation") {
+      await page.getByRole("button", { name: "Next change" }).click();
+      await page
+        .locator('[data-review-id="git-rendered-list-item-change"][data-change-index]')
+        .first()
+        .scrollIntoViewIfNeeded();
+      await page
+        .locator('[data-review-id="git-diff-change-ruler-marker"].active')
+        .waitFor();
+      await page
+        .locator('[data-review-id="git-diff-change-ruler-marker"]')
+        .last()
+        .click();
+    }
+
+    await page.evaluate((scenarioName) => {
+      const itemHighlights = Array.from(
+        document.querySelectorAll(
+          '[data-review-id="git-rendered-list-item-change"]',
+        ),
+      );
+      const itemTargets = itemHighlights.filter((item) =>
+        item.hasAttribute("data-change-index"),
+      );
+      const parentTargets = Array.from(
+        document.querySelectorAll(
+          ".git-rendered-block.has-list-item-changes[data-change-index]",
+        ),
+      );
+      const activeMarkers = document.querySelectorAll(
+        '[data-review-id="git-diff-change-ruler-marker"].active',
+      );
+      window.__SVARD_RENDERED_LIST_ITEM_DIFF__ = {
+        scenario: scenarioName,
+        fallback: itemHighlights.length === 0,
+        highlightCount: itemHighlights.length,
+        itemTargetCount: itemTargets.length,
+        parentTargetCount: parentTargets.length,
+        activeMarkerCount: activeMarkers.length,
+      };
+    }, scenario);
+  } else if (
     scenario === "viewer-rendered-visual-diff-markdown" ||
     scenario === "viewer-rendered-visual-diff-inline-highlight" ||
     scenario === "viewer-rendered-visual-diff-minimap"

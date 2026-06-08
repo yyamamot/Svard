@@ -8,13 +8,19 @@ import {
   extractRenderedBlocksFromHtml,
   isRenderedChangeBlock,
   nextRenderedDiffContentCursorTarget,
+  renderedDiffListItemChangeIndex,
   renderedDiffContentCursorTargets,
   renderedInlineDiffRanges,
   renderedTextOverlap,
   renderedBlockVisualClass,
+  renderedListItemHighlightsForSide,
+  applyRenderedListItemHighlights,
   wordDiffParts,
 } from "../../src/ui/lib/gitRenderedDiff";
-import { sanitizeRenderedBlockHtml } from "../../src/ui/lib/sanitizeHtml";
+import {
+  sanitizeRenderedBlockHtml,
+  unwrapSafeHtml,
+} from "../../src/ui/lib/sanitizeHtml";
 
 describe("git rendered diff", () => {
   it("extracts rendered blocks from document HTML", () => {
@@ -1082,6 +1088,153 @@ make -f Makefile.private mirror-commit</code></pre>
     expect(serialized).not.toContain("Secret Alpha");
     expect(serialized).not.toContain("Secret Beta");
     expect(block?.childChangeFallback).toEqual({ reason: "ambiguous" });
+  });
+
+  it("uses list item child changes as rendered navigation targets", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Stable item</li><li>Status: Draft / Later.</li><li>Tail item</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Stable item</li><li>Status: Draft / Paused.</li><li>Tail item</li></ul>",
+      ),
+    );
+    expect(block).toBeDefined();
+    const listBlock = block as NonNullable<typeof block>;
+    const presentation = buildRenderedDiffPresentation([listBlock]);
+    const entry = presentation.entries[0];
+
+    expect(presentation.navigationTargets).toEqual([
+      expect.objectContaining({
+        index: 0,
+        entryId: entry?.id,
+        side: "right",
+        block: listBlock,
+        childChangeIndex: 0,
+      }),
+    ]);
+    expect(presentation.entryChangeIndexes.get(entry?.id ?? "")).toBeUndefined();
+    expect(
+      entry
+        ? renderedDiffListItemChangeIndex(presentation, entry, "right", 1)
+        : null,
+    ).toBe(0);
+    expect(
+      entry
+        ? renderedDiffListItemChangeIndex(presentation, entry, "left", 1)
+        : null,
+    ).toBeNull();
+    expect(renderedDiffContentCursorTargets(presentation)).toEqual([
+      {
+        entryId: entry?.id,
+        side: "right",
+        changeIndex: 0,
+        childChangeIndex: 0,
+      },
+    ]);
+  });
+
+  it("keeps low-confidence list fallback as a block-level navigation target", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Alpha stable item</li><li>Beta stable item</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Beta stable item</li><li>Alpha stable item</li></ul>",
+      ),
+    );
+    expect(block).toBeDefined();
+    const listBlock = block as NonNullable<typeof block>;
+    const presentation = buildRenderedDiffPresentation([listBlock]);
+    const entry = presentation.entries[0];
+
+    expect(listBlock.childChanges).toBeUndefined();
+    expect(listBlock.childChangeFallback).toEqual({ reason: "reorder" });
+    expect(presentation.navigationTargets).toEqual([
+      expect.objectContaining({
+        index: 0,
+        entryId: entry?.id,
+        side: "both",
+        block: listBlock,
+      }),
+    ]);
+    expect(presentation.navigationTargets[0]?.childChangeIndex).toBeUndefined();
+    expect(presentation.entryChangeIndexes.get(entry?.id ?? "")).toBe(0);
+  });
+
+  it("annotates only changed top-level list items for the visible side", () => {
+    const [block] = compareRenderedBlocks(
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Stable item</li><li>Status: Draft / Later.</li><li>Tail item</li></ul>",
+      ),
+      extractRenderedBlocksFromHtml(
+        "<ul><li>Stable item</li><li>Status: Draft / Paused.</li><li>Tail item</li></ul>",
+      ),
+    );
+    expect(block).toBeDefined();
+    const listBlock = block as NonNullable<typeof block>;
+
+    const rightHtml = applyRenderedListItemHighlights(
+      listBlock.right?.html ?? "",
+      renderedListItemHighlightsForSide({
+        activeChangeIndex: 7,
+        block: listBlock,
+        changeIndexForItem: (itemIndex) => (itemIndex === 1 ? 7 : null),
+        side: "right",
+      }),
+    );
+    const leftHtml = applyRenderedListItemHighlights(
+      listBlock.left?.html ?? "",
+      renderedListItemHighlightsForSide({
+        block: listBlock,
+        changeIndexForItem: () => null,
+        side: "left",
+      }),
+    );
+    const rightDoc = new DOMParser().parseFromString(rightHtml, "text/html");
+    const leftDoc = new DOMParser().parseFromString(leftHtml, "text/html");
+
+    expect(
+      rightDoc.querySelectorAll('[data-review-id="git-rendered-list-item-change"]'),
+    ).toHaveLength(1);
+    expect(
+      rightDoc.querySelectorAll(".git-rendered-list-item-change.changed"),
+    ).toHaveLength(1);
+    expect(
+      rightDoc.querySelectorAll('[data-change-index="7"]'),
+    ).toHaveLength(1);
+    expect(
+      rightDoc.querySelector('[data-content-cursor-active="true"]'),
+    ).toBeTruthy();
+    expect(
+      rightDoc.querySelectorAll("li:not(.git-rendered-list-item-change)"),
+    ).toHaveLength(2);
+    expect(
+      leftDoc.querySelectorAll(".git-rendered-list-item-change.changed"),
+    ).toHaveLength(1);
+    expect(leftDoc.querySelector("[data-change-index]")).toBeNull();
+  });
+
+  it("keeps list item highlight metadata through rendered block sanitizing", () => {
+    const html = applyRenderedListItemHighlights(
+      "<ul><li>Stable</li><li>Changed</li></ul>",
+      [
+        {
+          active: true,
+          changeIndex: 3,
+          itemIndex: 1,
+          kind: "changed",
+        },
+      ],
+    );
+    const sanitized = unwrapSafeHtml(
+      sanitizeRenderedBlockHtml(html, { format: "markdown" }),
+    );
+
+    expect(sanitized).toContain("git-rendered-list-item-change");
+    expect(sanitized).toContain('data-review-id="git-rendered-list-item-change"');
+    expect(sanitized).toContain('data-change-index="3"');
+    expect(sanitized).toContain('data-content-cursor-active="true"');
   });
 
   it("uses character overlap for Japanese text without whitespace", () => {

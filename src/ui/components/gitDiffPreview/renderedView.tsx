@@ -5,14 +5,17 @@ import { dangerouslySetSafeHtml, markSafeHtml } from "../../lib/safeHtml";
 import {
   isRenderedDiffPresentationChangeEntry,
   renderedBlockVisualClass,
+  renderedDiffListItemChangeIndex,
   renderedDiffPresentationEntryBlockKind,
   renderedDiffPresentationEntryBlocks,
   renderedDiffPresentationEntryChangeKind,
   renderedInlineDiffRanges,
+  renderedListItemHighlightsForSide,
+  applyRenderedListItemHighlights,
   applyInlineDiffHighlights,
   type GitRenderedDiffSummary,
-  type InlineDiffRange,
   type RenderedBlockDiff,
+  type RenderedDiffContentCursorTarget,
   type RenderedDiffPresentation,
   type RenderedDiffPresentationEntry,
 } from "../../lib/gitRenderedDiff";
@@ -26,6 +29,13 @@ export function renderedEntryChangeIndex(
   entry: RenderedDiffPresentationEntry,
   side: "left" | "right",
 ): number | null {
+  if (
+    entry.kind === "block" &&
+    entry.block.kind === "changed" &&
+    entry.block.childChanges?.length
+  ) {
+    return null;
+  }
   const changeIndex = presentation.entryChangeIndexes.get(entry.id);
   if (changeIndex === undefined) {
     return null;
@@ -35,6 +45,15 @@ export function renderedEntryChangeIndex(
     return changeIndex;
   }
   return null;
+}
+
+export function renderedListItemChangeIndex(
+  presentation: RenderedDiffPresentation,
+  entry: RenderedDiffPresentationEntry,
+  side: "left" | "right",
+  itemIndex: number,
+): number | null {
+  return renderedDiffListItemChangeIndex(presentation, entry, side, itemIndex);
 }
 
 function sentenceCase(value: string): string {
@@ -94,9 +113,11 @@ export function RenderedDiffPane({
   contentCursorActive,
   documentClassName,
   documentFormat = "markdown",
+  activeChangeIndex,
   showBlockMeta = true,
   showInlineWordDiff = true,
   changeIndexForEntry,
+  changeIndexForListItem,
   syncIndexForEntry,
   onContextMenu,
   onScroll,
@@ -107,21 +128,39 @@ export function RenderedDiffPane({
   side: "left" | "right";
   reviewId: string;
   blockReviewId: string;
-  contentCursorActive?: { side: "left" | "right"; entryId: string } | null;
+  contentCursorActive?: RenderedDiffContentCursorTarget | null;
   documentClassName: string;
   documentFormat?: DocumentFormat;
+  activeChangeIndex?: number;
   showBlockMeta?: boolean;
   showInlineWordDiff?: boolean;
   changeIndexForEntry: (entry: RenderedDiffPresentationEntry) => number | null;
+  changeIndexForListItem: (
+    entry: RenderedDiffPresentationEntry,
+    itemIndex: number,
+  ) => number | null;
   syncIndexForEntry: (entry: RenderedDiffPresentationEntry) => number;
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
   paneRef: RefObject<HTMLDivElement | null>;
   onScroll: (event: UIEvent<HTMLDivElement>) => void;
 }) {
-  function highlightedBlockHtml(block: RenderedBlockDiff): string | null {
+  function highlightedBlockHtml(
+    entry: RenderedDiffPresentationEntry,
+    block: RenderedBlockDiff,
+  ): string | null {
     const visibleBlock = side === "left" ? block.left : block.right;
-    if (!visibleBlock || !showInlineWordDiff || block.blockKind === "diagram") {
-      return visibleBlock?.html ?? null;
+    if (!visibleBlock) {
+      return null;
+    }
+    const itemHighlights = renderedListItemHighlightsForSide({
+      activeChangeIndex,
+      block,
+      changeIndexForItem: (itemIndex) =>
+        changeIndexForListItem(entry, itemIndex),
+      side,
+    });
+    if (!showInlineWordDiff || block.blockKind === "diagram") {
+      return applyRenderedListItemHighlights(visibleBlock.html, itemHighlights);
     }
 
     const ranges =
@@ -129,19 +168,23 @@ export function RenderedDiffPane({
         ? renderedInlineDiffRanges(block.left.text, block.right.text, side)
         : [];
     if (ranges.length === 0) {
-      return visibleBlock.html;
+      return applyRenderedListItemHighlights(visibleBlock.html, itemHighlights);
     }
 
     const doc = new DOMParser().parseFromString(visibleBlock.html, "text/html");
     applyInlineDiffHighlights(doc.body, ranges, {
       includeSourceBlocks: block.blockKind === "source-block",
     });
-    return doc.body.innerHTML;
+    return applyRenderedListItemHighlights(doc.body.innerHTML, itemHighlights);
   }
 
-  function renderVisibleBlock(block: RenderedBlockDiff, key?: string) {
+  function renderVisibleBlock(
+    entry: RenderedDiffPresentationEntry,
+    block: RenderedBlockDiff,
+    key?: string,
+  ) {
     const visibleBlock = side === "left" ? block.left : block.right;
-    const highlightedHtml = highlightedBlockHtml(block);
+    const highlightedHtml = highlightedBlockHtml(entry, block);
     if (!visibleBlock) {
       return null;
     }
@@ -196,14 +239,14 @@ export function RenderedDiffPane({
               key={`${block.id}:${side}`}
               className="git-rendered-group-item"
             >
-              {renderVisibleBlock(block)}
+              {renderVisibleBlock(entry, block)}
             </div>
           ))}
         </div>
       );
     }
 
-    const visible = renderVisibleBlock(entry.block);
+    const visible = renderVisibleBlock(entry, entry.block);
     if (visible) {
       return visible;
     }
@@ -231,15 +274,22 @@ export function RenderedDiffPane({
           const changeIndex = changeIndexForEntry(entry);
           const syncIndex = syncIndexForEntry(entry);
           const meta = renderedDiffPresentationEntryMetaLabel(entry);
+          const hasListItemChanges =
+            entry.kind === "block" &&
+            entry.block.kind === "changed" &&
+            Boolean(entry.block.childChanges?.length);
           const isContentCursorActive =
             contentCursorActive?.side === side &&
-            contentCursorActive.entryId === entry.id;
+            contentCursorActive.entryId === entry.id &&
+            contentCursorActive.childChangeIndex === undefined;
           return (
             <article
               key={`${entry.id}:${side}`}
               className={`git-rendered-block ${sideClass} ${side}-side ${
                 changeIndex !== null ? "change-target" : ""
-              } ${isContentCursorActive ? "content-cursor-active" : ""}`}
+              } ${hasListItemChanges ? "has-list-item-changes" : ""} ${
+                isContentCursorActive ? "content-cursor-active" : ""
+              }`}
               data-review-id={
                 isContentCursorActive ? "content-cursor-active" : blockReviewId
               }

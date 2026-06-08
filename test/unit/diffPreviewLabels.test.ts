@@ -187,6 +187,7 @@ describe("diff preview labels", () => {
         ["entry:heading", 0],
         ["entry:paragraph", 1],
       ]),
+      entryChildChangeIndexes: new Map(),
       entryTargetSides: new Map(),
     };
     const renderedSummary: GitRenderedDiffSummary = {
