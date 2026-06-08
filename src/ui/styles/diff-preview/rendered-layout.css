@@ -131,34 +131,47 @@
 }
 
 .git-rendered-list-item-change {
+  --git-rendered-list-item-accent: #d9970e;
+  position: relative;
   border-radius: 4px;
   margin-block: 2px;
   padding: 1px 5px;
   scroll-margin: 24px;
 }
 
+.git-rendered-list-item-change::before {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: -9px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--git-rendered-list-item-accent);
+  content: "";
+}
+
 .git-rendered-list-item-change.added {
-  box-shadow: inset 3px 0 #2d8a62;
+  --git-rendered-list-item-accent: #2d8a62;
   background: color-mix(in srgb, #2d8a62 13%, transparent);
 }
 
 .git-rendered-list-item-change.removed {
-  box-shadow: inset 3px 0 #c85240;
+  --git-rendered-list-item-accent: #c85240;
   background: color-mix(in srgb, #c85240 12%, transparent);
 }
 
 .git-rendered-list-item-change.changed {
-  box-shadow: inset 3px 0 #d9970e;
+  --git-rendered-list-item-accent: #d9970e;
   background: color-mix(in srgb, #d9970e 12%, transparent);
 }
 
 .git-rendered-block.left-side .git-rendered-list-item-change.changed {
-  box-shadow: inset 3px 0 #c85240;
+  --git-rendered-list-item-accent: #c85240;
   background: color-mix(in srgb, #c85240 10%, transparent);
 }
 
 .git-rendered-block.right-side .git-rendered-list-item-change.changed {
-  box-shadow: inset 3px 0 #2d8a62;
+  --git-rendered-list-item-accent: #2d8a62;
   background: color-mix(in srgb, #2d8a62 11%, transparent);
 }
 
