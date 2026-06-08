@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const repoRoot = process.cwd();
 const artifactRoot = path.join(repoRoot, ".artifacts", "maintainability");
@@ -24,22 +25,28 @@ const trackedExtensions = new Set([
   ".tsx",
 ]);
 
-const excludedPathPatterns = [
-  /^\.artifacts\//u,
-  /^Arto\//u,
-  /^dist\//u,
-  /^node_modules\//u,
-  /^public\/vendor\//u,
-  /^src-tauri\/target\//u,
-  /^src-tauri\/Cargo\.lock$/u,
-  /^src-tauri\/gen\//u,
-  /^src-tauri\/icons\//u,
-  /^src\/core\/fixtures\.ts$/u,
-  /^docs\/history\//u,
-  /^docs\/research\//u,
-  /^docs\/samples\//u,
-  /^test\/e2e\/viewer\.spec\.ts$/u,
+const excludedDirectoryNames = new Set(["node_modules"]);
+
+const excludedDirectoryPrefixes = [
+  ".artifacts/",
+  "Arto/",
+  "dist/",
+  "public/vendor/",
+  "site/.astro/",
+  "site/dist/",
+  "src-tauri/gen/",
+  "src-tauri/icons/",
+  "src-tauri/target/",
+  "docs/history/",
+  "docs/research/",
+  "docs/samples/",
 ];
+
+const excludedExactFiles = new Set([
+  "src-tauri/Cargo.lock",
+  "src/core/fixtures.ts",
+  "test/e2e/viewer.spec.ts",
+]);
 
 const criticalFiles = new Map([
   [
@@ -117,6 +124,28 @@ const criticalFiles = new Map([
 const defaultWarningLines = 900;
 const defaultSevereLines = 1800;
 
+function normalizeRelativePath(relativePath) {
+  return relativePath.replaceAll(path.sep, "/").replace(/^\.?\//u, "");
+}
+
+export function isExcludedMaintainabilityPath(relativePath) {
+  const normalizedPath = normalizeRelativePath(relativePath);
+  if (!normalizedPath) {
+    return false;
+  }
+  if (excludedExactFiles.has(normalizedPath)) {
+    return true;
+  }
+  const segments = normalizedPath.split("/");
+  if (segments.some((segment) => excludedDirectoryNames.has(segment))) {
+    return true;
+  }
+  return excludedDirectoryPrefixes.some((prefix) => {
+    const directory = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
+    return normalizedPath === directory || normalizedPath.startsWith(prefix);
+  });
+}
+
 async function listFiles(directory) {
   const entries = await fs.readdir(directory, { withFileTypes: true });
   const files = [];
@@ -125,7 +154,7 @@ async function listFiles(directory) {
     const relativePath = path
       .relative(repoRoot, absolutePath)
       .replaceAll(path.sep, "/");
-    if (excludedPathPatterns.some((pattern) => pattern.test(relativePath))) {
+    if (isExcludedMaintainabilityPath(relativePath)) {
       continue;
     }
     if (entry.isDirectory()) {
@@ -175,80 +204,87 @@ function adviceFor(relativePath) {
   );
 }
 
-const files = await listFiles(repoRoot);
-const items = [];
-for (const relativePath of files) {
-  const lines = await lineCount(relativePath);
-  const status = classify(relativePath, lines);
-  if (status !== "ok" || criticalFiles.has(relativePath)) {
-    const policy = adviceFor(relativePath);
-    items.push({
-      path: relativePath,
-      lines,
-      status,
-      owner: policy.owner,
-      warningLines: policy.warningLines,
-      targetLines: policy.targetLines,
-      recommendation: policy.recommendation,
-    });
-  }
-}
-
-items.sort(
-  (left, right) =>
-    right.lines - left.lines || left.path.localeCompare(right.path),
-);
-
-const summary = {
-  checkedAt: new Date().toISOString(),
-  fileCount: files.length,
-  warningCount: items.filter((item) => item.status === "warning").length,
-  severeCount: items.filter((item) => item.status === "severe").length,
-};
-const report = {
-  schemaVersion: 1,
-  outcome: "passed-with-warnings",
-  summary,
-  items,
-};
-
-const budgetResults = budgetMode ? evaluateBudgets(summary, items) : [];
-if (budgetMode) {
-  report.budgets = budgets;
-  report.budgetResults = budgetResults;
-  report.budgetPassed = budgetResults.every((result) => result.passed);
-}
-
-await fs.mkdir(artifactRoot, { recursive: true });
-await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-if (budgetMode) {
-  await fs.writeFile(budgetPath, `${JSON.stringify(report, null, 2)}\n`);
-}
-
-console.log("maintainability check completed");
-console.log(`artifact: ${reportPath}`);
-console.log(
-  `warnings: ${summary.warningCount}, severe: ${summary.severeCount}, files: ${summary.fileCount}`,
-);
-
-for (const item of items.slice(0, 12)) {
-  console.log(
-    `${item.status.padEnd(7)} ${String(item.lines).padStart(5)} ${item.path} - ${item.recommendation}`,
-  );
-}
-
-if (budgetMode) {
-  console.log(`budget artifact: ${budgetPath}`);
-  if (report.budgetPassed) {
-    console.log("maintainability budget passed");
-  } else {
-    console.error("maintainability budget failed");
-    for (const result of budgetResults.filter((result) => !result.passed)) {
-      console.error(
-        `- ${result.name}: actual ${result.actual}, expected <= ${result.limit}`,
-      );
+async function buildMaintainabilityReport() {
+  const files = await listFiles(repoRoot);
+  const items = [];
+  for (const relativePath of files) {
+    const lines = await lineCount(relativePath);
+    const status = classify(relativePath, lines);
+    if (status !== "ok" || criticalFiles.has(relativePath)) {
+      const policy = adviceFor(relativePath);
+      items.push({
+        path: relativePath,
+        lines,
+        status,
+        owner: policy.owner,
+        warningLines: policy.warningLines,
+        targetLines: policy.targetLines,
+        recommendation: policy.recommendation,
+      });
     }
-    process.exitCode = 1;
+  }
+
+  items.sort(
+    (left, right) =>
+      right.lines - left.lines || left.path.localeCompare(right.path),
+  );
+
+  const summary = {
+    checkedAt: new Date().toISOString(),
+    fileCount: files.length,
+    warningCount: items.filter((item) => item.status === "warning").length,
+    severeCount: items.filter((item) => item.status === "severe").length,
+  };
+  return {
+    schemaVersion: 1,
+    outcome: "passed-with-warnings",
+    summary,
+    items,
+  };
+}
+
+async function run() {
+  const report = await buildMaintainabilityReport();
+  const { summary, items } = report;
+
+  const budgetResults = budgetMode ? evaluateBudgets(summary, items) : [];
+  if (budgetMode) {
+    report.budgets = budgets;
+    report.budgetResults = budgetResults;
+    report.budgetPassed = budgetResults.every((result) => result.passed);
+  }
+
+  await fs.mkdir(artifactRoot, { recursive: true });
+  await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  if (budgetMode) {
+    await fs.writeFile(budgetPath, `${JSON.stringify(report, null, 2)}\n`);
+  }
+
+  console.log("maintainability check completed");
+  console.log(`artifact: ${reportPath}`);
+  console.log(
+    `warnings: ${summary.warningCount}, severe: ${summary.severeCount}, files: ${summary.fileCount}`,
+  );
+
+  for (const item of items.slice(0, 12)) {
+    console.log(
+      `${item.status.padEnd(7)} ${String(item.lines).padStart(5)} ${item.path} - ${item.recommendation}`,
+    );
+  }
+
+  if (budgetMode) {
+    console.log(`budget artifact: ${budgetPath}`);
+    if (report.budgetPassed) {
+      console.log("maintainability budget passed");
+    } else {
+      console.error("maintainability budget failed");
+      for (const result of budgetResults.filter((result) => !result.passed)) {
+        console.error(
+          `- ${result.name}: actual ${result.actual}, expected <= ${result.limit}`,
+        );
+      }
+      process.exitCode = 1;
+    }
   }
 }
 
@@ -271,4 +307,8 @@ function atMost(name, actual, limit) {
     limit,
     passed: actual <= limit,
   };
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  await run();
 }
