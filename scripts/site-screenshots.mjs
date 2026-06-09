@@ -419,10 +419,9 @@ The rendered diff view should make reader-visible changes easy to inspect and na
 
 | Section | Before | After |
 | --- | --- | --- |
-| Search | Current file only | Current file and all files |
+| Search | Current document only | Current file and all files |
 | Diff | Source line diff | Rendered output comparison |
-| Git markers | Manual diff preview | Viewer markers stay in context |
-| Diagrams | Remote fallback first | Local rendering first |
+| Diagrams | Remote fallback first | Local rendering and fallback |
 
 ## Public-safe note
 
