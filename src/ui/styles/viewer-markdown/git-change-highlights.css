@@ -7,7 +7,12 @@
 }
 
 .document-body
-  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item))::before {
+  :where(
+    .post-diff-git-highlight:not(
+        .post-diff-git-highlight-list-item,
+        .post-diff-git-highlight-table-cell
+      )
+  )::before {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -19,8 +24,14 @@
 }
 
 .document-body
-  :where(.post-diff-git-highlight:not(.post-diff-git-highlight-list-item):has(
-        + .post-diff-git-highlight:not(.post-diff-git-highlight-list-item)
+  :where(.post-diff-git-highlight:not(
+        .post-diff-git-highlight-list-item,
+        .post-diff-git-highlight-table-cell
+      ):has(
+        + .post-diff-git-highlight:not(
+          .post-diff-git-highlight-list-item,
+          .post-diff-git-highlight-table-cell
+        )
       ))::after {
   position: absolute;
   bottom: -1.2em;
@@ -33,14 +44,23 @@
 }
 
 .document-body
-  :where(.post-diff-git-highlight-added, .post-diff-git-highlight-changed) {
+  :where(
+    .post-diff-git-highlight.post-diff-git-highlight-added,
+    .post-diff-git-highlight.post-diff-git-highlight-changed
+  ) {
   --git-change-target-accent: var(--git-change-added-accent);
   background: var(--git-change-block-bg-added);
 }
 
-.document-body :where(.post-diff-git-highlight-removed) {
+.document-body
+  :where(.post-diff-git-highlight.post-diff-git-highlight-removed) {
   --git-change-target-accent: var(--git-change-removed-accent);
   background: var(--git-change-block-bg-removed);
+}
+
+.document-body
+  :where(.post-diff-git-highlight-table-row.post-diff-git-highlight-removed) {
+  --git-change-target-accent: var(--git-change-removed-accent);
 }
 
 .document-body :where(.post-diff-git-highlight-list-item) {
@@ -62,6 +82,38 @@
 
 .document-body
   :where(.post-diff-git-highlight-list-item.post-diff-git-highlight-removed) {
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-item-bg-removed);
+}
+
+.document-body :where(.post-diff-git-highlight-table-row) {
+  --git-change-target-accent: var(--git-change-added-accent);
+  scroll-margin: 72px;
+}
+
+.document-body :where(.post-diff-git-highlight-table-row > :first-child) {
+  position: relative;
+}
+
+.document-body
+  :where(.post-diff-git-highlight-table-row > :first-child)::before {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 3px;
+  width: var(--git-change-accent-width);
+  border-radius: 999px;
+  background: var(--git-change-target-accent);
+  content: "";
+}
+
+.document-body :where(.post-diff-git-highlight-table-cell) {
+  background: var(--git-change-item-bg-added);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--git-change-target-accent) 18%, transparent);
+}
+
+.document-body
+  :where(.post-diff-git-highlight-table-cell.post-diff-git-highlight-removed) {
   --git-change-target-accent: var(--git-change-removed-accent);
   background: var(--git-change-item-bg-removed);
 }

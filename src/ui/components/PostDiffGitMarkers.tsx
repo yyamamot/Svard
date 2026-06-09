@@ -116,6 +116,16 @@ function topLevelListItemTarget(
   );
 }
 
+function topLevelTableRowTarget(
+  block: HTMLElement,
+  rowIndex: number | undefined,
+): HTMLTableRowElement | null {
+  if (rowIndex === undefined || block.tagName.toLowerCase() !== "table") {
+    return null;
+  }
+  return (block as HTMLTableElement).rows[rowIndex] ?? null;
+}
+
 function markerLabel(kind: PostDiffGitMarkerKind): string {
   if (kind === "added") {
     return "Go to added change";
@@ -128,7 +138,9 @@ function markerLabel(kind: PostDiffGitMarkerKind): string {
 
 function clearPostDiffHighlights(article: HTMLElement | null) {
   article
-    ?.querySelectorAll<HTMLElement>(".post-diff-git-highlight")
+    ?.querySelectorAll<HTMLElement>(
+      ".post-diff-git-highlight,.post-diff-git-highlight-table-row",
+    )
     .forEach((element) => {
       element.classList.remove(
         "post-diff-git-highlight",
@@ -136,6 +148,8 @@ function clearPostDiffHighlights(article: HTMLElement | null) {
         "post-diff-git-highlight-changed",
         "post-diff-git-highlight-removed",
         "post-diff-git-highlight-list-item",
+        "post-diff-git-highlight-table-row",
+        "post-diff-git-highlight-table-cell",
       );
       delete element.dataset.postDiffGitMarkerKind;
       delete element.dataset.reviewIdPostDiffGitHighlight;
@@ -155,10 +169,49 @@ function clearPostDiffHighlights(article: HTMLElement | null) {
     });
 }
 
+function applyTableCellHighlights(marker: PositionedPostDiffGitMarker) {
+  if (
+    marker.targetKind !== "table-row" ||
+    !(marker.target instanceof HTMLTableRowElement)
+  ) {
+    return;
+  }
+  marker.target.classList.add(
+    "post-diff-git-highlight-table-row",
+    `post-diff-git-highlight-${marker.kind}`,
+  );
+  marker.target.dataset.postDiffGitMarkerKind = marker.kind;
+  marker.target.dataset.reviewIdPostDiffGitHighlight =
+    "post-diff-git-highlight";
+
+  for (const highlight of marker.tableCellHighlights ?? []) {
+    const cell = marker.target.cells[highlight.cellIndex] as
+      | HTMLElement
+      | undefined;
+    if (!cell) {
+      continue;
+    }
+    cell.classList.add(
+      "post-diff-git-highlight",
+      "post-diff-git-highlight-table-cell",
+      `post-diff-git-highlight-${highlight.kind}`,
+    );
+    cell.dataset.postDiffGitMarkerKind = highlight.kind;
+    cell.dataset.reviewIdPostDiffGitHighlight = "post-diff-git-highlight";
+    if (highlight.inlineDiffRanges?.length) {
+      applyInlineDiffHighlights(cell, highlight.inlineDiffRanges);
+    }
+  }
+}
+
 function applyPostDiffHighlights(markers: PositionedPostDiffGitMarker[]) {
   const seenTargets = new Set<HTMLElement>();
   for (const marker of markers) {
     if (marker.highlightBlock === false) {
+      continue;
+    }
+    if (marker.targetKind === "table-row") {
+      applyTableCellHighlights(marker);
       continue;
     }
     if (seenTargets.has(marker.target)) {
@@ -186,6 +239,22 @@ function applyPostDiffHighlights(markers: PositionedPostDiffGitMarker[]) {
 function hasPostDiffHighlight(marker: PositionedPostDiffGitMarker): boolean {
   if (marker.highlightBlock === false) {
     return true;
+  }
+  if (marker.targetKind === "table-row") {
+    return (marker.tableCellHighlights ?? []).every((highlight) => {
+      if (!(marker.target instanceof HTMLTableRowElement)) {
+        return false;
+      }
+      const cell = marker.target.cells[highlight.cellIndex] as
+        | HTMLElement
+        | undefined;
+      if (!cell?.classList.contains("post-diff-git-highlight-table-cell")) {
+        return false;
+      }
+      return (highlight.inlineDiffRanges ?? []).every((range) =>
+        cell.querySelector(`.git-inline-word-highlight.${range.kind}`),
+      );
+    });
   }
   if (!marker.target.classList.contains("post-diff-git-highlight")) {
     return false;
@@ -272,7 +341,11 @@ export function PostDiffGitMarkers({
             marker.targetKind === "list-item"
               ? topLevelListItemTarget(blockTarget, marker.anchorItemIndex)
               : null;
-          const target = itemTarget ?? blockTarget;
+          const tableRowTarget =
+            marker.targetKind === "table-row"
+              ? topLevelTableRowTarget(blockTarget, marker.anchorTableRowIndex)
+              : null;
+          const target = itemTarget ?? tableRowTarget ?? blockTarget;
           const rect = target.getBoundingClientRect();
           return {
             ...marker,

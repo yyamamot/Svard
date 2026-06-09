@@ -13,6 +13,7 @@ export type {
   PostDiffGitMarker,
   PostDiffGitMarkerContext,
   PostDiffGitMarkerKind,
+  PostDiffGitTableCellHighlight,
   RenderedListItemChildChange,
   RenderedListItemFallback,
   RenderedListItemSnapshot,

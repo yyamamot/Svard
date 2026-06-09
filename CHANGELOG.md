@@ -4,6 +4,7 @@
 
 - Added opt-in Change Review Mode so working tree changes are visible in the viewer without opening Diff Preview.
 - Enhanced rendered Diff Preview visuals for list item changes and consistent Git change highlighting.
+- Enhanced rendered Diff Preview table review with row targets and cell-level highlighting.
 - Reduced viewer flicker by keeping Git change markers stable during unrelated file updates.
 
 ## 1.0.1

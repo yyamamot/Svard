@@ -2,6 +2,7 @@ import type { DocumentDiffPreview } from "../../../core/types";
 import type {
   PostDiffGitMarker,
   PostDiffGitMarkerContext,
+  PostDiffGitTableCellHighlight,
   RenderedBlockDiff,
   RenderedDiffPresentation,
 } from "./types";
@@ -110,6 +111,39 @@ function inlineDiffRangesForListItem(
   return renderedInlineDiffRanges(leftText, rightText, side);
 }
 
+function tableCellText(
+  block: RenderedBlockDiff,
+  side: "left" | "right",
+  rowIndex: number,
+  cellIndex: number,
+): string {
+  const html = side === "left" ? block.left?.html : block.right?.html;
+  if (!html) {
+    return "";
+  }
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const table = doc.body.querySelector("table");
+  const cell = table?.rows[rowIndex]?.cells[cellIndex];
+  return cell?.textContent ?? "";
+}
+
+function inlineDiffRangesForTableCell(
+  block: RenderedBlockDiff,
+  side: "left" | "right",
+  rowIndex: number,
+  cellIndex: number,
+) {
+  if (block.kind !== "changed") {
+    return [];
+  }
+  const leftText = tableCellText(block, "left", rowIndex, cellIndex);
+  const rightText = tableCellText(block, "right", rowIndex, cellIndex);
+  if (!leftText || !rightText) {
+    return [];
+  }
+  return renderedInlineDiffRanges(leftText, rightText, side);
+}
+
 function childItemIndexForSide(
   childChange: NonNullable<RenderedBlockDiff["childChanges"]>[number],
   side: "left" | "right",
@@ -125,6 +159,35 @@ function markerKindForChildChange(
     return "added";
   }
   if (childChange.kind === "removed" && side === "left") {
+    return "removed";
+  }
+  return "changed";
+}
+
+function tableRowIndexForSide(
+  tableChange: NonNullable<RenderedBlockDiff["tableChanges"]>[number],
+  side: "left" | "right",
+): number | undefined {
+  return side === "left" ? tableChange.leftRowIndex : tableChange.rightRowIndex;
+}
+
+function tableCellIndexForSide(
+  tableChange: NonNullable<RenderedBlockDiff["tableChanges"]>[number],
+  side: "left" | "right",
+): number | undefined {
+  return side === "left"
+    ? tableChange.leftCellIndex
+    : tableChange.rightCellIndex;
+}
+
+function markerKindForTableChange(
+  tableChange: NonNullable<RenderedBlockDiff["tableChanges"]>[number],
+  side: "left" | "right",
+): PostDiffGitMarker["kind"] {
+  if (tableChange.kind === "added" && side === "right") {
+    return "added";
+  }
+  if (tableChange.kind === "removed" && side === "left") {
     return "removed";
   }
   return "changed";
@@ -220,6 +283,96 @@ function markersForListItemChanges({
   return markers;
 }
 
+function markersForTableChanges({
+  block,
+  blocks,
+  changeIndexStart,
+  side,
+}: {
+  block: RenderedBlockDiff;
+  blocks: RenderedBlockDiff[];
+  changeIndexStart: number;
+  side: "left" | "right";
+}): PostDiffGitMarker[] {
+  if (
+    block.kind !== "changed" ||
+    block.blockKind !== "table" ||
+    !block.tableChanges?.length
+  ) {
+    return [];
+  }
+
+  const anchorBlockId = visibleAnchorForBlock(blocks, block, side);
+  if (!anchorBlockId) {
+    return [];
+  }
+
+  const markersByRow = new Map<
+    number,
+    {
+      kind: PostDiffGitMarker["kind"];
+      tableCellHighlights: PostDiffGitTableCellHighlight[];
+    }
+  >();
+  const markers: PostDiffGitMarker[] = [];
+
+  block.tableChanges.forEach((tableChange, tableChangeIndex) => {
+    const rowIndex = tableRowIndexForSide(tableChange, side);
+    const cellIndex = tableCellIndexForSide(tableChange, side);
+    if (rowIndex === undefined || cellIndex === undefined) {
+      if (tableChange.kind === "removed") {
+        const fallback = markerFallbackForHiddenChild({
+          block,
+          blocks,
+          changeIndex: changeIndexStart + markers.length,
+          childIndex: tableChangeIndex,
+          side,
+        });
+        if (fallback) {
+          markers.push(fallback);
+        }
+      }
+      return;
+    }
+
+    const markerKind = markerKindForTableChange(tableChange, side);
+    const rowMarker = markersByRow.get(rowIndex) ?? {
+      kind: markerKind,
+      tableCellHighlights: [],
+    };
+    rowMarker.kind =
+      rowMarker.kind === "changed" || markerKind === "changed"
+        ? "changed"
+        : markerKind;
+    const inlineDiffRanges =
+      tableChange.kind === "changed"
+        ? inlineDiffRangesForTableCell(block, side, rowIndex, cellIndex)
+        : [];
+    rowMarker.tableCellHighlights.push({
+      cellIndex,
+      kind: markerKind,
+      inlineDiffRanges:
+        inlineDiffRanges.length > 0 ? inlineDiffRanges : undefined,
+    });
+    markersByRow.set(rowIndex, rowMarker);
+  });
+
+  for (const [rowIndex, rowMarker] of markersByRow) {
+    const changeIndex = changeIndexStart + markers.length;
+    markers.push({
+      id: `post-diff-marker:${changeIndex}:${block.id}:table-row:${rowIndex}`,
+      kind: rowMarker.kind,
+      anchorBlockId,
+      anchorTableRowIndex: rowIndex,
+      changeIndex,
+      tableCellHighlights: rowMarker.tableCellHighlights,
+      targetKind: "table-row",
+    });
+  }
+
+  return markers;
+}
+
 function markerForBlock({
   block,
   blocks,
@@ -236,6 +389,11 @@ function markerForBlock({
   }
   if (block.kind === "changed" && block.blockKind === "list") {
     if (block.childChanges?.length) {
+      return null;
+    }
+  }
+  if (block.kind === "changed" && block.blockKind === "table") {
+    if (block.tableChanges?.length) {
       return null;
     }
   }
@@ -305,6 +463,16 @@ export function buildPostDiffGitMarkerContext({
     });
     if (itemMarkers.length > 0) {
       markers.push(...itemMarkers);
+      continue;
+    }
+    const tableMarkers = markersForTableChanges({
+      block,
+      blocks,
+      changeIndexStart: markers.length,
+      side,
+    });
+    if (tableMarkers.length > 0) {
+      markers.push(...tableMarkers);
       continue;
     }
     const marker = markerForBlock({

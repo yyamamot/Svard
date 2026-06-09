@@ -447,6 +447,87 @@ describe("ViewerPane", () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
   });
 
+  it("renders post-diff git markers on table cells without highlighting the parent table", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+          },
+        },
+        documentHtml: markSafeHtml(
+          [
+            "<table><tbody>",
+            "<tr><th>Name</th><th>Status</th></tr>",
+            "<tr><td>Feature</td><td>Status Done review</td></tr>",
+            "</tbody></table>",
+          ].join(""),
+        ),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:0:table-row:1",
+              kind: "changed",
+              anchorBlockId: "rendered-block:0",
+              anchorTableRowIndex: 1,
+              changeIndex: 0,
+              targetKind: "table-row",
+              tableCellHighlights: [
+                {
+                  cellIndex: 1,
+                  kind: "changed",
+                  inlineDiffRanges: [{ kind: "added", start: 7, end: 11 }],
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const marker = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="post-diff-git-marker"]',
+    );
+    const parentTable = container.querySelector("table");
+    const highlightedRow = container.querySelector<HTMLTableRowElement>(
+      "tr.post-diff-git-highlight-table-row",
+    );
+    const highlightedCell = container.querySelector<HTMLElement>(
+      "td.post-diff-git-highlight-table-cell",
+    );
+
+    expect(marker?.dataset.markerKind).toBe("changed");
+    expect(parentTable?.classList.contains("post-diff-git-highlight")).toBe(
+      false,
+    );
+    expect(highlightedRow?.textContent).toContain("Status Done review");
+    expect(highlightedCell?.textContent).toBe("Status Done review");
+    expect(highlightedCell?.dataset.postDiffGitMarkerKind).toBe("changed");
+    expect(
+      highlightedCell?.querySelector(".git-inline-word-highlight.added")
+        ?.textContent,
+    ).toBe("Done");
+
+    act(() => {
+      marker?.click();
+    });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+  });
+
   it("renders removed inline post-diff highlights when the active side has deleted text", async () => {
     await act(async () =>
       renderPane({

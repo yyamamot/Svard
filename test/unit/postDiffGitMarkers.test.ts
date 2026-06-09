@@ -78,6 +78,43 @@ function listBlock(
   };
 }
 
+function tableBlock(
+  id: string,
+  overrides: Partial<RenderedBlockDiff> = {},
+): RenderedBlockDiff {
+  return {
+    id,
+    kind: "changed",
+    blockKind: "table",
+    left: {
+      id,
+      kind: "table",
+      tagName: "table",
+      text: "Name Status Feature Status Draft review",
+      html: '<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Draft review</td></tr></tbody></table>',
+    },
+    right: {
+      id,
+      kind: "table",
+      tagName: "table",
+      text: "Name Status Feature Status Done review",
+      html: '<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>',
+    },
+    tableChanges: [
+      {
+        kind: "changed",
+        side: "both",
+        confidence: "high",
+        leftRowIndex: 1,
+        rightRowIndex: 1,
+        leftCellIndex: 1,
+        rightCellIndex: 1,
+      },
+    ],
+    ...overrides,
+  };
+}
+
 function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
   return {
     entries: blocks.map((item, index) => ({
@@ -458,6 +495,232 @@ describe("post-diff git markers", () => {
     expect(context?.markers[0]?.anchorItemIndex).toBeUndefined();
   });
 
+  it("builds table row markers for changed table cells without parent block markers", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([tableBlock("rendered-block:0")]),
+    });
+
+    expect(context).toMatchObject({
+      totalCount: 1,
+      renderedCount: 1,
+      markers: [
+        {
+          kind: "changed",
+          anchorBlockId: "rendered-block:0",
+          anchorTableRowIndex: 1,
+          targetKind: "table-row",
+          tableCellHighlights: [
+            {
+              cellIndex: 1,
+              kind: "changed",
+            },
+          ],
+        },
+      ],
+    });
+    expect(context?.markers[0]?.inlineDiffRanges).toBeUndefined();
+    expect(context?.markers[0]?.tableCellHighlights?.[0]?.inlineDiffRanges).toEqual([
+      expect.objectContaining({ kind: "added" }),
+    ]);
+  });
+
+  it("groups multiple changed table cells in the same row into one marker", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          left: {
+            id: "rendered-block:0",
+            kind: "table",
+            tagName: "table",
+            text: "A B C D",
+            html: "<table><tbody><tr><td>Alpha before</td><td>Beta before</td></tr></tbody></table>",
+          },
+          right: {
+            id: "rendered-block:0",
+            kind: "table",
+            tagName: "table",
+            text: "A B C D",
+            html: "<table><tbody><tr><td>Alpha after</td><td>Beta after</td></tr></tbody></table>",
+          },
+          tableChanges: [
+            {
+              kind: "changed",
+              side: "both",
+              confidence: "high",
+              leftRowIndex: 0,
+              rightRowIndex: 0,
+              leftCellIndex: 0,
+              rightCellIndex: 0,
+            },
+            {
+              kind: "changed",
+              side: "both",
+              confidence: "high",
+              leftRowIndex: 0,
+              rightRowIndex: 0,
+              leftCellIndex: 1,
+              rightCellIndex: 1,
+            },
+          ],
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toHaveLength(1);
+    expect(context?.markers[0]).toMatchObject({
+      anchorTableRowIndex: 0,
+      targetKind: "table-row",
+      tableCellHighlights: [
+        expect.objectContaining({ cellIndex: 0 }),
+        expect.objectContaining({ cellIndex: 1 }),
+      ],
+    });
+  });
+
+  it("falls back without highlighting when a removed table row is hidden on the active side", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          tableChanges: [
+            {
+              kind: "removed",
+              side: "left",
+              confidence: "high",
+              leftRowIndex: 1,
+              leftCellIndex: 1,
+            },
+          ],
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "removed",
+        anchorBlockId: "rendered-block:0",
+        highlightBlock: false,
+        targetKind: "block",
+      }),
+    ]);
+    expect(context?.markers[0]?.anchorTableRowIndex).toBeUndefined();
+  });
+
+  it("builds table row markers for added rows on the current side", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          tableChanges: [
+            {
+              kind: "added",
+              side: "right",
+              confidence: "high",
+              rightRowIndex: 2,
+              rightCellIndex: 0,
+            },
+            {
+              kind: "added",
+              side: "right",
+              confidence: "high",
+              rightRowIndex: 2,
+              rightCellIndex: 1,
+            },
+          ],
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "added",
+        anchorTableRowIndex: 2,
+        targetKind: "table-row",
+        tableCellHighlights: [
+          expect.objectContaining({ cellIndex: 0, kind: "added" }),
+          expect.objectContaining({ cellIndex: 1, kind: "added" }),
+        ],
+      }),
+    ]);
+  });
+
+  it("builds table row markers for removed rows on the active left side", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: "/workspace/docs/base.md",
+      preview: preview({
+        source: "file",
+        leftPath: "/workspace/docs/base.md",
+        rightPath: activePath,
+      }),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          tableChanges: [
+            {
+              kind: "removed",
+              side: "left",
+              confidence: "high",
+              leftRowIndex: 1,
+              leftCellIndex: 0,
+            },
+          ],
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "removed",
+        anchorTableRowIndex: 1,
+        targetKind: "table-row",
+        tableCellHighlights: [
+          expect.objectContaining({ cellIndex: 0, kind: "removed" }),
+        ],
+      }),
+    ]);
+  });
+
+  it("keeps low-confidence table changes as block-level markers", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          tableChanges: undefined,
+          tableChangeFallback: { reason: "complex" },
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "changed",
+        anchorBlockId: "rendered-block:0",
+        targetKind: "block",
+      }),
+    ]);
+    expect(context?.markers[0]?.anchorTableRowIndex).toBeUndefined();
+  });
+
+  it("keeps table marker context privacy-safe", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([tableBlock("rendered-block:0")]),
+    });
+    const serialized = JSON.stringify(context);
+
+    expect(serialized).not.toContain("Status Draft review");
+    expect(serialized).not.toContain("Status Done review");
+    expect(serialized).not.toContain("@@");
+    expect(serialized).not.toContain(activePath);
+  });
+
   it("caps markers after expanding list item markers", () => {
     const childChanges = Array.from(
       { length: postDiffGitMarkerBudget + 5 },
@@ -494,6 +757,34 @@ describe("post-diff git markers", () => {
     expect(context?.markers[0]).toMatchObject({
       anchorItemIndex: 0,
       targetKind: "list-item",
+    });
+  });
+
+  it("caps markers after expanding table row markers", () => {
+    const tableChanges = Array.from(
+      { length: postDiffGitMarkerBudget + 5 },
+      (_, index) => ({
+        kind: "added" as const,
+        side: "right" as const,
+        confidence: "high" as const,
+        rightRowIndex: index,
+        rightCellIndex: 0,
+      }),
+    );
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", { tableChanges }),
+      ]),
+    });
+
+    expect(context?.totalCount).toBe(postDiffGitMarkerBudget + 5);
+    expect(context?.renderedCount).toBe(postDiffGitMarkerBudget);
+    expect(context?.markers).toHaveLength(postDiffGitMarkerBudget);
+    expect(context?.markers[0]).toMatchObject({
+      anchorTableRowIndex: 0,
+      targetKind: "table-row",
     });
   });
 

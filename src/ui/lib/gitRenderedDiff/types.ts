@@ -162,16 +162,24 @@ export interface RenderedDiffContentCursorTarget {
 
 export type PostDiffGitMarkerKind = "added" | "changed" | "removed";
 
+export interface PostDiffGitTableCellHighlight {
+  cellIndex: number;
+  kind: PostDiffGitMarkerKind;
+  inlineDiffRanges?: InlineDiffRange[];
+}
+
 export interface PostDiffGitMarker {
   id: string;
   kind: PostDiffGitMarkerKind;
   anchorBlockId: string | null;
   anchorItemIndex?: number;
+  anchorTableRowIndex?: number;
   changeIndex: number;
   highlightBlock?: boolean;
   inlineDiffRanges?: InlineDiffRange[];
   includeSourceBlocks?: boolean;
-  targetKind?: "block" | "list-item";
+  tableCellHighlights?: PostDiffGitTableCellHighlight[];
+  targetKind?: "block" | "list-item" | "table-row";
 }
 
 export interface PostDiffGitMarkerContext {
