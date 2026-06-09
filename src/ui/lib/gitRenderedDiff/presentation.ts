@@ -18,6 +18,14 @@ function listItemTargetKey(
   return `${entryId}:${side}:${itemIndex}`;
 }
 
+function tableRowTargetKey(
+  entryId: string,
+  side: "left" | "right",
+  rowIndex: number,
+): string {
+  return `${entryId}:table:${side}:${rowIndex}`;
+}
+
 export function isRenderedChangeBlock(block: RenderedBlockDiff): boolean {
   return block.kind !== "unchanged";
 }
@@ -145,6 +153,55 @@ function childNavigationTargetsForBlock(
   });
 }
 
+function tableRowChangeSideAndIndex(
+  tableChange: NonNullable<RenderedBlockDiff["tableChanges"]>[number],
+): { side: "left" | "right"; rowIndex: number } | null {
+  if (tableChange.kind === "removed" && tableChange.leftRowIndex !== undefined) {
+    return { side: "left", rowIndex: tableChange.leftRowIndex };
+  }
+  if (tableChange.rightRowIndex !== undefined) {
+    return { side: "right", rowIndex: tableChange.rightRowIndex };
+  }
+  return null;
+}
+
+function tableRowTargetSideAndIndex(
+  tableChange: NonNullable<RenderedBlockDiff["tableChanges"]>[number],
+  side: "left" | "right",
+): { side: "left" | "right"; rowIndex: number } | null {
+  if (side === "left" && tableChange.leftRowIndex !== undefined) {
+    return { side, rowIndex: tableChange.leftRowIndex };
+  }
+  if (side === "right" && tableChange.rightRowIndex !== undefined) {
+    return { side, rowIndex: tableChange.rightRowIndex };
+  }
+  return null;
+}
+
+function tableRowNavigationTargetsForBlock(
+  block: RenderedBlockDiff,
+): Array<{
+  side: "left" | "right";
+  tableRowIndex: number;
+}> {
+  if (block.kind !== "changed" || block.blockKind !== "table") {
+    return [];
+  }
+  const seen = new Set<string>();
+  return (block.tableChanges ?? []).flatMap((tableChange) => {
+    const target = tableRowChangeSideAndIndex(tableChange);
+    if (!target) {
+      return [];
+    }
+    const key = `${target.side}:${target.rowIndex}`;
+    if (seen.has(key)) {
+      return [];
+    }
+    seen.add(key);
+    return [{ side: target.side, tableRowIndex: target.rowIndex }];
+  });
+}
+
 function primarySideForTargetSide(
   targetSide: "left" | "right" | "both",
 ): "left" | "right" {
@@ -201,6 +258,7 @@ export function buildRenderedDiffPresentation(
   const navigationTargets: RenderedDiffNavigationTarget[] = [];
   const entryChangeIndexes = new Map<string, number>();
   const entryChildChangeIndexes = new Map<string, number>();
+  const entryTableRowChangeIndexes = new Map<string, number>();
   const entryTargetSides = new Map<string, "left" | "right" | "both">();
 
   for (const entry of entries) {
@@ -246,6 +304,40 @@ export function buildRenderedDiffPresentation(
       continue;
     }
 
+    const tableRowTargets =
+      entry.kind === "block"
+        ? tableRowNavigationTargetsForBlock(targetBlock)
+        : [];
+    if (tableRowTargets.length > 0) {
+      for (const rowTarget of tableRowTargets) {
+        const tableChange = targetBlock.tableChanges?.find((candidate) => {
+          const target = tableRowTargetSideAndIndex(candidate, rowTarget.side);
+          return target?.rowIndex === rowTarget.tableRowIndex;
+        });
+        const target = tableChange
+          ? tableRowTargetSideAndIndex(tableChange, rowTarget.side)
+          : null;
+        if (!target) {
+          continue;
+        }
+        const targetIndex = navigationTargets.length;
+        navigationTargets.push({
+          index: targetIndex,
+          entryId: entry.id,
+          side: rowTarget.side,
+          primarySide: rowTarget.side,
+          targetKind: "table-row",
+          block: targetBlock,
+          tableRowIndex: rowTarget.tableRowIndex,
+        });
+        entryTableRowChangeIndexes.set(
+          tableRowTargetKey(entry.id, rowTarget.side, target.rowIndex),
+          targetIndex,
+        );
+      }
+      continue;
+    }
+
     const targetIndex = navigationTargets.length;
     navigationTargets.push({
       index: targetIndex,
@@ -264,6 +356,7 @@ export function buildRenderedDiffPresentation(
     navigationTargets,
     entryChangeIndexes,
     entryChildChangeIndexes,
+    entryTableRowChangeIndexes,
     entryTargetSides,
   };
 }
@@ -281,6 +374,19 @@ export function renderedDiffListItemChangeIndex(
   );
 }
 
+export function renderedDiffTableRowChangeIndex(
+  presentation: RenderedDiffPresentation,
+  entry: RenderedDiffPresentationEntry,
+  side: "left" | "right",
+  rowIndex: number,
+): number | null {
+  return (
+    presentation.entryTableRowChangeIndexes.get(
+      tableRowTargetKey(entry.id, side, rowIndex),
+    ) ?? null
+  );
+}
+
 export function renderedDiffContentCursorTargets(
   presentation: RenderedDiffPresentation,
   visibleEntries: RenderedDiffPresentationEntry[] = presentation.entries,
@@ -293,6 +399,7 @@ export function renderedDiffContentCursorTargets(
       side: target.side === "left" ? "left" : "right",
       changeIndex: target.index,
       childChangeIndex: target.childChangeIndex,
+      tableRowIndex: target.tableRowIndex,
     }));
 }
 
@@ -316,7 +423,8 @@ export function nextRenderedDiffContentCursorTarget({
         (target) =>
           target.entryId === activeTarget.entryId &&
           target.side === activeTarget.side &&
-          target.childChangeIndex === activeTarget.childChangeIndex,
+          target.childChangeIndex === activeTarget.childChangeIndex &&
+          target.tableRowIndex === activeTarget.tableRowIndex,
       )
     : -1;
   if (activeIndex >= 0) {

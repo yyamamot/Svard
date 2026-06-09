@@ -3,6 +3,7 @@ import type {
   RenderedBlockExtractionOptions,
   RenderedBlockKind,
   RenderedListItemSnapshot,
+  RenderedTableRowSnapshot,
 } from "./types";
 import { normalizedText } from "./text";
 
@@ -239,6 +240,44 @@ function listItemSnapshots(element: Element): RenderedListItemSnapshot[] {
     });
 }
 
+function tableRowSnapshots(element: Element): RenderedTableRowSnapshot[] | undefined {
+  if (blockKindForElement(element) !== "table") {
+    return undefined;
+  }
+  if (
+    element.querySelector("table") !== null ||
+    Array.from(element.querySelectorAll("th,td")).some((cell) => {
+      const colspan = Number(cell.getAttribute("colspan") ?? "1");
+      const rowspan = Number(cell.getAttribute("rowspan") ?? "1");
+      return colspan > 1 || rowspan > 1;
+    })
+  ) {
+    return undefined;
+  }
+  const table = element as HTMLTableElement;
+  return Array.from(table.rows).map((row, rowIndex) => {
+    const cells = Array.from(row.cells).map((cell, cellIndex) => {
+      const text = normalizedText(cell.textContent);
+      return {
+        index: cellIndex,
+        normalizedTextHash: textHash(text),
+        textSegmentHashes: textSegmentHashes(text),
+        textLength: text.length,
+        header: cell.tagName.toLowerCase() === "th",
+      };
+    });
+    const rowText = normalizedText(
+      cells.map((cell) => cell.normalizedTextHash).join(" "),
+    );
+    return {
+      index: rowIndex,
+      normalizedTextHash: textHash(rowText),
+      cellCount: cells.length,
+      cells,
+    };
+  });
+}
+
 function shouldSkipDescendantBlock(element: Element): boolean {
   if (
     element.tagName.toLowerCase() === "img" &&
@@ -327,6 +366,7 @@ export function extractRenderedBlocksFromHtml(
       text,
       html: safeBlockHtml(element, kind, options),
       listItems: kind === "list" ? listItemSnapshots(element) : undefined,
+      tableRows: kind === "table" ? tableRowSnapshots(element) : undefined,
       signature:
         kind === "diagram"
           ? diagramSignatureForElement(element, options.diagramSignatures)

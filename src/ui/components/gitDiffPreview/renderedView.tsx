@@ -6,12 +6,15 @@ import {
   isRenderedDiffPresentationChangeEntry,
   renderedBlockVisualClass,
   renderedDiffListItemChangeIndex,
+  renderedDiffTableRowChangeIndex,
   renderedDiffPresentationEntryBlockKind,
   renderedDiffPresentationEntryBlocks,
   renderedDiffPresentationEntryChangeKind,
   renderedInlineDiffRanges,
   renderedListItemHighlightsForSide,
+  renderedTableHighlightsForSide,
   applyRenderedListItemHighlights,
+  applyRenderedTableHighlights,
   applyInlineDiffHighlights,
   type GitRenderedDiffSummary,
   type RenderedBlockDiff,
@@ -32,7 +35,7 @@ export function renderedEntryChangeIndex(
   if (
     entry.kind === "block" &&
     entry.block.kind === "changed" &&
-    entry.block.childChanges?.length
+    (entry.block.childChanges?.length || entry.block.tableChanges?.length)
   ) {
     return null;
   }
@@ -54,6 +57,15 @@ export function renderedListItemChangeIndex(
   itemIndex: number,
 ): number | null {
   return renderedDiffListItemChangeIndex(presentation, entry, side, itemIndex);
+}
+
+export function renderedTableRowChangeIndex(
+  presentation: RenderedDiffPresentation,
+  entry: RenderedDiffPresentationEntry,
+  side: "left" | "right",
+  rowIndex: number,
+): number | null {
+  return renderedDiffTableRowChangeIndex(presentation, entry, side, rowIndex);
 }
 
 function sentenceCase(value: string): string {
@@ -118,6 +130,7 @@ export function RenderedDiffPane({
   showInlineWordDiff = true,
   changeIndexForEntry,
   changeIndexForListItem,
+  changeIndexForTableRow,
   syncIndexForEntry,
   onContextMenu,
   onScroll,
@@ -139,6 +152,10 @@ export function RenderedDiffPane({
     entry: RenderedDiffPresentationEntry,
     itemIndex: number,
   ) => number | null;
+  changeIndexForTableRow: (
+    entry: RenderedDiffPresentationEntry,
+    rowIndex: number,
+  ) => number | null;
   syncIndexForEntry: (entry: RenderedDiffPresentationEntry) => number;
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
   paneRef: RefObject<HTMLDivElement | null>;
@@ -159,8 +176,26 @@ export function RenderedDiffPane({
         changeIndexForListItem(entry, itemIndex),
       side,
     });
+    const tableHighlights = renderedTableHighlightsForSide({
+      activeChangeIndex,
+      block,
+      changeIndexForRow: (rowIndex) =>
+        changeIndexForTableRow(entry, rowIndex),
+      side,
+    });
+    const applyChildHighlights = (html: string) =>
+      applyRenderedTableHighlights({
+        highlights: tableHighlights,
+        html: applyRenderedListItemHighlights(html, itemHighlights),
+        leftHtml: block.left?.html,
+        rightHtml: block.right?.html,
+        side,
+      });
     if (!showInlineWordDiff || block.blockKind === "diagram") {
-      return applyRenderedListItemHighlights(visibleBlock.html, itemHighlights);
+      return applyChildHighlights(visibleBlock.html);
+    }
+    if (tableHighlights.length > 0) {
+      return applyChildHighlights(visibleBlock.html);
     }
 
     const ranges =
@@ -168,14 +203,14 @@ export function RenderedDiffPane({
         ? renderedInlineDiffRanges(block.left.text, block.right.text, side)
         : [];
     if (ranges.length === 0) {
-      return applyRenderedListItemHighlights(visibleBlock.html, itemHighlights);
+      return applyChildHighlights(visibleBlock.html);
     }
 
     const doc = new DOMParser().parseFromString(visibleBlock.html, "text/html");
     applyInlineDiffHighlights(doc.body, ranges, {
       includeSourceBlocks: block.blockKind === "source-block",
     });
-    return applyRenderedListItemHighlights(doc.body.innerHTML, itemHighlights);
+    return applyChildHighlights(doc.body.innerHTML);
   }
 
   function renderVisibleBlock(
@@ -278,6 +313,10 @@ export function RenderedDiffPane({
             entry.kind === "block" &&
             entry.block.kind === "changed" &&
             Boolean(entry.block.childChanges?.length);
+          const hasTableRowChanges =
+            entry.kind === "block" &&
+            entry.block.kind === "changed" &&
+            Boolean(entry.block.tableChanges?.length);
           const isContentCursorActive =
             contentCursorActive?.side === side &&
             contentCursorActive.entryId === entry.id &&
@@ -290,6 +329,8 @@ export function RenderedDiffPane({
               className={`git-rendered-block ${sideClass} ${side}-side ${
                 changeIndex !== null ? "change-target" : ""
               } ${hasListItemChanges ? "has-list-item-changes" : ""} ${
+                hasTableRowChanges ? "has-table-row-changes" : ""
+              } ${
                 isActiveChange ? "active-change" : ""
               } ${
                 isContentCursorActive ? "content-cursor-active" : ""

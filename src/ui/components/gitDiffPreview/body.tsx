@@ -11,6 +11,7 @@ import { DiffOverview, overviewStats } from "./overview";
 import {
   renderedEntryChangeIndex,
   renderedListItemChangeIndex,
+  renderedTableRowChangeIndex,
   RenderedDiffPane,
 } from "./renderedView";
 import { DiffPane, sideLines } from "./sourceView";
@@ -183,6 +184,14 @@ export function DiffPreviewBody({
                 itemIndex,
               )
             }
+            changeIndexForTableRow={(entry, rowIndex) =>
+              renderedTableRowChangeIndex(
+                renderedPresentation,
+                entry,
+                "left",
+                rowIndex,
+              )
+            }
             syncIndexForEntry={(entry) =>
               renderedEntrySyncIndexes.get(entry.id) ?? 0
             }
@@ -211,6 +220,14 @@ export function DiffPreviewBody({
                 entry,
                 "right",
                 itemIndex,
+              )
+            }
+            changeIndexForTableRow={(entry, rowIndex) =>
+              renderedTableRowChangeIndex(
+                renderedPresentation,
+                entry,
+                "right",
+                rowIndex,
               )
             }
             syncIndexForEntry={(entry) =>
@@ -267,6 +284,14 @@ export function DiffPreviewBody({
                 itemIndex,
               )
             }
+            changeIndexForTableRow={(entry, rowIndex) =>
+              renderedTableRowChangeIndex(
+                renderedPresentation,
+                entry,
+                "left",
+                rowIndex,
+              )
+            }
             syncIndexForEntry={(entry) =>
               renderedEntrySyncIndexes.get(entry.id) ?? 0
             }
@@ -294,6 +319,14 @@ export function DiffPreviewBody({
                 entry,
                 "right",
                 itemIndex,
+              )
+            }
+            changeIndexForTableRow={(entry, rowIndex) =>
+              renderedTableRowChangeIndex(
+                renderedPresentation,
+                entry,
+                "right",
+                rowIndex,
               )
             }
             syncIndexForEntry={(entry) =>

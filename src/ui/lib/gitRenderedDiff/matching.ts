@@ -1,5 +1,6 @@
 import type { RenderedBlock, RenderedBlockDiff } from "./types";
 import { matchRenderedListItemChanges } from "./listItemChanges";
+import { matchRenderedTableChanges } from "./tableChanges";
 import { normalizedText, renderedTextOverlap } from "./text";
 
 export function compareRenderedBlocks(
@@ -23,7 +24,7 @@ export function compareRenderedBlocks(
     const stableUnchangedMatch =
       left && right ? stableRenderedBlocksEqual(left, right) : false;
     blocks.push(
-      withListItemChildChanges({
+      withChildChanges({
         id: "",
         kind: stableUnchangedMatch ? "unchanged" : "changed",
         blockKind: right?.kind ?? "paragraph",
@@ -190,7 +191,7 @@ export function pairChangedBlocksInGap(
 
     if (left && right && shouldPairChangedBlocks(left, right)) {
       blocks.push(
-        withListItemChildChanges({
+        withChildChanges({
           id: "",
           kind: stableRenderedBlocksEqual(left, right)
             ? "unchanged"
@@ -292,9 +293,12 @@ function shouldPairChangedBlocks(
   return renderedTextOverlap(left.text, right.text) >= 0.2;
 }
 
-function withListItemChildChanges(
-  block: RenderedBlockDiff,
-): RenderedBlockDiff {
+function withChildChanges(block: RenderedBlockDiff): RenderedBlockDiff {
+  const withListChanges = withListItemChildChanges(block);
+  return withTableCellChanges(withListChanges);
+}
+
+function withListItemChildChanges(block: RenderedBlockDiff): RenderedBlockDiff {
   if (
     block.kind !== "changed" ||
     block.blockKind !== "list" ||
@@ -317,6 +321,34 @@ function withListItemChildChanges(
     return {
       ...block,
       childChangeFallback: result.fallback,
+    };
+  }
+  return block;
+}
+
+function withTableCellChanges(block: RenderedBlockDiff): RenderedBlockDiff {
+  if (
+    block.kind !== "changed" ||
+    block.blockKind !== "table" ||
+    !block.left ||
+    !block.right
+  ) {
+    return block;
+  }
+  const result = matchRenderedTableChanges(
+    block.left.tableRows,
+    block.right.tableRows,
+  );
+  if (result.tableChanges.length > 0) {
+    return {
+      ...block,
+      tableChanges: result.tableChanges,
+    };
+  }
+  if (result.fallback) {
+    return {
+      ...block,
+      tableChangeFallback: result.fallback,
     };
   }
   return block;

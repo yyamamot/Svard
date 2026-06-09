@@ -89,11 +89,13 @@
   background: var(--git-change-block-bg-added);
 }
 
-.git-rendered-block.has-list-item-changes.changed {
+.git-rendered-block.has-list-item-changes.changed,
+.git-rendered-block.has-table-row-changes.changed {
   background: transparent;
 }
 
-.git-rendered-block.has-list-item-changes.changed::before {
+.git-rendered-block.has-list-item-changes.changed::before,
+.git-rendered-block.has-table-row-changes.changed::before {
   content: none;
 }
 
@@ -201,6 +203,73 @@
 }
 
 .git-rendered-list-item-change.active-change:not(.content-cursor-active) {
+  outline: 2px solid color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
+  outline-offset: 2px;
+}
+
+.git-rendered-table-row-change {
+  --git-change-target-accent: var(--git-change-changed-accent);
+  scroll-margin: 24px;
+}
+
+.git-rendered-table-row-change > :first-child {
+  position: relative;
+}
+
+.git-rendered-table-row-change > :first-child::before {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 3px;
+  width: var(--git-change-accent-width);
+  border-radius: 999px;
+  background: var(--git-change-target-accent);
+  content: "";
+}
+
+.git-rendered-table-cell-change {
+  background: var(--git-change-item-bg-changed);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--git-change-target-accent) 18%, transparent);
+}
+
+.git-rendered-table-cell-change.added {
+  --git-change-target-accent: var(--git-change-added-accent);
+  background: var(--git-change-item-bg-added);
+}
+
+.git-rendered-table-cell-change.removed {
+  --git-change-target-accent: var(--git-change-removed-accent);
+  background: var(--git-change-item-bg-removed);
+}
+
+.git-rendered-table-cell-change.changed {
+  --git-change-target-accent: var(--git-change-changed-accent);
+}
+
+.git-rendered-block.left-side .git-rendered-table-cell-change.changed,
+.git-rendered-block.left-side .git-rendered-table-row-change.changed {
+  --git-change-target-accent: var(--git-change-removed-accent);
+}
+
+.git-rendered-block.left-side .git-rendered-table-cell-change.changed {
+  background: var(--git-change-item-bg-removed);
+}
+
+.git-rendered-block.right-side .git-rendered-table-cell-change.changed,
+.git-rendered-block.right-side .git-rendered-table-row-change.changed {
+  --git-change-target-accent: var(--git-change-added-accent);
+}
+
+.git-rendered-block.right-side .git-rendered-table-cell-change.changed {
+  background: var(--git-change-item-bg-added);
+}
+
+.git-rendered-table-row-change.content-cursor-active {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+  outline-offset: 2px;
+}
+
+.git-rendered-table-row-change.active-change:not(.content-cursor-active) {
   outline: 2px solid color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
   outline-offset: 2px;
 }

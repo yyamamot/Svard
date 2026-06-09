@@ -31,6 +31,7 @@ export interface RenderedBlock {
   html: string;
   signature?: string;
   listItems?: RenderedListItemSnapshot[];
+  tableRows?: RenderedTableRowSnapshot[];
 }
 
 export interface RenderedBlockDiff {
@@ -41,6 +42,8 @@ export interface RenderedBlockDiff {
   right?: RenderedBlock;
   childChanges?: RenderedListItemChildChange[];
   childChangeFallback?: RenderedListItemFallback;
+  tableChanges?: RenderedTableCellChange[];
+  tableChangeFallback?: RenderedTableFallback;
 }
 
 export interface RenderedListItemSnapshot {
@@ -76,6 +79,45 @@ export interface RenderedListItemFallback {
   reason: RenderedListItemFallbackReason;
 }
 
+export interface RenderedTableCellSnapshot {
+  index: number;
+  normalizedTextHash: string;
+  textSegmentHashes: string[];
+  textLength: number;
+  header: boolean;
+}
+
+export interface RenderedTableRowSnapshot {
+  index: number;
+  normalizedTextHash: string;
+  cellCount: number;
+  cells: RenderedTableCellSnapshot[];
+}
+
+export type RenderedTableCellChangeKind = "added" | "removed" | "changed";
+
+export type RenderedTableCellChangeSide = "left" | "right" | "both";
+
+export interface RenderedTableCellChange {
+  kind: RenderedTableCellChangeKind;
+  side: RenderedTableCellChangeSide;
+  confidence: "high";
+  leftRowIndex?: number;
+  rightRowIndex?: number;
+  leftCellIndex?: number;
+  rightCellIndex?: number;
+}
+
+export type RenderedTableFallbackReason =
+  | "ambiguous"
+  | "complex"
+  | "low-overlap"
+  | "shape-mismatch";
+
+export interface RenderedTableFallback {
+  reason: RenderedTableFallbackReason;
+}
+
 export type RenderedDiffPresentationEntry =
   | {
       id: string;
@@ -94,10 +136,11 @@ export interface RenderedDiffNavigationTarget {
   entryId: string;
   side: "left" | "right" | "both";
   primarySide: "left" | "right";
-  targetKind: "block" | "list-item";
+  targetKind: "block" | "list-item" | "table-row";
   block: RenderedBlockDiff;
   childChangeIndex?: number;
   itemIndex?: number;
+  tableRowIndex?: number;
 }
 
 export interface RenderedDiffPresentation {
@@ -105,6 +148,7 @@ export interface RenderedDiffPresentation {
   navigationTargets: RenderedDiffNavigationTarget[];
   entryChangeIndexes: Map<string, number>;
   entryChildChangeIndexes: Map<string, number>;
+  entryTableRowChangeIndexes: Map<string, number>;
   entryTargetSides: Map<string, "left" | "right" | "both">;
 }
 
@@ -113,6 +157,7 @@ export interface RenderedDiffContentCursorTarget {
   side: "left" | "right";
   changeIndex: number;
   childChangeIndex?: number;
+  tableRowIndex?: number;
 }
 
 export type PostDiffGitMarkerKind = "added" | "changed" | "removed";

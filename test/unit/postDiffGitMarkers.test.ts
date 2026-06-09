@@ -97,6 +97,7 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
       })),
     entryChangeIndexes: new Map(),
     entryChildChangeIndexes: new Map(),
+    entryTableRowChangeIndexes: new Map(),
     entryTargetSides: new Map(),
   };
 }
