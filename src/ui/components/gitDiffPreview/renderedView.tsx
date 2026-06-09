@@ -282,17 +282,22 @@ export function RenderedDiffPane({
             contentCursorActive?.side === side &&
             contentCursorActive.entryId === entry.id &&
             contentCursorActive.childChangeIndex === undefined;
+          const isActiveChange =
+            changeIndex !== null && activeChangeIndex === changeIndex;
           return (
             <article
               key={`${entry.id}:${side}`}
               className={`git-rendered-block ${sideClass} ${side}-side ${
                 changeIndex !== null ? "change-target" : ""
               } ${hasListItemChanges ? "has-list-item-changes" : ""} ${
+                isActiveChange ? "active-change" : ""
+              } ${
                 isContentCursorActive ? "content-cursor-active" : ""
               }`}
               data-review-id={
                 isContentCursorActive ? "content-cursor-active" : blockReviewId
               }
+              data-active-change={isActiveChange ? "true" : undefined}
               data-content-cursor-active={
                 isContentCursorActive ? "true" : undefined
               }

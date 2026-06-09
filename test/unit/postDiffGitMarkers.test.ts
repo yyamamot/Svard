@@ -91,6 +91,8 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
         index,
         entryId: `entry:${blocks.indexOf(item)}`,
         side: item.kind === "changed" ? "both" : item.kind === "added" ? "right" : "left",
+        primarySide: item.kind === "removed" ? "left" : "right",
+        targetKind: "block" as const,
         block: item,
       })),
     entryChangeIndexes: new Map(),

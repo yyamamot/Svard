@@ -33,7 +33,9 @@ describe("git rendered diff presentation", () => {
     expect(presentation.navigationTargets).toHaveLength(1);
     expect(presentation.navigationTargets[0]).toMatchObject({
       index: 0,
+      primarySide: "left",
       side: "left",
+      targetKind: "block",
     });
     expect(
       presentation.entryChangeIndexes.get(presentation.entries[0]?.id ?? ""),
@@ -70,7 +72,9 @@ describe("git rendered diff presentation", () => {
 
     expect(presentation.navigationTargets).toHaveLength(1);
     expect(presentation.navigationTargets[0]?.block.id).toBe("visible-added");
+    expect(presentation.navigationTargets[0]?.primarySide).toBe("right");
     expect(presentation.navigationTargets[0]?.side).toBe("right");
+    expect(presentation.navigationTargets[0]?.targetKind).toBe("block");
   });
 
   it("keeps changed rendered blocks as individual navigation targets", () => {
@@ -88,6 +92,12 @@ describe("git rendered diff presentation", () => {
     expect(presentation.navigationTargets.map((target) => target.side)).toEqual(
       ["both", "both"],
     );
+    expect(
+      presentation.navigationTargets.map((target) => target.primarySide),
+    ).toEqual(["right", "right"]);
+    expect(
+      presentation.navigationTargets.map((target) => target.targetKind),
+    ).toEqual(["block", "block"]);
   });
 
   it("derives content cursor targets from rendered diff navigation targets", () => {

@@ -109,6 +109,11 @@
   scroll-margin: 24px;
 }
 
+.git-rendered-block.active-change {
+  outline: 2px solid color-mix(in srgb, var(--git-change-target-accent) 42%, transparent);
+  outline-offset: 2px;
+}
+
 .git-rendered-block-meta {
   display: inline-flex;
   align-items: center;
@@ -192,6 +197,11 @@
 
 .git-rendered-list-item-change.content-cursor-active {
   outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+  outline-offset: 2px;
+}
+
+.git-rendered-list-item-change.active-change:not(.content-cursor-active) {
+  outline: 2px solid color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
   outline-offset: 2px;
 }
 

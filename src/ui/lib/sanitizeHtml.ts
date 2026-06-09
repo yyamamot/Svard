@@ -42,6 +42,7 @@ const viewerMetadataAttributes = [
   "data-diagram-renderer",
   "data-kroki-confirm-key",
   "data-kroki-fallback-key",
+  "data-active-change",
   "data-change-index",
   "data-content-cursor-active",
   "data-sync-index",

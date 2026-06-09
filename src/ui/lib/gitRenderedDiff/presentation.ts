@@ -123,14 +123,32 @@ function listItemTargetSideAndIndex(
 
 function childNavigationTargetsForBlock(
   block: RenderedBlockDiff,
-): Array<{ childChangeIndex: number; side: "left" | "right" }> {
+): Array<{
+  childChangeIndex: number;
+  itemIndex: number;
+  side: "left" | "right";
+}> {
   if (block.kind !== "changed" || block.blockKind !== "list") {
     return [];
   }
   return (block.childChanges ?? []).flatMap((childChange, childChangeIndex) => {
     const target = listItemChangeSideAndIndex(childChange);
-    return target ? [{ childChangeIndex, side: target.side }] : [];
+    return target
+      ? [
+          {
+            childChangeIndex,
+            itemIndex: target.itemIndex,
+            side: target.side,
+          },
+        ]
+      : [];
   });
+}
+
+function primarySideForTargetSide(
+  targetSide: "left" | "right" | "both",
+): "left" | "right" {
+  return targetSide === "left" ? "left" : "right";
 }
 
 export function buildRenderedDiffPresentation(
@@ -214,8 +232,11 @@ export function buildRenderedDiffPresentation(
           index: targetIndex,
           entryId: entry.id,
           side: childTarget.side,
+          primarySide: childTarget.side,
+          targetKind: "list-item",
           block: targetBlock,
           childChangeIndex: childTarget.childChangeIndex,
+          itemIndex: childTarget.itemIndex,
         });
         entryChildChangeIndexes.set(
           listItemTargetKey(entry.id, childTarget.side, target.itemIndex),
@@ -230,6 +251,8 @@ export function buildRenderedDiffPresentation(
       index: targetIndex,
       entryId: entry.id,
       side: targetSide,
+      primarySide: primarySideForTargetSide(targetSide),
+      targetKind: "block",
       block: targetBlock,
     });
     entryChangeIndexes.set(entry.id, targetIndex);

@@ -154,6 +154,7 @@ export function DocumentDiffPreviewPanel({
     view,
     changeCount,
     activeChangeIndex,
+    renderedNavigationTargets: renderedPresentation.navigationTargets,
     setActiveChangeIndex,
     setView,
   });

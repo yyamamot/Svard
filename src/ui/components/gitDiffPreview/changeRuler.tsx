@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type RefObject } from "react";
+import type { RenderedDiffNavigationTarget } from "../../lib/gitRenderedDiff";
 import type { DiffView } from "./types";
 
 export type DiffChangeRulerMarkerKind =
@@ -92,12 +93,38 @@ function measureMarker(
   return null;
 }
 
+function renderedPanesForTarget({
+  left,
+  right,
+  target,
+}: {
+  left: HTMLDivElement | null;
+  right: HTMLDivElement | null;
+  target: RenderedDiffNavigationTarget | undefined;
+}): HTMLDivElement[] {
+  const primary = target?.primarySide === "left" ? left : right;
+  const secondary = target?.primarySide === "left" ? right : left;
+  return [primary, secondary].filter(
+    (pane): pane is HTMLDivElement => Boolean(pane),
+  );
+}
+
+function measureRenderedMarker(
+  index: number,
+  target: RenderedDiffNavigationTarget | undefined,
+  left: HTMLDivElement | null,
+  right: HTMLDivElement | null,
+): DiffChangeRulerMarker | null {
+  return measureMarker(index, renderedPanesForTarget({ left, right, target }));
+}
+
 export function DiffChangeRuler({
   activeChangeIndex,
   changeCount,
   leftRef,
   onSelectChange,
   renderedLeftRef,
+  renderedNavigationTargets,
   renderedRightRef,
   rightRef,
   view,
@@ -107,6 +134,7 @@ export function DiffChangeRuler({
   leftRef: RefObject<HTMLDivElement | null>;
   onSelectChange: (index: number) => void;
   renderedLeftRef: RefObject<HTMLDivElement | null>;
+  renderedNavigationTargets: readonly RenderedDiffNavigationTarget[];
   renderedRightRef: RefObject<HTMLDivElement | null>;
   rightRef: RefObject<HTMLDivElement | null>;
   view: DiffView;
@@ -131,11 +159,20 @@ export function DiffChangeRuler({
     const panes = paneRefs
       .map((ref) => ref.current)
       .filter((pane): pane is HTMLDivElement => Boolean(pane));
+    const renderedLeft = renderedLeftRef.current;
+    const renderedRight = renderedRightRef.current;
 
     function measure() {
       frame = 0;
       const nextMarkers = Array.from({ length: changeCount }, (_, index) =>
-        measureMarker(index, panes),
+        view === "source"
+          ? measureMarker(index, panes)
+          : measureRenderedMarker(
+              index,
+              renderedNavigationTargets[index],
+              renderedLeft,
+              renderedRight,
+            ),
       ).filter((marker): marker is DiffChangeRulerMarker => Boolean(marker));
       setMarkers(nextMarkers);
     }
@@ -167,7 +204,14 @@ export function DiffChangeRuler({
       resizeObserver?.disconnect();
       window.removeEventListener("resize", scheduleMeasure);
     };
-  }, [changeCount, paneRefs, view]);
+  }, [
+    changeCount,
+    paneRefs,
+    renderedLeftRef,
+    renderedNavigationTargets,
+    renderedRightRef,
+    view,
+  ]);
 
   if (!changeRulerEnabled(view) || changeCount <= 0) {
     return null;

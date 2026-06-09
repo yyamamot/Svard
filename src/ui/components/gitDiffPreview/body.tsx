@@ -143,6 +143,7 @@ export function DiffPreviewBody({
             leftRef={leftRef}
             onSelectChange={selectChange}
             renderedLeftRef={renderedLeftRef}
+            renderedNavigationTargets={renderedPresentation.navigationTargets}
             renderedRightRef={renderedRightRef}
             rightRef={rightRef}
             view={view}
@@ -227,6 +228,7 @@ export function DiffPreviewBody({
             leftRef={leftRef}
             onSelectChange={selectChange}
             renderedLeftRef={renderedLeftRef}
+            renderedNavigationTargets={renderedPresentation.navigationTargets}
             renderedRightRef={renderedRightRef}
             rightRef={rightRef}
             view={view}
@@ -309,6 +311,7 @@ export function DiffPreviewBody({
             leftRef={leftRef}
             onSelectChange={selectChange}
             renderedLeftRef={renderedLeftRef}
+            renderedNavigationTargets={renderedPresentation.navigationTargets}
             renderedRightRef={renderedRightRef}
             rightRef={rightRef}
             view={view}

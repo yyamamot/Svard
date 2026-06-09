@@ -93,8 +93,11 @@ export interface RenderedDiffNavigationTarget {
   index: number;
   entryId: string;
   side: "left" | "right" | "both";
+  primarySide: "left" | "right";
+  targetKind: "block" | "list-item";
   block: RenderedBlockDiff;
   childChangeIndex?: number;
+  itemIndex?: number;
 }
 
 export interface RenderedDiffPresentation {

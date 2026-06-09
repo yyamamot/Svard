@@ -69,6 +69,8 @@ export function applyRenderedListItemHighlights(
           item.setAttribute("data-change-index", String(highlight.changeIndex));
         }
         if (highlight.active) {
+          item.classList.add("active-change");
+          item.setAttribute("data-active-change", "true");
           item.classList.add("content-cursor-active");
           item.setAttribute("data-content-cursor-active", "true");
         }

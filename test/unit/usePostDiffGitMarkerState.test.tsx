@@ -117,6 +117,8 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
       index,
       entryId: `entry:${index}`,
       side: "both",
+      primarySide: "right",
+      targetKind: "block",
       block: item,
     })),
     entryChangeIndexes: new Map(),

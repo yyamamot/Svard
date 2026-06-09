@@ -5,6 +5,7 @@ import {
   type SetStateAction,
 } from "react";
 import { resolveAnchoredScrollTop } from "../../lib/diffScrollSync";
+import type { RenderedDiffNavigationTarget } from "../../lib/gitRenderedDiff";
 import type { DiffView } from "./types";
 
 export function useDiffScrollNavigation({
@@ -17,6 +18,7 @@ export function useDiffScrollNavigation({
   view,
   changeCount,
   activeChangeIndex,
+  renderedNavigationTargets,
   setActiveChangeIndex,
   setView,
 }: {
@@ -29,6 +31,7 @@ export function useDiffScrollNavigation({
   view: DiffView;
   changeCount: number;
   activeChangeIndex: number;
+  renderedNavigationTargets: readonly RenderedDiffNavigationTarget[];
   setActiveChangeIndex: Dispatch<SetStateAction<number>>;
   setView: Dispatch<SetStateAction<DiffView>>;
 }) {
@@ -156,21 +159,49 @@ export function useDiffScrollNavigation({
   }
 
   function renderedPaneTargetsForChange(index: number) {
+    const navigationTarget = renderedNavigationTargets[index];
+    const primaryPane = navigationTarget
+      ? renderedPaneForSide(navigationTarget.primarySide)
+      : null;
+    const primaryTarget = renderedTargetInPane(primaryPane, index);
+    if (primaryTarget) {
+      const fallbackPane =
+        navigationTarget?.side === "both"
+          ? renderedPaneForSide(
+              navigationTarget.primarySide === "right" ? "left" : "right",
+            )
+          : null;
+      const fallbackTarget = renderedTargetInPane(fallbackPane, index);
+      return fallbackTarget ? [primaryTarget, fallbackTarget] : [primaryTarget];
+    }
+
     return [renderedRightRef.current, renderedLeftRef.current]
       .flatMap((pane) => {
-        if (!pane) {
-          return [];
-        }
-        const target = pane.querySelector<HTMLElement>(
-          `[data-change-index="${index}"]`,
-        );
-        return target ? [{ pane, target }] : [];
+        const target = renderedTargetInPane(pane, index);
+        return target ? [target] : [];
       })
       .sort((left, right) => {
         const leftDistance = Math.abs(left.pane.scrollTop);
         const rightDistance = Math.abs(right.pane.scrollTop);
         return rightDistance - leftDistance;
       });
+  }
+
+  function renderedPaneForSide(side: "left" | "right") {
+    return side === "left" ? renderedLeftRef.current : renderedRightRef.current;
+  }
+
+  function renderedTargetInPane(
+    pane: HTMLDivElement | null,
+    index: number,
+  ) {
+    const target = pane?.querySelector<HTMLElement>(
+      `[data-change-index="${index}"]`,
+    );
+    if (!pane || !target) {
+      return null;
+    }
+    return { pane, target };
   }
 
   function scrollRenderedPaneToSyncIndex(

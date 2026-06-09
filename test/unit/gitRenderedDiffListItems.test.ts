@@ -220,9 +220,12 @@ describe("git rendered diff list items", () => {
       expect.objectContaining({
         index: 0,
         entryId: entry?.id,
+        primarySide: "right",
         side: "right",
+        targetKind: "list-item",
         block: listBlock,
         childChangeIndex: 0,
+        itemIndex: 1,
       }),
     ]);
     expect(presentation.entryChangeIndexes.get(entry?.id ?? "")).toBeUndefined();
@@ -266,7 +269,9 @@ describe("git rendered diff list items", () => {
       expect.objectContaining({
         index: 0,
         entryId: entry?.id,
+        primarySide: "right",
         side: "both",
+        targetKind: "block",
         block: listBlock,
       }),
     ]);
@@ -318,6 +323,7 @@ describe("git rendered diff list items", () => {
     expect(
       rightDoc.querySelector('[data-content-cursor-active="true"]'),
     ).toBeTruthy();
+    expect(rightDoc.querySelector('[data-active-change="true"]')).toBeTruthy();
     expect(
       rightDoc.querySelectorAll("li:not(.git-rendered-list-item-change)"),
     ).toHaveLength(2);
@@ -325,6 +331,7 @@ describe("git rendered diff list items", () => {
       leftDoc.querySelectorAll(".git-rendered-list-item-change.changed"),
     ).toHaveLength(1);
     expect(leftDoc.querySelector("[data-change-index]")).toBeNull();
+    expect(leftDoc.querySelector("[data-active-change]")).toBeNull();
   });
 
   it("keeps list item highlight metadata through rendered block sanitizing", () => {
@@ -346,6 +353,7 @@ describe("git rendered diff list items", () => {
     expect(sanitized).toContain("git-rendered-list-item-change");
     expect(sanitized).toContain('data-review-id="git-rendered-list-item-change"');
     expect(sanitized).toContain('data-change-index="3"');
+    expect(sanitized).toContain('data-active-change="true"');
     expect(sanitized).toContain('data-content-cursor-active="true"');
   });
 });
