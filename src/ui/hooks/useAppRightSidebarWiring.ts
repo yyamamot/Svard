@@ -84,6 +84,14 @@ export function useAppRightSidebarWiring({
   }
 
   function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      handleSearchClear();
+      setRightSidebarTab("contents");
+      searchInputRef.current?.blur();
+      return;
+    }
     if (handleWorkspaceSearchEnterKey(event)) {
       return;
     }
