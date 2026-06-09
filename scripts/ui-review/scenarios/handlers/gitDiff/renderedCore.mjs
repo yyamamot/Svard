@@ -230,6 +230,71 @@ export async function applyGitDiffRenderedCoreScenario(context) {
       .first()
       .waitFor();
   } else if (
+    scenario === "viewer-rendered-visual-diff-section-outline" ||
+    scenario === "viewer-rendered-visual-diff-section-outline-list-table" ||
+    scenario === "viewer-rendered-visual-diff-section-outline-privacy"
+  ) {
+    await page.locator("text=diff-regression-gallery.md").click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Diff Preview Regression Gallery" })
+      .waitFor();
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.locator('[data-review-id="git-diff-overview-view"]').click();
+    await page.locator('[data-review-id="git-diff-overview"]').waitFor();
+    await page
+      .locator('[data-review-id="git-diff-overview-jump-preview"]')
+      .first()
+      .click();
+    await page.locator('[data-review-id="git-full-preview-diff"]').waitFor();
+    await page.locator('[data-review-id="git-diff-overview-view"]').click();
+    await page.locator('[data-review-id="git-diff-overview"]').waitFor();
+    const overviewSummary = await page.evaluate(() => {
+      const overviewButtons = Array.from(
+        document.querySelectorAll(
+          '[data-review-id="git-diff-overview-jump-preview"]',
+        ),
+      );
+      const labels = overviewButtons.map((button) =>
+        (button.textContent ?? "")
+          .replace(/\s*·?\s*\d+\s+changes?\s*$/u, "")
+          .trim(),
+      );
+      const changeCounts = overviewButtons.map((button) => {
+        const match = (button.textContent ?? "").match(/(\d+)\s+changes?/u);
+        return match ? Number(match[1]) : 1;
+      });
+      return {
+        sectionCount: overviewButtons.length,
+        duplicateLabelCount: labels.length - new Set(labels).size,
+        totalChangeCount: changeCounts.reduce((sum, count) => sum + count, 0),
+        activeSectionCount: overviewButtons.filter(
+          (button) => button.getAttribute("data-active-change") === "true",
+        ).length,
+      };
+    });
+    await page.locator('[data-review-id="git-diff-rendered-view"]').click();
+    await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+
+    await page.evaluate(
+      ({ scenarioName, overviewSummary }) => {
+        window.__SVARD_RENDERED_SECTION_OUTLINE__ = {
+          scenario: scenarioName,
+          ...overviewSummary,
+          listTargetCount: document.querySelectorAll(
+            '[data-review-id="git-rendered-list-item-change"][data-change-index]',
+          ).length,
+          tableRowTargetCount: document.querySelectorAll(
+            '[data-review-id="git-rendered-table-row-change"][data-change-index]',
+          ).length,
+        };
+      },
+      { scenarioName: scenario, overviewSummary },
+    );
+  } else if (
     scenario === "viewer-rendered-visual-diff-list-item-highlight-basic" ||
     scenario === "viewer-rendered-visual-diff-list-item-navigation" ||
     scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||

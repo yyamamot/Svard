@@ -121,6 +121,7 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
       targetKind: "block",
       block: item,
     })),
+    sectionOutline: [],
     entryChangeIndexes: new Map(),
     entryChildChangeIndexes: new Map(),
     entryTableRowChangeIndexes: new Map(),

@@ -182,6 +182,45 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             .locator('[data-review-id="git-diff-change-ruler-marker"].active')
             .count()) === 1
         : true,
+    hasRenderedVisualDiffSectionOutline:
+      scenario === "viewer-rendered-visual-diff-section-outline"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_SECTION_OUTLINE__;
+            return (
+              result?.sectionCount > 0 &&
+              result?.totalChangeCount > 0 &&
+              result?.activeSectionCount === 1
+            );
+          })
+        : true,
+    hasRenderedVisualDiffSectionOutlineListTable:
+      scenario === "viewer-rendered-visual-diff-section-outline-list-table"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_SECTION_OUTLINE__;
+            return (
+              result?.sectionCount > 0 &&
+              result?.totalChangeCount > 0 &&
+              result?.listTargetCount > 0 &&
+              result?.tableRowTargetCount > 0
+            );
+          })
+        : true,
+    hasRenderedVisualDiffSectionOutlinePrivacy:
+      scenario === "viewer-rendered-visual-diff-section-outline-privacy"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_SECTION_OUTLINE__;
+            if (!result) {
+              return false;
+            }
+            const serialized = JSON.stringify(result);
+            return (
+              result.sectionCount > 0 &&
+              !serialized.includes("Diff Preview Regression Gallery") &&
+              !serialized.includes("/workspace/") &&
+              !serialized.includes("@@")
+            );
+          })
+        : true,
     hasRenderedVisualDiffListItemHighlight:
       scenario === "viewer-rendered-visual-diff-list-item-highlight-basic"
         ? await page.evaluate(() => {

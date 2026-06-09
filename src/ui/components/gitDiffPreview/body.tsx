@@ -98,6 +98,7 @@ export function DiffPreviewBody({
   if (hasDiff && view === "overview") {
     return (
       <DiffOverview
+        activeChangeIndex={activeChangeIndex}
         overview={overview}
         onJumpToPreviewChange={jumpToPreviewChange}
       />

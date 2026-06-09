@@ -27,6 +27,7 @@ import type { DiffView } from "./types";
 import { diffPreviewChangeCount } from "./body";
 
 interface UseDiffPreviewSummariesOptions {
+  activeChangeIndex: number;
   activeTableIndex: number;
   config: AppConfig | null;
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;
@@ -49,6 +50,7 @@ interface UseDiffPreviewSummariesOptions {
 }
 
 export function useDiffPreviewSummaries({
+  activeChangeIndex,
   activeTableIndex,
   config,
   confirmedRemoteDiagramKeys,
@@ -95,6 +97,7 @@ export function useDiffPreviewSummaries({
   const sourceChangeCount = sourceIndexes.size;
   const renderedChangeCount = renderedPresentation.navigationTargets.length;
   const overview = overviewStats({
+    activeChangeIndex,
     preview,
     renderedSummary,
     renderedPresentation,

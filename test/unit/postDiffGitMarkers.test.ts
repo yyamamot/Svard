@@ -127,11 +127,17 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
       .map((item, index) => ({
         index,
         entryId: `entry:${blocks.indexOf(item)}`,
-        side: item.kind === "changed" ? "both" : item.kind === "added" ? "right" : "left",
+        side:
+          item.kind === "changed"
+            ? "both"
+            : item.kind === "added"
+              ? "right"
+              : "left",
         primarySide: item.kind === "removed" ? "left" : "right",
         targetKind: "block" as const,
         block: item,
       })),
+    sectionOutline: [],
     entryChangeIndexes: new Map(),
     entryChildChangeIndexes: new Map(),
     entryTableRowChangeIndexes: new Map(),

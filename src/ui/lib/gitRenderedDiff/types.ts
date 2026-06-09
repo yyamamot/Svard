@@ -143,9 +143,18 @@ export interface RenderedDiffNavigationTarget {
   tableRowIndex?: number;
 }
 
+export interface RenderedDiffSectionOutlineItem {
+  id: string;
+  label: string;
+  level: number;
+  firstChangeIndex: number;
+  changeCount: number;
+}
+
 export interface RenderedDiffPresentation {
   entries: RenderedDiffPresentationEntry[];
   navigationTargets: RenderedDiffNavigationTarget[];
+  sectionOutline: RenderedDiffSectionOutlineItem[];
   entryChangeIndexes: Map<string, number>;
   entryChildChangeIndexes: Map<string, number>;
   entryTableRowChangeIndexes: Map<string, number>;

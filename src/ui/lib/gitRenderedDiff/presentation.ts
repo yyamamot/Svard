@@ -7,6 +7,7 @@ import type {
   RenderedDiffNavigationTarget,
   RenderedDiffPresentation,
   RenderedDiffPresentationEntry,
+  RenderedDiffSectionOutlineItem,
 } from "./types";
 import { normalizedText } from "./text";
 
@@ -76,6 +77,82 @@ function presentationEntryBlocks(
   entry: RenderedDiffPresentationEntry,
 ): RenderedBlockDiff[] {
   return entry.kind === "block" ? [entry.block] : entry.blocks;
+}
+
+function renderedBlockText(block: RenderedBlock | undefined): string {
+  return normalizedText(block?.text);
+}
+
+function renderedHeadingLabel(block: RenderedBlockDiff): string {
+  return (
+    renderedBlockText(block.right) ||
+    renderedBlockText(block.left) ||
+    "Untitled section"
+  );
+}
+
+function renderedHeadingLevel(block: RenderedBlockDiff): number {
+  const tagName = (block.right?.tagName || block.left?.tagName || "").toLowerCase();
+  const match = /^h([1-6])$/.exec(tagName);
+  return match ? Number(match[1]) : 0;
+}
+
+function buildSectionOutline(
+  entries: RenderedDiffPresentationEntry[],
+  navigationTargets: RenderedDiffNavigationTarget[],
+): RenderedDiffSectionOutlineItem[] {
+  const targetsByEntry = new Map<string, RenderedDiffNavigationTarget[]>();
+  for (const target of navigationTargets) {
+    const targets = targetsByEntry.get(target.entryId);
+    if (targets) {
+      targets.push(target);
+    } else {
+      targetsByEntry.set(target.entryId, [target]);
+    }
+  }
+
+  let currentSection: Pick<
+    RenderedDiffSectionOutlineItem,
+    "id" | "label" | "level"
+  > = {
+    id: "rendered-section:document-start",
+    label: "Document start",
+    level: 0,
+  };
+  const outline: RenderedDiffSectionOutlineItem[] = [];
+  const outlineBySectionId = new Map<string, RenderedDiffSectionOutlineItem>();
+
+  for (const entry of entries) {
+    const headingBlock = presentationEntryBlocks(entry).find(
+      (block) => block.blockKind === "heading",
+    );
+    if (headingBlock) {
+      currentSection = {
+        id: `rendered-section:${entry.id}`,
+        label: renderedHeadingLabel(headingBlock),
+        level: renderedHeadingLevel(headingBlock),
+      };
+    }
+
+    const targets = targetsByEntry.get(entry.id);
+    if (!targets || targets.length === 0) {
+      continue;
+    }
+
+    let section = outlineBySectionId.get(currentSection.id);
+    if (!section) {
+      section = {
+        ...currentSection,
+        firstChangeIndex: targets[0]?.index ?? 0,
+        changeCount: 0,
+      };
+      outlineBySectionId.set(currentSection.id, section);
+      outline.push(section);
+    }
+    section.changeCount += targets.length;
+  }
+
+  return outline;
 }
 
 export function renderedDiffPresentationEntryBlocks(
@@ -354,6 +431,7 @@ export function buildRenderedDiffPresentation(
   return {
     entries,
     navigationTargets,
+    sectionOutline: buildSectionOutline(entries, navigationTargets),
     entryChangeIndexes,
     entryChildChangeIndexes,
     entryTableRowChangeIndexes,

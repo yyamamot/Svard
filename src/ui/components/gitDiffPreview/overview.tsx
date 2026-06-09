@@ -1,11 +1,8 @@
 import type { DocumentDiffPreview } from "../../../core/types";
 import {
   isRenderedChangeBlock,
-  isRenderedDiffPresentationChangeEntry,
-  renderedDiffPresentationEntryBlocks,
   type GitRenderedDiffSummary,
   type RenderedDiffPresentation,
-  type RenderedDiffPresentationEntry,
 } from "../../lib/gitRenderedDiff";
 import type { GitTableDiffSummary } from "../../lib/gitTableDiff";
 import { sourceChangeIndexes } from "./sourceView";
@@ -13,49 +10,34 @@ import { fallbackMessage } from "./tableView";
 import type { OverviewSection } from "./types";
 
 function overviewSections(
-  entries: RenderedDiffPresentationEntry[],
-  indexes: Map<string, number>,
+  renderedPresentation: RenderedDiffPresentation,
+  activeChangeIndex: number,
   fallbackPath: string | undefined,
   sourceChanges: number,
 ): OverviewSection[] {
-  const sections = new Map<string, OverviewSection>();
-  let currentHeading = "Document start";
-  for (const entry of entries) {
-    const blocks = renderedDiffPresentationEntryBlocks(entry);
-    const block = blocks[0];
-    if (!block) {
-      continue;
-    }
-    if (block.blockKind === "heading") {
-      currentHeading =
-        block.right?.text || block.left?.text || "Untitled section";
-    }
-    if (!isRenderedDiffPresentationChangeEntry(entry)) {
-      continue;
-    }
-    const changeIndex = indexes.get(entry.id);
-    if (changeIndex === undefined) {
-      continue;
-    }
-    const label =
-      block.blockKind === "heading"
-        ? block.right?.text || block.left?.text || "Untitled section"
-        : currentHeading;
-    const existing = sections.get(label);
-    if (existing) {
-      existing.changeCount += 1;
-    } else {
-      sections.set(label, { label, changeIndex, changeCount: 1 });
-    }
-  }
-  if (sections.size === 0 && sourceChanges > 0) {
-    sections.set("source-changes", {
-      label: `Source changes in ${fallbackPath}`,
-      changeIndex: 0,
-      changeCount: sourceChanges,
+  if (renderedPresentation.sectionOutline.length > 0) {
+    return renderedPresentation.sectionOutline.map((section, index, list) => {
+      const next = list[index + 1];
+      const active =
+        activeChangeIndex >= section.firstChangeIndex &&
+        activeChangeIndex <
+          (next?.firstChangeIndex ?? Number.POSITIVE_INFINITY);
+      return { ...section, active };
     });
   }
-  return Array.from(sections.values());
+  if (sourceChanges > 0) {
+    return [
+      {
+        id: "source-changes",
+        label: `Source changes in ${fallbackPath}`,
+        level: 0,
+        firstChangeIndex: 0,
+        changeCount: sourceChanges,
+        active: activeChangeIndex >= 0,
+      },
+    ];
+  }
+  return [];
 }
 
 function pluralize(count: number, singular: string, plural: string): string {
@@ -79,19 +61,21 @@ export function overviewStats({
   renderedSummary,
   renderedPresentation,
   tableSummary,
+  activeChangeIndex = 0,
 }: {
   preview: DocumentDiffPreview;
   renderedSummary: GitRenderedDiffSummary;
   renderedPresentation: RenderedDiffPresentation;
   tableSummary: GitTableDiffSummary;
+  activeChangeIndex?: number;
 }) {
   const sourceChanges = sourceChangeIndexes(preview).size;
   const changedRenderedBlocks = renderedSummary.blocks.filter(
     isRenderedChangeBlock,
   );
   const changedSections = overviewSections(
-    renderedPresentation.entries,
-    renderedPresentation.entryChangeIndexes,
+    renderedPresentation,
+    activeChangeIndex,
     preview.relativePath ?? undefined,
     sourceChanges,
   );
@@ -131,15 +115,21 @@ export function overviewStats({
 }
 
 export function DiffOverview({
+  activeChangeIndex,
   overview,
   onJumpToPreviewChange,
 }: {
+  activeChangeIndex: number;
   overview: ReturnType<typeof overviewStats>;
   onJumpToPreviewChange: (index: number) => void;
 }) {
   const summaryItems = overviewSummaryItems(overview);
   return (
-    <div className="git-diff-overview" data-review-id="git-diff-overview">
+    <div
+      className="git-diff-overview"
+      data-review-id="git-diff-overview"
+      data-active-change-index={activeChangeIndex}
+    >
       <section>
         <h3>Summary</h3>
         {summaryItems.length > 0 ? (
@@ -159,12 +149,17 @@ export function DiffOverview({
         <h3>Changed sections</h3>
         {overview.changedSections.length > 0 ? (
           <ul>
-            {overview.changedSections.map((section, index) => (
-              <li key={`changed-section:${index}`}>
+            {overview.changedSections.map((section) => (
+              <li key={section.id}>
                 <button
                   type="button"
+                  className={section.active ? "active" : undefined}
                   data-review-id="git-diff-overview-jump-preview"
-                  onClick={() => onJumpToPreviewChange(section.changeIndex)}
+                  data-active-change={section.active ? "true" : undefined}
+                  aria-current={section.active ? "true" : undefined}
+                  onClick={() =>
+                    onJumpToPreviewChange(section.firstChangeIndex)
+                  }
                 >
                   {section.label}
                   {section.changeCount > 1 && (

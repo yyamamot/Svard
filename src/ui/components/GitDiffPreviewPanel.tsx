@@ -127,6 +127,7 @@ export function DocumentDiffPreviewPanel({
     tableViewAvailable,
     title,
   } = useDiffPreviewSummaries({
+    activeChangeIndex,
     activeTableIndex,
     config,
     confirmedRemoteDiagramKeys,

@@ -269,3 +269,8 @@
   align-items: center;
   gap: 8px;
 }
+
+.git-diff-overview button.active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--reader-border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--reader-bg));
+}

@@ -9,6 +9,238 @@ import {
 import { blocksFromHtml } from "./helpers/gitRenderedDiffFixtures";
 
 describe("git rendered diff presentation", () => {
+  it("builds section outline from navigation targets", () => {
+    const presentation = buildRenderedDiffPresentation([
+      {
+        id: "heading",
+        kind: "changed",
+        blockKind: "heading",
+        left: {
+          id: "heading-left",
+          kind: "heading",
+          tagName: "h2",
+          text: "Overview",
+          html: "<h2>Overview</h2>",
+        },
+        right: {
+          id: "heading-right",
+          kind: "heading",
+          tagName: "h2",
+          text: "Overview",
+          html: "<h2>Overview</h2>",
+        },
+      },
+      {
+        id: "paragraph",
+        kind: "changed",
+        blockKind: "paragraph",
+        left: {
+          id: "paragraph-left",
+          kind: "paragraph",
+          tagName: "p",
+          text: "Old text",
+          html: "<p>Old text</p>",
+        },
+        right: {
+          id: "paragraph-right",
+          kind: "paragraph",
+          tagName: "p",
+          text: "New text",
+          html: "<p>New text</p>",
+        },
+      },
+    ]);
+
+    expect(presentation.sectionOutline).toEqual([
+      {
+        id: presentation.sectionOutline[0]?.id,
+        label: "Overview",
+        level: 2,
+        firstChangeIndex: 0,
+        changeCount: 2,
+      },
+    ]);
+  });
+
+  it("keeps duplicate heading labels as separate outline sections", () => {
+    const left = blocksFromHtml(`<h2>Repeated</h2>
+<p>Old first</p>
+<h2>Repeated</h2>
+<p>Old second</p>`);
+    const right = blocksFromHtml(`<h2>Repeated</h2>
+<p>New first</p>
+<h2>Repeated</h2>
+<p>New second</p>`);
+
+    const presentation = buildRenderedDiffPresentation(
+      compareRenderedBlocks(left, right),
+    );
+
+    expect(
+      presentation.sectionOutline.map(
+        ({ label, level, firstChangeIndex, changeCount }) => ({
+          label,
+          level,
+          firstChangeIndex,
+          changeCount,
+        }),
+      ),
+    ).toEqual([
+      {
+        label: "Repeated",
+        level: 2,
+        firstChangeIndex: 0,
+        changeCount: 1,
+      },
+      {
+        label: "Repeated",
+        level: 2,
+        firstChangeIndex: 1,
+        changeCount: 1,
+      },
+    ]);
+  });
+
+  it("uses document start before the first heading", () => {
+    const presentation = buildRenderedDiffPresentation([
+      {
+        id: "intro",
+        kind: "changed",
+        blockKind: "paragraph",
+        left: {
+          id: "intro-left",
+          kind: "paragraph",
+          tagName: "p",
+          text: "Old intro",
+          html: "<p>Old intro</p>",
+        },
+        right: {
+          id: "intro-right",
+          kind: "paragraph",
+          tagName: "p",
+          text: "New intro",
+          html: "<p>New intro</p>",
+        },
+      },
+    ]);
+
+    expect(presentation.sectionOutline).toEqual([
+      {
+        id: "rendered-section:document-start",
+        label: "Document start",
+        level: 0,
+        firstChangeIndex: 0,
+        changeCount: 1,
+      },
+    ]);
+  });
+
+  it("counts list item and table row targets in their parent section", () => {
+    const presentation = buildRenderedDiffPresentation([
+      {
+        id: "features-heading",
+        kind: "unchanged",
+        blockKind: "heading",
+        left: {
+          id: "features-heading-left",
+          kind: "heading",
+          tagName: "h2",
+          text: "Features",
+          html: "<h2>Features</h2>",
+        },
+        right: {
+          id: "features-heading-right",
+          kind: "heading",
+          tagName: "h2",
+          text: "Features",
+          html: "<h2>Features</h2>",
+        },
+      },
+      {
+        id: "feature-list",
+        kind: "changed",
+        blockKind: "list",
+        left: {
+          id: "feature-list-left",
+          kind: "list",
+          tagName: "ul",
+          text: "Old A Old B",
+          html: "<ul><li>Old A</li><li>Old B</li></ul>",
+        },
+        right: {
+          id: "feature-list-right",
+          kind: "list",
+          tagName: "ul",
+          text: "New A New B",
+          html: "<ul><li>New A</li><li>New B</li></ul>",
+        },
+        childChanges: [
+          {
+            kind: "changed",
+            side: "both",
+            confidence: "high",
+            leftIndex: 0,
+            rightIndex: 0,
+          },
+          {
+            kind: "added",
+            side: "right",
+            confidence: "high",
+            rightIndex: 1,
+          },
+        ],
+      },
+      {
+        id: "feature-table",
+        kind: "changed",
+        blockKind: "table",
+        left: {
+          id: "feature-table-left",
+          kind: "table",
+          tagName: "table",
+          text: "Old table",
+          html: "<table><tr><td>Old</td></tr></table>",
+        },
+        right: {
+          id: "feature-table-right",
+          kind: "table",
+          tagName: "table",
+          text: "New table",
+          html: "<table><tr><td>New</td></tr></table>",
+        },
+        tableChanges: [
+          {
+            kind: "changed",
+            side: "both",
+            confidence: "high",
+            leftRowIndex: 0,
+            rightRowIndex: 0,
+            leftCellIndex: 0,
+            rightCellIndex: 0,
+          },
+          {
+            kind: "added",
+            side: "right",
+            confidence: "high",
+            rightRowIndex: 1,
+            rightCellIndex: 0,
+          },
+        ],
+      },
+    ]);
+
+    expect(presentation.navigationTargets).toHaveLength(4);
+    expect(presentation.sectionOutline).toEqual([
+      {
+        id: presentation.sectionOutline[0]?.id,
+        label: "Features",
+        level: 2,
+        firstChangeIndex: 0,
+        changeCount: 4,
+      },
+    ]);
+  });
+
   it("groups contiguous one-sided rendered changes for presentation", () => {
     const left = blocksFromHtml(`<h2>Old section</h2>
 <p>Old paragraph</p>

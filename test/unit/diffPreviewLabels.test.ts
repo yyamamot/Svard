@@ -10,10 +10,10 @@ import {
   hiddenRenderedGroupPlaceholderLabel,
   renderedDiffPresentationEntryMetaLabel,
 } from "../../src/ui/components/gitDiffPreview/renderedView";
+import { buildRenderedDiffPresentation } from "../../src/ui/lib/gitRenderedDiff";
 import type {
   GitRenderedDiffSummary,
   RenderedBlockDiff,
-  RenderedDiffPresentation,
   RenderedDiffPresentationEntry,
 } from "../../src/ui/lib/gitRenderedDiff";
 import type { GitTableDiffSummary } from "../../src/ui/lib/gitTableDiff";
@@ -165,7 +165,7 @@ describe("diff preview labels", () => {
     );
   });
 
-  it("deduplicates overview sections by visible label", () => {
+  it("uses navigation target section outline for overview sections", () => {
     const heading = changedBlock(
       "heading-change",
       "heading",
@@ -176,21 +176,10 @@ describe("diff preview labels", () => {
       "paragraph",
       "Updated paragraph",
     );
-    const entries: RenderedDiffPresentationEntry[] = [
-      { id: "entry:heading", kind: "block", block: heading },
-      { id: "entry:paragraph", kind: "block", block: paragraph },
-    ];
-    const renderedPresentation: RenderedDiffPresentation = {
-      entries,
-      navigationTargets: [],
-      entryChangeIndexes: new Map([
-        ["entry:heading", 0],
-        ["entry:paragraph", 1],
-      ]),
-      entryChildChangeIndexes: new Map(),
-      entryTableRowChangeIndexes: new Map(),
-      entryTargetSides: new Map(),
-    };
+    const renderedPresentation = buildRenderedDiffPresentation([
+      heading,
+      paragraph,
+    ]);
     const renderedSummary: GitRenderedDiffSummary = {
       blocks: [heading, paragraph],
     };
@@ -200,13 +189,17 @@ describe("diff preview labels", () => {
       renderedSummary,
       renderedPresentation,
       tableSummary: emptyTableSummary,
+      activeChangeIndex: 1,
     });
 
     expect(overview.changedSections).toEqual([
       {
+        id: renderedPresentation.sectionOutline[0]?.id,
         label: "Repeated Section",
-        changeIndex: 0,
+        level: 2,
+        firstChangeIndex: 0,
         changeCount: 2,
+        active: true,
       },
     ]);
   });
