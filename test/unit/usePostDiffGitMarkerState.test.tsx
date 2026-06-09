@@ -187,6 +187,7 @@ function renderHookHarness({
 async function flushHookUpdates() {
   await act(async () => {
     await Promise.resolve();
+    await Promise.resolve();
   });
 }
 
@@ -200,6 +201,7 @@ describe("usePostDiffGitMarkerState", () => {
         renderedPresentation: presentation([block("rendered-block:0")]),
       });
     });
+    await flushHookUpdates();
 
     expect(api().activePostDiffGitMarkers).toMatchObject({
       documentPath: activePath,
@@ -226,6 +228,7 @@ describe("usePostDiffGitMarkerState", () => {
         renderedPresentation: presentation([block("rendered-block:0")]),
       });
     });
+    await flushHookUpdates();
     expect(api().activePostDiffGitMarkers).not.toBeNull();
 
     await act(async () => {
@@ -238,6 +241,7 @@ describe("usePostDiffGitMarkerState", () => {
         renderedPresentation: presentation([block("rendered-block:1")]),
       });
     });
+    await flushHookUpdates();
 
     expect(api().activePostDiffGitMarkers).toBeNull();
 
@@ -254,6 +258,7 @@ describe("usePostDiffGitMarkerState", () => {
         renderedPresentation: presentation([block("rendered-block:0")]),
       });
     });
+    await flushHookUpdates();
     const context = api().activePostDiffGitMarkers;
 
     await act(async () => {
@@ -275,6 +280,113 @@ describe("usePostDiffGitMarkerState", () => {
       );
     });
 
+    expect(api().activePostDiffGitMarkers).toBeNull();
+
+    cleanup();
+  });
+
+  it("clears handoff markers when the current working tree preview is clean", async () => {
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValueOnce(preview())
+      .mockResolvedValueOnce(preview({ status: "clean", hunks: [] }));
+    const { api, cleanup } = renderHookHarness({ getGitDiffPreview });
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview(),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+    });
+    await flushHookUpdates();
+    expect(api().activePostDiffGitMarkers).not.toBeNull();
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview(),
+        renderedPresentation: presentation([block("rendered-block:1")]),
+      });
+    });
+    await flushHookUpdates();
+
+    expect(api().activePostDiffGitMarkers).toBeNull();
+
+    cleanup();
+  });
+
+  it("does not hand off history or ref previews to Change Review Mode", async () => {
+    const { api, cleanup } = renderHookHarness({
+      getGitDiffPreview: vi.fn(async () => preview()),
+    });
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview({
+          leftLabel: "0000000",
+          rightLabel: "1111111",
+        }),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+    });
+    await flushHookUpdates();
+
+    expect(api().activePostDiffGitMarkers).toBeNull();
+
+    cleanup();
+  });
+
+  it("does not hand off file-to-file previews to Change Review Mode", async () => {
+    const { api, cleanup } = renderHookHarness({
+      getGitDiffPreview: vi.fn(async () => preview()),
+    });
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview({
+          source: "file",
+          leftLabel: "base.md",
+          rightLabel: "current.md",
+          leftPath: "/workspace/docs/base.md",
+          rightPath: activePath,
+          relativePath: "base.md ↔ current.md",
+        }),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+    });
+    await flushHookUpdates();
+
+    expect(api().activePostDiffGitMarkers).toBeNull();
+
+    cleanup();
+  });
+
+  it("does not commit stale handoff results after switching documents", async () => {
+    let resolvePreview: ((value: DocumentDiffPreview) => void) | null = null;
+    const getGitDiffPreview = vi.fn(
+      () =>
+        new Promise<DocumentDiffPreview>((resolve) => {
+          resolvePreview = resolve;
+        }),
+    );
+    const { api, cleanup } = renderHookHarness({ getGitDiffPreview });
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview(),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+      api().setDocumentPayload(documentPayload("/workspace/docs/other.md"));
+    });
+
+    await act(async () => {
+      resolvePreview?.(preview());
+    });
+    await flushHookUpdates();
+    expect(api().activePostDiffGitMarkers).toBeNull();
+
+    await act(async () => {
+      api().setDocumentPayload(documentPayload(activePath));
+    });
     expect(api().activePostDiffGitMarkers).toBeNull();
 
     cleanup();

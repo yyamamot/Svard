@@ -80,6 +80,16 @@ function postDiffGitMarkerRenderSignature({
   });
 }
 
+function gitDiffPreviewHandoffSignature(preview: DocumentDiffPreview): string {
+  return JSON.stringify({
+    leftLabel: preview.leftLabel,
+    relativePath: preview.relativePath ?? null,
+    rightLabel: preview.rightLabel,
+    status: preview.status,
+    hunks: preview.hunks,
+  });
+}
+
 export function usePostDiffGitMarkerState({
   config,
   documentPayload,
@@ -102,6 +112,12 @@ export function usePostDiffGitMarkerState({
     {},
   );
   const initialPostDiffGitMarkerGenerationRef = useRef(0);
+  const closePostDiffGitMarkerGenerationRef = useRef(0);
+  const activeDocumentPathRef = useRef<string | null>(
+    documentPayload?.path ?? null,
+  );
+
+  activeDocumentPathRef.current = documentPayload?.path ?? null;
 
   const activePostDiffGitMarkers = useMemo(() => {
     const path = documentPayload?.path ?? null;
@@ -150,6 +166,8 @@ export function usePostDiffGitMarkerState({
   const closeDocumentDiffPreview = useCallback(
     (handoff?: DiffPreviewCloseHandoff) => {
       setDocumentDiffPreview(null);
+      const generation = closePostDiffGitMarkerGenerationRef.current + 1;
+      closePostDiffGitMarkerGenerationRef.current = generation;
 
       if (
         !handoff ||
@@ -162,37 +180,93 @@ export function usePostDiffGitMarkerState({
         return;
       }
 
-      const context = buildPostDiffGitMarkerContext({
-        activeDocumentPath: documentPayload.path,
-        preview: handoff.preview,
-        renderedPresentation: handoff.renderedPresentation,
-      });
+      const activePath = documentPayload.path;
+      const closeHandoff = handoff;
+      const documentUpdatedAt = documentPayload.updatedAt ?? null;
 
-      if (!context) {
-        clearPostDiffGitMarkers("no-matching-context");
-        return;
+      async function commitWorkingTreeHandoff() {
+        try {
+          const workingTreePreview = await getGitDiffPreview(activePath);
+          if (
+            closePostDiffGitMarkerGenerationRef.current !== generation ||
+            activeDocumentPathRef.current !== activePath
+          ) {
+            return;
+          }
+          if (
+            workingTreePreview.status === "clean" ||
+            workingTreePreview.hunks.length === 0
+          ) {
+            clearPostDiffGitMarkers("handoff-working-tree-clean");
+            tracePerf("postDiffGitMarkers.handoffSkip", {
+              basename: perfBasename(activePath),
+              reason:
+                workingTreePreview.status === "clean" ? "clean" : "empty",
+              status: workingTreePreview.status,
+            });
+            return;
+          }
+          if (
+            gitDiffPreviewHandoffSignature(workingTreePreview) !==
+            gitDiffPreviewHandoffSignature(closeHandoff.preview)
+          ) {
+            clearPostDiffGitMarkers("history-or-non-working-tree");
+            tracePerf("postDiffGitMarkers.handoffSkip", {
+              basename: perfBasename(activePath),
+              reason: "history-or-non-working-tree",
+              status: workingTreePreview.status,
+            });
+            return;
+          }
+
+          const context = buildPostDiffGitMarkerContext({
+            activeDocumentPath: activePath,
+            preview: closeHandoff.preview,
+            renderedPresentation: closeHandoff.renderedPresentation,
+          });
+
+          if (!context) {
+            clearPostDiffGitMarkers("no-matching-context");
+            return;
+          }
+
+          const nextContext: ViewerPostDiffGitMarkerContext = {
+            ...context,
+            documentPath: activePath,
+            documentUpdatedAt,
+          };
+          setPostDiffGitMarkersByPath((current) => ({
+            ...current,
+            [activePath]: nextContext,
+          }));
+          tracePerf("postDiffGitMarkers.context", {
+            basename: perfBasename(activePath),
+            markerCount: context.totalCount,
+            renderedCount: context.renderedCount,
+            visible: context.renderedCount > 0,
+          });
+        } catch {
+          if (
+            closePostDiffGitMarkerGenerationRef.current !== generation ||
+            activeDocumentPathRef.current !== activePath
+          ) {
+            return;
+          }
+          clearPostDiffGitMarkers("handoff-working-tree-error");
+          tracePerf("postDiffGitMarkers.handoffSkip", {
+            basename: perfBasename(activePath),
+            reason: "error",
+          });
+        }
       }
 
-      const nextContext: ViewerPostDiffGitMarkerContext = {
-        ...context,
-        documentPath: documentPayload.path,
-        documentUpdatedAt: documentPayload.updatedAt ?? null,
-      };
-      setPostDiffGitMarkersByPath((current) => ({
-        ...current,
-        [documentPayload.path]: nextContext,
-      }));
-      tracePerf("postDiffGitMarkers.context", {
-        basename: perfBasename(documentPayload.path),
-        markerCount: context.totalCount,
-        renderedCount: context.renderedCount,
-        visible: context.renderedCount > 0,
-      });
+      void commitWorkingTreeHandoff();
     },
     [
       clearPostDiffGitMarkers,
       config?.experimental.postDiffGitMarkers,
       documentPayload,
+      getGitDiffPreview,
       setDocumentDiffPreview,
     ],
   );
