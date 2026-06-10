@@ -381,10 +381,14 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     scenario === "viewer-rendered-visual-diff-list-item-highlight-basic" ||
     scenario === "viewer-rendered-visual-diff-list-item-navigation" ||
     scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||
-    scenario === "viewer-rendered-visual-diff-list-item-privacy"
+    scenario === "viewer-rendered-visual-diff-list-item-privacy" ||
+    scenario === "viewer-rendered-visual-diff-fallback-visibility" ||
+    scenario === "viewer-rendered-visual-diff-fallback-privacy"
   ) {
     const isFallbackScenario =
-      scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback";
+      scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||
+      scenario === "viewer-rendered-visual-diff-fallback-visibility" ||
+      scenario === "viewer-rendered-visual-diff-fallback-privacy";
     await page
       .locator(
         `text=${
@@ -455,6 +459,20 @@ export async function applyGitDiffRenderedCoreScenario(context) {
         itemTargetCount: itemTargets.length,
         parentTargetCount: parentTargets.length,
         activeMarkerCount: activeMarkers.length,
+      };
+      const fallbackIndicators = Array.from(
+        document.querySelectorAll(
+          '[data-review-id="git-rendered-fallback-indicator"]',
+        ),
+      ).map((indicator) => indicator.textContent?.trim()).filter(Boolean);
+      const reasonCounts = fallbackIndicators.reduce((counts, label) => {
+        counts[label] = (counts[label] ?? 0) + 1;
+        return counts;
+      }, {});
+      window.__SVARD_RENDERED_FALLBACK_VISIBILITY__ = {
+        scenario: scenarioName,
+        fallbackCount: fallbackIndicators.length,
+        reasonCounts,
       };
     }, scenario);
   } else if (

@@ -4,6 +4,7 @@ import type {
   RenderedBlockDiffKind,
   RenderedBlockKind,
   RenderedDiffContentCursorTarget,
+  RenderedDiffFallbackReason,
   RenderedDiffNavigationTarget,
   RenderedDiffPresentation,
   RenderedDiffPresentationEntry,
@@ -285,6 +286,32 @@ function primarySideForTargetSide(
   return targetSide === "left" ? "left" : "right";
 }
 
+function fallbackReasonsForEntry(
+  entry: RenderedDiffPresentationEntry,
+): RenderedDiffFallbackReason[] {
+  if (entry.kind !== "block" || entry.block.kind !== "changed") {
+    return [];
+  }
+  const reasons: RenderedDiffFallbackReason[] = [];
+  if (entry.block.childChangeFallback) {
+    reasons.push({
+      blockId: entry.block.id,
+      entryId: entry.id,
+      kind: "list",
+      reason: entry.block.childChangeFallback.reason,
+    });
+  }
+  if (entry.block.tableChangeFallback) {
+    reasons.push({
+      blockId: entry.block.id,
+      entryId: entry.id,
+      kind: "table",
+      reason: entry.block.tableChangeFallback.reason,
+    });
+  }
+  return reasons;
+}
+
 export function buildRenderedDiffPresentation(
   blocks: RenderedBlockDiff[],
 ): RenderedDiffPresentation {
@@ -337,6 +364,7 @@ export function buildRenderedDiffPresentation(
   const entryChildChangeIndexes = new Map<string, number>();
   const entryTableRowChangeIndexes = new Map<string, number>();
   const entryTargetSides = new Map<string, "left" | "right" | "both">();
+  const fallbackReasons = entries.flatMap(fallbackReasonsForEntry);
 
   for (const entry of entries) {
     const targetBlock = presentationEntryBlocks(entry).find(
@@ -432,6 +460,7 @@ export function buildRenderedDiffPresentation(
     entries,
     navigationTargets,
     sectionOutline: buildSectionOutline(entries, navigationTargets),
+    fallbackReasons,
     entryChangeIndexes,
     entryChildChangeIndexes,
     entryTableRowChangeIndexes,

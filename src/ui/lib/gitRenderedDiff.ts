@@ -7,6 +7,8 @@ export type {
   RenderedBlockDiffKind,
   RenderedBlockKind,
   RenderedDiffContentCursorTarget,
+  RenderedDiffFallbackKind,
+  RenderedDiffFallbackReason,
   RenderedDiffNavigationTarget,
   RenderedDiffPresentation,
   RenderedDiffPresentationEntry,

@@ -297,6 +297,34 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             );
           })
         : true,
+    hasRenderedVisualDiffFallbackVisibility:
+      scenario === "viewer-rendered-visual-diff-fallback-visibility"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_FALLBACK_VISIBILITY__;
+            return (
+              result?.fallbackCount > 0 &&
+              Object.keys(result.reasonCounts ?? {}).some((label) =>
+                label.startsWith("List fallback:"),
+              )
+            );
+          })
+        : true,
+    hasRenderedVisualDiffFallbackPrivacy:
+      scenario === "viewer-rendered-visual-diff-fallback-privacy"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_FALLBACK_VISIBILITY__;
+            if (!result || result.fallbackCount <= 0) {
+              return false;
+            }
+            const serialized = JSON.stringify(result);
+            return (
+              !serialized.includes("Git Rendered List Reorder Fixture") &&
+              !serialized.includes("Secret") &&
+              !serialized.includes("/workspace/") &&
+              !serialized.includes("@@")
+            );
+          })
+        : true,
     hasDiffFullPreviewMarkdown:
       scenario === "viewer-diff-full-preview-markdown"
         ? bodyText.includes("Git Rendered Markdown Diff Fixture") &&

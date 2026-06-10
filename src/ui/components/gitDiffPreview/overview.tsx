@@ -2,6 +2,7 @@ import type { DocumentDiffPreview } from "../../../core/types";
 import {
   isRenderedChangeBlock,
   type GitRenderedDiffSummary,
+  type RenderedDiffFallbackReason,
   type RenderedDiffPresentation,
 } from "../../lib/gitRenderedDiff";
 import type { GitTableDiffSummary } from "../../lib/gitTableDiff";
@@ -42,6 +43,26 @@ function overviewSections(
 
 function pluralize(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function renderedFallbackCategoryLabel(
+  fallback: RenderedDiffFallbackReason,
+): string {
+  const target = fallback.kind === "list" ? "List fallback" : "Table fallback";
+  return `${target}: ${fallback.reason.replace(/-/g, " ")}`;
+}
+
+function renderedFallbackReasonCounts(
+  renderedPresentation: RenderedDiffPresentation,
+): string[] {
+  const counts = new Map<string, number>();
+  for (const fallback of renderedPresentation.fallbackReasons) {
+    const label = renderedFallbackCategoryLabel(fallback);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([label, count]) =>
+    count === 1 ? label : `${label} (${count})`,
+  );
 }
 
 export function overviewSummaryItems(
@@ -98,6 +119,7 @@ export function overviewStats({
     renderedSummary.blocks.length > 0 ? changedBlockCount : sourceChanges;
   const fallbackReasons = [
     renderedSummary.fallbackMessage,
+    ...renderedFallbackReasonCounts(renderedPresentation),
     tableSummary.fallbackReason
       ? fallbackMessage(tableSummary.fallbackReason)
       : undefined,

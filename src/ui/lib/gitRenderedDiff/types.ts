@@ -151,10 +151,20 @@ export interface RenderedDiffSectionOutlineItem {
   changeCount: number;
 }
 
+export type RenderedDiffFallbackKind = "list" | "table";
+
+export interface RenderedDiffFallbackReason {
+  blockId: string;
+  entryId: string;
+  kind: RenderedDiffFallbackKind;
+  reason: RenderedListItemFallbackReason | RenderedTableFallbackReason;
+}
+
 export interface RenderedDiffPresentation {
   entries: RenderedDiffPresentationEntry[];
   navigationTargets: RenderedDiffNavigationTarget[];
   sectionOutline: RenderedDiffSectionOutlineItem[];
+  fallbackReasons: RenderedDiffFallbackReason[];
   entryChangeIndexes: Map<string, number>;
   entryChildChangeIndexes: Map<string, number>;
   entryTableRowChangeIndexes: Map<string, number>;

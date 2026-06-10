@@ -8,6 +8,7 @@ import {
 import { diffPreviewChangeCountLabel } from "../../src/ui/components/gitDiffPreview/useDiffPreviewSummaries";
 import {
   hiddenRenderedGroupPlaceholderLabel,
+  renderedDiffFallbackIndicatorLabel,
   renderedDiffPresentationEntryMetaLabel,
 } from "../../src/ui/components/gitDiffPreview/renderedView";
 import { buildRenderedDiffPresentation } from "../../src/ui/lib/gitRenderedDiff";
@@ -219,5 +220,44 @@ describe("diff preview labels", () => {
       { label: "Changed blocks", value: 2 },
       { label: "Tables", value: 1 },
     ]);
+  });
+
+  it("uses privacy-safe fallback indicator labels and overview counts", () => {
+    const listFallback = {
+      ...changedBlock("secret-list", "list", "Secret list body"),
+      childChangeFallback: { reason: "low-overlap" as const },
+    };
+    const tableFallback = {
+      ...changedBlock("secret-table", "table", "Secret table body"),
+      tableChangeFallback: { reason: "complex" as const },
+    };
+    const renderedPresentation = buildRenderedDiffPresentation([
+      listFallback,
+      tableFallback,
+      {
+        ...changedBlock("secret-list-two", "list", "Second secret list body"),
+        childChangeFallback: { reason: "low-overlap" as const },
+      },
+    ]);
+    const renderedSummary: GitRenderedDiffSummary = {
+      blocks: [listFallback, tableFallback],
+    };
+    const overview = overviewStats({
+      preview: emptyDiffPreview,
+      renderedSummary,
+      renderedPresentation,
+      tableSummary: emptyTableSummary,
+    });
+
+    expect(
+      renderedDiffFallbackIndicatorLabel(
+        renderedPresentation.fallbackReasons[0]!,
+      ),
+    ).toBe("List fallback: low overlap");
+    expect(overview.fallbackReasons).toEqual([
+      "List fallback: low overlap (2)",
+      "Table fallback: complex",
+    ]);
+    expect(JSON.stringify(overview.fallbackReasons)).not.toContain("Secret");
   });
 });

@@ -241,6 +241,77 @@ describe("git rendered diff presentation", () => {
     ]);
   });
 
+  it("keeps fallback list and table blocks as block-level targets with privacy-safe reasons", () => {
+    const presentation = buildRenderedDiffPresentation([
+      {
+        id: "fallback-list",
+        kind: "changed",
+        blockKind: "list",
+        left: {
+          id: "fallback-list-left",
+          kind: "list",
+          tagName: "ul",
+          text: "Secret Alpha Secret Beta",
+          html: "<ul><li>Secret Alpha</li><li>Secret Beta</li></ul>",
+        },
+        right: {
+          id: "fallback-list-right",
+          kind: "list",
+          tagName: "ul",
+          text: "Secret Beta Secret Alpha",
+          html: "<ul><li>Secret Beta</li><li>Secret Alpha</li></ul>",
+        },
+        childChangeFallback: { reason: "reorder" },
+      },
+      {
+        id: "fallback-table",
+        kind: "changed",
+        blockKind: "table",
+        left: {
+          id: "fallback-table-left",
+          kind: "table",
+          tagName: "table",
+          text: "Secret old table",
+          html: "<table><tr><td colspan='2'>Secret old table</td></tr></table>",
+        },
+        right: {
+          id: "fallback-table-right",
+          kind: "table",
+          tagName: "table",
+          text: "Secret new table",
+          html: "<table><tr><td colspan='2'>Secret new table</td></tr></table>",
+        },
+        tableChangeFallback: { reason: "complex" },
+      },
+    ]);
+
+    expect(presentation.navigationTargets).toEqual([
+      expect.objectContaining({
+        block: expect.objectContaining({ id: "fallback-list" }),
+        targetKind: "block",
+      }),
+      expect.objectContaining({
+        block: expect.objectContaining({ id: "fallback-table" }),
+        targetKind: "block",
+      }),
+    ]);
+    expect(presentation.fallbackReasons).toEqual([
+      {
+        blockId: "fallback-list",
+        entryId: presentation.entries[0]?.id,
+        kind: "list",
+        reason: "reorder",
+      },
+      {
+        blockId: "fallback-table",
+        entryId: presentation.entries[1]?.id,
+        kind: "table",
+        reason: "complex",
+      },
+    ]);
+    expect(JSON.stringify(presentation.fallbackReasons)).not.toContain("Secret");
+  });
+
   it("groups contiguous one-sided rendered changes for presentation", () => {
     const left = blocksFromHtml(`<h2>Old section</h2>
 <p>Old paragraph</p>

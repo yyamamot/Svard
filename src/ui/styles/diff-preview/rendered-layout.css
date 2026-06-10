@@ -145,6 +145,16 @@
   font-style: normal;
 }
 
+.git-rendered-fallback-indicator {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border-radius: 999px;
+  padding: 0 6px;
+  color: #7a5d1c;
+  background: color-mix(in srgb, #e7b84a 18%, transparent);
+}
+
 .git-rendered-block-content {
   overflow: visible;
   color: var(--reader-text);

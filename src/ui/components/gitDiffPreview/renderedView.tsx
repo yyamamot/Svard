@@ -19,6 +19,7 @@ import {
   type GitRenderedDiffSummary,
   type RenderedBlockDiff,
   type RenderedDiffContentCursorTarget,
+  type RenderedDiffFallbackReason,
   type RenderedDiffPresentation,
   type RenderedDiffPresentationEntry,
 } from "../../lib/gitRenderedDiff";
@@ -78,6 +79,54 @@ function blockKindLabel(blockKind: string): string {
 
 function pluralizeBlockCount(count: number): string {
   return `${count} ${count === 1 ? "block" : "blocks"}`;
+}
+
+function fallbackReasonText(reason: RenderedDiffFallbackReason["reason"]): string {
+  return reason.replace(/-/g, " ");
+}
+
+export function renderedDiffFallbackIndicatorLabel(
+  reason: RenderedDiffFallbackReason,
+): string {
+  return `${sentenceCase(reason.kind)} fallback: ${fallbackReasonText(
+    reason.reason,
+  )}`;
+}
+
+function renderedDiffFallbackIndicatorTitle(
+  reason: RenderedDiffFallbackReason,
+): string {
+  const target =
+    reason.kind === "list" ? "list item matching" : "table row matching";
+  return `Svard kept this as a block-level change because ${target} fell back: ${fallbackReasonText(
+    reason.reason,
+  )}.`;
+}
+
+function fallbackReasonsForEntry(
+  entry: RenderedDiffPresentationEntry,
+): RenderedDiffFallbackReason[] {
+  if (entry.kind !== "block" || entry.block.kind !== "changed") {
+    return [];
+  }
+  const reasons: RenderedDiffFallbackReason[] = [];
+  if (entry.block.childChangeFallback) {
+    reasons.push({
+      blockId: entry.block.id,
+      entryId: entry.id,
+      kind: "list",
+      reason: entry.block.childChangeFallback.reason,
+    });
+  }
+  if (entry.block.tableChangeFallback) {
+    reasons.push({
+      blockId: entry.block.id,
+      entryId: entry.id,
+      kind: "table",
+      reason: entry.block.tableChangeFallback.reason,
+    });
+  }
+  return reasons;
 }
 
 export function renderedDiffPresentationEntryMetaLabel(
@@ -309,6 +358,7 @@ export function RenderedDiffPane({
           const changeIndex = changeIndexForEntry(entry);
           const syncIndex = syncIndexForEntry(entry);
           const meta = renderedDiffPresentationEntryMetaLabel(entry);
+          const fallbackReasons = fallbackReasonsForEntry(entry);
           const hasListItemChanges =
             entry.kind === "block" &&
             entry.block.kind === "changed" &&
@@ -345,17 +395,27 @@ export function RenderedDiffPane({
               data-sync-index={syncIndex}
               data-change-index={changeIndex ?? undefined}
             >
-              {showBlockMeta &&
+              {(showBlockMeta || fallbackReasons.length > 0) &&
                 sideClass !== "blank" &&
                 isRenderedDiffPresentationChangeEntry(entry) && (
                   <div className="git-rendered-block-meta">
-                    <strong>{meta.primary}</strong>
-                    {meta.detail && (
+                    {showBlockMeta && <strong>{meta.primary}</strong>}
+                    {showBlockMeta && meta.detail && (
                       <>
                         <span aria-hidden="true">·</span>
                         <em>{meta.detail}</em>
                       </>
                     )}
+                    {fallbackReasons.map((reason) => (
+                      <span
+                        key={`${reason.kind}:${reason.reason}`}
+                        className="git-rendered-fallback-indicator"
+                        data-review-id="git-rendered-fallback-indicator"
+                        title={renderedDiffFallbackIndicatorTitle(reason)}
+                      >
+                        {renderedDiffFallbackIndicatorLabel(reason)}
+                      </span>
+                    ))}
                   </div>
                 )}
               {renderEntryBody(entry)}

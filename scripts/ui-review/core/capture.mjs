@@ -650,7 +650,9 @@ export async function captureScenario({
                     : bodyText.includes("PlantUML Concurrency Stress")
                       ? "plantuml-concurrency.adoc"
                       : bodyText.includes("Mixed Diagram Japanese Sample")
-                        ? "diagrams-mixed-long-ja.adoc"
+                      ? "diagrams-mixed-long-ja.adoc"
+                      : bodyText.includes("Git Rendered List Reorder Fixture")
+                        ? "git-rendered-list-reorder.md"
                         : null,
         status: report.outcome,
         plantUmlMetrics,

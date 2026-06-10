@@ -122,6 +122,7 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
       block: item,
     })),
     sectionOutline: [],
+    fallbackReasons: [],
     entryChangeIndexes: new Map(),
     entryChildChangeIndexes: new Map(),
     entryTableRowChangeIndexes: new Map(),

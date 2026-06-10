@@ -58,6 +58,7 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("Git AsciiDoc Table Diff Fixture") ||
       bodyText.includes("Git AsciiDoc Complex Table Diff Fixture") ||
       bodyText.includes("Git Rendered Markdown Diff Fixture") ||
+      bodyText.includes("Git Rendered List Reorder Fixture") ||
       bodyText.includes("Git Rendered List Deletion Fixture") ||
       bodyText.includes("Large Markdown Scroll Return Fixture") ||
       bodyText.includes("Git Rendered AsciiDoc Diff Fixture") ||
