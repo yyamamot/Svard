@@ -246,6 +246,16 @@
   --git-change-target-accent: var(--git-change-changed-accent);
 }
 
+.git-rendered-table-header-context,
+.git-rendered-table-caption-context {
+  background: color-mix(in srgb, var(--git-change-target-accent) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--git-change-target-accent) 16%, transparent);
+}
+
+.git-rendered-table-caption-context {
+  border-radius: 4px;
+}
+
 .git-rendered-block.left-side .git-rendered-table-cell-change.changed,
 .git-rendered-block.left-side .git-rendered-table-row-change.changed {
   --git-change-target-accent: var(--git-change-removed-accent);

@@ -1575,14 +1575,14 @@ This document is treated as untracked in the browser harness.
 `,
   "/workspace/docs/git-asciidoc-table.adoc": `= Git AsciiDoc Table Diff Fixture
 
+.Release matrix
+[%header]
 |===
-|Item |Status
+|Item |Owner |Platform |Status |Review signal |Long context column
 
-|AsciiDoc
-|Changed
+|AsciiDoc |Docs |Desktop |Changed |Header context should remain visible |ChangedWideContextForHorizontalTableReviewChangedWideContextForHorizontalTableReviewChangedWideContext
 
-|Diagram
-|Local-first
+|Diagram |Docs |Desktop |Local-first |Stable signal |Stable wide context
 |===
 `,
   "/workspace/docs/git-asciidoc-table-complex.adoc": `= Git AsciiDoc Complex Table Diff Fixture

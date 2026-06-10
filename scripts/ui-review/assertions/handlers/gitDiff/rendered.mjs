@@ -221,6 +221,30 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             );
           })
         : true,
+    hasRenderedVisualDiffTableReviewAssist:
+      scenario === "viewer-rendered-visual-diff-table-review-assist"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_TABLE_REVIEW_ASSIST__;
+            return (
+              result?.activeTableRowFound === true &&
+              result?.activeRowCount === 1 &&
+              result?.activeCellCount > 0 &&
+              result?.headerContextCount > 0 &&
+              result?.captionContextCount > 0
+            );
+          })
+        : true,
+    hasRenderedVisualDiffTableHorizontalContext:
+      scenario === "viewer-rendered-visual-diff-table-horizontal-context"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_TABLE_REVIEW_ASSIST__;
+            return (
+              result?.activeTableRowFound === true &&
+              result?.activeCellCount > 0 &&
+              result?.rightPaneScrollLeft > 0
+            );
+          })
+        : true,
     hasRenderedVisualDiffListItemHighlight:
       scenario === "viewer-rendered-visual-diff-list-item-highlight-basic"
         ? await page.evaluate(() => {

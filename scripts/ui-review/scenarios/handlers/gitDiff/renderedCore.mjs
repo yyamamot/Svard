@@ -295,6 +295,89 @@ export async function applyGitDiffRenderedCoreScenario(context) {
       { scenarioName: scenario, overviewSummary },
     );
   } else if (
+    scenario === "viewer-rendered-visual-diff-table-review-assist" ||
+    scenario === "viewer-rendered-visual-diff-table-horizontal-context"
+  ) {
+    await page.locator("text=git-asciidoc-table.adoc").click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Git AsciiDoc Table Diff Fixture" })
+      .waitFor();
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.locator('[data-review-id="git-diff-rendered-view"]').click();
+    await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+    await page
+      .locator('[data-review-id="git-rendered-table-row-change"][data-change-index]')
+      .first()
+      .waitFor();
+
+    await page.evaluate(() => {
+      const rightPane = document.querySelector(
+        '[data-review-id="git-rendered-right-pane"]',
+      )?.querySelector(".git-rendered-scroll");
+      if (rightPane instanceof HTMLElement) {
+        rightPane.scrollLeft = 0;
+      }
+    });
+    if (scenario === "viewer-rendered-visual-diff-table-horizontal-context") {
+      await page.getByRole("button", { name: "Next change" }).click();
+      await page.waitForTimeout(120);
+    }
+
+    let activeTableRowFound = false;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      activeTableRowFound = await page.evaluate(() =>
+        Boolean(
+          document.querySelector(
+            '[data-review-id="git-rendered-table-row-change"][data-active-change="true"]',
+          ),
+        ),
+      );
+      if (activeTableRowFound) {
+        break;
+      }
+      await page.getByRole("button", { name: "Next change" }).click();
+      await page.waitForTimeout(80);
+    }
+
+    await page.evaluate(
+      ({ scenarioName, activeTableRowFound }) => {
+        const activeRows = Array.from(
+          document.querySelectorAll(
+            '[data-review-id="git-rendered-table-row-change"][data-active-change="true"]',
+          ),
+        );
+        const rightPane = document.querySelector(
+          '[data-review-id="git-rendered-right-pane"]',
+        )?.querySelector(".git-rendered-scroll");
+        window.__SVARD_RENDERED_TABLE_REVIEW_ASSIST__ = {
+          scenario: scenarioName,
+          activeTableRowFound,
+          activeRowCount: activeRows.length,
+          activeCellCount: activeRows.reduce(
+            (count, row) =>
+              count +
+              row.querySelectorAll(
+                '[data-review-id="git-rendered-table-cell-change"]',
+              ).length,
+            0,
+          ),
+          captionContextCount: document.querySelectorAll(
+            '[data-review-id="git-rendered-table-caption-context"]',
+          ).length,
+          headerContextCount: document.querySelectorAll(
+            '[data-review-id="git-rendered-table-header-context"]',
+          ).length,
+          rightPaneScrollLeft:
+            rightPane instanceof HTMLElement ? rightPane.scrollLeft : 0,
+        };
+      },
+      { scenarioName: scenario, activeTableRowFound },
+    );
+  } else if (
     scenario === "viewer-rendered-visual-diff-list-item-highlight-basic" ||
     scenario === "viewer-rendered-visual-diff-list-item-navigation" ||
     scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||

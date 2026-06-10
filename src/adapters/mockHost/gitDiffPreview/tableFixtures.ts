@@ -89,26 +89,26 @@ export function getTableGitDiffPreview(
   if (path.endsWith("/git-asciidoc-table.adoc")) {
     const leftText = `= Git AsciiDoc Table Diff Fixture
 
+.Release matrix
+[%header]
 |===
-|Item |Status
+|Item |Owner |Platform |Status |Review signal |Long context column
 
-|AsciiDoc
-|Rendered
+|AsciiDoc |Docs |Desktop |Rendered |Header context should remain visible |StableWideContextForHorizontalTableReviewStableWideContextForHorizontalTableReviewStableWideContext
 
-|Diagram
-|Local-first
+|Diagram |Docs |Desktop |Local-first |Stable signal |Stable wide context
 |===
 `;
     const rightText = `= Git AsciiDoc Table Diff Fixture
 
+.Release matrix
+[%header]
 |===
-|Item |Status
+|Item |Owner |Platform |Status |Review signal |Long context column
 
-|AsciiDoc
-|Changed
+|AsciiDoc |Docs |Desktop |Changed |Header context should remain visible |ChangedWideContextForHorizontalTableReviewChangedWideContextForHorizontalTableReviewChangedWideContext
 
-|Diagram
-|Local-first
+|Diagram |Docs |Desktop |Local-first |Stable signal |Stable wide context
 |===
 `;
     return {
@@ -120,9 +120,9 @@ export function getTableGitDiffPreview(
       hunks: [
         {
           oldStart: 1,
-          oldLines: 11,
+          oldLines: 9,
           newStart: 1,
-          newLines: 11,
+          newLines: 9,
           lines: [
             {
               kind: "context",
@@ -131,36 +131,39 @@ export function getTableGitDiffPreview(
               text: "= Git AsciiDoc Table Diff Fixture",
             },
             { kind: "context", oldLine: 2, newLine: 2, text: "" },
-            { kind: "context", oldLine: 3, newLine: 3, text: "|===" },
             {
               kind: "context",
-              oldLine: 4,
-              newLine: 4,
-              text: "|Item |Status",
+              oldLine: 3,
+              newLine: 3,
+              text: ".Release matrix",
             },
-            { kind: "context", oldLine: 5, newLine: 5, text: "" },
-            { kind: "context", oldLine: 6, newLine: 6, text: "|AsciiDoc" },
+            { kind: "context", oldLine: 4, newLine: 4, text: "[%header]" },
+            { kind: "context", oldLine: 5, newLine: 5, text: "|===" },
+            {
+              kind: "context",
+              oldLine: 6,
+              newLine: 6,
+              text: "|Item |Owner |Platform |Status |Review signal |Long context column",
+            },
             {
               kind: "removed",
               oldLine: 7,
               newLine: null,
-              text: "|Rendered",
+              text: "|AsciiDoc |Docs |Desktop |Rendered |Header context should remain visible |StableWideContextForHorizontalTableReviewStableWideContextForHorizontalTableReviewStableWideContext",
             },
             {
               kind: "added",
               oldLine: null,
               newLine: 7,
-              text: "|Changed",
+              text: "|AsciiDoc |Docs |Desktop |Changed |Header context should remain visible |ChangedWideContextForHorizontalTableReviewChangedWideContextForHorizontalTableReviewChangedWideContext",
             },
-            { kind: "context", oldLine: 8, newLine: 8, text: "" },
-            { kind: "context", oldLine: 9, newLine: 9, text: "|Diagram" },
             {
               kind: "context",
-              oldLine: 10,
-              newLine: 10,
-              text: "|Local-first",
+              oldLine: 8,
+              newLine: 8,
+              text: "|Diagram |Docs |Desktop |Local-first |Stable signal |Stable wide context",
             },
-            { kind: "context", oldLine: 11, newLine: 11, text: "|===" },
+            { kind: "context", oldLine: 9, newLine: 9, text: "|===" },
           ],
         },
       ],

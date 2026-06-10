@@ -73,11 +73,40 @@ export function applyRenderedTableHighlights({
   const leftCellTexts = cellTextsByPosition(leftHtml);
   const rightCellTexts = cellTextsByPosition(rightHtml);
   const highlightsByRow = new Map<number, RenderedTableCellHighlight[]>();
+  const activeColumnIndexes = new Set<number>();
+  const activeRowIndexes = new Set<number>();
   highlights.forEach((highlight) => {
     const rowHighlights = highlightsByRow.get(highlight.rowIndex) ?? [];
     rowHighlights.push(highlight);
     highlightsByRow.set(highlight.rowIndex, rowHighlights);
+    if (highlight.active) {
+      activeColumnIndexes.add(highlight.cellIndex);
+      activeRowIndexes.add(highlight.rowIndex);
+    }
   });
+  if (activeColumnIndexes.size > 0) {
+    const firstActiveRowIndex = Math.min(...activeRowIndexes);
+    table.caption?.classList.add("git-rendered-table-caption-context");
+    table.caption?.setAttribute(
+      "data-review-id",
+      "git-rendered-table-caption-context",
+    );
+    Array.from(table.rows).forEach((row, rowIndex) => {
+      Array.from(row.cells).forEach((cell, cellIndex) => {
+        if (
+          rowIndex < firstActiveRowIndex &&
+          activeColumnIndexes.has(cellIndex) &&
+          cell.tagName.toLowerCase() === "th"
+        ) {
+          cell.classList.add("git-rendered-table-header-context");
+          cell.setAttribute(
+            "data-review-id",
+            "git-rendered-table-header-context",
+          );
+        }
+      });
+    });
+  }
 
   Array.from(table.rows).forEach((row, rowIndex) => {
     const rowHighlights = highlightsByRow.get(rowIndex);

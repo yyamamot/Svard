@@ -234,6 +234,7 @@ export function useDiffScrollNavigation({
         Math.max(0, pane.scrollHeight - pane.clientHeight),
       ),
     );
+    pane.scrollLeft = renderedTargetHorizontalScrollLeft(pane, target);
     markProgrammaticScroll(pane);
   }
 
@@ -266,4 +267,42 @@ export function useDiffScrollNavigation({
     syncDirectScroll,
     syncRenderedScroll,
   };
+}
+
+export function renderedTargetHorizontalScrollLeft(
+  pane: HTMLDivElement,
+  target: HTMLElement,
+) {
+  const paneRect = pane.getBoundingClientRect();
+  const padding = 24;
+  const changedCells = Array.from(
+    target.querySelectorAll<HTMLElement>(".git-rendered-table-cell-change"),
+  );
+  const cellTarget =
+    changedCells.find((cell) => {
+      const cellRect = cell.getBoundingClientRect();
+      return (
+        cellRect.left < paneRect.left + padding ||
+        cellRect.right > paneRect.right - padding
+      );
+    }) ??
+    changedCells[0] ??
+    target;
+  const targetRect = cellTarget.getBoundingClientRect();
+  if (targetRect.left < paneRect.left + padding) {
+    return Math.max(
+      0,
+      pane.scrollLeft + targetRect.left - paneRect.left - padding,
+    );
+  }
+  if (targetRect.right > paneRect.right - padding) {
+    return Math.max(
+      0,
+      Math.min(
+        pane.scrollLeft + targetRect.right - paneRect.right + padding,
+        Math.max(0, pane.scrollWidth - pane.clientWidth),
+      ),
+    );
+  }
+  return pane.scrollLeft;
 }

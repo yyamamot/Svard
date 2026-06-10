@@ -154,10 +154,10 @@ describe("git rendered diff tables", () => {
   it("applies row navigation metadata, cell highlight, and inline word highlights", () => {
     const [block] = compareRenderedBlocks(
       blocksFromHtml(
-        `<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Draft review</td></tr></tbody></table>`,
+        `<table><caption>Release table</caption><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Draft review</td></tr></tbody></table>`,
       ),
       blocksFromHtml(
-        `<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>`,
+        `<table><caption>Release table</caption><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>`,
       ),
     );
     expect(block?.left?.html).toBeDefined();
@@ -184,7 +184,52 @@ describe("git rendered diff tables", () => {
     expect(
       body.querySelectorAll('[data-review-id="git-rendered-table-cell-change"]'),
     ).toHaveLength(1);
+    expect(
+      body.querySelectorAll('[data-review-id="git-rendered-table-header-context"]'),
+    ).toHaveLength(1);
+    expect(
+      body.querySelector('[data-review-id="git-rendered-table-header-context"]')
+        ?.textContent,
+    ).toBe("Status");
+    expect(
+      body.querySelector('[data-review-id="git-rendered-table-caption-context"]'),
+    ).toBeTruthy();
     expect(body.querySelector(".git-inline-word-highlight.added")).toBeTruthy();
+  });
+
+  it("does not apply table header or caption context for inactive row targets", () => {
+    const [block] = compareRenderedBlocks(
+      blocksFromHtml(
+        `<table><caption>Release table</caption><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Draft review</td></tr></tbody></table>`,
+      ),
+      blocksFromHtml(
+        `<table><caption>Release table</caption><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>`,
+      ),
+    );
+    const highlights = renderedTableHighlightsForSide({
+      activeChangeIndex: 9,
+      block: block as NonNullable<typeof block>,
+      changeIndexForRow: () => 4,
+      side: "right",
+    });
+    const html = applyRenderedTableHighlights({
+      highlights,
+      html: block?.right?.html ?? "",
+      leftHtml: block?.left?.html,
+      rightHtml: block?.right?.html,
+      side: "right",
+    });
+    const body = parseHtmlBody(html);
+
+    expect(
+      body.querySelector('[data-review-id="git-rendered-table-cell-change"]'),
+    ).toBeTruthy();
+    expect(
+      body.querySelector('[data-review-id="git-rendered-table-header-context"]'),
+    ).toBeNull();
+    expect(
+      body.querySelector('[data-review-id="git-rendered-table-caption-context"]'),
+    ).toBeNull();
   });
 
   it("keeps complex table fallback and sanitized metadata privacy-safe", () => {
@@ -209,7 +254,7 @@ describe("git rendered diff tables", () => {
   });
 
   it("preserves table row and cell change metadata after sanitization", () => {
-    const html = `<table><tbody><tr class="git-rendered-table-row-change changed" data-review-id="git-rendered-table-row-change" data-change-index="2" data-active-change="true"><td class="git-rendered-table-cell-change changed" data-review-id="git-rendered-table-cell-change"><span class="git-inline-word-highlight added" data-review-id="git-diff-word-highlight">Done</span></td></tr></tbody></table>`;
+    const html = `<table><caption class="git-rendered-table-caption-context" data-review-id="git-rendered-table-caption-context">Release</caption><tbody><tr><th class="git-rendered-table-header-context" data-review-id="git-rendered-table-header-context">Status</th></tr><tr class="git-rendered-table-row-change changed" data-review-id="git-rendered-table-row-change" data-change-index="2" data-active-change="true"><td class="git-rendered-table-cell-change changed" data-review-id="git-rendered-table-cell-change"><span class="git-inline-word-highlight added" data-review-id="git-diff-word-highlight">Done</span></td></tr></tbody></table>`;
     const sanitized = unwrapSafeHtml(
       sanitizeRenderedBlockHtml(html, { format: "markdown" }),
     );
@@ -217,6 +262,10 @@ describe("git rendered diff tables", () => {
     expect(sanitized).toContain("git-rendered-table-row-change");
     expect(sanitized).toContain('data-review-id="git-rendered-table-row-change"');
     expect(sanitized).toContain("git-rendered-table-cell-change");
+    expect(sanitized).toContain("git-rendered-table-header-context");
+    expect(sanitized).toContain('data-review-id="git-rendered-table-header-context"');
+    expect(sanitized).toContain("git-rendered-table-caption-context");
+    expect(sanitized).toContain('data-review-id="git-rendered-table-caption-context"');
     expect(sanitized).toContain('data-change-index="2"');
     expect(sanitized).toContain('data-active-change="true"');
   });
