@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.2
 
 - Added opt-in Change Review Mode so working tree changes are visible in the viewer without opening Diff Preview.
 - Enhanced rendered Diff Preview visuals for list item changes and consistent Git change highlighting.
