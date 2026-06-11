@@ -98,6 +98,11 @@ export function documentPayloadRenderSignature(
   return safeJsonSignature({
     asciidocContext: documentPayload?.asciidocContext ?? null,
     format: documentPayload?.format ?? null,
+    includeFiles:
+      documentPayload?.includeFiles?.map((file) => ({
+        path: file.path,
+        source: file.source,
+      })) ?? [],
     path: documentPayload?.path ?? null,
     source: documentPayload?.source ?? null,
   });

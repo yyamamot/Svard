@@ -99,7 +99,7 @@ describe("useDocumentRenderSignatures", () => {
     );
   });
 
-  it("uses document path, source, format, and AsciiDoc context as payload render inputs", () => {
+  it("uses document path, source, format, AsciiDoc context, and includes as payload render inputs", () => {
     const base = documentPayload();
     const baseSignature = documentPayloadRenderSignature(base);
 
@@ -130,6 +130,18 @@ describe("useDocumentRenderSignatures", () => {
             ...base.asciidocContext!,
             attributes: { icons: "font", sectnums: "" },
           },
+        }),
+      ),
+    ).not.toBe(baseSignature);
+    expect(
+      documentPayloadRenderSignature(
+        documentPayload({
+          includeFiles: [
+            {
+              path: "/workspace/docs/partials/intro.adoc",
+              source: "== Intro\n",
+            },
+          ],
         }),
       ),
     ).not.toBe(baseSignature);

@@ -161,6 +161,7 @@ pub(crate) fn collect_asciidoc_include_files_with_base(
     let mut visited = BTreeSet::new();
     let mut files = Vec::new();
     let mut total_bytes = 0;
+    let mut attributes = asciidoc_attributes(source);
     collect_asciidoc_include_files_inner(
         document_path,
         source,
@@ -170,6 +171,7 @@ pub(crate) fn collect_asciidoc_include_files_with_base(
         &mut files,
         &mut total_bytes,
         0,
+        &mut attributes,
     );
     files
 }
@@ -257,6 +259,7 @@ pub(crate) fn collect_asciidoc_include_files_inner(
     files: &mut Vec<AsciiDocIncludeFile>,
     total_bytes: &mut u64,
     depth: usize,
+    attributes: &mut BTreeMap<String, String>,
 ) {
     if depth > 12 {
         return;
@@ -264,7 +267,37 @@ pub(crate) fn collect_asciidoc_include_files_inner(
     let current_dir = current_path.parent().unwrap_or(base_root);
     let canonical_base = resolve_existing_directory_path(base_root)
         .unwrap_or_else(|_| normalize_path(base_root.to_path_buf()));
-    for target in asciidoc_include_targets(source) {
+    let mut condition_stack: Vec<bool> = Vec::new();
+    let mut in_delimited_block = false;
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if !in_delimited_block {
+            if is_asciidoc_endif(trimmed) {
+                condition_stack.pop();
+                continue;
+            }
+            if let Some(condition) = evaluate_asciidoc_condition(trimmed, attributes) {
+                condition_stack.push(condition_stack.iter().all(|active| *active) && condition);
+                continue;
+            }
+            if !condition_stack.iter().all(|active| *active) {
+                continue;
+            }
+            apply_asciidoc_attribute_directive(trimmed, attributes);
+        }
+        if trimmed == "----" || trimmed == "...." {
+            in_delimited_block = !in_delimited_block;
+        }
+        let Some(rest) = trimmed.strip_prefix("include::") else {
+            continue;
+        };
+        let Some((target, _attributes)) = rest.split_once('[') else {
+            continue;
+        };
+        let target = substitute_asciidoc_attributes(target.trim(), attributes);
+        if target.is_empty() {
+            continue;
+        }
         if target.starts_with('/')
             || target.contains("://")
             || target.starts_with("http:")
@@ -322,27 +355,153 @@ pub(crate) fn collect_asciidoc_include_files_inner(
                 files,
                 total_bytes,
                 depth + 1,
+                attributes,
             );
         }
     }
 }
 
-pub(crate) fn asciidoc_include_targets(source: &str) -> Vec<String> {
-    let mut targets = Vec::new();
-    for line in source.lines() {
-        let trimmed = line.trim();
-        let Some(rest) = trimmed.strip_prefix("include::") else {
+fn substitute_asciidoc_attributes(value: &str, attributes: &BTreeMap<String, String>) -> String {
+    let mut result = String::new();
+    let mut chars = value.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '{' {
+            result.push(ch);
             continue;
-        };
-        let Some((target, _attributes)) = rest.split_once('[') else {
-            continue;
-        };
-        let target = target.trim();
-        if !target.is_empty() {
-            targets.push(target.to_string());
+        }
+        let mut name = String::new();
+        let mut closed = false;
+        for inner in chars.by_ref() {
+            if inner == '}' {
+                closed = true;
+                break;
+            }
+            name.push(inner);
+        }
+        if closed {
+            result.push_str(
+                attributes
+                    .get(name.trim())
+                    .map(String::as_str)
+                    .unwrap_or(""),
+            );
+        } else {
+            result.push('{');
+            result.push_str(&name);
         }
     }
-    targets
+    result
+}
+
+fn apply_asciidoc_attribute_directive(
+    trimmed: &str,
+    attributes: &mut BTreeMap<String, String>,
+) -> bool {
+    if let Some(rest) = trimmed.strip_prefix(":!") {
+        if let Some(name) = rest.strip_suffix(':') {
+            attributes.remove(name.trim());
+            return true;
+        }
+    }
+    if let Some(rest) = trimmed.strip_prefix(':') {
+        if let Some(name) = rest.strip_suffix("!:") {
+            attributes.remove(name.trim());
+            return true;
+        }
+    }
+    if let Some(rest) = trimmed.strip_prefix(':') {
+        let Some((name, value)) = rest.split_once(':') else {
+            return false;
+        };
+        let name = name.trim();
+        if name.is_empty() || name.starts_with('!') {
+            return false;
+        }
+        let value = substitute_asciidoc_attributes(value.trim(), attributes);
+        attributes.insert(name.to_string(), value);
+        return true;
+    }
+    false
+}
+
+fn evaluate_asciidoc_condition(
+    trimmed: &str,
+    attributes: &BTreeMap<String, String>,
+) -> Option<bool> {
+    if let Some(rest) = trimmed.strip_prefix("ifdef::") {
+        let names = rest.split_once('[')?.0;
+        return Some(
+            names
+                .split([',', '+'])
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .any(|name| attributes.contains_key(name)),
+        );
+    }
+    if let Some(rest) = trimmed.strip_prefix("ifndef::") {
+        let names = rest.split_once('[')?.0;
+        return Some(
+            names
+                .split([',', '+'])
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .all(|name| !attributes.contains_key(name)),
+        );
+    }
+    if let Some(rest) = trimmed.strip_prefix("ifeval::[") {
+        let expression = rest.strip_suffix(']')?;
+        return Some(evaluate_asciidoc_ifeval(expression, attributes));
+    }
+    None
+}
+
+fn evaluate_asciidoc_ifeval(expression: &str, attributes: &BTreeMap<String, String>) -> bool {
+    let expression = substitute_asciidoc_attributes(expression, attributes);
+    for operator in ["==", "!=", ">=", "<=", ">", "<"] {
+        let Some((left, right)) = expression.split_once(operator) else {
+            continue;
+        };
+        let left = left.trim().trim_matches(['"', '\'']);
+        let right = right.trim().trim_matches(['"', '\'']);
+        let left_number = left.parse::<f64>();
+        let right_number = right.parse::<f64>();
+        return match operator {
+            "==" => left == right,
+            "!=" => left != right,
+            ">" => compare_asciidoc_ifeval(left, right, left_number, right_number, |a, b| a > b),
+            "<" => compare_asciidoc_ifeval(left, right, left_number, right_number, |a, b| a < b),
+            ">=" => compare_asciidoc_ifeval(left, right, left_number, right_number, |a, b| a >= b),
+            "<=" => compare_asciidoc_ifeval(left, right, left_number, right_number, |a, b| a <= b),
+            _ => false,
+        };
+    }
+    false
+}
+
+fn compare_asciidoc_ifeval(
+    left: &str,
+    right: &str,
+    left_number: Result<f64, std::num::ParseFloatError>,
+    right_number: Result<f64, std::num::ParseFloatError>,
+    numeric_compare: impl Fn(f64, f64) -> bool,
+) -> bool {
+    match (left_number, right_number) {
+        (Ok(left), Ok(right)) => numeric_compare(left, right),
+        _ => numeric_compare(
+            if left > right {
+                1.0
+            } else if left == right {
+                0.0
+            } else {
+                -1.0
+            },
+            0.0,
+        ),
+    }
+}
+
+fn is_asciidoc_endif(trimmed: &str) -> bool {
+    trimmed.starts_with("endif::") && trimmed.ends_with("[]")
 }
 
 pub(crate) fn document_updated_at(path: &str) -> String {

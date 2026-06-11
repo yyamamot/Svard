@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added conditional AsciiDoc include support for `ifdef`, `ifndef`, `ifeval`, and attribute-substituted include targets.
+
 ## 1.0.2
 
 - Added opt-in Change Review Mode so working tree changes are visible in the viewer without opening Diff Preview.

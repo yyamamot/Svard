@@ -319,6 +319,57 @@ fn open_document_collects_include_and_resolves_drawio_image_from_real_files() {
 }
 
 #[test]
+fn open_document_collects_conditional_and_attribute_substituted_includes() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let partials = project.join("partials");
+    let nested = partials.join("nested");
+    let document = docs.join("index.adoc");
+    let enabled = partials.join("enabled.adoc");
+    let prod = partials.join("prod.adoc");
+    let seed = partials.join("attribute-seed.adoc");
+    let propagated = nested.join("propagated.adoc");
+    let disabled = partials.join("disabled.adoc");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::create_dir_all(&partials).expect("create partials");
+    fs::create_dir_all(&nested).expect("create nested");
+    fs::write(
+        &document,
+        "= Main\n:feature:\n:env: prod\n:partialsdir: ../partials\n\nifdef::feature[]\ninclude::{partialsdir}/enabled.adoc[]\nendif::[]\n\nifndef::feature[]\ninclude::{partialsdir}/disabled.adoc[]\nendif::[]\n\nifeval::[\"{env}\" == \"prod\"]\ninclude::{partialsdir}/prod.adoc[]\nendif::[]\n\ninclude::{partialsdir}/attribute-seed.adoc[]\ninclude::{propagated-partial}/propagated.adoc[]\n",
+    )
+    .expect("write document");
+    fs::write(&enabled, "== Enabled\n").expect("write enabled");
+    fs::write(&prod, "== Production\n").expect("write prod");
+    fs::write(&seed, ":propagated-partial: ../partials/nested\n").expect("write seed");
+    fs::write(&propagated, "== Propagated\n").expect("write propagated");
+    fs::write(&disabled, "== Disabled\n").expect("write disabled");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register project root");
+    let payload = open_document_from_canonical_path_with_roots(
+        &document.canonicalize().unwrap(),
+        Some(&roots),
+    )
+    .expect("open document");
+
+    let include_paths: Vec<_> = payload
+        .include_files
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect();
+    assert_eq!(
+        include_paths,
+        vec![
+            path_to_ui_string(&enabled.canonicalize().unwrap()),
+            path_to_ui_string(&prod.canonicalize().unwrap()),
+            path_to_ui_string(&seed.canonicalize().unwrap()),
+            path_to_ui_string(&propagated.canonicalize().unwrap()),
+        ]
+    );
+}
+
+#[test]
 fn direct_antora_page_open_collects_module_partials_and_images() {
     let dir = tempdir().expect("temp dir");
     let module = dir.path().join("project").join("modules").join("fwupdate");

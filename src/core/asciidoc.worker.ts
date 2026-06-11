@@ -39,6 +39,7 @@ self.onmessage = (
       payload.source,
       payload.path,
       payload.includeFiles ?? [],
+      { attributes: payload.asciidocContext?.attributes ?? {} },
     );
     const source = expanded.source;
     const renderSource = replaceDiagramBlocksWithPlaceholders(source);
@@ -61,6 +62,7 @@ self.onmessage = (
         ...expanded.diagnostics,
         ...detectDiagramDiagnostics(source, expanded.lineOrigins),
       ],
+      missingAsciiDocIncludes: expanded.missingIncludes,
       diagramSlots: extractDiagramSlots(source, expanded.lineOrigins),
       mermaidDiagrams: extractMermaidDiagrams(source, expanded.lineOrigins),
       plantUmlDiagrams: extractPlantUmlDiagrams(source, expanded.lineOrigins),

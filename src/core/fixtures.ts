@@ -102,6 +102,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "conditional-include.adoc",
+      path: "/workspace/docs/conditional-include.adoc",
+      kind: "file",
+    },
+    {
       name: "cross-platform-local-assets.adoc",
       path: "/workspace/docs/cross-platform-local-assets.adoc",
       kind: "file",
@@ -1103,6 +1108,83 @@ This is a synthetic Obsidian-style note.
   "/workspace/obsidian-vault/folder/Nested.md": `# Nested
 
 Nested note.
+`,
+  "/workspace/docs/conditional-include.adoc": `= Conditional Include Compatibility Sample
+:toc:
+:feature-preview:
+:target-env: prod
+:partialsdir: partials/conditional
+
+== Expected Visible Content
+
+The rendered document should include active ifdef, ifndef, ifeval, and propagated attribute include branches.
+
+== ifdef Include
+
+ifdef::feature-preview[]
+include::{partialsdir}/feature-preview.adoc[leveloffset=+1]
+endif::[]
+
+ifndef::feature-preview[]
+include::{partialsdir}/feature-disabled.adoc[leveloffset=+1]
+endif::[]
+
+== ifndef Include
+
+ifndef::legacy-mode[]
+include::{partialsdir}/modern-mode.adoc[leveloffset=+1]
+endif::[]
+
+ifdef::legacy-mode[]
+include::{partialsdir}/legacy-mode.adoc[leveloffset=+1]
+endif::[]
+
+== ifeval Include
+
+ifeval::["{target-env}" == "prod"]
+include::{partialsdir}/prod-target.adoc[leveloffset=+1]
+endif::[]
+
+ifeval::["{target-env}" == "dev"]
+include::{partialsdir}/dev-target.adoc[leveloffset=+1]
+endif::[]
+
+== Attribute Propagation From Include
+
+include::{partialsdir}/attribute-seed.adoc[]
+include::{propagated-partial}/propagated-content.adoc[leveloffset=+1]
+`,
+  "/workspace/docs/partials/conditional/feature-preview.adoc": `= Feature Preview Branch
+
+This section is included because feature-preview is defined.
+`,
+  "/workspace/docs/partials/conditional/feature-disabled.adoc": `= Feature Disabled Branch
+
+This content should stay hidden.
+`,
+  "/workspace/docs/partials/conditional/modern-mode.adoc": `= Modern Mode Branch
+
+This section is included because legacy-mode is not defined.
+`,
+  "/workspace/docs/partials/conditional/legacy-mode.adoc": `= Legacy Mode Branch
+
+This content should stay hidden.
+`,
+  "/workspace/docs/partials/conditional/prod-target.adoc": `= Production Target Branch
+
+This section is included because target-env is prod.
+`,
+  "/workspace/docs/partials/conditional/dev-target.adoc": `= Development Target Branch
+
+This content should stay hidden.
+`,
+  "/workspace/docs/partials/conditional/attribute-seed.adoc": `:propagated-partial: partials/conditional/nested
+
+The include above defines propagated-partial.
+`,
+  "/workspace/docs/partials/conditional/nested/propagated-content.adoc": `= Propagated Attribute Include
+
+This section proves that an attribute defined inside an included file can select a later include target.
 `,
   "/workspace/docs/obsidian-wikilink-disabled.md": `# Wikilink Disabled
 
@@ -2731,13 +2813,98 @@ export function fixtureIncludeFilesForPath(path: string) {
     return /\.(adoc|asciidoc|asc)$/i.test(input);
   }
 
+  function substituteAttributes(input: string, attributes: Map<string, string>) {
+    return input.replace(/\{([^}]+)\}/g, (_match, name: string) => {
+      return attributes.get(name.trim()) ?? "";
+    });
+  }
+
+  function applyAttribute(trimmed: string, attributes: Map<string, string>) {
+    const unset = /^:(?:!([^:]+)|([^:!]+)!):\s*$/.exec(trimmed);
+    if (unset) {
+      attributes.delete((unset[1] ?? unset[2]).trim());
+      return;
+    }
+    const assignment = /^:([^:!\s][^:]*):\s*(.*)$/.exec(trimmed);
+    if (!assignment) {
+      return;
+    }
+    attributes.set(
+      assignment[1].trim(),
+      substituteAttributes(assignment[2].trim(), attributes),
+    );
+  }
+
+  function conditionActive(
+    trimmed: string,
+    attributes: Map<string, string>,
+  ): boolean | null {
+    const conditional = /^(ifdef|ifndef)::([^[]+)\[.*\]\s*$/.exec(trimmed);
+    if (conditional) {
+      const anyDefined = conditional[2]
+        .split(/[,+]/)
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .some((name) => attributes.has(name));
+      return conditional[1] === "ifdef" ? anyDefined : !anyDefined;
+    }
+    const ifeval = /^ifeval::\[(.*)\]\s*$/.exec(trimmed);
+    if (!ifeval) {
+      return null;
+    }
+    const expression = substituteAttributes(ifeval[1], attributes).trim();
+    const match =
+      /^['"]?([^'"]*?)['"]?\s*(==|!=)\s*['"]?([^'"]*?)['"]?\s*$/.exec(
+        expression,
+      );
+    if (!match) {
+      return false;
+    }
+    return match[2] === "==" ? match[1].trim() === match[3].trim() : match[1].trim() !== match[3].trim();
+  }
+
   function collect(currentPath: string, source: string) {
+    const attributes = new Map<string, string>();
+    for (const line of source.split("\n")) {
+      applyAttribute(line.trim(), attributes);
+    }
+    collectWithAttributes(currentPath, source, attributes);
+  }
+
+  function collectWithAttributes(
+    currentPath: string,
+    source: string,
+    attributes: Map<string, string>,
+  ) {
+    const conditionStack: boolean[] = [];
+    let inDelimitedBlock = false;
     for (const line of source.split("\n")) {
       const trimmed = line.trim();
+      if (!inDelimitedBlock) {
+        if (/^endif::(?:[^[]*)?\[\]\s*$/.test(trimmed)) {
+          conditionStack.pop();
+          continue;
+        }
+        const condition = conditionActive(trimmed, attributes);
+        if (condition !== null) {
+          conditionStack.push(conditionStack.every(Boolean) && condition);
+          continue;
+        }
+        if (!conditionStack.every(Boolean)) {
+          continue;
+        }
+        applyAttribute(trimmed, attributes);
+      }
+      if (trimmed === "----" || trimmed === "....") {
+        inDelimitedBlock = !inDelimitedBlock;
+      }
       if (!trimmed.startsWith("include::")) {
         continue;
       }
-      const target = trimmed.slice("include::".length).split("[")[0]?.trim();
+      const target = substituteAttributes(
+        trimmed.slice("include::".length).split("[")[0]?.trim() ?? "",
+        attributes,
+      );
       if (!target || target.startsWith("/") || target.includes("://")) {
         continue;
       }
@@ -2749,7 +2916,7 @@ export function fixtureIncludeFilesForPath(path: string) {
       visited.add(resolved);
       includes.push({ path: resolved, source: includeSource });
       if (isRecursiveAsciiDocPath(resolved)) {
-        collect(resolved, includeSource);
+        collectWithAttributes(resolved, includeSource, attributes);
       }
     }
   }

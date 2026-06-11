@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import asciidoctor from "@asciidoctor/core";
 
@@ -33,6 +35,40 @@ Alice -> Bob: included
 ];
 
 describe("AsciiDoc include expansion", () => {
+  it("keeps the conditional include sample focused on active branches", () => {
+    const samplePath = resolve("docs/samples/conditional-include.adoc");
+    const partialRoot = resolve("docs/samples/partials/conditional");
+    const includeFiles: Array<{ path: string; source: string }> = [];
+
+    function collect(dir: string) {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) {
+          collect(path);
+          continue;
+        }
+        includeFiles.push({ path, source: readFileSync(path, "utf8") });
+      }
+    }
+
+    collect(partialRoot);
+
+    const expanded = expandAsciiDocIncludes(
+      readFileSync(samplePath, "utf8"),
+      samplePath,
+      includeFiles,
+    );
+
+    expect(expanded.diagnostics).toEqual([]);
+    expect(expanded.source).toContain("Feature Preview Branch");
+    expect(expanded.source).toContain("Modern Mode Branch");
+    expect(expanded.source).toContain("Production Target Branch");
+    expect(expanded.source).toContain("Propagated Attribute Include");
+    expect(expanded.source).not.toContain("Feature Disabled Branch");
+    expect(expanded.source).not.toContain("Legacy Mode Branch");
+    expect(expanded.source).not.toContain("Development Target Branch");
+  });
+
   it("keeps nested header attributes and leveloffset wrappers out of rendered text", () => {
     const expanded = expandAsciiDocIncludes(
       `= Root
@@ -279,6 +315,104 @@ image:diagram.drawio.svg[]`,
     expect(expanded.diagnostics).toEqual([]);
     expect(expanded.source).toContain(":imagesdir: ../images");
     expect(expanded.source).toContain("image:diagram.drawio.svg[]");
+  });
+
+  it("expands only the active include branch for ifdef and ifndef", () => {
+    const expanded = expandAsciiDocIncludes(
+      `= Root
+:feature:
+
+ifdef::feature[]
+include::partials/enabled.adoc[]
+endif::[]
+
+ifndef::feature[]
+include::partials/disabled.adoc[]
+endif::[]`,
+      rootPath,
+      [
+        {
+          path: "/workspace/docs/partials/enabled.adoc",
+          source: "== Enabled\n\nVisible content.",
+        },
+      ],
+    );
+
+    expect(expanded.diagnostics).toEqual([]);
+    expect(expanded.missingIncludes).toEqual([]);
+    expect(expanded.source).toContain("Visible content.");
+    expect(expanded.source).not.toContain("disabled.adoc");
+  });
+
+  it("evaluates ifeval before collecting an include", () => {
+    const expanded = expandAsciiDocIncludes(
+      `= Root
+:env: prod
+
+ifeval::["{env}" == "prod"]
+include::partials/prod.adoc[]
+endif::[]
+
+ifeval::["{env}" == "dev"]
+include::partials/dev.adoc[]
+endif::[]`,
+      rootPath,
+      [
+        {
+          path: "/workspace/docs/partials/prod.adoc",
+          source: "== Production\n\nProduction-only content.",
+        },
+      ],
+    );
+
+    expect(expanded.diagnostics).toEqual([]);
+    expect(expanded.source).toContain("Production-only content.");
+    expect(expanded.source).not.toContain("dev.adoc");
+  });
+
+  it("substitutes attributes in include targets", () => {
+    const expanded = expandAsciiDocIncludes(
+      `= Root
+:partialsdir: partials
+
+include::{partialsdir}/partial.adoc[leveloffset=+1]`,
+      rootPath,
+      includeFiles,
+    );
+
+    expect(expanded.diagnostics).toEqual([]);
+    expect(expanded.source).toContain("Partial Title");
+    expect(expanded.lineOrigins).toContainEqual({
+      sourcePath: "/workspace/docs/partials/partial.adoc",
+      line: 1,
+    });
+  });
+
+  it("propagates attributes from included files to later includes", () => {
+    const expanded = expandAsciiDocIncludes(
+      `= Root
+
+include::partials/header.adoc[]
+include::{nextdir}/next.adoc[]`,
+      rootPath,
+      [
+        {
+          path: "/workspace/docs/partials/header.adoc",
+          source: ":nextdir: partials/nested\n\n== Header",
+        },
+        {
+          path: "/workspace/docs/partials/nested/next.adoc",
+          source: "== Next\n\nAttribute-propagated include.",
+        },
+      ],
+    );
+
+    expect(expanded.diagnostics).toEqual([]);
+    expect(expanded.source).toContain("Attribute-propagated include.");
+    expect(expanded.lineOrigins).toContainEqual({
+      sourcePath: "/workspace/docs/partials/nested/next.adoc",
+      line: 1,
+    });
   });
 
   it("expands include directives inside source blocks as literal source", () => {

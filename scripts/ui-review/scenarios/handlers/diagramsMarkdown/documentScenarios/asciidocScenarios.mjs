@@ -81,6 +81,25 @@ export async function applyAsciiDocScenario(context) {
     await page.locator("text=start helper").waitFor();
     await page.locator("text=FEATURE_FLAG=true").waitFor();
   } else if (
+    scenario === "viewer-asciidoc-conditional-include" ||
+    scenario === "viewer-asciidoc-ifeval-include" ||
+    scenario === "viewer-asciidoc-attribute-include-target"
+  ) {
+    await page.locator("text=conditional-include.adoc").click();
+    await page
+      .getByRole("heading", {
+        name: "Conditional Include Compatibility Sample",
+      })
+      .waitFor();
+    await page.getByRole("heading", { name: "Feature Preview Branch" }).waitFor();
+    await page.getByRole("heading", { name: "Modern Mode Branch" }).waitFor();
+    await page
+      .getByRole("heading", { name: "Production Target Branch" })
+      .waitFor();
+    await page
+      .getByRole("heading", { name: "Propagated Attribute Include" })
+      .waitFor();
+  } else if (
     scenario === "viewer-cross-platform-local-assets" ||
     scenario === "viewer-image-svg-preview-selectable-text" ||
     scenario === "viewer-image-lightbox"

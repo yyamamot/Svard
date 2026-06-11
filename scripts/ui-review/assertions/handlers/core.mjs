@@ -40,10 +40,11 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("Render Fixtures") ||
       bodyText.includes("Include Main") ||
       bodyText.includes("Text Include Files") ||
+      bodyText.includes("Conditional Include Compatibility Sample") ||
       bodyText.includes("Include Diagnostics") ||
       bodyText.includes("AsciiDoc Comprehensive Visual Sample") ||
       bodyText.includes("Math Rendering Sample") ||
-          bodyText.includes("Quick Start") ||
+      bodyText.includes("Quick Start") ||
       bodyText.includes("Markdown Sample") ||
       bodyText.includes("Markdown Code Sample") ||
       bodyText.includes("Markdown GitHub Sample") ||

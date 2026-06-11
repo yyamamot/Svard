@@ -1,5 +1,6 @@
 import type {
   AsciiDocIncludeFile,
+  MissingAsciiDocInclude,
   RenderDiagnostic,
   SourceLocation,
 } from "./types";
@@ -13,11 +14,21 @@ export interface ExpandedAsciiDoc {
   source: string;
   lineOrigins: SourceLineOrigin[];
   diagnostics: RenderDiagnostic[];
+  missingIncludes: MissingAsciiDocInclude[];
+}
+
+export interface ExpandAsciiDocIncludeOptions {
+  attributes?: Record<string, string>;
 }
 
 const includePattern = /^(\s*)include::([^[]+)\[([^\]]*)\]\s*$/;
 const urlPattern = /^[a-z][a-z0-9+.-]*:/i;
 const maxIncludeDepth = 12;
+const attributePattern = /^:([^:!\s][^:]*):\s*(.*)$/;
+const unsetAttributePattern = /^:(?:!([^:]+)|([^:!]+)!):\s*$/;
+const conditionalPattern = /^(ifdef|ifndef)::([^[]+)\[.*\]\s*$/;
+const ifevalPattern = /^ifeval::\[(.*)\]\s*$/;
+const endifPattern = /^endif::(?:[^[]*)?\[\]\s*$/;
 
 function normalizePath(path: string): string {
   const normalized = path.replace(/\\/g, "/");
@@ -136,16 +147,139 @@ function diagnostic(
   };
 }
 
+function substituteAttributes(
+  value: string,
+  attributes: Map<string, string>,
+): string {
+  return value.replace(/\{([^}]+)\}/g, (_match, name: string) => {
+    return attributes.get(name.trim()) ?? "";
+  });
+}
+
+function parseAttributeAssignment(
+  trimmed: string,
+): { name: string; value: string } | null {
+  const unset = unsetAttributePattern.exec(trimmed);
+  if (unset) {
+    return { name: (unset[1] ?? unset[2]).trim(), value: "" };
+  }
+  const match = attributePattern.exec(trimmed);
+  if (!match) {
+    return null;
+  }
+  const name = match[1].trim();
+  if (!name || name.startsWith("!")) {
+    return null;
+  }
+  return { name, value: match[2].trim() };
+}
+
+function applyAttributeDirective(
+  trimmed: string,
+  attributes: Map<string, string>,
+): boolean {
+  const unset = unsetAttributePattern.exec(trimmed);
+  if (unset) {
+    attributes.delete((unset[1] ?? unset[2]).trim());
+    return true;
+  }
+  const assignment = parseAttributeAssignment(trimmed);
+  if (!assignment) {
+    return false;
+  }
+  attributes.set(assignment.name, substituteAttributes(assignment.value, attributes));
+  return true;
+}
+
+function isConditionalActive(stack: boolean[]): boolean {
+  return stack.every(Boolean);
+}
+
+function evaluateConditional(
+  trimmed: string,
+  attributes: Map<string, string>,
+): boolean | null {
+  const conditional = conditionalPattern.exec(trimmed);
+  if (conditional) {
+    const names = conditional[2]
+      .split(/[,+]/)
+      .map((name) => name.trim())
+      .filter(Boolean);
+    const anyDefined = names.some((name) => attributes.has(name));
+    return conditional[1] === "ifdef" ? anyDefined : !anyDefined;
+  }
+
+  const ifeval = ifevalPattern.exec(trimmed);
+  if (!ifeval) {
+    return null;
+  }
+  return evaluateIfeval(ifeval[1], attributes);
+}
+
+function evaluateIfeval(
+  expression: string,
+  attributes: Map<string, string>,
+): boolean {
+  const substituted = substituteAttributes(expression, attributes).trim();
+  const match = /^['"]?([^'"]*?)['"]?\s*(==|!=|>=|<=|>|<)\s*['"]?([^'"]*?)['"]?\s*$/.exec(
+    substituted,
+  );
+  if (!match) {
+    return false;
+  }
+  const left = match[1].trim();
+  const operator = match[2];
+  const right = match[3].trim();
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+  const numeric = Number.isFinite(leftNumber) && Number.isFinite(rightNumber);
+
+  switch (operator) {
+    case "==":
+      return left === right;
+    case "!=":
+      return left !== right;
+    case ">":
+      return numeric ? leftNumber > rightNumber : left > right;
+    case "<":
+      return numeric ? leftNumber < rightNumber : left < right;
+    case ">=":
+      return numeric ? leftNumber >= rightNumber : left >= right;
+    case "<=":
+      return numeric ? leftNumber <= rightNumber : left <= right;
+    default:
+      return false;
+  }
+}
+
+function missingInclude(
+  target: string,
+  reason: MissingAsciiDocInclude["reason"],
+  sourcePath: string,
+  line: number,
+): MissingAsciiDocInclude {
+  return {
+    target,
+    reason,
+    sourceLocation: { sourcePath, line, column: 1 },
+  };
+}
+
 export function expandAsciiDocIncludes(
   source: string,
   rootPath: string | undefined,
   includeFiles: AsciiDocIncludeFile[] = [],
+  options: ExpandAsciiDocIncludeOptions = {},
 ): ExpandedAsciiDoc {
   const rootSourcePath = rootPath ?? "<document>";
   const includeMap = new Map(
     includeFiles.map((file) => [normalizePath(file.path), file.source]),
   );
   const diagnostics: RenderDiagnostic[] = [];
+  const missingIncludes: MissingAsciiDocInclude[] = [];
+  const attributes = new Map<string, string>(
+    Object.entries(options.attributes ?? {}),
+  );
   let diagnosticCounter = 1;
 
   function expand(
@@ -159,12 +293,26 @@ export function expandAsciiDocIncludes(
     const outputLines: string[] = [];
     const origins: SourceLineOrigin[] = [];
     let inDelimitedBlock = false;
+    const conditionStack: boolean[] = [];
 
     lines.forEach((line, index) => {
       const lineNumber = index + 1;
       const trimmed = line.trim();
-      if (trimmed === "----" || trimmed === "....") {
-        inDelimitedBlock = !inDelimitedBlock;
+
+      if (!inDelimitedBlock) {
+        if (endifPattern.test(trimmed)) {
+          conditionStack.pop();
+          return;
+        }
+        const conditional = evaluateConditional(trimmed, attributes);
+        if (conditional !== null) {
+          conditionStack.push(isConditionalActive(conditionStack) && conditional);
+          return;
+        }
+        if (!isConditionalActive(conditionStack)) {
+          return;
+        }
+        applyAttributeDirective(trimmed, attributes);
       }
 
       const levelOffsetDirective = /^:leveloffset:\s*([+-]?\d+)\s*$/.exec(
@@ -182,16 +330,22 @@ export function expandAsciiDocIncludes(
       }
 
       const match = includePattern.exec(line);
+      if (trimmed === "----" || trimmed === "....") {
+        inDelimitedBlock = !inDelimitedBlock;
+      }
       if (!match) {
         outputLines.push(line);
         origins.push({ sourcePath: currentPath, line: lineNumber });
         return;
       }
 
-      const target = match[2].trim();
-      const attributes = match[3] ?? "";
+      const target = substituteAttributes(match[2].trim(), attributes);
+      const includeAttributes = match[3] ?? "";
       const resolved = resolveIncludePath(dirname(currentPath), target);
       if (!resolved) {
+        missingIncludes.push(
+          missingInclude(target, "unsafe", currentPath, lineNumber),
+        );
         diagnostics.push(
           diagnostic(
             `include-${diagnosticCounter++}`,
@@ -205,6 +359,9 @@ export function expandAsciiDocIncludes(
         return;
       }
       if (stack.includes(resolved)) {
+        missingIncludes.push(
+          missingInclude(target, "recursive", currentPath, lineNumber),
+        );
         diagnostics.push(
           diagnostic(
             `include-${diagnosticCounter++}`,
@@ -218,6 +375,9 @@ export function expandAsciiDocIncludes(
         return;
       }
       if (depth >= maxIncludeDepth) {
+        missingIncludes.push(
+          missingInclude(target, "depth-limit", currentPath, lineNumber),
+        );
         diagnostics.push(
           diagnostic(
             `include-${diagnosticCounter++}`,
@@ -232,6 +392,9 @@ export function expandAsciiDocIncludes(
       }
       const includeSource = includeMap.get(resolved);
       if (includeSource === undefined) {
+        missingIncludes.push(
+          missingInclude(target, "missing", currentPath, lineNumber),
+        );
         diagnostics.push(
           diagnostic(
             `include-${diagnosticCounter++}`,
@@ -257,7 +420,7 @@ export function expandAsciiDocIncludes(
         return;
       }
 
-      const levelOffset = parseLevelOffset(attributes);
+      const levelOffset = parseLevelOffset(includeAttributes);
       if (
         levelOffset === null &&
         activeLevelOffset === 0 &&
@@ -315,6 +478,7 @@ export function expandAsciiDocIncludes(
     source: expanded.lines.join("\n"),
     lineOrigins: expanded.origins,
     diagnostics,
+    missingIncludes,
   };
 }
 

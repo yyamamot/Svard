@@ -44,6 +44,7 @@ export interface RenderResult {
   headings: Heading[];
   sourceBlocks: SourceBlock[];
   diagnostics: RenderDiagnostic[];
+  missingAsciiDocIncludes?: MissingAsciiDocInclude[];
   diagramSlots: DiagramSlot[];
   mermaidDiagrams: MermaidDiagram[];
   plantUmlDiagrams: PlantUmlDiagram[];
@@ -69,6 +70,12 @@ export interface RenderDiagnostic {
   id: string;
   severity: "info" | "warning" | "error";
   message: string;
+  sourceLocation?: SourceLocation;
+}
+
+export interface MissingAsciiDocInclude {
+  target: string;
+  reason: "missing" | "unsafe" | "recursive" | "depth-limit";
   sourceLocation?: SourceLocation;
 }
 

@@ -59,6 +59,20 @@ export async function buildAsciiDocAssertions({
           !bodyText.includes("Nested Script Include") &&
           !bodyText.includes("Include file not found or not allowed")
         : true,
+    hasAsciiDocConditionalInclude:
+      scenario === "viewer-asciidoc-conditional-include" ||
+      scenario === "viewer-asciidoc-ifeval-include" ||
+      scenario === "viewer-asciidoc-attribute-include-target"
+        ? bodyText.includes("Conditional Include Compatibility Sample") &&
+          bodyText.includes("Feature Preview Branch") &&
+          bodyText.includes("Modern Mode Branch") &&
+          bodyText.includes("Production Target Branch") &&
+          bodyText.includes("Propagated Attribute Include") &&
+          !bodyText.includes("Feature Disabled Branch") &&
+          !bodyText.includes("Legacy Mode Branch") &&
+          !bodyText.includes("Development Target Branch") &&
+          !bodyText.includes("Include file not found or not allowed")
+        : true,
     hasCrossPlatformLocalAssets:
       scenario === "viewer-cross-platform-local-assets"
         ? bodyText.includes("Cross-platform Local Assets") &&
