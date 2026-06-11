@@ -295,6 +295,75 @@ export async function applyGitDiffRenderedCoreScenario(context) {
       { scenarioName: scenario, overviewSummary },
     );
   } else if (
+    scenario === "viewer-rendered-visual-diff-structured-block-targets" ||
+    scenario === "viewer-rendered-visual-diff-structured-block-fallback" ||
+    scenario === "viewer-rendered-visual-diff-structured-block-privacy"
+  ) {
+    await page.locator("text=git-rendered-asciidoc.adoc").click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Git Rendered AsciiDoc Diff Fixture" })
+      .waitFor();
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.locator('[data-review-id="git-diff-rendered-view"]').click();
+    await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+    await page
+      .locator('[data-review-id="git-rendered-structured-child-change"]')
+      .first()
+      .waitFor();
+    const summary = await page.evaluate(() => {
+      const root = document.querySelector(
+        '[data-review-id="git-rendered-diff"]',
+      );
+      const structuredTargets = Array.from(
+        root?.querySelectorAll(
+          '[data-review-id="git-rendered-structured-child-change"]',
+        ) ?? [],
+      );
+      const definitionTargets = structuredTargets.filter(
+        (target) => target.tagName.toLowerCase() === "dd",
+      );
+      const admonitionTargets = structuredTargets.filter((target) =>
+        target.matches("td.content, .markdown-alert > :not(.markdown-alert-title)"),
+      );
+      const iconTargets = Array.from(
+        root?.querySelectorAll(
+          '.admonitionblock td.icon[data-change-index], .markdown-alert-title[data-change-index]',
+        ) ?? [],
+      );
+      const fallbackIndicators = Array.from(
+        root?.querySelectorAll(
+          '[data-review-id="git-rendered-fallback-indicator"]',
+        ) ?? [],
+      ).filter((item) => /Structured fallback/.test(item.textContent ?? ""));
+      const parentDuplicateTargets = structuredTargets.filter((target) =>
+        target.closest(".git-rendered-block[data-change-index]"),
+      );
+      const bodyText = root?.textContent ?? "";
+      return {
+        admonitionTargetCount: admonitionTargets.length,
+        definitionTargetCount: definitionTargets.length,
+        fallbackCount: fallbackIndicators.length,
+        iconTargetCount: iconTargets.length,
+        parentDuplicateTargetCount: parentDuplicateTargets.length,
+        privatePathVisible: bodyText.includes("/Users/"),
+        sourceHunkVisible: bodyText.includes("@@"),
+        structuredTargetCount: structuredTargets.length,
+      };
+    });
+    await page.evaluate(
+      ({ scenarioName, summary }) => {
+        window.__SVARD_RENDERED_STRUCTURED_BLOCK_TARGETS__ = {
+          scenario: scenarioName,
+          summary,
+        };
+      },
+      { scenarioName: scenario, summary },
+    );
+  } else if (
     scenario === "viewer-rendered-visual-diff-active-change-context" ||
     scenario === "viewer-rendered-visual-diff-active-change-keyboard"
   ) {

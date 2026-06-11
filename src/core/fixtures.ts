@@ -1617,11 +1617,23 @@ This rendered Markdown paragraph changed in the working tree.
 `,
   "/workspace/docs/git-large-markdown-scroll.md":
     buildLargeMarkdownScrollDocument(),
-  "/workspace/docs/git-rendered-asciidoc.adoc": `= Git Rendered AsciiDoc Diff Fixture
+"/workspace/docs/git-rendered-asciidoc.adoc": `= Git Rendered AsciiDoc Diff Fixture
 
 This rendered AsciiDoc paragraph changed in the working tree.
 
 NOTE: Rendered admonitions are compared as blocks.
+
+== Structured targets
+
+Review Mode:: Working tree reviewers inspect changed structured blocks directly.
+Stable Term:: Stable definition context stays readable.
+
+NOTE: Working tree structured admonition content is focused without highlighting the marker.
+
+== Structured fallback
+
+Ambiguous:: First working-tree duplicate description.
+Ambiguous:: Second HEAD duplicate description.
 
 |===
 |Item |Status
@@ -1773,6 +1785,25 @@ Use bold rendered text without emphasis markers.
 | --- | --- |
 | Preview | Stable |
 | Table | Changed |
+
+## Structured Blocks
+
+<dl>
+<dt>Review Mode</dt>
+<dd>Current reviewers inspect changed structured blocks directly.</dd>
+<dt>Stable Term</dt>
+<dd>Stable definition context stays readable.</dd>
+</dl>
+
+> [!NOTE]
+> Current structured admonition content is focused without highlighting the marker.
+
+<dl>
+<dt>Ambiguous</dt>
+<dd>First current duplicate description.</dd>
+<dt>Ambiguous</dt>
+<dd>Second current duplicate description.</dd>
+</dl>
 
 \`\`\`mermaid
 flowchart TD

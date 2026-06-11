@@ -1,5 +1,6 @@
 import type { RenderedBlock, RenderedBlockDiff } from "./types";
 import { matchRenderedListItemChanges } from "./listItemChanges";
+import { matchRenderedStructuredChanges } from "./structuredChanges";
 import { matchRenderedTableChanges } from "./tableChanges";
 import { normalizedText, renderedTextOverlap } from "./text";
 
@@ -287,6 +288,9 @@ function shouldPairChangedBlocks(
   if (left.kind !== right.kind || left.tagName !== right.tagName) {
     return false;
   }
+  if (left.kind === "admonition" || left.kind === "definition-list") {
+    return true;
+  }
   if (left.text === right.text) {
     return true;
   }
@@ -295,7 +299,8 @@ function shouldPairChangedBlocks(
 
 function withChildChanges(block: RenderedBlockDiff): RenderedBlockDiff {
   const withListChanges = withListItemChildChanges(block);
-  return withTableCellChanges(withListChanges);
+  const withStructuredChanges = withStructuredChildChanges(withListChanges);
+  return withTableCellChanges(withStructuredChanges);
 }
 
 function withListItemChildChanges(block: RenderedBlockDiff): RenderedBlockDiff {
@@ -321,6 +326,34 @@ function withListItemChildChanges(block: RenderedBlockDiff): RenderedBlockDiff {
     return {
       ...block,
       childChangeFallback: result.fallback,
+    };
+  }
+  return block;
+}
+
+function withStructuredChildChanges(block: RenderedBlockDiff): RenderedBlockDiff {
+  if (
+    block.kind !== "changed" ||
+    (block.blockKind !== "definition-list" && block.blockKind !== "admonition") ||
+    !block.left?.structuredChildren ||
+    !block.right?.structuredChildren
+  ) {
+    return block;
+  }
+  const result = matchRenderedStructuredChanges(
+    block.left.structuredChildren,
+    block.right.structuredChildren,
+  );
+  if (result.structuredChanges.length > 0) {
+    return {
+      ...block,
+      structuredChanges: result.structuredChanges,
+    };
+  }
+  if (result.fallback) {
+    return {
+      ...block,
+      structuredChangeFallback: result.fallback,
     };
   }
   return block;

@@ -125,6 +125,7 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
     fallbackReasons: [],
     entryChangeIndexes: new Map(),
     entryChildChangeIndexes: new Map(),
+    entryStructuredChildChangeIndexes: new Map(),
     entryTableRowChangeIndexes: new Map(),
     entryTargetSides: new Map(),
   };

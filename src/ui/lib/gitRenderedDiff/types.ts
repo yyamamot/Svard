@@ -10,6 +10,7 @@ export type RenderedBlockKind =
   | "heading"
   | "paragraph"
   | "list"
+  | "definition-list"
   | "table"
   | "source-block"
   | "admonition"
@@ -31,6 +32,7 @@ export interface RenderedBlock {
   html: string;
   signature?: string;
   listItems?: RenderedListItemSnapshot[];
+  structuredChildren?: RenderedStructuredChildSnapshot[];
   tableRows?: RenderedTableRowSnapshot[];
 }
 
@@ -42,6 +44,8 @@ export interface RenderedBlockDiff {
   right?: RenderedBlock;
   childChanges?: RenderedListItemChildChange[];
   childChangeFallback?: RenderedListItemFallback;
+  structuredChanges?: RenderedStructuredChildChange[];
+  structuredChangeFallback?: RenderedStructuredFallback;
   tableChanges?: RenderedTableCellChange[];
   tableChangeFallback?: RenderedTableFallback;
 }
@@ -77,6 +81,48 @@ export type RenderedListItemFallbackReason =
 
 export interface RenderedListItemFallback {
   reason: RenderedListItemFallbackReason;
+}
+
+export type RenderedStructuredChildRole =
+  | "admonition-content"
+  | "definition-item";
+
+export interface RenderedStructuredChildSnapshot {
+  index: number;
+  role: RenderedStructuredChildRole;
+  normalizedTextHash: string;
+  primaryHash: string;
+  secondaryHash: string;
+  textSegmentHashes: string[];
+  textLength: number;
+}
+
+export type RenderedStructuredChildChangeKind =
+  | "added"
+  | "removed"
+  | "changed";
+
+export type RenderedStructuredChildChangeSide = "left" | "right" | "both";
+
+export interface RenderedStructuredChildChange {
+  kind: RenderedStructuredChildChangeKind;
+  side: RenderedStructuredChildChangeSide;
+  confidence: "high";
+  role: RenderedStructuredChildRole;
+  leftIndex?: number;
+  rightIndex?: number;
+}
+
+export type RenderedStructuredFallbackReason =
+  | "ambiguous"
+  | "low-overlap"
+  | "no-children"
+  | "reorder"
+  | "role-mismatch"
+  | "short-or-empty";
+
+export interface RenderedStructuredFallback {
+  reason: RenderedStructuredFallbackReason;
 }
 
 export interface RenderedTableCellSnapshot {
@@ -136,10 +182,12 @@ export interface RenderedDiffNavigationTarget {
   entryId: string;
   side: "left" | "right" | "both";
   primarySide: "left" | "right";
-  targetKind: "block" | "list-item" | "table-row";
+  targetKind: "block" | "list-item" | "structured-child" | "table-row";
   block: RenderedBlockDiff;
   childChangeIndex?: number;
   itemIndex?: number;
+  structuredChildIndex?: number;
+  structuredChildRole?: RenderedStructuredChildRole;
   tableRowIndex?: number;
 }
 
@@ -151,13 +199,16 @@ export interface RenderedDiffSectionOutlineItem {
   changeCount: number;
 }
 
-export type RenderedDiffFallbackKind = "list" | "table";
+export type RenderedDiffFallbackKind = "list" | "structured" | "table";
 
 export interface RenderedDiffFallbackReason {
   blockId: string;
   entryId: string;
   kind: RenderedDiffFallbackKind;
-  reason: RenderedListItemFallbackReason | RenderedTableFallbackReason;
+  reason:
+    | RenderedListItemFallbackReason
+    | RenderedStructuredFallbackReason
+    | RenderedTableFallbackReason;
 }
 
 export interface RenderedDiffPresentation {
@@ -167,6 +218,7 @@ export interface RenderedDiffPresentation {
   fallbackReasons: RenderedDiffFallbackReason[];
   entryChangeIndexes: Map<string, number>;
   entryChildChangeIndexes: Map<string, number>;
+  entryStructuredChildChangeIndexes: Map<string, number>;
   entryTableRowChangeIndexes: Map<string, number>;
   entryTargetSides: Map<string, "left" | "right" | "both">;
 }
@@ -176,6 +228,7 @@ export interface RenderedDiffContentCursorTarget {
   side: "left" | "right";
   changeIndex: number;
   childChangeIndex?: number;
+  structuredChildIndex?: number;
   tableRowIndex?: number;
 }
 

@@ -33,6 +33,25 @@ Use **bold rendered text** with emphasis markers.
 | Preview | Stable |
 | Table | Rendered |
 
+## Structured Blocks
+
+<dl>
+<dt>Review Mode</dt>
+<dd>HEAD reviewers inspect changed structured blocks directly.</dd>
+<dt>Stable Term</dt>
+<dd>Stable definition context stays readable.</dd>
+</dl>
+
+> [!NOTE]
+> HEAD structured admonition content is focused without highlighting the marker.
+
+<dl>
+<dt>Ambiguous</dt>
+<dd>First HEAD duplicate description.</dd>
+<dt>Ambiguous</dt>
+<dd>Second HEAD duplicate description.</dd>
+</dl>
+
 \`\`\`mermaid
 flowchart TD
 A[Start] --> B[Done]
@@ -109,6 +128,25 @@ Use bold rendered text without emphasis markers.
 | --- | --- |
 | Preview | Stable |
 | Table | Changed |
+
+## Structured Blocks
+
+<dl>
+<dt>Review Mode</dt>
+<dd>Current reviewers inspect changed structured blocks directly.</dd>
+<dt>Stable Term</dt>
+<dd>Stable definition context stays readable.</dd>
+</dl>
+
+> [!NOTE]
+> Current structured admonition content is focused without highlighting the marker.
+
+<dl>
+<dt>Ambiguous</dt>
+<dd>First current duplicate description.</dd>
+<dt>Ambiguous</dt>
+<dd>Second current duplicate description.</dd>
+</dl>
 
 \`\`\`mermaid
 flowchart TD

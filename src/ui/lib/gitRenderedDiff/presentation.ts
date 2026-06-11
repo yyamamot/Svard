@@ -28,6 +28,14 @@ function tableRowTargetKey(
   return `${entryId}:table:${side}:${rowIndex}`;
 }
 
+function structuredChildTargetKey(
+  entryId: string,
+  side: "left" | "right",
+  childIndex: number,
+): string {
+  return `${entryId}:structured:${side}:${childIndex}`;
+}
+
 export function isRenderedChangeBlock(block: RenderedBlockDiff): boolean {
   return block.kind !== "unchanged";
 }
@@ -280,6 +288,67 @@ function tableRowNavigationTargetsForBlock(
   });
 }
 
+function structuredChildChangeSideAndIndex(
+  structuredChange: NonNullable<
+    RenderedBlockDiff["structuredChanges"]
+  >[number],
+): { side: "left" | "right"; structuredChildIndex: number } | null {
+  if (
+    structuredChange.kind === "removed" &&
+    structuredChange.leftIndex !== undefined
+  ) {
+    return { side: "left", structuredChildIndex: structuredChange.leftIndex };
+  }
+  if (structuredChange.rightIndex !== undefined) {
+    return { side: "right", structuredChildIndex: structuredChange.rightIndex };
+  }
+  return null;
+}
+
+function structuredChildTargetSideAndIndex(
+  structuredChange: NonNullable<
+    RenderedBlockDiff["structuredChanges"]
+  >[number],
+  side: "left" | "right",
+): { side: "left" | "right"; structuredChildIndex: number } | null {
+  if (side === "left" && structuredChange.leftIndex !== undefined) {
+    return { side, structuredChildIndex: structuredChange.leftIndex };
+  }
+  if (side === "right" && structuredChange.rightIndex !== undefined) {
+    return { side, structuredChildIndex: structuredChange.rightIndex };
+  }
+  return null;
+}
+
+function structuredChildNavigationTargetsForBlock(
+  block: RenderedBlockDiff,
+): Array<{
+  side: "left" | "right";
+  structuredChangeIndex: number;
+  structuredChildIndex: number;
+}> {
+  if (
+    block.kind !== "changed" ||
+    (block.blockKind !== "definition-list" && block.blockKind !== "admonition")
+  ) {
+    return [];
+  }
+  return (block.structuredChanges ?? []).flatMap(
+    (structuredChange, structuredChangeIndex) => {
+      const target = structuredChildChangeSideAndIndex(structuredChange);
+      return target
+        ? [
+            {
+              side: target.side,
+              structuredChangeIndex,
+              structuredChildIndex: target.structuredChildIndex,
+            },
+          ]
+        : [];
+    },
+  );
+}
+
 function primarySideForTargetSide(
   targetSide: "left" | "right" | "both",
 ): "left" | "right" {
@@ -299,6 +368,14 @@ function fallbackReasonsForEntry(
       entryId: entry.id,
       kind: "list",
       reason: entry.block.childChangeFallback.reason,
+    });
+  }
+  if (entry.block.structuredChangeFallback) {
+    reasons.push({
+      blockId: entry.block.id,
+      entryId: entry.id,
+      kind: "structured",
+      reason: entry.block.structuredChangeFallback.reason,
     });
   }
   if (entry.block.tableChangeFallback) {
@@ -362,6 +439,7 @@ export function buildRenderedDiffPresentation(
   const navigationTargets: RenderedDiffNavigationTarget[] = [];
   const entryChangeIndexes = new Map<string, number>();
   const entryChildChangeIndexes = new Map<string, number>();
+  const entryStructuredChildChangeIndexes = new Map<string, number>();
   const entryTableRowChangeIndexes = new Map<string, number>();
   const entryTargetSides = new Map<string, "left" | "right" | "both">();
   const fallbackReasons = entries.flatMap(fallbackReasonsForEntry);
@@ -403,6 +481,48 @@ export function buildRenderedDiffPresentation(
         });
         entryChildChangeIndexes.set(
           listItemTargetKey(entry.id, childTarget.side, target.itemIndex),
+          targetIndex,
+        );
+      }
+      continue;
+    }
+
+    const structuredTargets =
+      entry.kind === "block"
+        ? structuredChildNavigationTargetsForBlock(targetBlock)
+        : [];
+    if (structuredTargets.length > 0) {
+      for (const structuredTarget of structuredTargets) {
+        const structuredChange =
+          targetBlock.structuredChanges?.[
+            structuredTarget.structuredChangeIndex
+          ];
+        const target = structuredChange
+          ? structuredChildTargetSideAndIndex(
+              structuredChange,
+              structuredTarget.side,
+            )
+          : null;
+        if (!target) {
+          continue;
+        }
+        const targetIndex = navigationTargets.length;
+        navigationTargets.push({
+          index: targetIndex,
+          entryId: entry.id,
+          side: structuredTarget.side,
+          primarySide: structuredTarget.side,
+          targetKind: "structured-child",
+          block: targetBlock,
+          structuredChildIndex: structuredTarget.structuredChildIndex,
+          structuredChildRole: structuredChange?.role,
+        });
+        entryStructuredChildChangeIndexes.set(
+          structuredChildTargetKey(
+            entry.id,
+            structuredTarget.side,
+            target.structuredChildIndex,
+          ),
           targetIndex,
         );
       }
@@ -463,6 +583,7 @@ export function buildRenderedDiffPresentation(
     fallbackReasons,
     entryChangeIndexes,
     entryChildChangeIndexes,
+    entryStructuredChildChangeIndexes,
     entryTableRowChangeIndexes,
     entryTargetSides,
   };
@@ -494,6 +615,19 @@ export function renderedDiffTableRowChangeIndex(
   );
 }
 
+export function renderedDiffStructuredChildChangeIndex(
+  presentation: RenderedDiffPresentation,
+  entry: RenderedDiffPresentationEntry,
+  side: "left" | "right",
+  childIndex: number,
+): number | null {
+  return (
+    presentation.entryStructuredChildChangeIndexes.get(
+      structuredChildTargetKey(entry.id, side, childIndex),
+    ) ?? null
+  );
+}
+
 export function renderedDiffContentCursorTargets(
   presentation: RenderedDiffPresentation,
   visibleEntries: RenderedDiffPresentationEntry[] = presentation.entries,
@@ -506,6 +640,7 @@ export function renderedDiffContentCursorTargets(
       side: target.side === "left" ? "left" : "right",
       changeIndex: target.index,
       childChangeIndex: target.childChangeIndex,
+      structuredChildIndex: target.structuredChildIndex,
       tableRowIndex: target.tableRowIndex,
     }));
 }

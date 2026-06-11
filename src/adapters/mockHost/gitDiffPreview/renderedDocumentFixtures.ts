@@ -408,6 +408,18 @@ This rendered AsciiDoc paragraph was stable in HEAD.
 
 NOTE: Rendered admonitions are compared as blocks.
 
+== Structured targets
+
+Review Mode:: HEAD reviewers inspect changed structured blocks directly.
+Stable Term:: Stable definition context stays readable.
+
+NOTE: HEAD structured admonition content is focused without highlighting the marker.
+
+== Structured fallback
+
+Ambiguous:: First HEAD duplicate description.
+Ambiguous:: Second HEAD duplicate description.
+
 |===
 |Item |Status
 
@@ -420,6 +432,18 @@ NOTE: Rendered admonitions are compared as blocks.
 This rendered AsciiDoc paragraph changed in the working tree.
 
 NOTE: Rendered admonitions are compared as blocks.
+
+== Structured targets
+
+Review Mode:: Working tree reviewers inspect changed structured blocks directly.
+Stable Term:: Stable definition context stays readable.
+
+NOTE: Working tree structured admonition content is focused without highlighting the marker.
+
+== Structured fallback
+
+Ambiguous:: First working-tree duplicate description.
+Ambiguous:: Second HEAD duplicate description.
 
 |===
 |Item |Status
@@ -434,60 +458,7 @@ NOTE: Rendered admonitions are compared as blocks.
       status: "modified",
       leftLabel: "HEAD",
       rightLabel: "Working Tree",
-      hunks: [
-        {
-          oldStart: 1,
-          oldLines: 12,
-          newStart: 1,
-          newLines: 12,
-          lines: [
-            {
-              kind: "context",
-              oldLine: 1,
-              newLine: 1,
-              text: "= Git Rendered AsciiDoc Diff Fixture",
-            },
-            { kind: "context", oldLine: 2, newLine: 2, text: "" },
-            {
-              kind: "removed",
-              oldLine: 3,
-              newLine: null,
-              text: "This rendered AsciiDoc paragraph was stable in HEAD.",
-            },
-            {
-              kind: "added",
-              oldLine: null,
-              newLine: 3,
-              text: "This rendered AsciiDoc paragraph changed in the working tree.",
-            },
-            { kind: "context", oldLine: 4, newLine: 4, text: "" },
-            {
-              kind: "context",
-              oldLine: 5,
-              newLine: 5,
-              text: "NOTE: Rendered admonitions are compared as blocks.",
-            },
-            { kind: "context", oldLine: 6, newLine: 6, text: "" },
-            { kind: "context", oldLine: 7, newLine: 7, text: "|===" },
-            {
-              kind: "context",
-              oldLine: 8,
-              newLine: 8,
-              text: "|Item |Status",
-            },
-            { kind: "context", oldLine: 9, newLine: 9, text: "" },
-            { kind: "context", oldLine: 10, newLine: 10, text: "|AsciiDoc" },
-            {
-              kind: "removed",
-              oldLine: 11,
-              newLine: null,
-              text: "|Rendered",
-            },
-            { kind: "added", oldLine: null, newLine: 11, text: "|Changed" },
-            { kind: "context", oldLine: 12, newLine: 12, text: "|===" },
-          ],
-        },
-      ],
+      hunks: diffHunksFromText(leftText, rightText),
       message: null,
       leftText,
       rightText,

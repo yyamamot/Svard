@@ -48,7 +48,12 @@ function pluralize(count: number, singular: string, plural: string): string {
 function renderedFallbackCategoryLabel(
   fallback: RenderedDiffFallbackReason,
 ): string {
-  const target = fallback.kind === "list" ? "List fallback" : "Table fallback";
+  const target =
+    fallback.kind === "list"
+      ? "List fallback"
+      : fallback.kind === "structured"
+        ? "Structured fallback"
+        : "Table fallback";
   return `${target}: ${fallback.reason.replace(/-/g, " ")}`;
 }
 

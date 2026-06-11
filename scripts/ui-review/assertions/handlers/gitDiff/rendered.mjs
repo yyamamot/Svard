@@ -261,6 +261,39 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             );
           })
         : true,
+    hasRenderedVisualDiffStructuredBlockTargets:
+      scenario === "viewer-rendered-visual-diff-structured-block-targets"
+        ? await page.evaluate(() => {
+            const summary =
+              window.__SVARD_RENDERED_STRUCTURED_BLOCK_TARGETS__?.summary;
+            return (
+              summary?.structuredTargetCount >= 2 &&
+              summary?.definitionTargetCount >= 1 &&
+              summary?.admonitionTargetCount >= 1 &&
+              summary?.iconTargetCount === 0 &&
+              summary?.parentDuplicateTargetCount === 0
+            );
+          })
+        : true,
+    hasRenderedVisualDiffStructuredBlockFallback:
+      scenario === "viewer-rendered-visual-diff-structured-block-fallback"
+        ? await page.evaluate(() => {
+            const summary =
+              window.__SVARD_RENDERED_STRUCTURED_BLOCK_TARGETS__?.summary;
+            return summary?.fallbackCount >= 1;
+          })
+        : true,
+    hasRenderedVisualDiffStructuredBlockPrivacy:
+      scenario === "viewer-rendered-visual-diff-structured-block-privacy"
+        ? await page.evaluate(() => {
+            const summary =
+              window.__SVARD_RENDERED_STRUCTURED_BLOCK_TARGETS__?.summary;
+            return (
+              summary?.privatePathVisible === false &&
+              summary?.sourceHunkVisible === false
+            );
+          })
+        : true,
     hasRenderedVisualDiffActiveChangeKeyboard:
       scenario === "viewer-rendered-visual-diff-active-change-keyboard"
         ? await page.evaluate(() => {

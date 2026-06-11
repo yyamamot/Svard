@@ -11,6 +11,7 @@ import { DiffOverview, overviewStats } from "./overview";
 import {
   renderedEntryChangeIndex,
   renderedListItemChangeIndex,
+  renderedStructuredChildChangeIndex,
   renderedTableRowChangeIndex,
   RenderedDiffPane,
 } from "./renderedView";
@@ -185,6 +186,14 @@ export function DiffPreviewBody({
                 itemIndex,
               )
             }
+            changeIndexForStructuredChild={(entry, childIndex) =>
+              renderedStructuredChildChangeIndex(
+                renderedPresentation,
+                entry,
+                "left",
+                childIndex,
+              )
+            }
             changeIndexForTableRow={(entry, rowIndex) =>
               renderedTableRowChangeIndex(
                 renderedPresentation,
@@ -221,6 +230,14 @@ export function DiffPreviewBody({
                 entry,
                 "right",
                 itemIndex,
+              )
+            }
+            changeIndexForStructuredChild={(entry, childIndex) =>
+              renderedStructuredChildChangeIndex(
+                renderedPresentation,
+                entry,
+                "right",
+                childIndex,
               )
             }
             changeIndexForTableRow={(entry, rowIndex) =>
@@ -285,6 +302,14 @@ export function DiffPreviewBody({
                 itemIndex,
               )
             }
+            changeIndexForStructuredChild={(entry, childIndex) =>
+              renderedStructuredChildChangeIndex(
+                renderedPresentation,
+                entry,
+                "left",
+                childIndex,
+              )
+            }
             changeIndexForTableRow={(entry, rowIndex) =>
               renderedTableRowChangeIndex(
                 renderedPresentation,
@@ -320,6 +345,14 @@ export function DiffPreviewBody({
                 entry,
                 "right",
                 itemIndex,
+              )
+            }
+            changeIndexForStructuredChild={(entry, childIndex) =>
+              renderedStructuredChildChangeIndex(
+                renderedPresentation,
+                entry,
+                "right",
+                childIndex,
               )
             }
             changeIndexForTableRow={(entry, rowIndex) =>

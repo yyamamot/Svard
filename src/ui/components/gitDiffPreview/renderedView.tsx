@@ -6,14 +6,17 @@ import {
   isRenderedDiffPresentationChangeEntry,
   renderedBlockVisualClass,
   renderedDiffListItemChangeIndex,
+  renderedDiffStructuredChildChangeIndex,
   renderedDiffTableRowChangeIndex,
   renderedDiffPresentationEntryBlockKind,
   renderedDiffPresentationEntryBlocks,
   renderedDiffPresentationEntryChangeKind,
   renderedInlineDiffRanges,
   renderedListItemHighlightsForSide,
+  renderedStructuredChildHighlightsForSide,
   renderedTableHighlightsForSide,
   applyRenderedListItemHighlights,
+  applyRenderedStructuredChildHighlights,
   applyRenderedTableHighlights,
   applyInlineDiffHighlights,
   type GitRenderedDiffSummary,
@@ -36,7 +39,9 @@ export function renderedEntryChangeIndex(
   if (
     entry.kind === "block" &&
     entry.block.kind === "changed" &&
-    (entry.block.childChanges?.length || entry.block.tableChanges?.length)
+    (entry.block.childChanges?.length ||
+      entry.block.structuredChanges?.length ||
+      entry.block.tableChanges?.length)
   ) {
     return null;
   }
@@ -69,6 +74,20 @@ export function renderedTableRowChangeIndex(
   return renderedDiffTableRowChangeIndex(presentation, entry, side, rowIndex);
 }
 
+export function renderedStructuredChildChangeIndex(
+  presentation: RenderedDiffPresentation,
+  entry: RenderedDiffPresentationEntry,
+  side: "left" | "right",
+  childIndex: number,
+): number | null {
+  return renderedDiffStructuredChildChangeIndex(
+    presentation,
+    entry,
+    side,
+    childIndex,
+  );
+}
+
 function sentenceCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
@@ -97,7 +116,11 @@ function renderedDiffFallbackIndicatorTitle(
   reason: RenderedDiffFallbackReason,
 ): string {
   const target =
-    reason.kind === "list" ? "list item matching" : "table row matching";
+    reason.kind === "list"
+      ? "list item matching"
+      : reason.kind === "structured"
+        ? "structured block matching"
+        : "table row matching";
   return `Svard kept this as a block-level change because ${target} fell back: ${fallbackReasonText(
     reason.reason,
   )}.`;
@@ -116,6 +139,14 @@ function fallbackReasonsForEntry(
       entryId: entry.id,
       kind: "list",
       reason: entry.block.childChangeFallback.reason,
+    });
+  }
+  if (entry.block.structuredChangeFallback) {
+    reasons.push({
+      blockId: entry.block.id,
+      entryId: entry.id,
+      kind: "structured",
+      reason: entry.block.structuredChangeFallback.reason,
     });
   }
   if (entry.block.tableChangeFallback) {
@@ -179,6 +210,7 @@ export function RenderedDiffPane({
   showInlineWordDiff = true,
   changeIndexForEntry,
   changeIndexForListItem,
+  changeIndexForStructuredChild,
   changeIndexForTableRow,
   syncIndexForEntry,
   onContextMenu,
@@ -200,6 +232,10 @@ export function RenderedDiffPane({
   changeIndexForListItem: (
     entry: RenderedDiffPresentationEntry,
     itemIndex: number,
+  ) => number | null;
+  changeIndexForStructuredChild: (
+    entry: RenderedDiffPresentationEntry,
+    childIndex: number,
   ) => number | null;
   changeIndexForTableRow: (
     entry: RenderedDiffPresentationEntry,
@@ -240,10 +276,24 @@ export function RenderedDiffPane({
         contentCursorActive.tableRowIndex === rowIndex,
       side,
     });
+    const structuredHighlights = renderedStructuredChildHighlightsForSide({
+      activeChangeIndex,
+      block,
+      changeIndexForChild: (childIndex) =>
+        changeIndexForStructuredChild(entry, childIndex),
+      contentCursorActiveForChild: (childIndex) =>
+        contentCursorActive?.side === side &&
+        contentCursorActive.entryId === entry.id &&
+        contentCursorActive.structuredChildIndex === childIndex,
+      side,
+    });
     const applyChildHighlights = (html: string) =>
       applyRenderedTableHighlights({
         highlights: tableHighlights,
-        html: applyRenderedListItemHighlights(html, itemHighlights),
+        html: applyRenderedStructuredChildHighlights(
+          applyRenderedListItemHighlights(html, itemHighlights),
+          structuredHighlights,
+        ),
         leftHtml: block.left?.html,
         rightHtml: block.right?.html,
         side,
@@ -251,7 +301,7 @@ export function RenderedDiffPane({
     if (!showInlineWordDiff || block.blockKind === "diagram") {
       return applyChildHighlights(visibleBlock.html);
     }
-    if (tableHighlights.length > 0) {
+    if (structuredHighlights.length > 0 || tableHighlights.length > 0) {
       return applyChildHighlights(visibleBlock.html);
     }
 
@@ -375,10 +425,15 @@ export function RenderedDiffPane({
             entry.kind === "block" &&
             entry.block.kind === "changed" &&
             Boolean(entry.block.tableChanges?.length);
+          const hasStructuredChildChanges =
+            entry.kind === "block" &&
+            entry.block.kind === "changed" &&
+            Boolean(entry.block.structuredChanges?.length);
           const isContentCursorActive =
             contentCursorActive?.side === side &&
             contentCursorActive.entryId === entry.id &&
             contentCursorActive.childChangeIndex === undefined &&
+            contentCursorActive.structuredChildIndex === undefined &&
             contentCursorActive.tableRowIndex === undefined;
           const isActiveChange =
             changeIndex !== null && activeChangeIndex === changeIndex;
@@ -388,6 +443,8 @@ export function RenderedDiffPane({
               className={`git-rendered-block ${sideClass} ${side}-side ${
                 changeIndex !== null ? "change-target" : ""
               } ${hasListItemChanges ? "has-list-item-changes" : ""} ${
+                hasStructuredChildChanges ? "has-structured-child-changes" : ""
+              } ${
                 hasTableRowChanges ? "has-table-row-changes" : ""
               } ${
                 isActiveChange ? "active-change" : ""
