@@ -195,6 +195,38 @@ describe("git rendered diff tables", () => {
       body.querySelector('[data-review-id="git-rendered-table-caption-context"]'),
     ).toBeTruthy();
     expect(body.querySelector(".git-inline-word-highlight.added")).toBeTruthy();
+    expect(body.querySelector('[data-active-change="true"]')).toBeTruthy();
+    expect(body.querySelector('[data-content-cursor-active="true"]')).toBeNull();
+  });
+
+  it("marks table row content cursor only when the cursor row matches", () => {
+    const [block] = compareRenderedBlocks(
+      blocksFromHtml(
+        `<table><caption>Release table</caption><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Draft review</td></tr></tbody></table>`,
+      ),
+      blocksFromHtml(
+        `<table><caption>Release table</caption><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>`,
+      ),
+    );
+    const highlights = renderedTableHighlightsForSide({
+      activeChangeIndex: 4,
+      block: block as NonNullable<typeof block>,
+      changeIndexForRow: () => 4,
+      contentCursorActiveForRow: (rowIndex) => rowIndex === 1,
+      side: "right",
+    });
+    const html = applyRenderedTableHighlights({
+      highlights,
+      html: block?.right?.html ?? "",
+      leftHtml: block?.left?.html,
+      rightHtml: block?.right?.html,
+      side: "right",
+    });
+    const body = parseHtmlBody(html);
+    const activeRow = body.querySelector('[data-active-change="true"]');
+
+    expect(activeRow).toBeTruthy();
+    expect(activeRow?.getAttribute("data-content-cursor-active")).toBe("true");
   });
 
   it("does not apply table header or caption context for inactive row targets", () => {

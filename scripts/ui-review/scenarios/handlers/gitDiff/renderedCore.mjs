@@ -295,6 +295,128 @@ export async function applyGitDiffRenderedCoreScenario(context) {
       { scenarioName: scenario, overviewSummary },
     );
   } else if (
+    scenario === "viewer-rendered-visual-diff-active-change-context" ||
+    scenario === "viewer-rendered-visual-diff-active-change-keyboard"
+  ) {
+    await page.locator("text=diff-regression-gallery.md").click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Diff Preview Regression Gallery" })
+      .waitFor();
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.locator('[data-review-id="git-diff-rendered-view"]').click();
+    await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+
+    const summarizeActiveChange = async () =>
+      await page.evaluate(() => {
+        const activeBlocks = Array.from(
+          document.querySelectorAll(
+            ".git-rendered-block[data-active-change='true']",
+          ),
+        );
+        const activeListItems = Array.from(
+          document.querySelectorAll(
+            '[data-review-id="git-rendered-list-item-change"][data-active-change="true"]',
+          ),
+        );
+        const activeRows = Array.from(
+          document.querySelectorAll(
+            '[data-review-id="git-rendered-table-row-change"][data-active-change="true"]',
+          ),
+        );
+        const activeMarkers = Array.from(
+          document.querySelectorAll(
+            '[data-review-id="git-diff-change-ruler-marker"].active',
+          ),
+        );
+        const contentCursorTargets = Array.from(
+          document.querySelectorAll('[data-content-cursor-active="true"]'),
+        );
+        const childParentActiveCount = [
+          ...activeListItems,
+          ...activeRows,
+        ].filter((target) =>
+          target.closest(".git-rendered-block[data-active-change='true']"),
+        ).length;
+        const contentCursorActiveTargets = contentCursorTargets.filter((target) =>
+          target.matches("[data-active-change='true']"),
+        );
+        return {
+          activeBlockCount: activeBlocks.length,
+          activeListItemCount: activeListItems.length,
+          activeMarkerCount: activeMarkers.length,
+          activeTableRowCount: activeRows.length,
+          childParentActiveCount,
+          contentCursorActiveOverlapCount: contentCursorActiveTargets.length,
+          contentCursorCount: contentCursorTargets.length,
+        };
+      });
+
+    const initialSummary = await summarizeActiveChange();
+    let listSummary = null;
+    let tableSummary = null;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      await page.getByRole("button", { name: "Next change" }).click();
+      await page.waitForTimeout(80);
+      const summary = await summarizeActiveChange();
+      if (!listSummary && summary.activeListItemCount > 0) {
+        listSummary = summary;
+      }
+      if (!tableSummary && summary.activeTableRowCount > 0) {
+        tableSummary = summary;
+      }
+      if (listSummary && tableSummary) {
+        break;
+      }
+    }
+
+    let rulerSummary = null;
+    let contentCursorSummary = null;
+    if (scenario === "viewer-rendered-visual-diff-active-change-keyboard") {
+      await page
+        .locator('[data-review-id="git-diff-change-ruler-marker"]')
+        .last()
+        .click();
+      await page.waitForTimeout(120);
+      rulerSummary = await summarizeActiveChange();
+      await page.evaluate(async () => {
+        await window.__SVARD_COMMANDS__?.dispatch("viewer.contentCursor.next");
+      });
+      await page.waitForTimeout(120);
+      contentCursorSummary = await summarizeActiveChange();
+    }
+
+    await page.evaluate(
+      ({
+        contentCursorSummary,
+        initialSummary,
+        listSummary,
+        scenarioName,
+        tableSummary,
+        rulerSummary,
+      }) => {
+        window.__SVARD_RENDERED_ACTIVE_CHANGE_CONTEXT__ = {
+          scenario: scenarioName,
+          initialSummary,
+          listSummary,
+          tableSummary,
+          rulerSummary,
+          contentCursorSummary,
+        };
+      },
+      {
+        contentCursorSummary,
+        initialSummary,
+        listSummary,
+        scenarioName: scenario,
+        tableSummary,
+        rulerSummary,
+      },
+    );
+  } else if (
     scenario === "viewer-rendered-visual-diff-table-review-assist" ||
     scenario === "viewer-rendered-visual-diff-table-horizontal-context"
   ) {

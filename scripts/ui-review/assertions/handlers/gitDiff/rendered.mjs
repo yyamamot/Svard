@@ -245,6 +245,34 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             );
           })
         : true,
+    hasRenderedVisualDiffActiveChangeContext:
+      scenario === "viewer-rendered-visual-diff-active-change-context"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_ACTIVE_CHANGE_CONTEXT__;
+            return (
+              result?.initialSummary?.activeBlockCount === 1 &&
+              result?.initialSummary?.contentCursorCount === 0 &&
+              result?.listSummary?.activeListItemCount === 1 &&
+              result?.listSummary?.childParentActiveCount === 0 &&
+              result?.listSummary?.contentCursorCount === 0 &&
+              result?.tableSummary?.activeTableRowCount === 1 &&
+              result?.tableSummary?.childParentActiveCount === 0 &&
+              result?.tableSummary?.contentCursorCount === 0
+            );
+          })
+        : true,
+    hasRenderedVisualDiffActiveChangeKeyboard:
+      scenario === "viewer-rendered-visual-diff-active-change-keyboard"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_RENDERED_ACTIVE_CHANGE_CONTEXT__;
+            return (
+              result?.rulerSummary?.activeMarkerCount === 1 &&
+              result?.contentCursorSummary?.activeMarkerCount === 1 &&
+              result?.contentCursorSummary?.contentCursorCount === 1 &&
+              result?.contentCursorSummary?.contentCursorActiveOverlapCount === 1
+            );
+          })
+        : true,
     hasRenderedVisualDiffListItemHighlight:
       scenario === "viewer-rendered-visual-diff-list-item-highlight-basic"
         ? await page.evaluate(() => {

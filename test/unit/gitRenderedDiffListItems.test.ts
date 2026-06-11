@@ -322,7 +322,7 @@ describe("git rendered diff list items", () => {
     ).toHaveLength(1);
     expect(
       rightDoc.querySelector('[data-content-cursor-active="true"]'),
-    ).toBeTruthy();
+    ).toBeNull();
     expect(rightDoc.querySelector('[data-active-change="true"]')).toBeTruthy();
     expect(
       rightDoc.querySelectorAll("li:not(.git-rendered-list-item-change)"),
@@ -332,6 +332,35 @@ describe("git rendered diff list items", () => {
     ).toHaveLength(1);
     expect(leftDoc.querySelector("[data-change-index]")).toBeNull();
     expect(leftDoc.querySelector("[data-active-change]")).toBeNull();
+  });
+
+  it("marks list item content cursor only when the cursor target matches", () => {
+    const [block] = compareRenderedBlocks(
+      blocksFromHtml(
+        "<ul><li>Stable item</li><li>Status: Draft / Later.</li><li>Tail item</li></ul>",
+      ),
+      blocksFromHtml(
+        "<ul><li>Stable item</li><li>Status: Draft / Paused.</li><li>Tail item</li></ul>",
+      ),
+    );
+    expect(block).toBeDefined();
+    const listBlock = block as NonNullable<typeof block>;
+    const html = applyRenderedListItemHighlights(
+      listBlock.right?.html ?? "",
+      renderedListItemHighlightsForSide({
+        activeChangeIndex: 7,
+        block: listBlock,
+        changeIndexForItem: (itemIndex) => (itemIndex === 1 ? 7 : null),
+        contentCursorActiveForItem: (childChangeIndex) =>
+          childChangeIndex === 0,
+        side: "right",
+      }),
+    );
+    const doc = parseHtmlBody(html);
+    const activeItem = doc.querySelector('[data-active-change="true"]');
+
+    expect(activeItem).toBeTruthy();
+    expect(activeItem?.getAttribute("data-content-cursor-active")).toBe("true");
   });
 
   it("keeps list item highlight metadata through rendered block sanitizing", () => {
@@ -353,6 +382,27 @@ describe("git rendered diff list items", () => {
     expect(sanitized).toContain("git-rendered-list-item-change");
     expect(sanitized).toContain('data-review-id="git-rendered-list-item-change"');
     expect(sanitized).toContain('data-change-index="3"');
+    expect(sanitized).toContain('data-active-change="true"');
+    expect(sanitized).not.toContain('data-content-cursor-active="true"');
+  });
+
+  it("keeps list item content cursor metadata through rendered block sanitizing", () => {
+    const html = applyRenderedListItemHighlights(
+      "<ul><li>Stable</li><li>Changed</li></ul>",
+      [
+        {
+          active: true,
+          changeIndex: 3,
+          contentCursorActive: true,
+          itemIndex: 1,
+          kind: "changed",
+        },
+      ],
+    );
+    const sanitized = unwrapSafeHtml(
+      sanitizeRenderedBlockHtml(html, { format: "markdown" }),
+    );
+
     expect(sanitized).toContain('data-active-change="true"');
     expect(sanitized).toContain('data-content-cursor-active="true"');
   });

@@ -223,6 +223,10 @@ export function RenderedDiffPane({
       block,
       changeIndexForItem: (itemIndex) =>
         changeIndexForListItem(entry, itemIndex),
+      contentCursorActiveForItem: (childChangeIndex) =>
+        contentCursorActive?.side === side &&
+        contentCursorActive.entryId === entry.id &&
+        contentCursorActive.childChangeIndex === childChangeIndex,
       side,
     });
     const tableHighlights = renderedTableHighlightsForSide({
@@ -230,6 +234,10 @@ export function RenderedDiffPane({
       block,
       changeIndexForRow: (rowIndex) =>
         changeIndexForTableRow(entry, rowIndex),
+      contentCursorActiveForRow: (rowIndex) =>
+        contentCursorActive?.side === side &&
+        contentCursorActive.entryId === entry.id &&
+        contentCursorActive.tableRowIndex === rowIndex,
       side,
     });
     const applyChildHighlights = (html: string) =>
@@ -370,7 +378,8 @@ export function RenderedDiffPane({
           const isContentCursorActive =
             contentCursorActive?.side === side &&
             contentCursorActive.entryId === entry.id &&
-            contentCursorActive.childChangeIndex === undefined;
+            contentCursorActive.childChangeIndex === undefined &&
+            contentCursorActive.tableRowIndex === undefined;
           const isActiveChange =
             changeIndex !== null && activeChangeIndex === changeIndex;
           return (

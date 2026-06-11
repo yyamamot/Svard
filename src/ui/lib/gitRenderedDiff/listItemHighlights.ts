@@ -6,6 +6,7 @@ import type {
 export interface RenderedListItemHighlight {
   active?: boolean;
   changeIndex?: number;
+  contentCursorActive?: boolean;
   itemIndex: number;
   kind: RenderedListItemChildChangeKind;
 }
@@ -14,17 +15,22 @@ export function renderedListItemHighlightsForSide({
   activeChangeIndex,
   block,
   changeIndexForItem,
+  contentCursorActiveForItem,
   side,
 }: {
   activeChangeIndex?: number;
   block: RenderedBlockDiff;
   changeIndexForItem: (itemIndex: number) => number | null;
+  contentCursorActiveForItem?: (
+    childChangeIndex: number,
+    itemIndex: number,
+  ) => boolean;
   side: "left" | "right";
 }): RenderedListItemHighlight[] {
   if (block.kind !== "changed" || block.blockKind !== "list") {
     return [];
   }
-  return (block.childChanges ?? []).flatMap((childChange) => {
+  return (block.childChanges ?? []).flatMap((childChange, childChangeIndex) => {
     const itemIndex =
       side === "left" ? childChange.leftIndex : childChange.rightIndex;
     if (itemIndex === undefined) {
@@ -36,6 +42,10 @@ export function renderedListItemHighlightsForSide({
         active:
           changeIndex !== undefined && activeChangeIndex === changeIndex,
         changeIndex,
+        contentCursorActive: contentCursorActiveForItem?.(
+          childChangeIndex,
+          itemIndex,
+        ),
         itemIndex,
         kind: childChange.kind,
       },
@@ -71,6 +81,8 @@ export function applyRenderedListItemHighlights(
         if (highlight.active) {
           item.classList.add("active-change");
           item.setAttribute("data-active-change", "true");
+        }
+        if (highlight.contentCursorActive) {
           item.classList.add("content-cursor-active");
           item.setAttribute("data-content-cursor-active", "true");
         }

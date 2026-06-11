@@ -9,6 +9,7 @@ export interface RenderedTableCellHighlight {
   active?: boolean;
   cellIndex: number;
   changeIndex?: number;
+  contentCursorActive?: boolean;
   kind: RenderedTableCellChangeKind;
   rowIndex: number;
 }
@@ -17,11 +18,13 @@ export function renderedTableHighlightsForSide({
   activeChangeIndex,
   block,
   changeIndexForRow,
+  contentCursorActiveForRow,
   side,
 }: {
   activeChangeIndex?: number;
   block: RenderedBlockDiff;
   changeIndexForRow: (rowIndex: number) => number | null;
+  contentCursorActiveForRow?: (rowIndex: number) => boolean;
   side: "left" | "right";
 }): RenderedTableCellHighlight[] {
   if (block.kind !== "changed" || block.blockKind !== "table") {
@@ -42,6 +45,7 @@ export function renderedTableHighlightsForSide({
           changeIndex !== undefined && activeChangeIndex === changeIndex,
         cellIndex,
         changeIndex,
+        contentCursorActive: contentCursorActiveForRow?.(rowIndex),
         kind: tableChange.kind,
         rowIndex,
       },
@@ -120,6 +124,9 @@ export function applyRenderedTableHighlights({
       (highlight) => highlight.changeIndex !== undefined,
     )?.changeIndex;
     const rowActive = rowHighlights.some((highlight) => highlight.active);
+    const rowContentCursorActive = rowHighlights.some(
+      (highlight) => highlight.contentCursorActive,
+    );
     row.classList.add("git-rendered-table-row-change", rowKind);
     row.setAttribute("data-review-id", "git-rendered-table-row-change");
     if (rowChangeIndex !== undefined) {
@@ -128,6 +135,8 @@ export function applyRenderedTableHighlights({
     if (rowActive) {
       row.classList.add("active-change");
       row.setAttribute("data-active-change", "true");
+    }
+    if (rowContentCursorActive) {
       row.classList.add("content-cursor-active");
       row.setAttribute("data-content-cursor-active", "true");
     }
