@@ -86,6 +86,119 @@ export function getTableGitDiffPreview(
       rightText,
     };
   }
+  if (path.endsWith("/git-table-cells.md")) {
+    const leftText = `# Git Markdown Table Cell Fixture
+
+| Feature | Owner | Status |
+| --- | --- | --- |
+| Search | Docs | Draft |
+| Diff | Docs | Ready |
+`;
+    const rightText = `# Git Markdown Table Cell Fixture
+
+| Feature | Owner | Status |
+| --- | --- | --- |
+| Search | Docs | Reviewed |
+| Diff | Docs | Ready |
+`;
+    return {
+      repositoryRoot: null,
+      relativePath,
+      leftPath: path,
+      rightPath: path,
+      status: "modified",
+      leftLabel: "HEAD",
+      rightLabel: "Working Tree",
+      hunks: [
+        {
+          oldStart: 1,
+          oldLines: 6,
+          newStart: 1,
+          newLines: 6,
+          lines: [
+            {
+              kind: "context",
+              oldLine: 1,
+              newLine: 1,
+              text: "# Git Markdown Table Cell Fixture",
+            },
+            { kind: "context", oldLine: 2, newLine: 2, text: "" },
+            {
+              kind: "context",
+              oldLine: 3,
+              newLine: 3,
+              text: "| Feature | Owner | Status |",
+            },
+            {
+              kind: "context",
+              oldLine: 4,
+              newLine: 4,
+              text: "| --- | --- | --- |",
+            },
+            {
+              kind: "removed",
+              oldLine: 5,
+              newLine: null,
+              text: "| Search | Docs | Draft |",
+            },
+            {
+              kind: "added",
+              oldLine: null,
+              newLine: 5,
+              text: "| Search | Docs | Reviewed |",
+            },
+            {
+              kind: "context",
+              oldLine: 6,
+              newLine: 6,
+              text: "| Diff | Docs | Ready |",
+            },
+          ],
+        },
+      ],
+      message: null,
+      leftText,
+      rightText,
+    };
+  }
+  if (path.endsWith("/git-table-untracked.md")) {
+    const rightText = `# Git Markdown Table Untracked Fixture
+
+| Feature | Owner | Status |
+| --- | --- | --- |
+| Manual | Docs | Draft |
+| Screenshots | Docs | Planned |
+`;
+    return {
+      repositoryRoot: null,
+      relativePath,
+      leftPath: null,
+      rightPath: path,
+      status: "untracked",
+      leftLabel: "HEAD",
+      rightLabel: "Working Tree",
+      hunks: [
+        {
+          oldStart: 0,
+          oldLines: 0,
+          newStart: 1,
+          newLines: 6,
+          lines: rightText
+            .trimEnd()
+            .split("\n")
+            .map((text, index) => ({
+              kind: "added" as const,
+              oldLine: null,
+              newLine: index + 1,
+              text,
+            })),
+        },
+      ],
+      message: null,
+      leftText: "",
+      rightText,
+    };
+  }
   if (path.endsWith("/git-asciidoc-table.adoc")) {
     const leftText = `= Git AsciiDoc Table Diff Fixture
 

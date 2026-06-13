@@ -11,6 +11,10 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-list-item-privacy",
   "viewer-normal-git-markers-table-row-cell-initial-working-tree",
   "viewer-normal-git-markers-table-row-cell-after-diff",
+  "viewer-normal-git-markers-table-cell-markdown-diagnosis",
+  "viewer-normal-git-markers-table-cell-asciidoc-regression",
+  "viewer-normal-git-markers-table-cell-untracked-not-applicable",
+  "viewer-normal-git-markers-table-cell-complex-fallback",
   "viewer-git-change-visual-contract-block",
   "viewer-git-change-visual-contract-list-item",
   "viewer-git-change-visual-contract-inline",
@@ -106,15 +110,19 @@ async function markerSummary(page, extra = {}) {
   }, extra);
 }
 
-async function openTableFixture(page) {
+async function openTableFixture(
+  page,
+  {
+    path = "/workspace/docs/git-asciidoc-table.adoc",
+    title = "Git AsciiDoc Table Diff Fixture",
+  } = {},
+) {
   await page
-    .locator(
-      '[data-review-id="tree-file"][data-path="/workspace/docs/git-asciidoc-table.adoc"]',
-    )
+    .locator(`[data-review-id="tree-file"][data-path="${path}"]`)
     .click();
   await page
     .locator('[data-review-id="document-body"]')
-    .filter({ hasText: "Git AsciiDoc Table Diff Fixture" })
+    .filter({ hasText: title })
     .waitFor();
 }
 
@@ -135,10 +143,25 @@ async function waitForTableMarkers(page) {
   );
 }
 
+async function waitForNoTableCellMarkers(page) {
+  await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[data-review-id="git-diff-preview-panel"]') ===
+        null &&
+      document.querySelectorAll(
+        ".document-body .post-diff-git-highlight-table-row",
+      ).length === 0 &&
+      document.querySelectorAll(
+        ".document-body .post-diff-git-highlight-table-cell",
+      ).length === 0,
+  );
+}
+
 async function collectTableMarkerSummary(page, extra = {}) {
   await page.locator('[data-review-id="post-diff-git-marker"]').first().click();
   await markerSummary(page, {
-    documentBasename: "git-asciidoc-table.adoc",
+    documentBasename: extra.documentBasename ?? "git-asciidoc-table.adoc",
     tableMarker: true,
     clickResult: true,
     ...extra,
@@ -349,6 +372,61 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     await openTableFixture(page);
     await waitForTableMarkers(page);
     await collectTableMarkerSummary(page, { initialWorkingTree: true });
+    return true;
+  }
+
+  if (scenario === "viewer-normal-git-markers-table-cell-markdown-diagnosis") {
+    await openTableFixture(page, {
+      path: "/workspace/docs/git-table-cells.md",
+      title: "Git Markdown Table Cell Fixture",
+    });
+    await waitForTableMarkers(page);
+    await collectTableMarkerSummary(page, {
+      documentBasename: "git-table-cells.md",
+      initialWorkingTree: true,
+      markdownTableDiagnosis: true,
+    });
+    return true;
+  }
+
+  if (scenario === "viewer-normal-git-markers-table-cell-asciidoc-regression") {
+    await openTableFixture(page);
+    await waitForTableMarkers(page);
+    await collectTableMarkerSummary(page, {
+      documentBasename: "git-asciidoc-table.adoc",
+      initialWorkingTree: true,
+      asciidocTableRegression: true,
+    });
+    return true;
+  }
+
+  if (
+    scenario === "viewer-normal-git-markers-table-cell-untracked-not-applicable"
+  ) {
+    await openTableFixture(page, {
+      path: "/workspace/docs/git-table-untracked.md",
+      title: "Git Markdown Table Untracked Fixture",
+    });
+    await waitForNoTableCellMarkers(page);
+    await collectTableMarkerSummary(page, {
+      documentBasename: "git-table-untracked.md",
+      untrackedNotApplicable: true,
+      tableMarker: false,
+    });
+    return true;
+  }
+
+  if (scenario === "viewer-normal-git-markers-table-cell-complex-fallback") {
+    await openTableFixture(page, {
+      path: "/workspace/docs/git-asciidoc-table-complex.adoc",
+      title: "Git AsciiDoc Complex Table Diff Fixture",
+    });
+    await waitForNoTableCellMarkers(page);
+    await collectTableMarkerSummary(page, {
+      documentBasename: "git-asciidoc-table-complex.adoc",
+      complexTableFallback: true,
+      tableMarker: false,
+    });
     return true;
   }
 

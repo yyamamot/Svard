@@ -643,10 +643,14 @@ export async function captureScenario({
               ? "markdown-sample.md"
               : bodyText.includes("Markdown Diagram Sample")
                 ? "markdown-diagrams.md"
-                : bodyText.includes("Markdown Footnotes And Admonitions Sample")
+          : bodyText.includes("Markdown Footnotes And Admonitions Sample")
                   ? "markdown-footnotes-admonitions.md"
                   : bodyText.includes("Markdown 日本語確認")
                     ? "markdown-japanese.md"
+                    : bodyText.includes("Git Markdown Table Cell Fixture")
+                      ? "git-table-cells.md"
+                      : bodyText.includes("Git Markdown Table Untracked Fixture")
+                        ? "git-table-untracked.md"
                     : bodyText.includes("PlantUML Concurrency Stress")
                       ? "plantuml-concurrency.adoc"
                       : bodyText.includes("Mixed Diagram Japanese Sample")

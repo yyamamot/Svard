@@ -11,6 +11,10 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-list-item-privacy",
   "viewer-normal-git-markers-table-row-cell-initial-working-tree",
   "viewer-normal-git-markers-table-row-cell-after-diff",
+  "viewer-normal-git-markers-table-cell-markdown-diagnosis",
+  "viewer-normal-git-markers-table-cell-asciidoc-regression",
+  "viewer-normal-git-markers-table-cell-untracked-not-applicable",
+  "viewer-normal-git-markers-table-cell-complex-fallback",
   "viewer-git-change-visual-contract-block",
   "viewer-git-change-visual-contract-list-item",
   "viewer-git-change-visual-contract-inline",
@@ -132,6 +136,50 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.tableRowHighlightCount > 0 &&
           summary?.tableCellHighlightCount > 0 &&
           summary?.parentTableHighlightCount === 0 &&
+          summary?.markerCount > 0 &&
+          summary?.clickResult === true
+        : true,
+    diagnosesMarkdownTableCellGitMarkers:
+      scenario === "viewer-normal-git-markers-table-cell-markdown-diagnosis"
+        ? privacySafe &&
+          summary?.visible === true &&
+          summary?.markdownTableDiagnosis === true &&
+          summary?.tableMarker === true &&
+          summary?.tableRowHighlightCount > 0 &&
+          summary?.tableCellHighlightCount > 0 &&
+          summary?.parentTableHighlightCount === 0 &&
+          summary?.markerCount > 0 &&
+          summary?.clickResult === true
+        : true,
+    keepsAsciiDocTableCellGitMarkers:
+      scenario === "viewer-normal-git-markers-table-cell-asciidoc-regression"
+        ? privacySafe &&
+          summary?.visible === true &&
+          summary?.asciidocTableRegression === true &&
+          summary?.tableMarker === true &&
+          summary?.tableRowHighlightCount > 0 &&
+          summary?.tableCellHighlightCount > 0 &&
+          summary?.parentTableHighlightCount === 0 &&
+          summary?.markerCount > 0 &&
+          summary?.clickResult === true
+        : true,
+    treatsUntrackedTableAsNotApplicableForCellMarkers:
+      scenario === "viewer-normal-git-markers-table-cell-untracked-not-applicable"
+        ? privacySafe &&
+          summary?.visible === true &&
+          summary?.untrackedNotApplicable === true &&
+          summary?.tableRowHighlightCount === 0 &&
+          summary?.tableCellHighlightCount === 0 &&
+          summary?.markerCount > 0 &&
+          summary?.clickResult === true
+        : true,
+    fallsBackForComplexTableCellMarkers:
+      scenario === "viewer-normal-git-markers-table-cell-complex-fallback"
+        ? privacySafe &&
+          summary?.visible === true &&
+          summary?.complexTableFallback === true &&
+          summary?.tableRowHighlightCount === 0 &&
+          summary?.tableCellHighlightCount === 0 &&
           summary?.markerCount > 0 &&
           summary?.clickResult === true
         : true,

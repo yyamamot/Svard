@@ -658,6 +658,31 @@ describe("post-diff git markers", () => {
     ]);
   });
 
+  it("keeps whole-table additions as block markers instead of table cell markers", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview({ status: "untracked", leftPath: null }),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          kind: "added",
+          left: undefined,
+          tableChanges: undefined,
+          tableChangeFallback: undefined,
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "added",
+        anchorBlockId: "rendered-block:0",
+        targetKind: "block",
+      }),
+    ]);
+    expect(context?.markers[0]?.anchorTableRowIndex).toBeUndefined();
+    expect(context?.markers[0]?.tableCellHighlights).toBeUndefined();
+  });
+
   it("builds table row markers for removed rows on the active left side", () => {
     const context = buildPostDiffGitMarkerContext({
       activeDocumentPath: "/workspace/docs/base.md",

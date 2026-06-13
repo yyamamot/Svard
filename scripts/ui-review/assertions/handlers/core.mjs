@@ -56,6 +56,8 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("Git Diff Clean Fixture") ||
       bodyText.includes("Git Diff Untracked Fixture") ||
       bodyText.includes("Git Table Diff Fixture") ||
+      bodyText.includes("Git Markdown Table Cell Fixture") ||
+      bodyText.includes("Git Markdown Table Untracked Fixture") ||
       bodyText.includes("Git AsciiDoc Table Diff Fixture") ||
       bodyText.includes("Git AsciiDoc Complex Table Diff Fixture") ||
       bodyText.includes("Git Rendered Markdown Diff Fixture") ||

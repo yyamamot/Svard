@@ -187,6 +187,16 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "git-table-cells.md",
+      path: "/workspace/docs/git-table-cells.md",
+      kind: "file",
+    },
+    {
+      name: "git-table-untracked.md",
+      path: "/workspace/docs/git-table-untracked.md",
+      kind: "file",
+    },
+    {
       name: "git-asciidoc-table.adoc",
       path: "/workspace/docs/git-asciidoc-table.adoc",
       kind: "file",
@@ -541,6 +551,16 @@ export const fixtureEntries: DirectoryEntry[] = [
   {
     name: "git-table.md",
     path: "/workspace/docs/git-table.md",
+    kind: "file",
+  },
+  {
+    name: "git-table-cells.md",
+    path: "/workspace/docs/git-table-cells.md",
+    kind: "file",
+  },
+  {
+    name: "git-table-untracked.md",
+    path: "/workspace/docs/git-table-untracked.md",
     kind: "file",
   },
   {
@@ -1654,6 +1674,20 @@ This document is treated as untracked in the browser harness.
 | Basic | $12 | Stable |
 | Pro | $20 | Stable |
 | Enterprise | $50 | New |
+`,
+  "/workspace/docs/git-table-cells.md": `# Git Markdown Table Cell Fixture
+
+| Feature | Owner | Status |
+| --- | --- | --- |
+| Search | Docs | Reviewed |
+| Diff | Docs | Ready |
+`,
+  "/workspace/docs/git-table-untracked.md": `# Git Markdown Table Untracked Fixture
+
+| Feature | Owner | Status |
+| --- | --- | --- |
+| Manual | Docs | Draft |
+| Screenshots | Docs | Planned |
 `,
   "/workspace/docs/git-asciidoc-table.adoc": `= Git AsciiDoc Table Diff Fixture
 

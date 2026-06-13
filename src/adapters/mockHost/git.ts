@@ -73,16 +73,21 @@ export async function getGitStatusSummary(
     if (path.endsWith("/git-clean.md")) {
       return "clean";
     }
-    if (path.endsWith("/git-untracked.md")) {
+    if (
+      path.endsWith("/git-untracked.md") ||
+      path.endsWith("/git-table-untracked.md")
+    ) {
       return "untracked";
     }
     if (
       path.endsWith("/git-modified.md") ||
       path.endsWith("/git-table.md") ||
+      path.endsWith("/git-table-cells.md") ||
       path.endsWith("/git-rendered-markdown.md") ||
       path.endsWith("/git-rendered-list-reorder.md") ||
       path.endsWith("/git-rendered-list-deletion.md") ||
       path.endsWith("/git-asciidoc-table.adoc") ||
+      path.endsWith("/git-asciidoc-table-complex.adoc") ||
       path.endsWith("/git-large-markdown-scroll.md") ||
       path.endsWith("/git-rendered-asciidoc.adoc") ||
       path.endsWith("/git-rendered-diagram.adoc") ||
@@ -165,6 +170,21 @@ export async function getGitChanges(pathOrRoot: string): Promise<GitChanges> {
         path: "docs/git-untracked.md",
         status: "untracked",
         documentPath: "/workspace/docs/git-untracked.md",
+      },
+      {
+        path: "docs/git-table-cells.md",
+        status: "modified",
+        documentPath: "/workspace/docs/git-table-cells.md",
+      },
+      {
+        path: "docs/git-table-untracked.md",
+        status: "untracked",
+        documentPath: "/workspace/docs/git-table-untracked.md",
+      },
+      {
+        path: "docs/git-asciidoc-table-complex.adoc",
+        status: "modified",
+        documentPath: "/workspace/docs/git-asciidoc-table-complex.adoc",
       },
       {
         path: "book/deep/cache-only.md",
