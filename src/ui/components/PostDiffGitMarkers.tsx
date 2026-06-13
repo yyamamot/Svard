@@ -413,6 +413,9 @@ export function PostDiffGitMarkers({
       data-table-cell-marker-count={String(
         context.tableSummary.tableCellMarkerCount,
       )}
+      data-table-added-row-marker-count={String(
+        context.tableSummary.tableAddedRowMarkerCount,
+      )}
       data-table-block-fallback-count={String(
         context.tableSummary.tableBlockFallbackCount,
       )}

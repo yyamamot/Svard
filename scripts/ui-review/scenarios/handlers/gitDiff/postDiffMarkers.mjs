@@ -97,6 +97,9 @@ async function markerSummary(page, extra = {}) {
       tableCellMarkerCount: Number(
         markerRoot?.getAttribute("data-table-cell-marker-count") ?? 0,
       ),
+      tableAddedRowMarkerCount: Number(
+        markerRoot?.getAttribute("data-table-added-row-marker-count") ?? 0,
+      ),
       tableBlockFallbackCount: Number(
         markerRoot?.getAttribute("data-table-block-fallback-count") ?? 0,
       ),
@@ -419,11 +422,11 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
       path: "/workspace/docs/git-table-untracked.md",
       title: "Git Markdown Table Untracked Fixture",
     });
-    await waitForNoTableCellMarkers(page);
+    await waitForTableMarkers(page);
     await collectTableMarkerSummary(page, {
       documentBasename: "git-table-untracked.md",
-      untrackedNotApplicable: true,
-      tableMarker: false,
+      tableMarker: true,
+      wholeFileAddedTableRows: true,
     });
     return true;
   }

@@ -15,6 +15,7 @@ export const postDiffGitMarkerBudget = 200;
 function emptyTableSummary(): PostDiffGitTableClassificationSummary {
   return {
     tableCellMarkerCount: 0,
+    tableAddedRowMarkerCount: 0,
     tableBlockFallbackCount: 0,
     tableNotApplicableCount: 0,
     reasonCounts: {},
@@ -24,10 +25,16 @@ function emptyTableSummary(): PostDiffGitTableClassificationSummary {
 function recordTableReason(
   tableSummary: PostDiffGitTableClassificationSummary,
   reason: PostDiffGitTableClassificationReason,
-  bucket: "cell-marker" | "block-fallback" | "not-applicable",
+  bucket:
+    | "cell-marker"
+    | "added-row-marker"
+    | "block-fallback"
+    | "not-applicable",
 ) {
   if (bucket === "cell-marker") {
     tableSummary.tableCellMarkerCount += 1;
+  } else if (bucket === "added-row-marker") {
+    tableSummary.tableAddedRowMarkerCount += 1;
   } else if (bucket === "block-fallback") {
     tableSummary.tableBlockFallbackCount += 1;
   } else {
@@ -35,6 +42,14 @@ function recordTableReason(
   }
   tableSummary.reasonCounts[reason] =
     (tableSummary.reasonCounts[reason] ?? 0) + 1;
+}
+
+function reasonForAddedTableRows(
+  preview: DocumentDiffPreview,
+): PostDiffGitTableClassificationReason {
+  return preview.status === "untracked"
+    ? "untracked-or-whole-file-added"
+    : "added-or-removed-table-block";
 }
 
 function fallbackReasonForTableBlock(
@@ -441,6 +456,46 @@ function markersForTableChanges({
   return markers;
 }
 
+function markersForAddedTableRows({
+  block,
+  blocks,
+  changeIndexStart,
+  side,
+}: {
+  block: RenderedBlockDiff;
+  blocks: RenderedBlockDiff[];
+  changeIndexStart: number;
+  side: "left" | "right";
+}): PostDiffGitMarker[] {
+  if (side !== "right" || block.kind !== "added" || block.blockKind !== "table") {
+    return [];
+  }
+  const rows = block.right?.tableRows;
+  if (!rows?.length) {
+    return [];
+  }
+  const anchorBlockId = visibleAnchorForBlock(blocks, block, side);
+  if (!anchorBlockId) {
+    return [];
+  }
+
+  return rows.map((row, rowOffset) => {
+    const changeIndex = changeIndexStart + rowOffset;
+    return {
+      id: `post-diff-marker:${changeIndex}:${block.id}:table-row:${row.index}`,
+      kind: "added",
+      anchorBlockId,
+      anchorTableRowIndex: row.index,
+      changeIndex,
+      tableCellHighlights: row.cells.map((cell) => ({
+        cellIndex: cell.index,
+        kind: "added",
+      })),
+      targetKind: "table-row",
+    };
+  });
+}
+
 function markerForBlock({
   block,
   blocks,
@@ -532,6 +587,23 @@ export function buildPostDiffGitMarkerContext({
     });
     if (itemMarkers.length > 0) {
       markers.push(...itemMarkers);
+      continue;
+    }
+    const addedTableRowMarkers = markersForAddedTableRows({
+      block,
+      blocks,
+      changeIndexStart: markers.length,
+      side,
+    });
+    if (addedTableRowMarkers.length > 0) {
+      markers.push(...addedTableRowMarkers);
+      addedTableRowMarkers.forEach(() =>
+        recordTableReason(
+          tableSummary,
+          reasonForAddedTableRows(preview),
+          "added-row-marker",
+        ),
+      );
       continue;
     }
     const tableMarkers = markersForTableChanges({

@@ -56,6 +56,7 @@ function payload(format: DocumentPayload["format"]): DocumentPayload {
 function emptyPostDiffTableSummary() {
   return {
     tableCellMarkerCount: 0,
+    tableAddedRowMarkerCount: 0,
     tableBlockFallbackCount: 0,
     tableNotApplicableCount: 0,
     reasonCounts: {},
@@ -275,6 +276,7 @@ describe("ViewerPane", () => {
 
     await act(async () => {
       await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
     });
 
     expect(
@@ -323,6 +325,7 @@ describe("ViewerPane", () => {
 
     await act(async () => {
       await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
     });
 
     expect(
@@ -364,6 +367,7 @@ describe("ViewerPane", () => {
     );
 
     await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
       await new Promise((resolve) => window.requestAnimationFrame(resolve));
     });
 
@@ -486,6 +490,7 @@ describe("ViewerPane", () => {
           renderedCount: 1,
           tableSummary: {
             tableCellMarkerCount: 1,
+            tableAddedRowMarkerCount: 0,
             tableBlockFallbackCount: 0,
             tableNotApplicableCount: 0,
             reasonCounts: {
@@ -523,6 +528,7 @@ describe("ViewerPane", () => {
     const markerRoot = container.querySelector<HTMLElement>(
       '[data-review-id="post-diff-git-markers"]',
     );
+    console.error(markerRoot?.outerHTML);
     const parentTable = container.querySelector("table");
     const highlightedRow = container.querySelector<HTMLTableRowElement>(
       "tr.post-diff-git-highlight-table-row",
@@ -533,6 +539,7 @@ describe("ViewerPane", () => {
 
     expect(marker?.dataset.markerKind).toBe("changed");
     expect(markerRoot?.dataset.tableCellMarkerCount).toBe("1");
+    expect(markerRoot?.dataset.tableAddedRowMarkerCount).toBe("0");
     expect(markerRoot?.dataset.tableBlockFallbackCount).toBe("0");
     expect(markerRoot?.dataset.tableNotApplicableCount).toBe("0");
     expect(markerRoot?.dataset.tableReasonCounts).toBe(
@@ -554,6 +561,87 @@ describe("ViewerPane", () => {
     });
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+  });
+
+  it("renders whole-file added table row markers without inline word highlights", async () => {
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+          },
+        },
+        documentHtml: markSafeHtml(
+          [
+            "<table><tbody>",
+            "<tr><th>Name</th><th>Status</th></tr>",
+            "<tr><td>Feature</td><td>Planned</td></tr>",
+            "</tbody></table>",
+          ].join(""),
+        ),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 1,
+          renderedCount: 1,
+          tableSummary: {
+            tableCellMarkerCount: 0,
+            tableAddedRowMarkerCount: 1,
+            tableBlockFallbackCount: 0,
+            tableNotApplicableCount: 0,
+            reasonCounts: {
+              "untracked-or-whole-file-added": 1,
+            },
+          },
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:0:table-row:1",
+              kind: "added",
+              anchorBlockId: "rendered-block:0",
+              anchorTableRowIndex: 1,
+              changeIndex: 0,
+              targetKind: "table-row",
+              tableCellHighlights: [
+                { cellIndex: 0, kind: "added" },
+                { cellIndex: 1, kind: "added" },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const markerRoot = container.querySelector<HTMLElement>(
+      '[data-review-id="post-diff-git-markers"]',
+    );
+    const parentTable = container.querySelector("table");
+    const highlightedRow = container.querySelector<HTMLTableRowElement>(
+      "tr.post-diff-git-highlight-table-row",
+    );
+    const highlightedCells = container.querySelectorAll<HTMLElement>(
+      "td.post-diff-git-highlight-table-cell",
+    );
+
+    expect(markerRoot?.dataset.tableCellMarkerCount).toBe("0");
+    expect(markerRoot?.dataset.tableAddedRowMarkerCount).toBe("1");
+    expect(markerRoot?.dataset.tableReasonCounts).toBe(
+      '{"untracked-or-whole-file-added":1}',
+    );
+    expect(parentTable?.classList.contains("post-diff-git-highlight")).toBe(
+      false,
+    );
+    expect(highlightedRow?.textContent).toContain("Feature");
+    expect(highlightedCells).toHaveLength(2);
+    expect(
+      highlightedRow?.querySelector(".git-inline-word-highlight"),
+    ).toBeNull();
   });
 
   it("renders removed inline post-diff highlights when the active side has deleted text", async () => {

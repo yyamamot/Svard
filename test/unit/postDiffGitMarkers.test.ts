@@ -92,6 +92,50 @@ function tableBlock(
       tagName: "table",
       text: "Name Status Feature Status Draft review",
       html: '<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Draft review</td></tr></tbody></table>',
+      tableRows: [
+        {
+          index: 0,
+          normalizedTextHash: "left-header",
+          cellCount: 2,
+          cells: [
+            {
+              index: 0,
+              normalizedTextHash: "name",
+              textSegmentHashes: ["name"],
+              textLength: 4,
+              header: true,
+            },
+            {
+              index: 1,
+              normalizedTextHash: "status",
+              textSegmentHashes: ["status"],
+              textLength: 6,
+              header: true,
+            },
+          ],
+        },
+        {
+          index: 1,
+          normalizedTextHash: "left-feature",
+          cellCount: 2,
+          cells: [
+            {
+              index: 0,
+              normalizedTextHash: "feature",
+              textSegmentHashes: ["feature"],
+              textLength: 7,
+              header: false,
+            },
+            {
+              index: 1,
+              normalizedTextHash: "draft",
+              textSegmentHashes: ["draft"],
+              textLength: 19,
+              header: false,
+            },
+          ],
+        },
+      ],
     },
     right: {
       id,
@@ -99,6 +143,50 @@ function tableBlock(
       tagName: "table",
       text: "Name Status Feature Status Done review",
       html: '<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>',
+      tableRows: [
+        {
+          index: 0,
+          normalizedTextHash: "right-header",
+          cellCount: 2,
+          cells: [
+            {
+              index: 0,
+              normalizedTextHash: "name",
+              textSegmentHashes: ["name"],
+              textLength: 4,
+              header: true,
+            },
+            {
+              index: 1,
+              normalizedTextHash: "status",
+              textSegmentHashes: ["status"],
+              textLength: 6,
+              header: true,
+            },
+          ],
+        },
+        {
+          index: 1,
+          normalizedTextHash: "right-feature",
+          cellCount: 2,
+          cells: [
+            {
+              index: 0,
+              normalizedTextHash: "feature",
+              textSegmentHashes: ["feature"],
+              textLength: 7,
+              header: false,
+            },
+            {
+              index: 1,
+              normalizedTextHash: "done",
+              textSegmentHashes: ["done"],
+              textLength: 18,
+              header: false,
+            },
+          ],
+        },
+      ],
     },
     tableChanges: [
       {
@@ -672,7 +760,7 @@ describe("post-diff git markers", () => {
     ]);
   });
 
-  it("keeps whole-table additions as block markers instead of table cell markers", () => {
+  it("expands untracked whole-table additions into added row markers", () => {
     const context = buildPostDiffGitMarkerContext({
       activeDocumentPath: activePath,
       preview: preview({ status: "untracked", leftPath: null }),
@@ -690,22 +778,37 @@ describe("post-diff git markers", () => {
       expect.objectContaining({
         kind: "added",
         anchorBlockId: "rendered-block:0",
-        targetKind: "block",
+        anchorTableRowIndex: 0,
+        targetKind: "table-row",
+        tableCellHighlights: [
+          expect.objectContaining({ cellIndex: 0, kind: "added" }),
+          expect.objectContaining({ cellIndex: 1, kind: "added" }),
+        ],
+      }),
+      expect.objectContaining({
+        kind: "added",
+        anchorBlockId: "rendered-block:0",
+        anchorTableRowIndex: 1,
+        targetKind: "table-row",
+        tableCellHighlights: [
+          expect.objectContaining({ cellIndex: 0, kind: "added" }),
+          expect.objectContaining({ cellIndex: 1, kind: "added" }),
+        ],
       }),
     ]);
-    expect(context?.markers[0]?.anchorTableRowIndex).toBeUndefined();
-    expect(context?.markers[0]?.tableCellHighlights).toBeUndefined();
+    expect(context?.markers[0]?.tableCellHighlights?.[0]?.inlineDiffRanges).toBeUndefined();
     expect(context?.tableSummary).toMatchObject({
       tableCellMarkerCount: 0,
+      tableAddedRowMarkerCount: 2,
       tableBlockFallbackCount: 0,
-      tableNotApplicableCount: 1,
+      tableNotApplicableCount: 0,
       reasonCounts: {
-        "untracked-or-whole-file-added": 1,
+        "untracked-or-whole-file-added": 2,
       },
     });
   });
 
-  it("classifies tracked whole-table additions as not applicable for cell markers", () => {
+  it("expands tracked whole-table additions into added row markers", () => {
     const context = buildPostDiffGitMarkerContext({
       activeDocumentPath: activePath,
       preview: preview(),
@@ -723,17 +826,62 @@ describe("post-diff git markers", () => {
       expect.objectContaining({
         kind: "added",
         anchorBlockId: "rendered-block:0",
+        anchorTableRowIndex: 0,
+        targetKind: "table-row",
+      }),
+      expect.objectContaining({
+        kind: "added",
+        anchorBlockId: "rendered-block:0",
+        anchorTableRowIndex: 1,
+        targetKind: "table-row",
+      }),
+    ]);
+    expect(context?.tableSummary).toMatchObject({
+      tableCellMarkerCount: 0,
+      tableAddedRowMarkerCount: 2,
+      tableBlockFallbackCount: 0,
+      tableNotApplicableCount: 0,
+      reasonCounts: {
+        "added-or-removed-table-block": 2,
+      },
+    });
+  });
+
+  it("keeps whole-table additions without row snapshots as not applicable block markers", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview({ status: "untracked", leftPath: null }),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          kind: "added",
+          left: undefined,
+          right: {
+            id: "rendered-block:0",
+            kind: "table",
+            tagName: "table",
+            text: "Name Status Feature Status Done review",
+            html: '<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>',
+          },
+          tableChanges: undefined,
+          tableChangeFallback: undefined,
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "added",
+        anchorBlockId: "rendered-block:0",
         targetKind: "block",
       }),
     ]);
-    expect(context?.markers[0]?.anchorTableRowIndex).toBeUndefined();
-    expect(context?.markers[0]?.tableCellHighlights).toBeUndefined();
     expect(context?.tableSummary).toMatchObject({
       tableCellMarkerCount: 0,
+      tableAddedRowMarkerCount: 0,
       tableBlockFallbackCount: 0,
       tableNotApplicableCount: 1,
       reasonCounts: {
-        "added-or-removed-table-block": 1,
+        "untracked-or-whole-file-added": 1,
       },
     });
   });

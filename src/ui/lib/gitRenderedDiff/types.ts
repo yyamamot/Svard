@@ -264,6 +264,7 @@ export type PostDiffGitTableClassificationReason =
 
 export interface PostDiffGitTableClassificationSummary {
   tableCellMarkerCount: number;
+  tableAddedRowMarkerCount: number;
   tableBlockFallbackCount: number;
   tableNotApplicableCount: number;
   reasonCounts: Partial<Record<PostDiffGitTableClassificationReason, number>>;

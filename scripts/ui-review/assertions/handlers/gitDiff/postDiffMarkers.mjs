@@ -171,15 +171,17 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.markerCount > 0 &&
           summary?.clickResult === true
         : true,
-    treatsUntrackedTableAsNotApplicableForCellMarkers:
+    rendersUntrackedTableAsAddedRowMarkers:
       scenario === "viewer-normal-git-markers-table-cell-untracked-not-applicable"
         ? privacySafe &&
           summary?.visible === true &&
-          summary?.untrackedNotApplicable === true &&
-          summary?.tableNotApplicableCount > 0 &&
+          summary?.wholeFileAddedTableRows === true &&
+          summary?.tableAddedRowMarkerCount > 0 &&
+          summary?.tableNotApplicableCount === 0 &&
           summary?.tableReasonCounts?.["untracked-or-whole-file-added"] > 0 &&
-          summary?.tableRowHighlightCount === 0 &&
-          summary?.tableCellHighlightCount === 0 &&
+          summary?.tableRowHighlightCount > 0 &&
+          summary?.tableCellHighlightCount > 0 &&
+          summary?.parentTableHighlightCount === 0 &&
           summary?.markerCount > 0 &&
           summary?.clickResult === true
         : true,
