@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added conditional AsciiDoc include support for `ifdef`, `ifndef`, `ifeval`, and attribute-substituted include targets.
+- Fixed Change Review Mode table markers and diagnostics, including whole-file-added table row highlighting.
 
 ## 1.0.2
 
