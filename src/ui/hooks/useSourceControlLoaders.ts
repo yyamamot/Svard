@@ -39,6 +39,7 @@ export function useSourceControlLoaders({
   host,
   isFileHistoryView,
   isRepoGraphView,
+  onGitChangesRefreshComplete,
   onGitRefresh,
   persistWorkspaceRef,
   requestsRef,
@@ -73,6 +74,7 @@ export function useSourceControlLoaders({
   host: HostAdapter;
   isFileHistoryView: boolean;
   isRepoGraphView: boolean;
+  onGitChangesRefreshComplete?: (reason: string, changes: GitChanges) => void;
   onGitRefresh?: (reason: string) => void;
   persistWorkspaceRef: RefObject<
     (patch: Partial<AppConfig["workspace"]>) => Promise<void>
@@ -170,6 +172,7 @@ export function useSourceControlLoaders({
   const { refreshGitChanges } = useSourceControlChangesLoader({
     gitTimelineRefreshToken,
     host,
+    onGitChangesRefreshComplete,
     onGitRefresh,
     requestsRef,
     rootDirectory,

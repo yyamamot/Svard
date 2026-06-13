@@ -80,6 +80,7 @@ export function SourceControlHarness({
   config,
   document = documentPayload,
   host,
+  onGitChangesRefreshComplete,
   onActions,
   openContextMenu = vi.fn() as unknown as OpenContextMenu,
   rootDirectory = "/workspace",
@@ -88,6 +89,9 @@ export function SourceControlHarness({
   config: AppConfig;
   document?: DocumentPayload;
   host: HostAdapter;
+  onGitChangesRefreshComplete?: Parameters<
+    typeof useSourceControlActions
+  >[0]["onGitChangesRefreshComplete"];
   onActions?: (actions: SourceControlActions) => void;
   openContextMenu?: OpenContextMenu;
   rootDirectory?: string;
@@ -101,6 +105,7 @@ export function SourceControlHarness({
     documentPayload: document,
     host,
     openContextMenu,
+    onGitChangesRefreshComplete,
     persistWorkspace: vi.fn().mockResolvedValue(undefined),
     rootDirectory,
     setDocumentDiffPreview: vi.fn(),

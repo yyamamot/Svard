@@ -6,6 +6,7 @@ import type {
   AppConfig,
   DocumentDiffPreview,
   DocumentPayload,
+  GitChanges,
   RenderResult,
 } from "../../src/core/types";
 import { usePostDiffGitMarkerState } from "../../src/ui/hooks/usePostDiffGitMarkerState";
@@ -92,6 +93,17 @@ function preview(
       },
     ],
     ...overrides,
+  };
+}
+
+function gitChanges(items: GitChanges["items"]): GitChanges {
+  return {
+    status: "ok",
+    repositoryRoot: "/workspace",
+    currentBranch: "main",
+    headCommit: null,
+    items,
+    message: null,
   };
 }
 
@@ -333,6 +345,96 @@ describe("usePostDiffGitMarkerState", () => {
     await flushHookUpdates();
 
     expect(api().activePostDiffGitMarkers).toBeNull();
+
+    cleanup();
+  });
+
+  it("clears active markers after metadata refresh confirms the committed document is clean", async () => {
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValueOnce(preview())
+      .mockResolvedValueOnce(preview({ status: "clean", hunks: [] }));
+    const { api, cleanup } = renderHookHarness({ getGitDiffPreview });
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview(),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+    });
+    await flushHookUpdates();
+    const context = api().activePostDiffGitMarkers;
+    await act(async () => {
+      api().setRenderResult(renderResult());
+    });
+
+    await act(async () => {
+      api().handleGitChangesRefreshComplete("metadata-event", gitChanges([]));
+      expect(api().activePostDiffGitMarkers).toBe(context);
+    });
+    await flushHookUpdates();
+
+    expect(api().activePostDiffGitMarkers).toBeNull();
+
+    cleanup();
+  });
+
+  it("keeps active markers after metadata refresh when the active document remains dirty", async () => {
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValueOnce(preview())
+      .mockResolvedValueOnce(preview());
+    const { api, cleanup } = renderHookHarness({ getGitDiffPreview });
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview(),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+    });
+    await flushHookUpdates();
+    const context = api().activePostDiffGitMarkers;
+    await act(async () => {
+      api().setRenderResult(renderResult());
+    });
+
+    await act(async () => {
+      api().handleGitChangesRefreshComplete(
+        "metadata-event",
+        gitChanges([
+          {
+            path: "docs/current.md",
+            status: "modified",
+            documentPath: activePath,
+          },
+        ]),
+      );
+      expect(api().activePostDiffGitMarkers).toBe(context);
+    });
+    await flushHookUpdates();
+
+    expect(api().activePostDiffGitMarkers).toBe(context);
+
+    cleanup();
+  });
+
+  it("keeps active markers untouched for warm git refreshes", async () => {
+    const { api, cleanup } = renderHookHarness();
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview(),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+    });
+    await flushHookUpdates();
+    const context = api().activePostDiffGitMarkers;
+
+    await act(async () => {
+      api().handleGitChangesRefreshComplete("idle-warm", gitChanges([]));
+    });
+
+    expect(api().activePostDiffGitMarkers).toBe(context);
 
     cleanup();
   });

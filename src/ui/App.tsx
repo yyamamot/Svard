@@ -567,6 +567,7 @@ export function App() {
   const {
     activePostDiffGitMarkers,
     closeDocumentDiffPreview,
+    handleGitChangesRefreshComplete,
     handleWorkspaceFileChangeRefresh,
     invalidatePostDiffGitMarkersForActiveDocument,
   } = usePostDiffGitMarkerState({
@@ -628,6 +629,7 @@ export function App() {
     documentPayload: activeDocumentPayload,
     host,
     openContextMenu,
+    onGitChangesRefreshComplete: handleGitChangesRefreshComplete,
     onGitRefresh: (reason) => {
       if (shouldInvalidatePostDiffGitMarkersForGitRefreshReason(reason)) {
         invalidatePostDiffGitMarkersForActiveDocument("git-refresh");

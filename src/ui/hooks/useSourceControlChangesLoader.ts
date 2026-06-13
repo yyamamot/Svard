@@ -22,6 +22,7 @@ export const sourceControlWslVisibleRetryDelayMs = 500;
 export function useSourceControlChangesLoader({
   gitTimelineRefreshToken,
   host,
+  onGitChangesRefreshComplete,
   onGitRefresh,
   requestsRef,
   rootDirectory,
@@ -36,6 +37,7 @@ export function useSourceControlChangesLoader({
 }: {
   gitTimelineRefreshToken: number;
   host: HostAdapter;
+  onGitChangesRefreshComplete?: (reason: string, changes: GitChanges) => void;
   onGitRefresh?: (reason: string) => void;
   requestsRef: RefObject<SourceControlRequests>;
   rootDirectory: string;
@@ -77,6 +79,9 @@ export function useSourceControlChangesLoader({
           if (anchorPath === rootDirectoryRef.current) {
             setSourceControlPayload(setGitChanges, changes);
           }
+          if (reason === "metadata-event" || reason === "visibility-restore") {
+            onGitChangesRefreshComplete?.(reason, changes);
+          }
         })
         .catch((error) => {
           tracePerf("sourceControl.getGitChanges.failed", {
@@ -88,7 +93,12 @@ export function useSourceControlChangesLoader({
           });
         });
     },
-    [requestsRef, rootDirectoryRef, setGitChanges],
+    [
+      onGitChangesRefreshComplete,
+      requestsRef,
+      rootDirectoryRef,
+      setGitChanges,
+    ],
   );
 
   const scheduleSilentGitChangesRefresh = useCallback(

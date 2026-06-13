@@ -41,6 +41,7 @@ export function useSourceControlActions({
   documentPayload,
   host,
   openContextMenu,
+  onGitChangesRefreshComplete,
   onGitRefresh,
   persistWorkspace,
   rootDirectory,
@@ -57,6 +58,7 @@ export function useSourceControlActions({
     items: ContextMenuItem[],
     source: string,
   ) => void;
+  onGitChangesRefreshComplete?: (reason: string, changes: GitChanges) => void;
   onGitRefresh?: (reason: string) => void;
   persistWorkspace: (patch: Partial<AppConfig["workspace"]>) => Promise<void>;
   rootDirectory: string;
@@ -149,6 +151,7 @@ export function useSourceControlActions({
     host,
     isFileHistoryView,
     isRepoGraphView,
+    onGitChangesRefreshComplete,
     onGitRefresh,
     persistWorkspaceRef,
     requestsRef,

@@ -48,6 +48,9 @@ describe("useSourceControlActions", () => {
     host: HostAdapter,
     options: {
       document?: DocumentPayload;
+      onGitChangesRefreshComplete?: Parameters<
+        typeof SourceControlHarness
+      >[0]["onGitChangesRefreshComplete"];
       onActions?: (actions: SourceControlActions) => void;
       openContextMenu?: OpenContextMenu;
       rootDirectory?: string;
@@ -81,9 +84,11 @@ describe("useSourceControlActions", () => {
     vi.useFakeTimers();
     const restoreIdleCallback = mockRequestIdleCallback();
     const host = createHost();
+    const onGitChangesRefreshComplete = vi.fn();
     let actions: SourceControlActions | undefined;
 
     await render(configWithWorkspace({ sidebarTab: "files" }), host, {
+      onGitChangesRefreshComplete,
       onActions: (nextActions) => {
         actions = nextActions;
       },
@@ -101,6 +106,7 @@ describe("useSourceControlActions", () => {
     expect(host.getGitChanges).toHaveBeenCalledWith("/workspace");
     expect(actions?.gitChanges?.status).toBe("ok");
     expect(actions?.gitChangesLoading).toBe(false);
+    expect(onGitChangesRefreshComplete).not.toHaveBeenCalled();
     restoreIdleCallback();
   });
 
@@ -279,6 +285,7 @@ describe("useSourceControlActions", () => {
     };
     let triggerWatch: (() => void) | undefined;
     const host = createHost();
+    const onGitChangesRefreshComplete = vi.fn();
     vi.mocked(host.getGitChanges)
       .mockResolvedValueOnce(firstChanges)
       .mockResolvedValueOnce(emptyChanges);
@@ -291,6 +298,7 @@ describe("useSourceControlActions", () => {
     let actions: SourceControlActions | undefined;
 
     await render(configWithWorkspace({ sidebarTab: "files" }), host, {
+      onGitChangesRefreshComplete,
       onActions: (nextActions) => {
         actions = nextActions;
       },
@@ -310,6 +318,11 @@ describe("useSourceControlActions", () => {
     expect(host.getGitChanges).toHaveBeenCalledTimes(2);
     expect(actions?.gitChanges?.items).toHaveLength(0);
     expect(actions?.gitChangesLoading).toBe(false);
+    expect(onGitChangesRefreshComplete).toHaveBeenCalledTimes(1);
+    expect(onGitChangesRefreshComplete).toHaveBeenCalledWith(
+      "metadata-event",
+      emptyChanges,
+    );
     restoreIdleCallback();
   });
 

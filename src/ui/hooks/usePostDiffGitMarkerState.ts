@@ -5,6 +5,7 @@ import type {
   AppConfig,
   DocumentDiffPreview,
   DocumentPayload,
+  GitChanges,
   KrokiRequest,
   KrokiResult,
   LocalImageResult,
@@ -17,7 +18,10 @@ import {
   deriveGitRenderedDiffSummary,
 } from "../lib/gitRenderedDiff";
 import { perfBasename, tracePerf } from "../lib/perfTrace";
-import { shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange } from "../lib/postDiffGitMarkerRefresh";
+import {
+  shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange,
+  shouldRefreshPostDiffGitMarkersForGitChanges,
+} from "../lib/postDiffGitMarkerRefresh";
 import type { ViewerPostDiffGitMarkerContext } from "../types";
 
 interface WorkspaceFileChangeRefreshEvent {
@@ -49,6 +53,10 @@ interface UsePostDiffGitMarkerStateResult {
   activePostDiffGitMarkers: ViewerPostDiffGitMarkerContext | null;
   closeDocumentDiffPreview: (handoff?: DiffPreviewCloseHandoff) => void;
   invalidatePostDiffGitMarkersForActiveDocument: (reason: string) => void;
+  handleGitChangesRefreshComplete: (
+    reason: string,
+    changes: GitChanges,
+  ) => void;
   handleWorkspaceFileChangeRefresh: (
     event: WorkspaceFileChangeRefreshEvent,
     refreshGitChanges: (reason?: string) => void,
@@ -124,8 +132,8 @@ export function usePostDiffGitMarkerState({
   );
   const initialPostDiffGitMarkerGenerationRef = useRef(0);
   const closePostDiffGitMarkerGenerationRef = useRef(0);
-  const pendingPostDiffGitMarkerRefreshPathsRef = useRef<Set<string>>(
-    new Set(),
+  const pendingPostDiffGitMarkerRefreshPathsRef = useRef<Map<string, string>>(
+    new Map(),
   );
   const activeDocumentPathRef = useRef<string | null>(
     documentPayload?.path ?? null,
@@ -184,7 +192,7 @@ export function usePostDiffGitMarkerState({
         return;
       }
       delete initialPostDiffGitMarkerSignaturesRef.current[path];
-      pendingPostDiffGitMarkerRefreshPathsRef.current.add(path);
+      pendingPostDiffGitMarkerRefreshPathsRef.current.set(path, reason);
       tracePerf("postDiffGitMarkers.refreshKeep", {
         basename: perfBasename(path),
         reason,
@@ -324,6 +332,30 @@ export function usePostDiffGitMarkerState({
     [documentPayload?.path, refreshPostDiffGitMarkersForActiveDocument],
   );
 
+  const handleGitChangesRefreshComplete = useCallback(
+    (reason: string, changes: GitChanges) => {
+      const activePath = documentPayload?.path ?? null;
+      const decision = shouldRefreshPostDiffGitMarkersForGitChanges({
+        activeDocumentPath: activePath,
+        changes,
+        hasActiveMarkerContext: Boolean(
+          activePath && postDiffGitMarkersByPath[activePath],
+        ),
+        reason,
+      });
+      if (decision.shouldRefresh) {
+        refreshPostDiffGitMarkersForActiveDocument("git-metadata-refresh");
+      } else {
+        tracePerf("postDiffGitMarkers.refreshSkip", decision.trace);
+      }
+    },
+    [
+      documentPayload?.path,
+      postDiffGitMarkersByPath,
+      refreshPostDiffGitMarkersForActiveDocument,
+    ],
+  );
+
   useEffect(() => {
     if (documentDiffPreview) {
       clearPostDiffGitMarkers("diff-preview-open");
@@ -369,6 +401,11 @@ export function usePostDiffGitMarkerState({
     const existingContext = postDiffGitMarkersByPath[activePath] ?? null;
     const hasPendingRefresh =
       pendingPostDiffGitMarkerRefreshPathsRef.current.has(activePath);
+    const pendingRefreshReason =
+      pendingPostDiffGitMarkerRefreshPathsRef.current.get(activePath) ?? null;
+    const shouldPreserveExistingContextOnRefreshMiss =
+      Boolean(existingContext) &&
+      pendingRefreshReason === "git-metadata-refresh";
     if (
       existingContext &&
       (existingContext.documentUpdatedAt ?? null) === documentUpdatedAt &&
@@ -442,6 +479,14 @@ export function usePostDiffGitMarkerState({
         });
         if (!context) {
           pendingPostDiffGitMarkerRefreshPathsRef.current.delete(activePath);
+          if (shouldPreserveExistingContextOnRefreshMiss) {
+            tracePerf("postDiffGitMarkers.initialSkip", {
+              basename: perfBasename(activePath),
+              status: preview.status,
+              reason: "no-matching-context-preserved",
+            });
+            return;
+          }
           clearPostDiffGitMarkers("initial-no-matching-context");
           tracePerf("postDiffGitMarkers.initialSkip", {
             basename: perfBasename(activePath),
@@ -490,6 +535,13 @@ export function usePostDiffGitMarkerState({
           return;
         }
         pendingPostDiffGitMarkerRefreshPathsRef.current.delete(activePath);
+        if (shouldPreserveExistingContextOnRefreshMiss) {
+          tracePerf("postDiffGitMarkers.initialSkip", {
+            basename: perfBasename(activePath),
+            reason: "error-preserved",
+          });
+          return;
+        }
         clearPostDiffGitMarkers("initial-error");
         tracePerf("postDiffGitMarkers.initialSkip", {
           basename: perfBasename(activePath),
@@ -522,6 +574,7 @@ export function usePostDiffGitMarkerState({
   return {
     activePostDiffGitMarkers,
     closeDocumentDiffPreview,
+    handleGitChangesRefreshComplete,
     invalidatePostDiffGitMarkersForActiveDocument,
     handleWorkspaceFileChangeRefresh,
   };

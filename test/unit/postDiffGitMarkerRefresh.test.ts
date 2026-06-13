@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  shouldRefreshPostDiffGitMarkersForGitChanges,
   shouldInvalidatePostDiffGitMarkersForGitRefreshReason,
   shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange,
 } from "../../src/ui/lib/postDiffGitMarkerRefresh";
@@ -78,5 +79,84 @@ describe("post-diff git marker refresh stability", () => {
     expect(
       shouldInvalidatePostDiffGitMarkersForGitRefreshReason("toolbar-refresh"),
     ).toBe(true);
+  });
+
+  it("refreshes active markers after metadata refresh when active document became clean", () => {
+    const decision = shouldRefreshPostDiffGitMarkersForGitChanges({
+      activeDocumentPath: "/workspace/docs/active.md",
+      hasActiveMarkerContext: true,
+      reason: "metadata-event",
+      changes: {
+        status: "ok",
+        repositoryRoot: "/workspace",
+        currentBranch: "main",
+        headCommit: null,
+        items: [],
+        message: null,
+      },
+    });
+
+    expect(decision.shouldRefresh).toBe(true);
+    expect(decision.activeDocumentStillDirty).toBe(false);
+    expect(decision.trace).toEqual({
+      basename: "active.md",
+      activeDocumentStillDirty: false,
+      changeCount: 0,
+      matchedActiveDocument: false,
+      reason: "metadata-event",
+    });
+  });
+
+  it("refreshes active markers after metadata refresh when active document remains dirty", () => {
+    const decision = shouldRefreshPostDiffGitMarkersForGitChanges({
+      activeDocumentPath: "/workspace/docs/active.md",
+      hasActiveMarkerContext: true,
+      reason: "metadata-event",
+      changes: {
+        status: "ok",
+        repositoryRoot: "/workspace",
+        currentBranch: "main",
+        headCommit: null,
+        items: [
+          {
+            path: "docs/active.md",
+            status: "modified",
+            documentPath: "/workspace/docs/active.md",
+          },
+        ],
+        message: null,
+      },
+    });
+
+    expect(decision.shouldRefresh).toBe(true);
+    expect(decision.activeDocumentStillDirty).toBe(true);
+  });
+
+  it("keeps markers untouched for warm refresh and when no marker exists", () => {
+    const changes = {
+      status: "ok" as const,
+      repositoryRoot: "/workspace",
+      currentBranch: "main",
+      headCommit: null,
+      items: [],
+      message: null,
+    };
+
+    expect(
+      shouldRefreshPostDiffGitMarkersForGitChanges({
+        activeDocumentPath: "/workspace/docs/active.md",
+        hasActiveMarkerContext: true,
+        reason: "idle-warm",
+        changes,
+      }).shouldRefresh,
+    ).toBe(false);
+    expect(
+      shouldRefreshPostDiffGitMarkersForGitChanges({
+        activeDocumentPath: "/workspace/docs/active.md",
+        hasActiveMarkerContext: false,
+        reason: "metadata-event",
+        changes,
+      }).shouldRefresh,
+    ).toBe(false);
   });
 });
