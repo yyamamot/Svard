@@ -21,6 +21,7 @@ type HookApi = ReturnType<typeof usePostDiffGitMarkerState> & {
   setConfig: (value: AppConfig | null) => void;
   setDocumentDiffPreview: (value: DocumentDiffPreview | null) => void;
   setDocumentPayload: (value: DocumentPayload | null) => void;
+  setRenderResult: (value: RenderResult | null) => void;
 };
 
 function enabledConfig(): AppConfig {
@@ -74,10 +75,20 @@ function preview(
     hunks: [
       {
         oldStart: 1,
-        oldLines: 1,
+        oldLines: 3,
         newStart: 1,
-        newLines: 1,
-        lines: [],
+        newLines: 3,
+        lines: [
+          { kind: "context", oldLine: 1, newLine: 1, text: "# Current" },
+          { kind: "context", oldLine: 2, newLine: 2, text: "" },
+          { kind: "removed", oldLine: 3, newLine: null, text: "Old text" },
+          {
+            kind: "added",
+            oldLine: null,
+            newLine: 3,
+            text: "Updated text",
+          },
+        ],
       },
     ],
     ...overrides,
@@ -154,12 +165,14 @@ function renderHookHarness({
       useState<DocumentPayload | null>(document);
     const [documentDiffPreview, setDocumentDiffPreview] =
       useState<DocumentDiffPreview | null>(null);
+    const [currentRenderResult, setRenderResult] =
+      useState<RenderResult | null>(rendered);
     const emptySet = useMemo(() => new Set<string>(), []);
     const hook = usePostDiffGitMarkerState({
       config: currentConfig,
       documentPayload: currentDocument,
       documentDiffPreview,
-      renderResult: rendered,
+      renderResult: currentRenderResult,
       confirmedRemoteDiagramKeys: emptySet,
       krokiFallbackDiagramKeys: emptySet,
       getGitDiffPreview,
@@ -173,6 +186,7 @@ function renderHookHarness({
       setConfig,
       setDocumentDiffPreview,
       setDocumentPayload,
+      setRenderResult,
     };
     return null;
   }
@@ -252,7 +266,7 @@ describe("usePostDiffGitMarkerState", () => {
     cleanup();
   });
 
-  it("keeps markers for unrelated file tree refresh and invalidates active document changes", async () => {
+  it("keeps markers for unrelated file tree refresh and keeps active markers while refresh is pending", async () => {
     const { api, cleanup } = renderHookHarness();
     const refreshGitChanges = vi.fn();
 
@@ -283,6 +297,40 @@ describe("usePostDiffGitMarkerState", () => {
         refreshGitChanges,
       );
     });
+
+    expect(api().activePostDiffGitMarkers).toBe(context);
+
+    cleanup();
+  });
+
+  it("clears active markers only after active document refresh confirms a clean preview", async () => {
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValueOnce(preview())
+      .mockResolvedValueOnce(preview({ status: "clean", hunks: [] }));
+    const { api, cleanup } = renderHookHarness({ getGitDiffPreview });
+    const refreshGitChanges = vi.fn();
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview(),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+    });
+    await flushHookUpdates();
+    const context = api().activePostDiffGitMarkers;
+    await act(async () => {
+      api().setRenderResult(renderResult());
+    });
+
+    await act(async () => {
+      api().handleWorkspaceFileChangeRefresh(
+        { reason: "directory-watch", changedPath: activePath },
+        refreshGitChanges,
+      );
+      expect(api().activePostDiffGitMarkers).toBe(context);
+    });
+    await flushHookUpdates();
 
     expect(api().activePostDiffGitMarkers).toBeNull();
 

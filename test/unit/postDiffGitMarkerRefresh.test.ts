@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange } from "../../src/ui/lib/postDiffGitMarkerRefresh";
+import {
+  shouldInvalidatePostDiffGitMarkersForGitRefreshReason,
+  shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange,
+} from "../../src/ui/lib/postDiffGitMarkerRefresh";
 
 describe("post-diff git marker refresh stability", () => {
   it("keeps marker context for unrelated file tree changes", () => {
@@ -53,5 +56,27 @@ describe("post-diff git marker refresh stability", () => {
       matchedActiveDocument: false,
       reason: "file-tree-directory-watch",
     });
+  });
+
+  it("does not let file tree Git refresh perform a second marker invalidation", () => {
+    expect(
+      shouldInvalidatePostDiffGitMarkersForGitRefreshReason(
+        "file-tree-directory-watch",
+      ),
+    ).toBe(false);
+    expect(
+      shouldInvalidatePostDiffGitMarkersForGitRefreshReason(
+        "file-tree-manual-refresh",
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps explicit Git refresh as a marker invalidation source", () => {
+    expect(
+      shouldInvalidatePostDiffGitMarkersForGitRefreshReason("manual-refresh"),
+    ).toBe(true);
+    expect(
+      shouldInvalidatePostDiffGitMarkersForGitRefreshReason("toolbar-refresh"),
+    ).toBe(true);
   });
 });

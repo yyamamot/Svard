@@ -79,6 +79,7 @@ import type {
 } from "../core/types";
 import { getBoundedTabs } from "../core/tabLayout";
 import { tracePerf } from "./lib/perfTrace";
+import { shouldInvalidatePostDiffGitMarkersForGitRefreshReason } from "./lib/postDiffGitMarkerRefresh";
 
 const host = createHostAdapter();
 
@@ -627,8 +628,11 @@ export function App() {
     documentPayload: activeDocumentPayload,
     host,
     openContextMenu,
-    onGitRefresh: () =>
-      invalidatePostDiffGitMarkersForActiveDocument("git-refresh"),
+    onGitRefresh: (reason) => {
+      if (shouldInvalidatePostDiffGitMarkersForGitRefreshReason(reason)) {
+        invalidatePostDiffGitMarkersForActiveDocument("git-refresh");
+      }
+    },
     persistWorkspace,
     rootDirectory,
     setDocumentDiffPreview,

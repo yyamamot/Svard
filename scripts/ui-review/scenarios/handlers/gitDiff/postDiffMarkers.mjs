@@ -15,6 +15,7 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-table-cell-asciidoc-regression",
   "viewer-normal-git-markers-table-cell-untracked-not-applicable",
   "viewer-normal-git-markers-table-cell-complex-fallback",
+  "viewer-normal-git-markers-git-refresh-stability",
   "viewer-git-change-visual-contract-block",
   "viewer-git-change-visual-contract-list-item",
   "viewer-git-change-visual-contract-inline",
@@ -441,6 +442,65 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
       documentBasename: "git-asciidoc-table-complex.adoc",
       complexTableFallback: true,
       tableMarker: false,
+    });
+    return true;
+  }
+
+  if (scenario === "viewer-normal-git-markers-git-refresh-stability") {
+    await page.evaluate(() => {
+      localStorage.setItem("SVARD_PERF_TRACE", "1");
+      window.__SVARD_PERF_EVENTS__ = [];
+      if (window.__SVARD_PERF_CONSOLE_WRAPPED__ !== true) {
+        const originalInfo = console.info.bind(console);
+        window.__SVARD_PERF_CONSOLE_WRAPPED__ = true;
+        console.info = (...args) => {
+          if (args[0] === "[perf]" && args[1] && typeof args[1] === "object") {
+            window.__SVARD_PERF_EVENTS__?.push(args[1]);
+          }
+          originalInfo(...args);
+        };
+      }
+    });
+    await page
+      .locator(
+        '[data-review-id="tree-file"][data-path="/workspace/docs/git-rendered-markdown.md"]',
+      )
+      .click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Git Rendered Markdown Diff Fixture" })
+      .waitFor();
+    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+    const before = await markerSummary(page, {
+      initialWorkingTree: true,
+      stabilityBaseline: true,
+    });
+    await page.evaluate(() => {
+      window.__SVARD_PERF_EVENTS__ = [];
+      window.__SVARD_TRIGGER_DIRECTORY_CHANGE__?.(
+        "/workspace",
+        "modified",
+        "/workspace/docs/unrelated-refresh.md",
+      );
+    });
+    await page.waitForTimeout(900);
+    const stability = await page.evaluate(() => {
+      const events = window.__SVARD_PERF_EVENTS__ ?? [];
+      const count = (eventName) =>
+        events.filter((event) => event.event === eventName).length;
+      return {
+        clearCount: count("postDiffGitMarkers.clear"),
+        initialContextCount: count("postDiffGitMarkers.initialContext"),
+        articleCommitCount: count("render.articleInnerHtmlCommit"),
+        refreshSkipCount: count("postDiffGitMarkers.refreshSkip"),
+        refreshKeepCount: count("postDiffGitMarkers.refreshKeep"),
+      };
+    });
+    await markerSummary(page, {
+      initialWorkingTree: true,
+      gitRefreshStability: true,
+      beforeMarkerCount: before.markerCount,
+      ...stability,
     });
     return true;
   }

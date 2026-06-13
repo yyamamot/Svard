@@ -36,3 +36,9 @@ export function shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
     },
   };
 }
+
+export function shouldInvalidatePostDiffGitMarkersForGitRefreshReason(
+  reason: string,
+): boolean {
+  return !reason.startsWith("file-tree-");
+}

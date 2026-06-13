@@ -15,6 +15,7 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-table-cell-asciidoc-regression",
   "viewer-normal-git-markers-table-cell-untracked-not-applicable",
   "viewer-normal-git-markers-table-cell-complex-fallback",
+  "viewer-normal-git-markers-git-refresh-stability",
   "viewer-git-change-visual-contract-block",
   "viewer-git-change-visual-contract-list-item",
   "viewer-git-change-visual-contract-inline",
@@ -196,6 +197,18 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.tableCellHighlightCount === 0 &&
           summary?.markerCount > 0 &&
           summary?.clickResult === true
+        : true,
+    keepsGitMarkersStableDuringUnrelatedGitRefresh:
+      scenario === "viewer-normal-git-markers-git-refresh-stability"
+        ? privacySafe &&
+          summary?.visible === true &&
+          summary?.gitRefreshStability === true &&
+          summary?.beforeMarkerCount > 0 &&
+          summary?.markerCount === summary?.beforeMarkerCount &&
+          summary?.clearCount === 0 &&
+          summary?.initialContextCount === 0 &&
+          summary?.articleCommitCount === 0 &&
+          summary?.refreshSkipCount > 0
         : true,
     hasGitChangeVisualContractBlock:
       scenario === "viewer-git-change-visual-contract-block"
