@@ -2,6 +2,8 @@ import type { DocumentDiffPreview } from "../../../core/types";
 import type {
   PostDiffGitMarker,
   PostDiffGitMarkerContext,
+  PostDiffGitTableClassificationReason,
+  PostDiffGitTableClassificationSummary,
   PostDiffGitTableCellHighlight,
   RenderedBlockDiff,
   RenderedDiffPresentation,
@@ -9,6 +11,72 @@ import type {
 import { renderedInlineDiffRanges } from "./text";
 
 export const postDiffGitMarkerBudget = 200;
+
+function emptyTableSummary(): PostDiffGitTableClassificationSummary {
+  return {
+    tableCellMarkerCount: 0,
+    tableBlockFallbackCount: 0,
+    tableNotApplicableCount: 0,
+    reasonCounts: {},
+  };
+}
+
+function recordTableReason(
+  tableSummary: PostDiffGitTableClassificationSummary,
+  reason: PostDiffGitTableClassificationReason,
+  bucket: "cell-marker" | "block-fallback" | "not-applicable",
+) {
+  if (bucket === "cell-marker") {
+    tableSummary.tableCellMarkerCount += 1;
+  } else if (bucket === "block-fallback") {
+    tableSummary.tableBlockFallbackCount += 1;
+  } else {
+    tableSummary.tableNotApplicableCount += 1;
+  }
+  tableSummary.reasonCounts[reason] =
+    (tableSummary.reasonCounts[reason] ?? 0) + 1;
+}
+
+function fallbackReasonForTableBlock(
+  preview: DocumentDiffPreview,
+  block: RenderedBlockDiff,
+): {
+  reason: PostDiffGitTableClassificationReason;
+  bucket: "block-fallback" | "not-applicable";
+} | null {
+  if (block.blockKind !== "table") {
+    return null;
+  }
+  if (block.kind === "added" || block.kind === "removed") {
+    return {
+      reason:
+        preview.status === "untracked"
+          ? "untracked-or-whole-file-added"
+          : "added-or-removed-table-block",
+      bucket: "not-applicable",
+    };
+  }
+  if (block.kind !== "changed") {
+    return null;
+  }
+  if (block.tableChanges?.length) {
+    return null;
+  }
+  if (block.tableChangeFallback?.reason === "low-overlap") {
+    return { reason: "low-confidence", bucket: "block-fallback" };
+  }
+  if (
+    block.tableChangeFallback?.reason === "complex" ||
+    block.tableChangeFallback?.reason === "shape-mismatch" ||
+    block.tableChangeFallback?.reason === "ambiguous"
+  ) {
+    return {
+      reason: "complex-or-shape-mismatch",
+      bucket: "block-fallback",
+    };
+  }
+  return { reason: "no-table-changes", bucket: "block-fallback" };
+}
 
 function matchingPreviewSide(
   preview: DocumentDiffPreview,
@@ -454,6 +522,7 @@ export function buildPostDiffGitMarkerContext({
     entry.kind === "block" ? [entry.block] : entry.blocks,
   );
   const markers: PostDiffGitMarker[] = [];
+  const tableSummary = emptyTableSummary();
   for (const block of blocks) {
     const itemMarkers = markersForListItemChanges({
       block,
@@ -473,6 +542,15 @@ export function buildPostDiffGitMarkerContext({
     });
     if (tableMarkers.length > 0) {
       markers.push(...tableMarkers);
+      tableMarkers
+        .filter((marker) => marker.targetKind === "table-row")
+        .forEach(() =>
+          recordTableReason(
+            tableSummary,
+            "same-schema-cell-change",
+            "cell-marker",
+          ),
+        );
       continue;
     }
     const marker = markerForBlock({
@@ -483,6 +561,14 @@ export function buildPostDiffGitMarkerContext({
     });
     if (marker) {
       markers.push(marker);
+      const tableFallback = fallbackReasonForTableBlock(preview, block);
+      if (tableFallback) {
+        recordTableReason(
+          tableSummary,
+          tableFallback.reason,
+          tableFallback.bucket,
+        );
+      }
     }
   }
 
@@ -494,5 +580,6 @@ export function buildPostDiffGitMarkerContext({
     markers: markers.slice(0, postDiffGitMarkerBudget),
     renderedCount: Math.min(markers.length, postDiffGitMarkerBudget),
     totalCount: markers.length,
+    tableSummary,
   };
 }

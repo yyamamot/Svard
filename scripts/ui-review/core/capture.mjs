@@ -579,6 +579,9 @@ export async function captureScenario({
   const diagramScrollStability = await page.evaluate(
     () => window.__SVARD_DIAGRAM_SCROLL_STABILITY__ ?? null,
   );
+  const postDiffMarkerSummary = await page.evaluate(
+    () => window.__SVARD_POST_DIFF_MARKER_SUMMARY__ ?? null,
+  );
   const assertionFailures = Object.entries(assertions)
     .filter(([, passed]) => !passed)
     .map(([name]) => name);
@@ -602,6 +605,7 @@ export async function captureScenario({
     themeContrastOutcome,
     plantUmlMetrics,
     diagramScrollStability,
+    postDiffMarkerSummary,
     svgAspectRatios,
     markerCompleteness,
     assertionFailures,
@@ -651,6 +655,12 @@ export async function captureScenario({
                       ? "git-table-cells.md"
                       : bodyText.includes("Git Markdown Table Untracked Fixture")
                         ? "git-table-untracked.md"
+                        : bodyText.includes("Git AsciiDoc Table Diff Fixture")
+                          ? "git-asciidoc-table.adoc"
+                          : bodyText.includes(
+                              "Git AsciiDoc Complex Table Diff Fixture",
+                            )
+                            ? "git-asciidoc-table-complex.adoc"
                     : bodyText.includes("PlantUML Concurrency Stress")
                       ? "plantuml-concurrency.adoc"
                       : bodyText.includes("Mixed Diagram Japanese Sample")
@@ -661,6 +671,7 @@ export async function captureScenario({
         status: report.outcome,
         plantUmlMetrics,
         diagramScrollStability,
+        postDiffMarkerSummary,
         lastMouseGesture: commandAutomation.lastMouseGesture,
         diagnosticCount: await page.locator(".diagnostic").count(),
         themeContrast:
@@ -706,6 +717,7 @@ export async function captureScenario({
       disabledCommands: commandAutomation.disabledCommands,
       assertionFailures,
       markerCompleteness,
+      postDiffMarkerSummary,
     })}\n`,
   );
   await fs.writeFile(

@@ -410,6 +410,18 @@ export function PostDiffGitMarkers({
       data-review-id="post-diff-git-markers"
       data-marker-count={String(context.totalCount)}
       data-rendered-marker-count={String(markers.length)}
+      data-table-cell-marker-count={String(
+        context.tableSummary.tableCellMarkerCount,
+      )}
+      data-table-block-fallback-count={String(
+        context.tableSummary.tableBlockFallbackCount,
+      )}
+      data-table-not-applicable-count={String(
+        context.tableSummary.tableNotApplicableCount,
+      )}
+      data-table-reason-counts={JSON.stringify(
+        context.tableSummary.reasonCounts,
+      )}
       aria-label="Post-diff git markers"
       style={overlayStyle}
     >

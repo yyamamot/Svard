@@ -94,6 +94,18 @@ async function markerSummary(page, extra = {}) {
       documentBasename: "git-rendered-markdown.md",
       markerCount: Number(markerRoot?.getAttribute("data-marker-count") ?? 0),
       renderedMarkerCount: markers.length,
+      tableCellMarkerCount: Number(
+        markerRoot?.getAttribute("data-table-cell-marker-count") ?? 0,
+      ),
+      tableBlockFallbackCount: Number(
+        markerRoot?.getAttribute("data-table-block-fallback-count") ?? 0,
+      ),
+      tableNotApplicableCount: Number(
+        markerRoot?.getAttribute("data-table-not-applicable-count") ?? 0,
+      ),
+      tableReasonCounts: JSON.parse(
+        markerRoot?.getAttribute("data-table-reason-counts") ?? "{}",
+      ),
       blockHighlightCount,
       itemHighlightCount,
       tableRowHighlightCount,

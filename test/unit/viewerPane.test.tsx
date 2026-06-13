@@ -53,6 +53,15 @@ function payload(format: DocumentPayload["format"]): DocumentPayload {
   };
 }
 
+function emptyPostDiffTableSummary() {
+  return {
+    tableCellMarkerCount: 0,
+    tableBlockFallbackCount: 0,
+    tableNotApplicableCount: 0,
+    reasonCounts: {},
+  };
+}
+
 describe("ViewerPane", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -340,6 +349,7 @@ describe("ViewerPane", () => {
           documentUpdatedAt: "2026-05-19T00:00:00.000Z",
           totalCount: 1,
           renderedCount: 1,
+          tableSummary: emptyPostDiffTableSummary(),
           markers: [
             {
               id: "post-diff-marker:0:rendered-block:1",
@@ -402,6 +412,7 @@ describe("ViewerPane", () => {
           documentUpdatedAt: "2026-05-19T00:00:00.000Z",
           totalCount: 1,
           renderedCount: 1,
+          tableSummary: emptyPostDiffTableSummary(),
           markers: [
             {
               id: "post-diff-marker:0:rendered-block:0:item:1",
@@ -473,6 +484,14 @@ describe("ViewerPane", () => {
           documentUpdatedAt: "2026-05-19T00:00:00.000Z",
           totalCount: 1,
           renderedCount: 1,
+          tableSummary: {
+            tableCellMarkerCount: 1,
+            tableBlockFallbackCount: 0,
+            tableNotApplicableCount: 0,
+            reasonCounts: {
+              "same-schema-cell-change": 1,
+            },
+          },
           markers: [
             {
               id: "post-diff-marker:0:rendered-block:0:table-row:1",
@@ -501,6 +520,9 @@ describe("ViewerPane", () => {
     const marker = container.querySelector<HTMLButtonElement>(
       '[data-review-id="post-diff-git-marker"]',
     );
+    const markerRoot = container.querySelector<HTMLElement>(
+      '[data-review-id="post-diff-git-markers"]',
+    );
     const parentTable = container.querySelector("table");
     const highlightedRow = container.querySelector<HTMLTableRowElement>(
       "tr.post-diff-git-highlight-table-row",
@@ -510,6 +532,12 @@ describe("ViewerPane", () => {
     );
 
     expect(marker?.dataset.markerKind).toBe("changed");
+    expect(markerRoot?.dataset.tableCellMarkerCount).toBe("1");
+    expect(markerRoot?.dataset.tableBlockFallbackCount).toBe("0");
+    expect(markerRoot?.dataset.tableNotApplicableCount).toBe("0");
+    expect(markerRoot?.dataset.tableReasonCounts).toBe(
+      '{"same-schema-cell-change":1}',
+    );
     expect(parentTable?.classList.contains("post-diff-git-highlight")).toBe(
       false,
     );
@@ -544,6 +572,7 @@ describe("ViewerPane", () => {
           documentUpdatedAt: "2026-05-19T00:00:00.000Z",
           totalCount: 1,
           renderedCount: 1,
+          tableSummary: emptyPostDiffTableSummary(),
           markers: [
             {
               id: "post-diff-marker:0:rendered-block:0",
@@ -586,6 +615,7 @@ describe("ViewerPane", () => {
           documentUpdatedAt: "2026-05-19T00:00:00.000Z",
           totalCount: 1,
           renderedCount: 1,
+          tableSummary: emptyPostDiffTableSummary(),
           markers: [
             {
               id: "post-diff-marker:0:removed-source-block",
@@ -633,6 +663,7 @@ describe("ViewerPane", () => {
           documentUpdatedAt: "2026-05-19T00:00:00.000Z",
           totalCount: 1,
           renderedCount: 1,
+          tableSummary: emptyPostDiffTableSummary(),
           markers: [
             {
               id: "post-diff-marker:0:rendered-block:1",
@@ -676,6 +707,7 @@ describe("ViewerPane", () => {
           documentUpdatedAt: "2026-05-19T00:00:00.000Z",
           totalCount: 1,
           renderedCount: 1,
+          tableSummary: emptyPostDiffTableSummary(),
           markers: [
             {
               id: "post-diff-marker:0:rendered-block:0",
@@ -718,6 +750,7 @@ describe("ViewerPane", () => {
           documentUpdatedAt: "2026-05-19T00:00:00.000Z",
           totalCount: 1,
           renderedCount: 1,
+          tableSummary: emptyPostDiffTableSummary(),
           markers: [
             {
               id: "post-diff-marker:0:rendered-block:0",

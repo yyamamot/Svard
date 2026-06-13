@@ -122,6 +122,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
         ? summary?.visible === true &&
           summary?.initialWorkingTree === true &&
           summary?.tableMarker === true &&
+          summary?.tableCellMarkerCount > 0 &&
+          summary?.tableReasonCounts?.["same-schema-cell-change"] > 0 &&
           summary?.tableRowHighlightCount > 0 &&
           summary?.tableCellHighlightCount > 0 &&
           summary?.parentTableHighlightCount === 0 &&
@@ -133,6 +135,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
         ? summary?.visible === true &&
           summary?.afterDiffHandoff === true &&
           summary?.tableMarker === true &&
+          summary?.tableCellMarkerCount > 0 &&
+          summary?.tableReasonCounts?.["same-schema-cell-change"] > 0 &&
           summary?.tableRowHighlightCount > 0 &&
           summary?.tableCellHighlightCount > 0 &&
           summary?.parentTableHighlightCount === 0 &&
@@ -145,6 +149,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.visible === true &&
           summary?.markdownTableDiagnosis === true &&
           summary?.tableMarker === true &&
+          summary?.tableCellMarkerCount > 0 &&
+          summary?.tableReasonCounts?.["same-schema-cell-change"] > 0 &&
           summary?.tableRowHighlightCount > 0 &&
           summary?.tableCellHighlightCount > 0 &&
           summary?.parentTableHighlightCount === 0 &&
@@ -157,6 +163,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.visible === true &&
           summary?.asciidocTableRegression === true &&
           summary?.tableMarker === true &&
+          summary?.tableCellMarkerCount > 0 &&
+          summary?.tableReasonCounts?.["same-schema-cell-change"] > 0 &&
           summary?.tableRowHighlightCount > 0 &&
           summary?.tableCellHighlightCount > 0 &&
           summary?.parentTableHighlightCount === 0 &&
@@ -168,6 +176,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
         ? privacySafe &&
           summary?.visible === true &&
           summary?.untrackedNotApplicable === true &&
+          summary?.tableNotApplicableCount > 0 &&
+          summary?.tableReasonCounts?.["untracked-or-whole-file-added"] > 0 &&
           summary?.tableRowHighlightCount === 0 &&
           summary?.tableCellHighlightCount === 0 &&
           summary?.markerCount > 0 &&
@@ -178,6 +188,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
         ? privacySafe &&
           summary?.visible === true &&
           summary?.complexTableFallback === true &&
+          summary?.tableBlockFallbackCount > 0 &&
+          summary?.tableReasonCounts?.["complex-or-shape-mismatch"] > 0 &&
           summary?.tableRowHighlightCount === 0 &&
           summary?.tableCellHighlightCount === 0 &&
           summary?.markerCount > 0 &&

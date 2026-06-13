@@ -254,10 +254,26 @@ export interface PostDiffGitMarker {
   targetKind?: "block" | "list-item" | "table-row";
 }
 
+export type PostDiffGitTableClassificationReason =
+  | "same-schema-cell-change"
+  | "untracked-or-whole-file-added"
+  | "added-or-removed-table-block"
+  | "complex-or-shape-mismatch"
+  | "low-confidence"
+  | "no-table-changes";
+
+export interface PostDiffGitTableClassificationSummary {
+  tableCellMarkerCount: number;
+  tableBlockFallbackCount: number;
+  tableNotApplicableCount: number;
+  reasonCounts: Partial<Record<PostDiffGitTableClassificationReason, number>>;
+}
+
 export interface PostDiffGitMarkerContext {
   markers: PostDiffGitMarker[];
   renderedCount: number;
   totalCount: number;
+  tableSummary: PostDiffGitTableClassificationSummary;
 }
 
 export interface GitRenderedDiffSummary {

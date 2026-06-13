@@ -364,6 +364,12 @@ describe("post-diff git markers", () => {
     expect(context).toMatchObject({
       totalCount: 1,
       renderedCount: 1,
+      tableSummary: {
+        tableCellMarkerCount: 0,
+        tableBlockFallbackCount: 0,
+        tableNotApplicableCount: 0,
+        reasonCounts: {},
+      },
       markers: [
         {
           kind: "changed",
@@ -579,6 +585,14 @@ describe("post-diff git markers", () => {
     });
 
     expect(context?.markers).toHaveLength(1);
+    expect(context?.tableSummary).toMatchObject({
+      tableCellMarkerCount: 1,
+      tableBlockFallbackCount: 0,
+      tableNotApplicableCount: 0,
+      reasonCounts: {
+        "same-schema-cell-change": 1,
+      },
+    });
     expect(context?.markers[0]).toMatchObject({
       anchorTableRowIndex: 0,
       targetKind: "table-row",
@@ -681,6 +695,47 @@ describe("post-diff git markers", () => {
     ]);
     expect(context?.markers[0]?.anchorTableRowIndex).toBeUndefined();
     expect(context?.markers[0]?.tableCellHighlights).toBeUndefined();
+    expect(context?.tableSummary).toMatchObject({
+      tableCellMarkerCount: 0,
+      tableBlockFallbackCount: 0,
+      tableNotApplicableCount: 1,
+      reasonCounts: {
+        "untracked-or-whole-file-added": 1,
+      },
+    });
+  });
+
+  it("classifies tracked whole-table additions as not applicable for cell markers", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          kind: "added",
+          left: undefined,
+          tableChanges: undefined,
+          tableChangeFallback: undefined,
+        }),
+      ]),
+    });
+
+    expect(context?.markers).toEqual([
+      expect.objectContaining({
+        kind: "added",
+        anchorBlockId: "rendered-block:0",
+        targetKind: "block",
+      }),
+    ]);
+    expect(context?.markers[0]?.anchorTableRowIndex).toBeUndefined();
+    expect(context?.markers[0]?.tableCellHighlights).toBeUndefined();
+    expect(context?.tableSummary).toMatchObject({
+      tableCellMarkerCount: 0,
+      tableBlockFallbackCount: 0,
+      tableNotApplicableCount: 1,
+      reasonCounts: {
+        "added-or-removed-table-block": 1,
+      },
+    });
   });
 
   it("builds table row markers for removed rows on the active left side", () => {
@@ -716,9 +771,15 @@ describe("post-diff git markers", () => {
         ],
       }),
     ]);
+    expect(context?.tableSummary).toMatchObject({
+      tableCellMarkerCount: 1,
+      reasonCounts: {
+        "same-schema-cell-change": 1,
+      },
+    });
   });
 
-  it("keeps low-confidence table changes as block-level markers", () => {
+  it("keeps complex table changes as block-level markers", () => {
     const context = buildPostDiffGitMarkerContext({
       activeDocumentPath: activePath,
       preview: preview(),
@@ -738,6 +799,66 @@ describe("post-diff git markers", () => {
       }),
     ]);
     expect(context?.markers[0]?.anchorTableRowIndex).toBeUndefined();
+    expect(context?.tableSummary).toMatchObject({
+      tableCellMarkerCount: 0,
+      tableBlockFallbackCount: 1,
+      tableNotApplicableCount: 0,
+      reasonCounts: {
+        "complex-or-shape-mismatch": 1,
+      },
+    });
+  });
+
+  it("classifies low-overlap table changes as low-confidence fallback", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          tableChanges: undefined,
+          tableChangeFallback: { reason: "low-overlap" },
+        }),
+      ]),
+    });
+
+    expect(context?.markers[0]).toMatchObject({
+      kind: "changed",
+      targetKind: "block",
+    });
+    expect(context?.tableSummary).toMatchObject({
+      tableCellMarkerCount: 0,
+      tableBlockFallbackCount: 1,
+      tableNotApplicableCount: 0,
+      reasonCounts: {
+        "low-confidence": 1,
+      },
+    });
+  });
+
+  it("classifies changed tables without table cell changes as block fallback", () => {
+    const context = buildPostDiffGitMarkerContext({
+      activeDocumentPath: activePath,
+      preview: preview(),
+      renderedPresentation: presentation([
+        tableBlock("rendered-block:0", {
+          tableChanges: undefined,
+          tableChangeFallback: undefined,
+        }),
+      ]),
+    });
+
+    expect(context?.markers[0]).toMatchObject({
+      kind: "changed",
+      targetKind: "block",
+    });
+    expect(context?.tableSummary).toMatchObject({
+      tableCellMarkerCount: 0,
+      tableBlockFallbackCount: 1,
+      tableNotApplicableCount: 0,
+      reasonCounts: {
+        "no-table-changes": 1,
+      },
+    });
   });
 
   it("keeps table marker context privacy-safe", () => {

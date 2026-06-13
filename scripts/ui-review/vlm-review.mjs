@@ -52,6 +52,9 @@ export async function runVlmReview(artifactRoot) {
 
   for (const [reviewId, elements] of elementsByReviewId) {
     const visibleElements = elements.filter((element) => element.visible);
+    if (optionalCoreMarkers.has(reviewId)) {
+      continue;
+    }
     const hasVisibleInlineDiagram =
       reviewId.endsWith("-render") &&
       (elementsByReviewId
