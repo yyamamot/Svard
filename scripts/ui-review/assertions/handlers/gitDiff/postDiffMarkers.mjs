@@ -9,6 +9,8 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-list-item-after-diff",
   "viewer-normal-git-markers-list-item-deletion-fallback",
   "viewer-normal-git-markers-list-item-privacy",
+  "viewer-normal-git-markers-table-row-cell-initial-working-tree",
+  "viewer-normal-git-markers-table-row-cell-after-diff",
   "viewer-git-change-visual-contract-block",
   "viewer-git-change-visual-contract-list-item",
   "viewer-git-change-visual-contract-inline",
@@ -110,6 +112,28 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
         ? privacySafe &&
           summary?.listItemMarker === true &&
           summary?.itemHighlightCount > 0
+        : true,
+    hasInitialWorkingTreeTableCellGitMarkers:
+      scenario === "viewer-normal-git-markers-table-row-cell-initial-working-tree"
+        ? summary?.visible === true &&
+          summary?.initialWorkingTree === true &&
+          summary?.tableMarker === true &&
+          summary?.tableRowHighlightCount > 0 &&
+          summary?.tableCellHighlightCount > 0 &&
+          summary?.parentTableHighlightCount === 0 &&
+          summary?.markerCount > 0 &&
+          summary?.clickResult === true
+        : true,
+    hasPostDiffTableCellGitMarkers:
+      scenario === "viewer-normal-git-markers-table-row-cell-after-diff"
+        ? summary?.visible === true &&
+          summary?.afterDiffHandoff === true &&
+          summary?.tableMarker === true &&
+          summary?.tableRowHighlightCount > 0 &&
+          summary?.tableCellHighlightCount > 0 &&
+          summary?.parentTableHighlightCount === 0 &&
+          summary?.markerCount > 0 &&
+          summary?.clickResult === true
         : true,
     hasGitChangeVisualContractBlock:
       scenario === "viewer-git-change-visual-contract-block"

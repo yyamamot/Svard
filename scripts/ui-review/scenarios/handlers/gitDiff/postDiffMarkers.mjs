@@ -9,6 +9,8 @@ const markerScenarios = new Set([
   "viewer-normal-git-markers-list-item-after-diff",
   "viewer-normal-git-markers-list-item-deletion-fallback",
   "viewer-normal-git-markers-list-item-privacy",
+  "viewer-normal-git-markers-table-row-cell-initial-working-tree",
+  "viewer-normal-git-markers-table-row-cell-after-diff",
   "viewer-git-change-visual-contract-block",
   "viewer-git-change-visual-contract-list-item",
   "viewer-git-change-visual-contract-inline",
@@ -69,15 +71,30 @@ async function markerSummary(page, extra = {}) {
     const itemHighlightCount = document.querySelectorAll(
       ".document-body .post-diff-git-highlight-list-item",
     ).length;
+    const tableRowHighlightCount = document.querySelectorAll(
+      ".document-body .post-diff-git-highlight-table-row",
+    ).length;
+    const tableCellHighlightCount = document.querySelectorAll(
+      ".document-body .post-diff-git-highlight-table-cell",
+    ).length;
+    const parentTableHighlightCount = document.querySelectorAll(
+      ".document-body table.post-diff-git-highlight",
+    ).length;
     const blockHighlightCount =
       document.querySelectorAll(".document-body .post-diff-git-highlight")
-        .length - itemHighlightCount;
+        .length -
+      itemHighlightCount -
+      tableCellHighlightCount -
+      parentTableHighlightCount;
     const summary = {
       documentBasename: "git-rendered-markdown.md",
       markerCount: Number(markerRoot?.getAttribute("data-marker-count") ?? 0),
       renderedMarkerCount: markers.length,
       blockHighlightCount,
       itemHighlightCount,
+      tableRowHighlightCount,
+      tableCellHighlightCount,
+      parentTableHighlightCount,
       inlineAddedCount,
       inlineRemovedCount,
       visible: Boolean(markerRoot),
@@ -87,6 +104,45 @@ async function markerSummary(page, extra = {}) {
     window.__SVARD_POST_DIFF_MARKER_SUMMARY__ = summary;
     return summary;
   }, extra);
+}
+
+async function openTableFixture(page) {
+  await page
+    .locator(
+      '[data-review-id="tree-file"][data-path="/workspace/docs/git-asciidoc-table.adoc"]',
+    )
+    .click();
+  await page
+    .locator('[data-review-id="document-body"]')
+    .filter({ hasText: "Git AsciiDoc Table Diff Fixture" })
+    .waitFor();
+}
+
+async function waitForTableMarkers(page) {
+  await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[data-review-id="git-diff-preview-panel"]') ===
+        null &&
+      document.querySelectorAll(
+        ".document-body .post-diff-git-highlight-table-row",
+      ).length > 0 &&
+      document.querySelectorAll(
+        ".document-body .post-diff-git-highlight-table-cell",
+      ).length > 0 &&
+      document.querySelectorAll(".document-body table.post-diff-git-highlight")
+        .length === 0,
+  );
+}
+
+async function collectTableMarkerSummary(page, extra = {}) {
+  await page.locator('[data-review-id="post-diff-git-marker"]').first().click();
+  await markerSummary(page, {
+    documentBasename: "git-asciidoc-table.adoc",
+    tableMarker: true,
+    clickResult: true,
+    ...extra,
+  });
 }
 
 async function collectGitChangeVisualContractSummary(page, scenario) {
@@ -289,6 +345,13 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     return true;
   }
 
+  if (scenario === "viewer-normal-git-markers-table-row-cell-initial-working-tree") {
+    await openTableFixture(page);
+    await waitForTableMarkers(page);
+    await collectTableMarkerSummary(page, { initialWorkingTree: true });
+    return true;
+  }
+
   if (scenario === "viewer-normal-git-markers-no-prior-diff") {
     await page.locator("text=git-clean.md").click();
     await page
@@ -326,6 +389,21 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
       documentBasename: "git-rendered-list-deletion.md",
       deletionFallback: true,
     });
+    return true;
+  }
+
+  if (scenario === "viewer-normal-git-markers-table-row-cell-after-diff") {
+    await openTableFixture(page);
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.locator('[data-review-id="git-diff-preview-close"]').click();
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor({
+      state: "detached",
+    });
+    await waitForTableMarkers(page);
+    await collectTableMarkerSummary(page, { afterDiffHandoff: true });
     return true;
   }
 
