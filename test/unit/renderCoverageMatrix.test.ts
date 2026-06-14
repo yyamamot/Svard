@@ -189,6 +189,9 @@ tags:
 > [!TIP]
 > Keep alert.
 
+!!! warning "MkDocs warning"
+    Keep MkDocs admonition readable.
+
 - [x] Task item
 
 Footnote.[^one]
@@ -234,6 +237,7 @@ flowchart LR
 
     expect(doc.querySelector(".markdown-frontmatter")).toBeTruthy();
     expect(doc.querySelector(".markdown-alert-tip")).toBeTruthy();
+    expect(doc.querySelector(".markdown-alert-warning strong")).toBeTruthy();
     expect(doc.querySelector(".task-list-item-checkbox")).toBeTruthy();
     expect(doc.querySelector(".footnotes")).toBeTruthy();
     expect(doc.querySelector(".math-inline")).toBeTruthy();

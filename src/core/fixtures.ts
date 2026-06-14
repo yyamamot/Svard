@@ -2297,6 +2297,14 @@ An empty line ends the admonition block.
 [CAUTION]
 Do not use this syntax for private data that should not appear in screenshots.
 
+## MkDocs Admonitions
+
+!!! note "MkDocs note"
+    MkDocs style admonitions render with the same alert visual language.
+
+!!! warning "MkDocs warning"
+    Indented Markdown body content stays readable.
+
 ## Footnotes
 
 Footnote references render as superscript links.[^local]
@@ -2326,6 +2334,9 @@ Missing definitions stay readable instead of breaking the document.[^missing]
 \`\`\`md
 [NOTE]
 This stays inside the source block.
+
+!!! note "MkDocs source sample"
+    This also stays inside the source block.
 
 Footnote-looking text also stays literal.[^code]
 \`\`\`

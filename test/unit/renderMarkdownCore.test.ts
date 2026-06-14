@@ -169,6 +169,35 @@ This remains a source block.
     expect(result.html).toContain("[^code]");
   });
 
+  it("renders MkDocs admonitions without touching fences or unsupported types", () => {
+    const result = renderMarkdownCore(`!!! note "Local review"
+    Review **local** documents before sending [diagram](diagram.md) source.
+
+    Keep \`Kroki\` as explicit fallback.
+
+!!! warning "Remote rendering"
+    Confirm remote diagrams.
+
+!!! success "Unsupported"
+    This remains plain Markdown.
+
+\`\`\`md
+!!! note "Source sample"
+    This remains a source block.
+\`\`\`
+`);
+
+    expect(result.html).toContain("markdown-alert-note");
+    expect(result.html).toContain("markdown-alert-warning");
+    expect(result.html).toContain("<strong>Local review</strong>");
+    expect(result.html).toContain("<strong>local</strong>");
+    expect(result.html).toContain('href="diagram.md"');
+    expect(result.html).toContain("<code>Kroki</code>");
+    expect(result.html).toContain("Confirm remote diagrams");
+    expect(result.html).toContain("!!! success");
+    expect(result.html).toContain("!!! note &quot;Source sample&quot;");
+  });
+
   it("renders frontmatter as a collapsible table and offsets source locations", () => {
     const result = renderMarkdownCore(`---
 title: Markdown GitHub Sample

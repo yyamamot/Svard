@@ -6,6 +6,8 @@ const githubAlertPattern =
   /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:\n)?/i;
 const simpleAdmonitionPattern =
   /^\[(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i;
+const mkDocsAdmonitionPattern =
+  /^!!!\s+(note|tip|important|warning|caution)(?:\s+(?:"([^"]*)"|'([^']*)'))?\s*$/i;
 const taskListPattern = /^\[( |x|X)\]\s+/;
 
 export function isFenceBoundary(line: string): boolean {
@@ -24,6 +26,54 @@ export function transformSimpleAdmonitions(source: string): string {
     if (isFenceBoundary(trimmed)) {
       inFence = !inFence;
       transformed.push(line);
+      continue;
+    }
+
+    const mkDocsMatch = !inFence
+      ? trimmed.match(mkDocsAdmonitionPattern)
+      : null;
+    if (mkDocsMatch) {
+      const title = (
+        mkDocsMatch[2] ??
+        mkDocsMatch[3] ??
+        ""
+      ).trim();
+
+      transformed.push(`> [!${mkDocsMatch[1].toUpperCase()}]`);
+      if (title) {
+        transformed.push(`> **${title}**`);
+      }
+
+      index += 1;
+      while (index < lines.length) {
+        const bodyLine = lines[index].replace(/\r$/, "");
+        if (bodyLine.trim() === "") {
+          let nextContentIndex = index + 1;
+          while (
+            nextContentIndex < lines.length &&
+            lines[nextContentIndex].replace(/\r$/, "").trim() === ""
+          ) {
+            nextContentIndex += 1;
+          }
+          if (
+            nextContentIndex >= lines.length ||
+            !/^( {4}|\t)/.test(lines[nextContentIndex].replace(/\r$/, ""))
+          ) {
+            transformed.push("");
+            break;
+          }
+          transformed.push(">");
+          index += 1;
+          continue;
+        }
+        if (/^( {4}|\t)/.test(bodyLine)) {
+          transformed.push(`> ${bodyLine.replace(/^( {4}|\t)/, "")}`);
+          index += 1;
+          continue;
+        }
+        index -= 1;
+        break;
+      }
       continue;
     }
 
