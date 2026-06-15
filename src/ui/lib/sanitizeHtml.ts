@@ -128,6 +128,17 @@ export function sanitizeDocumentHtml(
   );
 }
 
+export function sanitizeDocumentBodyInPlace(
+  body: HTMLElement,
+  options: SanitizeDocumentHtmlOptions = {},
+): SafeHtml {
+  DOMPurify.sanitize(body, {
+    ...sanitizeConfigForFormat(options.format),
+    IN_PLACE: true,
+  });
+  return markSafeHtml(restoreTaskListCheckboxes(body.innerHTML));
+}
+
 export function sanitizeRenderedBlockHtml(
   html: string,
   options: SanitizeDocumentHtmlOptions = {},

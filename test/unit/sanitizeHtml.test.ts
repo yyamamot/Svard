@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  sanitizeDocumentBodyInPlace,
   sanitizeDocumentHtml,
   sanitizeRenderedBlockHtml,
   sanitizeSvg,
@@ -66,6 +67,25 @@ describe("sanitizeHtml", () => {
     expect(html).not.toContain("<iframe");
     expect(html).not.toContain("<object");
     expect(html).not.toContain("foreignObject");
+  });
+
+  it("keeps the document body in-place sanitizer aligned with string sanitization", () => {
+    const input =
+      '<h2 onclick="alert(1)">Title</h2><p style="color:red"><a href="javascript:alert(1)" onmouseover="alert(2)">bad</a><strong>safe</strong></p><table><tbody><tr><td rowspan="2" width="30%">Cell</td></tr></tbody></table><script>alert(1)</script>';
+    const doc = new DOMParser().parseFromString(input, "text/html");
+    const stringSanitized = sanitizeDocumentHtml(input, { format: "asciidoc" });
+    const bodySanitized = sanitizeDocumentBodyInPlace(doc.body, {
+      format: "asciidoc",
+    });
+
+    expect(bodySanitized).toBe(stringSanitized);
+    expect(bodySanitized).toContain("<strong>safe</strong>");
+    expect(bodySanitized).toContain('rowspan="2"');
+    expect(bodySanitized).not.toContain("onclick");
+    expect(bodySanitized).not.toContain("onmouseover");
+    expect(bodySanitized).not.toContain("javascript:");
+    expect(bodySanitized).not.toContain("style=");
+    expect(bodySanitized).not.toContain("<script");
   });
 
   it("keeps the URI scheme boundary explicit", () => {

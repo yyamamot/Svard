@@ -12,7 +12,7 @@ import { renderMathBlock, renderMathInline } from "../../core/math";
 import { resolveLocalImageSource } from "./localImage";
 import { isExternalUrl, splitPathAndHash } from "./path";
 import { perfBasename, perfDuration, perfNow, tracePerf } from "./perfTrace";
-import { sanitizeDocumentHtml } from "./sanitizeHtml";
+import { sanitizeDocumentBodyInPlace } from "./sanitizeHtml";
 import { markSafeHtml, setElementSafeHtml, unwrapSafeHtml } from "./safeHtml";
 import type { SafeHtml } from "./safeHtml";
 
@@ -645,7 +645,7 @@ export async function prepareDocumentHtml(
   });
 
   const sanitizeStartedAt = perfNow();
-  const sanitized = sanitizeDocumentHtml(doc.body.innerHTML, {
+  const sanitized = sanitizeDocumentBodyInPlace(doc.body, {
     format: document.format,
   });
   tracePerf("render.prepareDocumentHtml.sanitize", {
