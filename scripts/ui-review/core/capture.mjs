@@ -583,11 +583,17 @@ export async function captureScenario({
   const plantUmlMetrics = await page.evaluate(
     () => window.__svardPlantUmlMetrics ?? null,
   );
+  const graphvizMetrics = await page.evaluate(
+    () => window.__svardGraphvizMetrics ?? null,
+  );
   const diagramScrollStability = await page.evaluate(
     () => window.__SVARD_DIAGRAM_SCROLL_STABILITY__ ?? null,
   );
   const postDiffMarkerSummary = await page.evaluate(
     () => window.__SVARD_POST_DIFF_MARKER_SUMMARY__ ?? null,
+  );
+  const benchmarkPhases = await page.evaluate(
+    () => window.__SVARD_BENCHMARK_PHASES__ ?? [],
   );
   const assertionFailures = Object.entries(assertions)
     .filter(([, passed]) => !passed)
@@ -611,10 +617,12 @@ export async function captureScenario({
     openFilesSplitResizeOutcome,
     themeContrastOutcome,
     plantUmlMetrics,
+    graphvizMetrics,
     diagramScrollStability,
     postDiffMarkerSummary,
     svgAspectRatios,
     markerCompleteness,
+    benchmarkPhases,
     captureMetrics: {
       gotoMs: afterGotoAt - captureStartedAt,
       scenarioMs: afterScenarioAt - afterGotoAt,

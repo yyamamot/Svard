@@ -441,13 +441,25 @@ export async function applyReaderActionsScenario(context) {
       };
     });
   } else if (scenario === "viewer-workspace-search-performance") {
+    const phases = [];
+    const recordPhase = async (name, started) => {
+      const durationMs = Date.now() - started;
+      phases.push({ name, durationMs, status: "ok" });
+      await page.evaluate((nextPhases) => {
+        window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
+      }, phases);
+    };
     await page.locator('[data-review-id="right-sidebar-tab-search"]').click();
     await page.locator('[data-review-id="search-scope-workspace"]').click();
+    const dispatchStartedAt = Date.now();
     await page.locator('[data-review-id="search-input"]').fill("Graphviz");
+    await recordPhase("query-dispatch", dispatchStartedAt);
+    const resultStartedAt = Date.now();
     await page
       .locator('[data-review-id="workspace-search-result-item"]')
       .first()
       .waitFor();
+    await recordPhase("result-list-visible", resultStartedAt);
     await page.evaluate(() => {
       window.__SVARD_WORKSPACE_SEARCH_PERF_CHECK__ = {
         resultCount: document.querySelectorAll(

@@ -477,24 +477,51 @@ export async function applyAppShellScenario(context) {
       window.__SVARD_LINE_JUMP_SEEN__ = true;
     });
   } else if (scenario === "viewer-search") {
+    const phases = [];
+    const recordPhase = async (name, started) => {
+      const durationMs = Date.now() - started;
+      phases.push({ name, durationMs, status: "ok" });
+      await page.evaluate((nextPhases) => {
+        window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
+      }, phases);
+    };
     await page
       .locator('[data-review-id="mermaid-render"] svg')
       .first()
       .waitFor();
     await page.locator('[data-review-id="right-sidebar-tab-search"]').click();
+    const inputStartedAt = Date.now();
     await page.locator('[data-review-id="search-input"]').fill("AsciiDoc");
+    await recordPhase("input-fill", inputStartedAt);
+    const resultsStartedAt = Date.now();
+    await page.locator('[data-review-id="search-hit"]').first().waitFor();
+    await page.locator('[data-review-id="search-result-item"]').first().waitFor();
+    await recordPhase("results-visible", resultsStartedAt);
+    const clickStartedAt = Date.now();
     await page.locator('[data-review-id="search-result-item"]').first().click();
+    await page
+      .locator('[data-review-id="search-result-item"].active')
+      .filter({ hasText: "1 /" })
+      .waitFor();
+    await recordPhase("result-click-navigation", clickStartedAt);
+    const nextStartedAt = Date.now();
     await page.locator('[data-review-id="search-input"]').press("Enter");
     await page
       .locator('[data-review-id="search-result-item"].active')
       .filter({ hasText: "2 /" })
       .waitFor();
+    await recordPhase("next-navigation", nextStartedAt);
+    const previousStartedAt = Date.now();
     await page.locator('[data-review-id="search-input"]').press("Shift+Enter");
     await page
       .locator('[data-review-id="search-result-item"].active')
       .filter({ hasText: "1 /" })
       .waitFor();
+    await recordPhase("previous-navigation", previousStartedAt);
+    const nextButtonStartedAt = Date.now();
     await page.locator('[data-review-id="search-next"]').click();
+    await recordPhase("next-button", nextButtonStartedAt);
+    const manualScrollStartedAt = Date.now();
     await page.evaluate(async () => {
       const viewer = document.querySelector(
         '[data-review-id="document-viewer"]',
@@ -508,6 +535,8 @@ export async function applyAppShellScenario(context) {
       await new Promise((resolve) => window.requestAnimationFrame(resolve));
       return viewer.scrollTop === afterManualScroll;
     });
+    await recordPhase("manual-scroll-stability", manualScrollStartedAt);
+    const pinStartedAt = Date.now();
     await page.locator('[data-review-id="search-pin"]').click();
     await page
       .locator('[data-review-id="lightweight-action-feedback"]')
@@ -517,6 +546,7 @@ export async function applyAppShellScenario(context) {
       .locator('[data-review-id="search-pinned-status"]')
       .filter({ hasText: "Pinned search: AsciiDoc" })
       .waitFor();
+    await recordPhase("pin-search-feedback", pinStartedAt);
   } else if (scenario === "viewer-search-hit-ruler") {
     await page
       .locator('[data-review-id="mermaid-render"] svg')

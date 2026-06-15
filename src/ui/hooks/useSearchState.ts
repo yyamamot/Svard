@@ -115,7 +115,6 @@ export function useSearchState({
       );
       return;
     }
-    const activeIndex = searchIndex % hits.length;
     const nextHits = [...hits].map((hit, index) => {
       hit.setAttribute("data-search-hit-index", String(index));
       return {
@@ -127,6 +126,19 @@ export function useSearchState({
     setSearchHits((currentHits) =>
       sameSearchHits(currentHits, nextHits) ? currentHits : nextHits,
     );
+  }, [articleRef, documentHtml, documentPath, query, setSearchHits]);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (!article) {
+      return;
+    }
+    const hits = article.querySelectorAll("mark.search-hit");
+    if (hits.length === 0) {
+      shouldScrollSearchHitRef.current = false;
+      return;
+    }
+    const activeIndex = searchIndex % hits.length;
     hits.forEach((hit, index) => {
       hit.classList.toggle("active", index === activeIndex);
     });
@@ -138,14 +150,7 @@ export function useSearchState({
         behavior: "auto",
       });
     }
-  }, [
-    articleRef,
-    documentHtml,
-    documentPath,
-    query,
-    searchIndex,
-    setSearchHits,
-  ]);
+  }, [articleRef, documentHtml, documentPath, matchCount, query, searchIndex]);
 
   function updateQuery(value: string) {
     shouldScrollSearchHitRef.current = true;

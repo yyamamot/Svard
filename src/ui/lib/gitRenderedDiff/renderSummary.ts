@@ -249,7 +249,7 @@ async function renderDiffDiagrams({
       confirmedRemoteSend: confirmedRemoteDiagramKeys.has(key),
     });
 
-  const mermaid = await renderMermaidDiagrams(
+  const mermaidPromise = renderMermaidDiagrams(
     result.mermaidDiagrams,
     config.theme,
   )
@@ -266,9 +266,9 @@ async function renderDiffDiagrams({
       })),
     );
 
-  const localGraphvizResults =
+  const localGraphvizResultsPromise =
     config.diagram.graphvizRenderer === "local"
-      ? await renderGraphvizDiagrams(result.graphvizDiagrams, {
+      ? renderGraphvizDiagrams(result.graphvizDiagrams, {
           timeoutMs: config.diagram.graphvizTimeoutMs,
         }).catch((error) =>
           result.graphvizDiagrams.map((diagram) => ({
@@ -284,26 +284,9 @@ async function renderDiffDiagrams({
           })),
         )
       : [];
-  const graphviz = await Promise.all(
-    result.graphvizDiagrams.map(async (diagram) => {
-      const key = diagramKey("graphviz", diagram.id);
-      const fallbackResult =
-        config.diagram.graphvizRenderer === "kroki" ||
-        krokiFallbackDiagramKeys.has(key)
-          ? await renderKrokiDiagram("graphviz", diagram.source, key)
-          : undefined;
-      return {
-        ...diagram,
-        result: localGraphvizResults.find((item) => item.id === diagram.id)
-          ?.result,
-        fallbackResult,
-      };
-    }),
-  );
-
-  const localPlantUmlResults =
+  const localPlantUmlResultsPromise =
     config.diagram.plantumlRenderer === "local"
-      ? await renderPlantUmlDiagrams(result.plantUmlDiagrams, {
+      ? renderPlantUmlDiagrams(result.plantUmlDiagrams, {
           theme: config.theme,
           timeoutMs: config.diagram.plantumlTimeoutMs,
         }).catch((error) =>
@@ -320,6 +303,34 @@ async function renderDiffDiagrams({
           })),
         )
       : [];
+  const [mermaid, localGraphvizResults, localPlantUmlResults] =
+    await Promise.all([
+      mermaidPromise,
+      localGraphvizResultsPromise,
+      localPlantUmlResultsPromise,
+    ]);
+  const localGraphvizById = new Map(
+    localGraphvizResults.map((item) => [item.id, item.result]),
+  );
+  const localPlantUmlById = new Map(
+    localPlantUmlResults.map((item) => [item.id, item.result]),
+  );
+  const graphviz = await Promise.all(
+    result.graphvizDiagrams.map(async (diagram) => {
+      const key = diagramKey("graphviz", diagram.id);
+      const fallbackResult =
+        config.diagram.graphvizRenderer === "kroki" ||
+        krokiFallbackDiagramKeys.has(key)
+          ? await renderKrokiDiagram("graphviz", diagram.source, key)
+          : undefined;
+      return {
+        ...diagram,
+        result: localGraphvizById.get(diagram.id),
+        fallbackResult,
+      };
+    }),
+  );
+
   const plantUml = await Promise.all(
     result.plantUmlDiagrams.map(async (diagram) => {
       const key = diagramKey("plantuml", diagram.id);
@@ -334,8 +345,7 @@ async function renderDiffDiagrams({
           : undefined;
       return {
         ...diagram,
-        result: localPlantUmlResults.find((item) => item.id === diagram.id)
-          ?.result,
+        result: localPlantUmlById.get(diagram.id),
         fallbackResult,
       };
     }),

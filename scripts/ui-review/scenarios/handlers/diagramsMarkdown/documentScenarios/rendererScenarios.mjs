@@ -177,17 +177,34 @@ export async function applyRendererScenario(context) {
       .waitFor();
     await page.locator("text=source block stays source").waitFor();
   } else if (scenario === "viewer-diagram-samples") {
+    const startedAt = Date.now();
+    const phases = [];
+    const recordPhase = async (name, started) => {
+      const durationMs = Date.now() - started;
+      phases.push({ name, durationMs, status: "ok" });
+      await page.evaluate((nextPhases) => {
+        window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
+      }, phases);
+    };
     await openDiagramFixture(page, "diagrams-mixed-long-ja.adoc");
     await page.locator("text=Mixed Diagram Japanese Sample").waitFor();
+    await recordPhase("document-open", startedAt);
+    const mermaidStartedAt = Date.now();
     await page.locator('[data-review-id="mermaid-render"]').waitFor();
+    await recordPhase("mermaid-visible", mermaidStartedAt);
+    const plantUmlStartedAt = Date.now();
     await page
       .locator('[data-review-id="plantuml-render"]')
       .locator("svg")
       .waitFor();
+    await recordPhase("plantuml-visible", plantUmlStartedAt);
+    const graphvizStartedAt = Date.now();
     await page
       .locator('[data-review-id="graphviz-render"]')
       .locator("svg")
       .waitFor();
+    await recordPhase("graphviz-visible", graphvizStartedAt);
+    await recordPhase("all-diagrams-visible", startedAt);
   } else if (scenario === "viewer-diagram-samples-scroll-stability") {
     await installPerfEventCollector(page);
     await openDiagramFixture(page, "diagrams-mixed-long-ja.adoc");

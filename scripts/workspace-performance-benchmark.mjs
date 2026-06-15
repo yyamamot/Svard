@@ -123,6 +123,7 @@ function workflowResult({
   fixtureId = null,
   id,
   metric = "durationMs",
+  phaseBreakdown = [],
   reason = null,
   source = null,
   status = "ok",
@@ -134,6 +135,7 @@ function workflowResult({
     fixtureId,
     id,
     metric,
+    phaseBreakdown,
     reason,
     source,
     status,
@@ -336,6 +338,11 @@ function deriveUiReviewResults(reports = []) {
       0;
     const scenarioDurationMs =
       entry.report?.captureMetrics?.scenarioMs ?? entry.durationMs;
+    const phaseBreakdown = normalizePhaseBreakdown(
+      entry.report?.benchmarkPhases ?? [],
+      entry.report,
+      entry.workflowId,
+    );
     return workflowResult({
       category: definition?.category ?? "other",
       durationMs: scenarioDurationMs,
@@ -346,6 +353,7 @@ function deriveUiReviewResults(reports = []) {
       fixtureId: entry.scenario,
       id: entry.workflowId,
       metric: "uiScenario.scenarioMs",
+      phaseBreakdown,
       reason:
         entry.status === "ok"
           ? null
@@ -356,6 +364,40 @@ function deriveUiReviewResults(reports = []) {
       status: entry.status,
     });
   });
+}
+
+function normalizePhaseBreakdown(phases, report = null, workflowId = "") {
+  const normalized = Array.isArray(phases)
+    ? phases
+        .filter((phase) => typeof phase?.name === "string")
+        .map((phase) => ({
+          durationMs: round(phase.durationMs),
+          name: phase.name,
+          status: phase.status === "skipped" ? "skipped" : "ok",
+        }))
+    : [];
+  const shouldIncludeDiagramMetrics = workflowId === "diagram-render";
+  const plantUmlMetrics = shouldIncludeDiagramMetrics
+    ? report?.plantUmlMetrics
+    : null;
+  if (plantUmlMetrics) {
+    normalized.push({
+      durationMs: round(plantUmlMetrics.totalMs),
+      name: "plantuml-render-batch",
+      status: "ok",
+    });
+  }
+  const graphvizMetrics = shouldIncludeDiagramMetrics
+    ? report?.graphvizMetrics
+    : null;
+  if (graphvizMetrics) {
+    normalized.push({
+      durationMs: round(graphvizMetrics.totalMs),
+      name: "graphviz-render-batch",
+      status: "ok",
+    });
+  }
+  return normalized;
 }
 
 function skippedWorkflow(id, reason) {
@@ -497,6 +539,13 @@ function reportMarkdown(summary) {
     lines.push(
       `- ${workflow.id}: ${workflow.status}, ${workflow.category}, ${duration}${reason}`,
     );
+    if (workflow.phaseBreakdown?.length > 0) {
+      for (const phase of workflow.phaseBreakdown) {
+        const phaseDuration =
+          typeof phase.durationMs === "number" ? `${phase.durationMs}ms` : "-";
+        lines.push(`  - ${phase.name}: ${phase.status}, ${phaseDuration}`);
+      }
+    }
   }
   lines.push("");
   return `${lines.join("\n")}\n`;

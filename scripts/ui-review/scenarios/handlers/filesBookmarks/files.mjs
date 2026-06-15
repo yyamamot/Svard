@@ -99,9 +99,20 @@ export async function applyFilesScenario(context) {
     await page.locator("text=Quick Start").waitFor();
     await page.locator('[data-review-id="tree-refresh"]').click();
   } else if (scenario === "viewer-files-tree-auto-refresh") {
+    const phases = [];
+    const recordPhase = async (name, started) => {
+      const durationMs = Date.now() - started;
+      phases.push({ name, durationMs, status: "ok" });
+      await page.evaluate((nextPhases) => {
+        window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
+      }, phases);
+    };
+    const rootStartedAt = Date.now();
     await page.waitForFunction(
       () => typeof window.__SVARD_TRIGGER_DIRECTORY_CHANGE__ === "function",
     );
+    await recordPhase("root-ready", rootStartedAt);
+    const refreshStartedAt = Date.now();
     await page.evaluate(() => {
       window.__SVARD_DIRECTORY_ENTRIES__ = {
         "/workspace/docs": [
@@ -118,10 +129,13 @@ export async function applyFilesScenario(context) {
       window.__SVARD_TRIGGER_DIRECTORY_CHANGE__?.("/workspace/docs", "created");
       window.__SVARD_TRIGGER_GIT_STATUS_CHANGE__?.();
     });
+    await recordPhase("refresh-trigger", refreshStartedAt);
+    const settledStartedAt = Date.now();
     await page
       .locator('[data-review-id="tree-file"][data-git-status="untracked"]')
       .filter({ hasText: "auto-created.md" })
       .waitFor();
+    await recordPhase("tree-settled", settledStartedAt);
   } else if (scenario === "viewer-file-tree-new-file-watch-refresh") {
     await page.waitForFunction(
       () => typeof window.__SVARD_TRIGGER_DIRECTORY_CHANGE__ === "function",

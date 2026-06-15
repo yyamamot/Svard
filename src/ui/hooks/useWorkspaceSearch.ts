@@ -60,6 +60,15 @@ export function useWorkspaceSearch({
     line: number;
   } | null>(null);
   const workspaceSearchRequestIdRef = useRef(0);
+  const workspaceSearchCacheRef = useRef<{
+    cachedAt: number;
+    signature: string;
+    result: NonNullable<WorkspaceSearchState["result"]>;
+  } | null>(null);
+  const workspaceSearchInFlightRef = useRef<{
+    signature: string;
+    promise: Promise<NonNullable<WorkspaceSearchState["result"]>>;
+  } | null>(null);
 
   const workspaceSearchRoot = useCallback(
     () =>
@@ -95,6 +104,26 @@ export function useWorkspaceSearch({
       });
       return;
     }
+    const signature = [
+      rootPath,
+      trimmedQuery,
+      defaultWorkspaceSearchLimits.maxFiles,
+      defaultWorkspaceSearchLimits.maxMatches,
+      defaultWorkspaceSearchLimits.maxBytesPerFile,
+    ].join("\u0000");
+    if (
+      workspaceSearchCacheRef.current?.signature === signature &&
+      Date.now() - workspaceSearchCacheRef.current.cachedAt < 1000
+    ) {
+      const result = workspaceSearchCacheRef.current.result;
+      setWorkspaceSearch({
+        status: "ready",
+        result,
+        message: result.message ?? null,
+      });
+      setWorkspaceSearchIndex(0);
+      return;
+    }
     const requestId = workspaceSearchRequestIdRef.current + 1;
     workspaceSearchRequestIdRef.current = requestId;
     setWorkspaceSearch((current) => ({
@@ -103,14 +132,26 @@ export function useWorkspaceSearch({
       message: null,
     }));
     try {
-      const result = await host.searchWorkspace({
-        rootPath,
-        query: trimmedQuery,
-        ...defaultWorkspaceSearchLimits,
-      });
+      let inFlight = workspaceSearchInFlightRef.current;
+      if (inFlight?.signature !== signature) {
+        inFlight = {
+          signature,
+          promise: host.searchWorkspace({
+            rootPath,
+            query: trimmedQuery,
+            ...defaultWorkspaceSearchLimits,
+          }),
+        };
+        workspaceSearchInFlightRef.current = inFlight;
+      }
+      const result = await inFlight.promise;
+      if (workspaceSearchInFlightRef.current?.signature === signature) {
+        workspaceSearchInFlightRef.current = null;
+      }
       if (workspaceSearchRequestIdRef.current !== requestId) {
         return;
       }
+      workspaceSearchCacheRef.current = { cachedAt: Date.now(), signature, result };
       setWorkspaceSearch({
         status: "ready",
         result,
@@ -118,6 +159,9 @@ export function useWorkspaceSearch({
       });
       setWorkspaceSearchIndex(0);
     } catch (error) {
+      if (workspaceSearchInFlightRef.current?.signature === signature) {
+        workspaceSearchInFlightRef.current = null;
+      }
       if (workspaceSearchRequestIdRef.current !== requestId) {
         return;
       }
@@ -172,6 +216,9 @@ export function useWorkspaceSearch({
   const updateSearchQuery = useCallback(
     (value: string) => {
       if (searchScope === "workspace") {
+        if (value === workspaceQuery) {
+          return;
+        }
         setWorkspaceQuery(value);
         setWorkspaceSearch({ status: "idle", result: null, message: null });
         setWorkspaceSearchIndex(0);

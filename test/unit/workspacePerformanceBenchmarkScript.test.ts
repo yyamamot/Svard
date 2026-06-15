@@ -107,6 +107,9 @@ describe("workspace performance benchmark script", () => {
           durationMs: 1234,
           report: {
           assertionFailures: [],
+          benchmarkPhases: [
+            { durationMs: 12, name: "document-open", status: "ok" },
+          ],
           assertions: { renderedDiffVisible: true },
           captureMetrics: { scenarioMs: 320 },
           outcome: "passed",
@@ -132,6 +135,10 @@ describe("workspace performance benchmark script", () => {
       summary.workflows.find((item: { id: string }) => item.id === "diff-preview-open")
         ?.durationMs,
     ).toBe(320);
+    expect(
+      summary.workflows.find((item: { id: string }) => item.id === "diff-preview-open")
+        ?.phaseBreakdown,
+    ).toEqual([{ durationMs: 12, name: "document-open", status: "ok" }]);
     expect(summary.bottleneckCandidates[0]).toMatchObject({
       id: "diff-preview-open",
       category: "diff-preview",
@@ -145,6 +152,9 @@ describe("workspace performance benchmark script", () => {
         report: {
           assertionFailures: [],
           assertions: { markerVisible: true },
+          benchmarkPhases: [
+            { durationMs: 25, name: "result-list-visible", status: "ok" },
+          ],
           captureMetrics: { scenarioMs: 210 },
           outcome: "passed",
           postDiffMarkerSummary: {
@@ -178,6 +188,9 @@ describe("workspace performance benchmark script", () => {
         "ui-review:viewer-normal-git-markers-table-cell-markdown-diagnosis",
       status: "ok",
     });
+    expect(results[0].phaseBreakdown).toEqual([
+      { durationMs: 25, name: "result-list-visible", status: "ok" },
+    ]);
     expect(results[1]).toMatchObject({
       id: "current-file-search",
       reason: "ui-scenario-assertion-failure",
@@ -239,5 +252,27 @@ describe("workspace performance benchmark script", () => {
     expect(report).toContain("# Workspace Performance Benchmark");
     expect(report).toContain("not-measured-in-quick-profile");
     expect(report).not.toContain("/Users/");
+  });
+
+  it("prints phase breakdown lines in benchmark markdown", () => {
+    const report = reportMarkdown({
+      bottleneckCandidates: [],
+      profile: "full",
+      workflows: [
+        {
+          category: "search",
+          durationMs: 50,
+          id: "workspace-search",
+          metric: "uiScenario.scenarioMs",
+          phaseBreakdown: [
+            { durationMs: 10, name: "query-dispatch", status: "ok" },
+          ],
+          status: "ok",
+        },
+      ],
+    });
+
+    expect(report).toContain("workspace-search: ok, search, 50ms");
+    expect(report).toContain("query-dispatch: ok, 10ms");
   });
 });
