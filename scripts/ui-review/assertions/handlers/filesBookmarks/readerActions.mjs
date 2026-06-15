@@ -148,6 +148,19 @@ export async function buildReaderActionsAssertions(context) {
           geometryReviewIds.has("search-scope-control") &&
           geometryReviewIds.has("workspace-search-result-item")
         : true,
+    hasWorkspaceSearchPerformance:
+      scenario === "viewer-workspace-search-performance"
+        ? (await page.evaluate(() => {
+            const result = window.__SVARD_WORKSPACE_SEARCH_PERF_CHECK__;
+            return (
+              result?.hasScope === true &&
+              result?.inputValue === "Graphviz" &&
+              result?.resultCount >= 1
+            );
+          })) &&
+          geometryReviewIds.has("search-scope-control") &&
+          geometryReviewIds.has("workspace-search-result-item")
+        : true,
     hasOpenInEditor:
       scenario === "viewer-open-in-editor"
         ? geometryReviewIds.has("context-menu") &&

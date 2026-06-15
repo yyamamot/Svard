@@ -440,6 +440,27 @@ export async function applyReaderActionsScenario(context) {
             ?.textContent?.length ?? 0) > 4000,
       };
     });
+  } else if (scenario === "viewer-workspace-search-performance") {
+    await page.locator('[data-review-id="right-sidebar-tab-search"]').click();
+    await page.locator('[data-review-id="search-scope-workspace"]').click();
+    await page.locator('[data-review-id="search-input"]').fill("Graphviz");
+    await page
+      .locator('[data-review-id="workspace-search-result-item"]')
+      .first()
+      .waitFor();
+    await page.evaluate(() => {
+      window.__SVARD_WORKSPACE_SEARCH_PERF_CHECK__ = {
+        resultCount: document.querySelectorAll(
+          '[data-review-id="workspace-search-result-item"]',
+        ).length,
+        hasScope: Boolean(
+          document.querySelector('[data-review-id="search-scope-control"]'),
+        ),
+        inputValue:
+          document.querySelector('[data-review-id="search-input"]')?.value ??
+          "",
+      };
+    });
   } else {
     return false;
   }

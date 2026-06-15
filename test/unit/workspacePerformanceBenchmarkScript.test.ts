@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const {
   buildSummary,
+  deriveUiReviewResults,
   fillMissingWorkflows,
   parseArgs,
   percentile,
@@ -101,6 +102,20 @@ describe("workspace performance benchmark script", () => {
           },
         ],
       },
+      uiReports: [
+        {
+          durationMs: 1234,
+          report: {
+          assertionFailures: [],
+          assertions: { renderedDiffVisible: true },
+          captureMetrics: { scenarioMs: 320 },
+          outcome: "passed",
+          },
+          scenario: "viewer-rendered-diff-quality",
+          status: "ok",
+          workflowId: "diff-preview-open",
+        },
+      ],
     });
 
     expect(summary.schemaVersion).toBe(1);
@@ -115,12 +130,60 @@ describe("workspace performance benchmark script", () => {
     ).toBe(2);
     expect(
       summary.workflows.find((item: { id: string }) => item.id === "diff-preview-open")
-        ?.status,
-    ).toBe("skipped");
+        ?.durationMs,
+    ).toBe(320);
     expect(summary.bottleneckCandidates[0]).toMatchObject({
-      id: "asciidoc-render",
-      category: "render",
+      id: "diff-preview-open",
+      category: "diff-preview",
     });
+  });
+
+  it("derives UI review workflow results without exposing artifact paths", () => {
+    const results = deriveUiReviewResults([
+      {
+        durationMs: 420,
+        report: {
+          assertionFailures: [],
+          assertions: { markerVisible: true },
+          captureMetrics: { scenarioMs: 210 },
+          outcome: "passed",
+          postDiffMarkerSummary: {
+            markerCount: 2,
+            tableSummary: { tableCellMarkerCount: 3 },
+          },
+        },
+        scenario: "viewer-normal-git-markers-table-cell-markdown-diagnosis",
+        status: "ok",
+        workflowId: "change-review-marker-generation",
+      },
+      {
+        durationMs: 99,
+        report: {
+          assertionFailures: ["searchVisible"],
+          assertions: { searchVisible: false },
+          outcome: "failed",
+        },
+        scenario: "viewer-search",
+        status: "failed",
+        workflowId: "current-file-search",
+      },
+    ]);
+
+    expect(results[0]).toMatchObject({
+      durationMs: 210,
+      eventCount: 5,
+      id: "change-review-marker-generation",
+      metric: "uiScenario.scenarioMs",
+      source:
+        "ui-review:viewer-normal-git-markers-table-cell-markdown-diagnosis",
+      status: "ok",
+    });
+    expect(results[1]).toMatchObject({
+      id: "current-file-search",
+      reason: "ui-scenario-assertion-failure",
+      status: "failed",
+    });
+    expect(validatePrivacy(results)).toEqual([]);
   });
 
   it("fills missing workflow measurements with explicit skipped reasons", () => {

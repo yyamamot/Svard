@@ -41,6 +41,7 @@ export async function captureScenario({
   id,
   artifactRoot,
   baseURL = "http://127.0.0.1:4173",
+  gotoWaitUntil = null,
 }) {
   const browser = await chromium.launch();
   const page = await browser.newPage({
@@ -67,11 +68,15 @@ export async function captureScenario({
   const startupObservationScenarios = new Set([
     "viewer-diagram-placeholder-startup",
   ]);
+  const captureStartedAt = Date.now();
   await page.goto(scenarioUrl, {
-    waitUntil: startupObservationScenarios.has(scenario)
-      ? "domcontentloaded"
-      : "networkidle",
+    waitUntil:
+      gotoWaitUntil ??
+      (startupObservationScenarios.has(scenario)
+        ? "domcontentloaded"
+        : "networkidle"),
   });
+  const afterGotoAt = Date.now();
 
   async function performRightButtonGesture(
     directions,
@@ -274,6 +279,7 @@ export async function captureScenario({
       themeContrastOutcome = value;
     },
   });
+  const afterScenarioAt = Date.now();
 
   const screenshotPath = path.join(
     artifactRoot,
@@ -281,6 +287,7 @@ export async function captureScenario({
     `${scenario}.png`,
   );
   await page.screenshot({ path: screenshotPath, fullPage: true });
+  const afterScreenshotAt = Date.now();
 
   const geometry = await page.evaluate(() => {
     const textAllowlist = new Set([
@@ -608,6 +615,12 @@ export async function captureScenario({
     postDiffMarkerSummary,
     svgAspectRatios,
     markerCompleteness,
+    captureMetrics: {
+      gotoMs: afterGotoAt - captureStartedAt,
+      scenarioMs: afterScenarioAt - afterGotoAt,
+      screenshotMs: afterScreenshotAt - afterScenarioAt,
+      totalMs: Date.now() - captureStartedAt,
+    },
     assertionFailures,
     assertions,
   };

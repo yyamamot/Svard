@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +25,33 @@ const categoryByEventPrefix = [
   ["sourceControl.", "git/source-control"],
   ["postDiffGitMarkers.", "change-review"],
   ["viewer.render", "render"],
+];
+
+const uiWorkflowScenarios = [
+  {
+    workflowId: "diagram-render",
+    scenario: "viewer-diagram-samples",
+  },
+  {
+    workflowId: "filetree-root-expand-refresh",
+    scenario: "viewer-files-tree-auto-refresh",
+  },
+  {
+    workflowId: "current-file-search",
+    scenario: "viewer-search",
+  },
+  {
+    workflowId: "workspace-search",
+    scenario: "viewer-workspace-search-performance",
+  },
+  {
+    workflowId: "diff-preview-open",
+    scenario: "viewer-rendered-diff-quality",
+  },
+  {
+    workflowId: "change-review-marker-generation",
+    scenario: "viewer-normal-git-markers-table-cell-markdown-diagnosis",
+  },
 ];
 
 function parseArgs(argv) {
@@ -293,6 +321,43 @@ function deriveSourceControlResults(report) {
   ];
 }
 
+function deriveUiReviewResults(reports = []) {
+  return reports.map((entry) => {
+    const definition = workflowDefinitions.find(
+      (workflow) => workflow.id === entry.workflowId,
+    );
+    const assertionFailures = entry.report?.assertionFailures ?? [];
+    const markerCount =
+      entry.report?.postDiffMarkerSummary?.markerCount ??
+      entry.report?.postDiffMarkerSummary?.markers?.length ??
+      0;
+    const tableCellMarkerCount =
+      entry.report?.postDiffMarkerSummary?.tableSummary?.tableCellMarkerCount ??
+      0;
+    const scenarioDurationMs =
+      entry.report?.captureMetrics?.scenarioMs ?? entry.durationMs;
+    return workflowResult({
+      category: definition?.category ?? "other",
+      durationMs: scenarioDurationMs,
+      eventCount:
+        markerCount > 0 || tableCellMarkerCount > 0
+          ? markerCount + tableCellMarkerCount
+          : Object.keys(entry.report?.assertions ?? {}).length,
+      fixtureId: entry.scenario,
+      id: entry.workflowId,
+      metric: "uiScenario.scenarioMs",
+      reason:
+        entry.status === "ok"
+          ? null
+          : assertionFailures.length > 0
+            ? "ui-scenario-assertion-failure"
+            : (entry.reason ?? "ui-scenario-failed"),
+      source: `ui-review:${entry.scenario}`,
+      status: entry.status,
+    });
+  });
+}
+
 function skippedWorkflow(id, reason) {
   const definition = workflowDefinitions.find((workflow) => workflow.id === id);
   return workflowResult({
@@ -353,7 +418,13 @@ function validatePrivacy(value) {
   return violations;
 }
 
-function buildSummary({ asciidocReport, markdownReport, profile, sourceReport }) {
+function buildSummary({
+  asciidocReport,
+  markdownReport,
+  profile,
+  sourceReport,
+  uiReports = [],
+}) {
   const markdown = markdownReport
     ? deriveMarkdownResults(markdownReport)
     : { events: summarizeEvents([]), workflows: [] };
@@ -362,6 +433,7 @@ function buildSummary({ asciidocReport, markdownReport, profile, sourceReport })
       ...markdown.workflows,
       ...(asciidocReport ? deriveAsciiDocResults(asciidocReport) : []),
       ...(sourceReport ? deriveSourceControlResults(sourceReport) : []),
+      ...deriveUiReviewResults(uiReports),
     ],
     profile,
   );
@@ -457,6 +529,83 @@ async function runCommand(command, args) {
   });
 }
 
+function waitForServer(url, timeoutMs = 30_000) {
+  const startedAt = Date.now();
+  return new Promise((resolve, reject) => {
+    async function poll() {
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          resolve();
+          return;
+        }
+      } catch {
+        // Retry until timeout.
+      }
+      if (Date.now() - startedAt > timeoutMs) {
+        reject(new Error(`Timed out waiting for ${url}`));
+        return;
+      }
+      setTimeout(poll, 250);
+    }
+    void poll();
+  });
+}
+
+function findAvailablePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (typeof address !== "object" || address === null) {
+        server.close(() => reject(new Error("Failed to allocate a local port")));
+        return;
+      }
+      const { port } = address;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+async function startUiServer() {
+  const port = await findAvailablePort();
+  const child = spawn(
+    "pnpm",
+    [
+      "exec",
+      "vite",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(port),
+      "--strictPort",
+    ],
+    {
+      shell: process.platform === "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  child.stdout.on("data", (chunk) => process.stderr.write(chunk));
+  child.stderr.on("data", (chunk) => process.stderr.write(chunk));
+  const baseURL = `http://127.0.0.1:${port}`;
+  await waitForServer(`${baseURL}/`);
+  return {
+    baseURL,
+    stop() {
+      return new Promise((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) {
+          resolve();
+          return;
+        }
+        child.once("exit", () => resolve());
+        child.kill();
+      });
+    },
+  };
+}
+
 async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, "utf8"));
 }
@@ -485,11 +634,71 @@ async function runProbeReports({ outputDir, profile }) {
     sourceOut,
   ]);
 
-  return {
+  const reports = {
     asciidocReport: await readJson(asciidocOut),
     markdownReport: await readJson(markdownOut),
     sourceReport: await readJson(sourceOut),
   };
+
+  if (profile === "quick") {
+    return { ...reports, uiReports: [] };
+  }
+
+  return {
+    ...reports,
+    uiReports: await runUiReviewReports({ outputDir, profile }),
+  };
+}
+
+async function runUiReviewReports({ outputDir, profile }) {
+  const { captureScenario } = await import("./ui-review-utils.mjs");
+  const server = await startUiServer();
+  const uiRoot = path.join(outputDir, "ui-scenarios");
+  const reports = [];
+
+  try {
+    for (const definition of uiWorkflowScenarios) {
+      const scenario =
+        profile === "diagnostic" &&
+        definition.workflowId === "diagram-render"
+          ? "viewer-diagram-samples-scroll-stability"
+          : definition.scenario;
+      const artifactRoot = path.join(uiRoot, definition.workflowId);
+      await fs.mkdir(path.join(artifactRoot, "screenshots"), {
+        recursive: true,
+      });
+      const startedAt = Date.now();
+      try {
+        const report = await captureScenario({
+          artifactRoot,
+          baseURL: server.baseURL,
+          gotoWaitUntil: "domcontentloaded",
+          id: `benchmark-${profile}`,
+          scenario,
+        });
+        reports.push({
+          durationMs: Date.now() - startedAt,
+          report,
+          scenario,
+          status: report.outcome === "passed" ? "ok" : "failed",
+          workflowId: definition.workflowId,
+        });
+      } catch {
+        reports.push({
+          durationMs: Date.now() - startedAt,
+          reason: "scenario-error",
+          report: null,
+          scenario,
+          status: "failed",
+          workflowId: definition.workflowId,
+        });
+      }
+    }
+  } finally {
+    await server.stop();
+  }
+
+  return reports;
 }
 
 async function writeOutputs(outputDir, summary) {
@@ -537,6 +746,7 @@ export {
   deriveAsciiDocResults,
   deriveMarkdownResults,
   deriveSourceControlResults,
+  deriveUiReviewResults,
   fillMissingWorkflows,
   parseArgs,
   percentile,
