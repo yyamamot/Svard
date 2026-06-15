@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppMainShell } from "./components/AppMainShell";
 import { useActiveHeadingTracking } from "./hooks/useActiveHeadingTracking";
 import { useBookmarksState } from "./hooks/useBookmarksState";
@@ -11,9 +11,11 @@ import { useContentCursorActions } from "./hooks/useContentCursorActions";
 import { useDocumentLifecycle } from "./hooks/useDocumentLifecycle";
 import { useDocumentLinks } from "./hooks/useDocumentLinks";
 import { useDocumentRender } from "./hooks/useDocumentRender";
+import { useDiffPreviewHostCallbacks } from "./hooks/useDiffPreviewHostCallbacks";
 import { useExternalLinkConfirmation } from "./hooks/useExternalLinkConfirmation";
 import { useFileTreeState } from "./hooks/useFileTreeState";
 import { useFileCompareActions } from "./hooks/useFileCompareActions";
+import { useConfigChangeWatcher } from "./hooks/useConfigChangeWatcher";
 import { useInlineNotice } from "./hooks/useInlineNotice";
 import { useKrokiActions } from "./hooks/useKrokiActions";
 import { useLightweightActionFeedback } from "./hooks/useLightweightActionFeedback";
@@ -28,6 +30,7 @@ import {
 import { useOpenFileActions } from "./hooks/useOpenFileActions";
 import { useQuickOpenCandidates } from "./hooks/useQuickOpenCandidates";
 import { useQuickOpenActions } from "./hooks/useQuickOpenActions";
+import { useQuickOpenShellState } from "./hooks/useQuickOpenShellState";
 import { useSearchState } from "./hooks/useSearchState";
 import { useShellContextMenu } from "./hooks/useShellContextMenu";
 import { useSidebarLayout } from "./hooks/useSidebarLayout";
@@ -38,20 +41,15 @@ import { useTabsState } from "./hooks/useTabsState";
 import { useViewerSplitResize } from "./hooks/useViewerSplitResize";
 import { useWorkspacePersistence } from "./hooks/useWorkspacePersistence";
 import { useWorkspaceBoot } from "./hooks/useWorkspaceBoot";
+import { useWorkspacePerformanceNotice } from "./hooks/useWorkspacePerformanceNotice";
 import { useWorkspaceSearch } from "./hooks/useWorkspaceSearch";
+import { useWorkspaceTabLayoutState } from "./hooks/useWorkspaceTabLayoutState";
 import { usePostDiffGitMarkerState } from "./hooks/usePostDiffGitMarkerState";
 import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { useZenModeActions } from "./hooks/useZenModeActions";
-import {
-  activeWorkspaceTabId as resolveActiveWorkspaceTabId,
-  buildWorkspaceTabs,
-} from "./lib/workspaceTabs";
 import { MAIN_WINDOW_SESSION_ID, normalizeConfig } from "./lib/config";
 import type { ContentCursorCommandHandler } from "./lib/contentCursor";
-import {
-  mergePersistedSharedConfigIntoWindow,
-  mergeWindowConfigForSave,
-} from "./lib/windowConfig";
+import { mergeWindowConfigForSave } from "./lib/windowConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
 import type {
@@ -63,22 +61,15 @@ import type {
   RightSidebarTab,
   SearchHitSummary,
   SmartScrollAnchor,
-  WorkspaceTab,
 } from "./types";
 import { createHostAdapter } from "../adapters/createHostAdapter";
 import type {
   AppConfig,
   DocumentDiffPreview,
-  DocumentLinkResolution,
   DocumentPayload,
-  KrokiRequest,
-  KrokiResult,
-  LocalImageResult,
   RenderResult,
   WorkspaceEnvironment,
 } from "../core/types";
-import { getBoundedTabs } from "../core/tabLayout";
-import { tracePerf } from "./lib/perfTrace";
 import { shouldInvalidatePostDiffGitMarkersForGitRefreshReason } from "./lib/postDiffGitMarkerRefresh";
 
 const host = createHostAdapter();
@@ -130,16 +121,23 @@ export function App() {
     "document" | "preferences"
   >("document");
   const [fileComparePickerOpen, setFileComparePickerOpen] = useState(false);
-  const [quickOpenOpen, setQuickOpenOpen] = useState(false);
-  const [quickOpenQuery, setQuickOpenQuery] = useState("");
-  const [viewerShortcutHintsOpen, setViewerShortcutHintsOpen] = useState(false);
+  const {
+    closeQuickOpen,
+    openQuickOpen,
+    quickOpenOpen,
+    quickOpenQuery,
+    setQuickOpenOpen,
+    setQuickOpenQuery,
+    setViewerShortcutHintsOpen,
+    showViewerShortcuts,
+    viewerShortcutHintsOpen,
+  } = useQuickOpenShellState({ inputRef: quickOpenInputRef });
   const [diagramPreview, setDiagramPreview] =
     useState<DiagramPreviewState | null>(null);
   const [documentDiffPreview, setDocumentDiffPreview] =
     useState<DocumentDiffPreview | null>(null);
   const [workspaceEnvironment, setWorkspaceEnvironment] =
     useState<WorkspaceEnvironment | null>(null);
-  const wslWorkspaceNoticeShownRef = useRef(false);
   const {
     confirmExternalLink,
     externalLinkConfirmation,
@@ -174,81 +172,17 @@ export function App() {
     setLinkPreview(null);
   }, [documentPayload?.path]);
 
-  useEffect(() => {
-    let disposed = false;
-    let handle: { dispose(): void } | null = null;
-
-    async function refreshConfigFromDisk() {
-      try {
-        const loadedConfig = normalizeConfig(await host.loadConfig());
-        if (disposed) {
-          return;
-        }
-        setConfig((currentConfig) => {
-          const nextConfig =
-            currentConfig
-              ? mergePersistedSharedConfigIntoWindow({
-                  persistedConfig: loadedConfig,
-                  windowConfig: currentConfig,
-                })
-              : loadedConfig;
-          setSidebarLayout(nextConfig.layout);
-          void host.setWindowTheme(nextConfig.theme);
-          return nextConfig;
-        });
-      } catch {
-        // Cross-window config sync is opportunistic; direct save/open flows remain authoritative.
-      }
-    }
-
-    void host
-      .watchConfigChanges?.(() => {
-        void refreshConfigFromDisk();
-      })
-      .then((nextHandle) => {
-        if (disposed) {
-          nextHandle?.dispose();
-          return;
-        }
-        handle = nextHandle ?? null;
-      });
-
-    return () => {
-      disposed = true;
-      handle?.dispose();
-    };
-  }, []);
-  const workspaceTabs = useMemo(
-    () => buildWorkspaceTabs(orderedTabs, preferencesTabOpen),
-    [orderedTabs, preferencesTabOpen],
-  );
-  const activeWorkspaceTabId = resolveActiveWorkspaceTabId({
+  const {
+    activeWorkspaceTabId,
+    overflowWorkspaceTabs,
+    visibleWorkspaceTabs,
+    workspaceTabs,
+  } = useWorkspaceTabLayoutState({
     activeDocumentPath: documentPayload?.path,
-    preferencesActive: preferencesOpen,
+    orderedTabs,
+    preferencesOpen,
+    preferencesTabOpen,
   });
-  const workspaceTabLayout = useMemo(
-    () =>
-      getBoundedTabs(
-        workspaceTabs.map((tab) => tab.id),
-        activeWorkspaceTabId,
-        4,
-      ),
-    [activeWorkspaceTabId, workspaceTabs],
-  );
-  const visibleWorkspaceTabs = useMemo(
-    () =>
-      workspaceTabLayout.visiblePaths
-        .map((id) => workspaceTabs.find((tab) => tab.id === id))
-        .filter((tab): tab is WorkspaceTab => Boolean(tab)),
-    [workspaceTabLayout.visiblePaths, workspaceTabs],
-  );
-  const overflowWorkspaceTabs = useMemo(
-    () =>
-      workspaceTabLayout.overflowPaths
-        .map((id) => workspaceTabs.find((tab) => tab.id === id))
-        .filter((tab): tab is WorkspaceTab => Boolean(tab)),
-    [workspaceTabLayout.overflowPaths, workspaceTabs],
-  );
   const { inlineNotice, showInlineNotice, dismissInlineNotice } =
     useInlineNotice();
   const { lightweightActionFeedback, showLightweightActionFeedback } =
@@ -279,7 +213,6 @@ export function App() {
     setFileComparePickerOpen,
     showInlineNotice,
   });
-
   useEffect(() => {
     const openPaths = new Set(tabs.map((tab) => tab.path));
     setOpenFileReloadStates((current) =>
@@ -405,6 +338,11 @@ export function App() {
     config,
     saveConfig,
   });
+  useConfigChangeWatcher({
+    host,
+    setConfig,
+    setSidebarLayout,
+  });
   const {
     beginViewerSplitResize,
     endViewerSplitResize,
@@ -414,7 +352,6 @@ export function App() {
     setSplitRatio,
     splitRatio,
   });
-
   useWorkspaceBoot({
     host,
     setWindowSessionId,
@@ -439,24 +376,10 @@ export function App() {
     setWorkspaceEnvironment,
   });
 
-  useEffect(() => {
-    if (
-      workspaceEnvironment?.performanceMode !== "wsl-mitigated" ||
-      wslWorkspaceNoticeShownRef.current
-    ) {
-      return;
-    }
-    wslWorkspaceNoticeShownRef.current = true;
-    tracePerf("workspace.wslMitigation.enabled", {
-      mode: workspaceEnvironment.performanceMode,
-      locationKind: workspaceEnvironment.locationKind,
-      reason: "wsl-workspace",
-    });
-    showInlineNotice(
-      "WSL workspace detected. File tree and Git metadata are loaded on demand because Windows access to WSL files can be slow. Use refresh or expand folders to pick up new files.",
-      { tone: "info" },
-    );
-  }, [showInlineNotice, workspaceEnvironment]);
+  useWorkspacePerformanceNotice({
+    showInlineNotice,
+    workspaceEnvironment,
+  });
 
   useMarkdownWorkerWarmupProbe(workspaceBootComplete);
 
@@ -530,39 +453,14 @@ export function App() {
     viewerRef,
   });
 
-  const resolveDiffLocalImage = useCallback(
-    (
-      source: string,
-      documentPath: string,
-      context: DocumentPayload["asciidocContext"],
-    ): Promise<LocalImageResult> =>
-      host.resolveLocalImage(source, documentPath, context),
-    [],
-  );
-  const loadDiffDocumentContext = useCallback(
-    async (
-      documentPath: string,
-    ): Promise<Pick<
-      DocumentPayload,
-      "includeFiles" | "asciidocContext"
-    > | null> => {
-      const document = await host.openDocument(documentPath);
-      return {
-        includeFiles: document.includeFiles,
-        asciidocContext: document.asciidocContext,
-      };
-    },
-    [],
-  );
-  const renderDiffDiagram = useCallback(
-    (request: KrokiRequest): Promise<KrokiResult> =>
-      host.renderDiagram(request),
-    [],
-  );
-  const getGitDiffPreview = useCallback(
-    (path: string): Promise<DocumentDiffPreview> => host.getGitDiffPreview(path),
-    [],
-  );
+  const {
+    getGitDiffPreview,
+    loadDiffDocumentContext,
+    openDiffExternalUrl,
+    renderDiffDiagram,
+    resolveDiffDocumentLink,
+    resolveDiffLocalImage,
+  } = useDiffPreviewHostCallbacks(host);
 
   const {
     activePostDiffGitMarkers,
@@ -584,46 +482,7 @@ export function App() {
     setDocumentDiffPreview,
   });
 
-  const {
-    effectiveGitTimelinePath,
-    gitBranchDiff,
-    gitBranchDiffLoading,
-    gitChanges,
-    gitChangesLoading,
-    gitCommitDetails,
-    gitCommitGraph,
-    gitCommitGraphLoading,
-    gitCommitGraphLoadingMore,
-    gitRefPicker,
-    gitTimelineCompareBase,
-    gitTimelineHistory,
-    gitTimelineLoading,
-    gitTimelineLoadingMore,
-    loadMoreGitCommitGraph,
-    loadMoreGitFileHistory,
-    loadMoreGitRefs,
-    reloadGitRefs,
-    refreshGitChanges,
-    openGitBranchDiffItem,
-    openGitCommitDetailsFile,
-    openGitRefDiff,
-    openSourceControlChange,
-    openSourceControlGraphItem,
-    openSourceControlChangeContextMenu,
-    openSourceControlBranchDiffContextMenu,
-    openSourceControlGraphContextMenu,
-    openTimelineChanges,
-    openTimelineItemContextMenu,
-    setGitCommitDetails,
-    setGitRefPicker,
-    setSidebarTab,
-    setSourceControlBranchDiffBaseRef,
-    setSourceControlGraphScope,
-    setSourceControlView,
-    showGitDiff,
-    showGitFileHistory,
-    compareWithGitRef,
-  } = useSourceControlActions({
+  const sourceControl = useSourceControlActions({
     config,
     copyText: (label, value) => copyTextRef.current(label, value),
     documentPayload: activeDocumentPayload,
@@ -642,7 +501,7 @@ export function App() {
     showInlineNotice,
   });
   refreshSourceControlFromFileTreeRef.current = (event) =>
-    handleWorkspaceFileChangeRefresh(event, refreshGitChanges);
+    handleWorkspaceFileChangeRefresh(event, sourceControl.refreshGitChanges);
 
   const matchCount = searchHits.length;
   const {
@@ -668,13 +527,7 @@ export function App() {
     setTabQueries,
     showLightweightActionFeedback,
   });
-  const {
-    duplicateWindow,
-    moveTabToNewWindow,
-    openCurrentDocumentInNewWindow,
-    openDocumentInNewWindow,
-    openNewWindow,
-  } = useAppWindowActions({
+  const windowActions = useAppWindowActions({
     activeHeadingId,
     closeTabRef,
     config,
@@ -693,36 +546,24 @@ export function App() {
     viewerRef,
   });
 
-  const {
-    copyHeadingLink,
-    copyText,
-    handleArticleContextMenu,
-    handleArticleClick,
-    handleArticleDoubleClick,
-    handleArticleBlur,
-    handleArticleFocus,
-    handleArticlePointerLeave,
-    handleArticlePointerMove,
-    navigateToHeading,
-    openFocusedLink,
-  } = useDocumentLinks({
+  const documentLinks = useDocumentLinks({
     activeHeadingId,
     articleRef,
     config,
     documentPayload,
     loadDocumentForPreview: (path) => host.openDocument(path),
     openDocument,
-    openDocumentInNewWindow,
+    openDocumentInNewWindow: windowActions.openDocumentInNewWindow,
     openPathInEditor,
     resolveDocumentLink: (href, documentPath) =>
       host.resolveDocumentLink({ href, documentPath }),
-    onShowGitDiff: showGitDiff,
+    onShowGitDiff: sourceControl.showGitDiff,
     onConfirmKrokiRender: confirmKrokiRender,
     onLinkHoverDestinationChange: setLinkHoverDestination,
     onLinkPreviewChange: setLinkPreview,
     onOpenDiagramPreview: setDiagramPreview,
     onOpenPreferences: openPreferencesTab,
-    onCompareGitRef: compareWithGitRef,
+    onCompareGitRef: sourceControl.compareWithGitRef,
     onTryKrokiFallback: tryKrokiFallback,
     confirmExternalLink,
     openContextMenu,
@@ -733,37 +574,18 @@ export function App() {
     showInlineNotice,
     showLightweightActionFeedback,
   });
-  copyTextRef.current = copyText;
-  const {
-    addActiveBookmark,
-    addBookmarkEntry,
-    addRootBookmark,
-    moveBookmark,
-    openBookmark,
-    removeBookmarkEntry,
-    toggleActiveBookmark,
-  } = useBookmarksState({
+  copyTextRef.current = documentLinks.copyText;
+  const bookmarkActions = useBookmarksState({
     config,
     documentPayload: activeDocumentPayload,
     openDirectory,
     openDocument,
     persistWorkspace,
     rootDirectory,
-    setSidebarTab,
+    setSidebarTab: sourceControl.setSidebarTab,
     showInlineNotice,
   });
-  const {
-    activateRelativeTab,
-    activateTab,
-    activateTabByIndex,
-    closeAllTabs,
-    closeOtherTabs,
-    closeTab,
-    reorderOpenTabs,
-    restoreClosedTab,
-    restoreClosedTabAt,
-    toggleActivePinnedTab,
-  } = useOpenFileActions({
+  const openFileActions = useOpenFileActions({
     config,
     documentPayload,
     focusedPaneId,
@@ -800,8 +622,8 @@ export function App() {
     snapshotForPath,
     tabs,
   });
-  closeTabRef.current = closeTab;
-  activateTabForHistoryRef.current = activateTab;
+  closeTabRef.current = openFileActions.closeTab;
+  activateTabForHistoryRef.current = openFileActions.activateTab;
 
   function openPreferencesTab() {
     setPreferencesTabOpen(true);
@@ -809,42 +631,21 @@ export function App() {
     setTabMoreOpen(false);
   }
 
-  const {
-    activateDocumentTabByIndex,
-    activateDocumentWorkspaceTab,
-    activateRelativeDocumentTab,
-    closeAllWorkspaceTabs,
-    closePreferencesTab,
-    closeWorkspaceTab,
-    openDocumentWorkspaceTab,
-    restoreClosedDocumentTab,
-    setPreferencesTabVisible,
-  } = useWorkspaceTabActions({
-    activateRelativeTab,
-    activateTab,
-    activateTabByIndex,
-    closeAllTabs,
-    closeTab,
+  const workspaceTabActions = useWorkspaceTabActions({
+    activateRelativeTab: openFileActions.activateRelativeTab,
+    activateTab: openFileActions.activateTab,
+    activateTabByIndex: openFileActions.activateTabByIndex,
+    closeAllTabs: openFileActions.closeAllTabs,
+    closeTab: openFileActions.closeTab,
     openDocument,
     openPreferencesTab,
-    restoreClosedTab,
+    restoreClosedTab: openFileActions.restoreClosedTab,
     setActiveWorkspaceTabKind,
     setPreferencesTabOpen,
     setTabMoreOpen,
   });
 
-  const resolveDiffDocumentLink = useCallback(
-    (href: string, documentPath: string): Promise<DocumentLinkResolution> =>
-      host.resolveDocumentLink({ href, documentPath }),
-    [],
-  );
-  const openDiffExternalUrl = useCallback(
-    (url: string): Promise<void> => host.openExternalUrl(url),
-    [],
-  );
-
-  const { clearActiveContentCursor, moveActiveContentCursor } =
-    useContentCursorActions({
+  const contentCursor = useContentCursorActions({
       articleRef,
       viewerRef,
       documentDiffPreview,
@@ -878,8 +679,8 @@ export function App() {
     externalLinkConfirmation,
     fileComparePickerOpen,
     focusedPaneId,
-    gitCommitDetails,
-    gitRefPicker,
+    gitCommitDetails: sourceControl.gitCommitDetails,
+    gitRefPicker: sourceControl.gitRefPicker,
     isLoading,
     lastClosedTabs,
     navigationBackStackLength: navigationBackStack.length,
@@ -922,46 +723,47 @@ export function App() {
     zenModeActive,
     orderedTabs,
     zenModeEscapeBlocked: zenModeBlockingOverlay,
-    onActivateRelativeTab: activateRelativeDocumentTab,
-    onActivateTabByIndex: activateDocumentTabByIndex,
+    onActivateRelativeTab: workspaceTabActions.activateRelativeDocumentTab,
+    onActivateTabByIndex: workspaceTabActions.activateDocumentTabByIndex,
     onClearSearch: clearSearch,
-    onCloseAllTabs: closeAllWorkspaceTabs,
-    onCloseOtherTabs: closeOtherTabs,
+    onCloseAllTabs: workspaceTabActions.closeAllWorkspaceTabs,
+    onCloseOtherTabs: openFileActions.closeOtherTabs,
     onCloseSplitView: closeSplitView,
-    onCloseTab: closeTab,
-    onCopyHeadingLink: copyHeadingLink,
-    onClearContentCursor: clearActiveContentCursor,
+    onCloseTab: openFileActions.closeTab,
+    onCopyHeadingLink: documentLinks.copyHeadingLink,
+    onClearContentCursor: contentCursor.clearActiveContentCursor,
     onFocusPane: focusPane,
-    onMoveContentCursor: moveActiveContentCursor,
-    onOpenFocusedLink: openFocusedLink,
+    onMoveContentCursor: contentCursor.moveActiveContentCursor,
+    onOpenFocusedLink: documentLinks.openFocusedLink,
     onOpenExternalUrl: (url) => host.openExternalUrl(url),
     onCompareActiveWithPickedDocument: compareActiveWithPickedDocument,
-    onCompareGitRef: compareWithGitRef,
+    onCompareGitRef: sourceControl.compareWithGitRef,
     onComparePickedDocuments: comparePickedDocuments,
-    onShowGitDiff: showGitDiff,
-    onShowGitFileHistory: showGitFileHistory,
+    onShowGitDiff: sourceControl.showGitDiff,
+    onShowGitFileHistory: sourceControl.showGitFileHistory,
     onShowViewerShortcuts: showViewerShortcuts,
     onOpenQuickOpen: openQuickOpen,
-    onOpenNewWindow: openNewWindow,
-    onDuplicateWindow: duplicateWindow,
+    onOpenNewWindow: windowActions.openNewWindow,
+    onDuplicateWindow: windowActions.duplicateWindow,
     onOpenDocument: openDocument,
-    onOpenCurrentDocumentInNewWindow: openCurrentDocumentInNewWindow,
+    onOpenCurrentDocumentInNewWindow: windowActions.openCurrentDocumentInNewWindow,
     onPickAndOpenDirectory: pickAndOpenDirectory,
     onPickAndOpenDocument: pickAndOpenDocument,
     onSaveConfig: saveConfig,
     onSearchIndexChange: updateSearchIndex,
-    onSetPreferencesOpen: setPreferencesTabVisible,
+    onSetPreferencesOpen: workspaceTabActions.setPreferencesTabVisible,
     onSetRightSidebarTab: setRightSidebarTab,
-    onSetSidebarTab: setSidebarTab,
+    onSetSidebarTab: sourceControl.setSidebarTab,
     onSplitRight: openSplitRight,
     onToggleZenMode: toggleZenMode,
     onExitZenMode: exitZenMode,
-    onToggleActiveBookmark: toggleActiveBookmark,
-    onAddCurrentFolderBookmark: addRootBookmark,
-    onTogglePinned: toggleActivePinnedTab,
+    onToggleActiveBookmark: bookmarkActions.toggleActiveBookmark,
+    onAddCurrentFolderBookmark: bookmarkActions.addRootBookmark,
+    onTogglePinned: openFileActions.toggleActivePinnedTab,
     onNavigateHistory: navigateHistory,
-    onRestoreClosedTab: restoreClosedDocumentTab,
-    onActivateDocumentWorkspaceTab: activateDocumentWorkspaceTab,
+    onRestoreClosedTab: workspaceTabActions.restoreClosedDocumentTab,
+    onActivateDocumentWorkspaceTab:
+      workspaceTabActions.activateDocumentWorkspaceTab,
     searchInputRef,
     openFilesFilterInputRef,
     viewerRef,
@@ -970,21 +772,20 @@ export function App() {
   });
   const { navigateToSourceLine, openQuickOpenCandidate } = useQuickOpenActions({
     articleRef,
-    clearActiveContentCursor,
+    clearActiveContentCursor: contentCursor.clearActiveContentCursor,
     dispatchCommand,
     documentPayload: activeDocumentPayload,
-    navigateToHeading,
+    navigateToHeading: documentLinks.navigateToHeading,
     openDirectory,
-    openDocumentWorkspaceTab,
+    openDocumentWorkspaceTab: workspaceTabActions.openDocumentWorkspaceTab,
     recordNavigation,
     setActiveWorkspaceTabKind,
     setQuickOpenOpen,
     setQuickOpenQuery,
-    setSidebarTab,
+    setSidebarTab: sourceControl.setSidebarTab,
     setViewerShortcutHintsOpen,
     viewerRef,
   });
-
   const {
     searchScope,
     setSearchScope,
@@ -998,60 +799,59 @@ export function App() {
     handleWorkspaceSearchEnterKey,
   } = useWorkspaceSearch({
     activeDocumentPayload,
-    clearActiveContentCursor,
+    clearActiveContentCursor: contentCursor.clearActiveContentCursor,
     config,
     documentHtml,
     documentPayload,
     host,
     navigateToSourceLine,
-    openDocumentWorkspaceTab,
+    openDocumentWorkspaceTab: workspaceTabActions.openDocumentWorkspaceTab,
     query,
     rootDirectory,
     setRightSidebarTab,
     setTabQueries,
     updateQuery,
   });
-
   const { handleShellContextMenu } = useShellContextMenu({
     activateSearchHit,
     activateWorkspaceSearchResult,
-    addBookmarkEntry,
+    addBookmarkEntry: bookmarkActions.addBookmarkEntry,
     articleRef,
     bookmarks: config?.workspace.bookmarks ?? [],
-    closeAllTabs: closeAllWorkspaceTabs,
-    closeOtherTabs,
-    closeTab,
-    copyText,
+    closeAllTabs: workspaceTabActions.closeAllWorkspaceTabs,
+    closeOtherTabs: openFileActions.closeOtherTabs,
+    closeTab: openFileActions.closeTab,
+    copyText: documentLinks.copyText,
     documentPayload: activeDocumentPayload,
-    navigateToHeading,
+    navigateToHeading: documentLinks.navigateToHeading,
     openContextMenu,
-    openDocumentInNewWindow,
-    moveTabToNewWindow,
+    openDocumentInNewWindow: windowActions.openDocumentInNewWindow,
+    moveTabToNewWindow: windowActions.moveTabToNewWindow,
     openPathInEditor,
     comparePickedDocuments,
     compareWithActiveFile,
-    compareWithGitRef,
-    showGitDiff,
-    showGitFileHistory,
+    compareWithGitRef: sourceControl.compareWithGitRef,
+    showGitDiff: sourceControl.showGitDiff,
+    showGitFileHistory: sourceControl.showGitFileHistory,
     openTabs: orderedTabs,
     pinnedTabs,
-    removeBookmarkEntry,
+    removeBookmarkEntry: bookmarkActions.removeBookmarkEntry,
     renderResult,
-    toggleActivePinnedTab,
+    toggleActivePinnedTab: openFileActions.toggleActivePinnedTab,
   });
 
   const { rightSidebarProps } = useAppRightSidebarWiring({
     activeHeadingId,
     activateSearchHit,
     activateWorkspaceSearchResult,
-    clearActiveContentCursor,
+    clearActiveContentCursor: contentCursor.clearActiveContentCursor,
     config,
     dispatchCommand,
     handleSearchInputKeyDown,
     handleWorkspaceSearchClear,
     handleWorkspaceSearchEnterKey,
     matchCount,
-    navigateToHeading,
+    navigateToHeading: documentLinks.navigateToHeading,
     pinQuery,
     renderResult,
     rightSidebarTab,
@@ -1091,34 +891,7 @@ export function App() {
     config,
     directoryErrors,
     expandedDirectories,
-    gitSourceControl: {
-      effectiveGitTimelinePath,
-      gitBranchDiff,
-      gitBranchDiffLoading,
-      gitChanges,
-      gitChangesLoading,
-      gitCommitGraph,
-      gitCommitGraphLoading,
-      gitCommitGraphLoadingMore,
-      gitTimelineCompareBase,
-      gitTimelineHistory,
-      gitTimelineLoading,
-      gitTimelineLoadingMore,
-      loadMoreGitCommitGraph,
-      loadMoreGitFileHistory,
-      openGitBranchDiffItem,
-      openSourceControlBranchDiffContextMenu,
-      openSourceControlChange,
-      openSourceControlChangeContextMenu,
-      openSourceControlGraphContextMenu,
-      openSourceControlGraphItem,
-      openTimelineChanges,
-      openTimelineItemContextMenu,
-      setSourceControlBranchDiffBaseRef,
-      setSourceControlGraphScope,
-      setSourceControlView,
-      showGitDiff,
-    },
+    gitSourceControl: sourceControl,
     hideOpenFiles: hideOpenFilesForSiteScreenshot,
     host,
     leftSidebarContentRef,
@@ -1138,30 +911,30 @@ export function App() {
     sidebarResizeState,
     tabs,
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
-    onActivateTab: activateDocumentWorkspaceTab,
+    onActivateTab: workspaceTabActions.activateDocumentWorkspaceTab,
     onActivatePreferences: openPreferencesTab,
-    onAddActiveBookmark: addActiveBookmark,
-    onAddRootBookmark: addRootBookmark,
+    onAddActiveBookmark: bookmarkActions.addActiveBookmark,
+    onAddRootBookmark: bookmarkActions.addRootBookmark,
     onBeginOpenFilesSplitResize: beginOpenFilesSplitResize,
     onBeginSidebarResize: beginSidebarResize,
-    onCloseTab: closeTab,
-    onClosePreferences: closePreferencesTab,
+    onCloseTab: openFileActions.closeTab,
+    onClosePreferences: workspaceTabActions.closePreferencesTab,
     onCollapseTree: collapseTree,
-    onOpenBookmark: openBookmark,
-    onOpenFile: openDocumentWorkspaceTab,
+    onOpenBookmark: bookmarkActions.openBookmark,
+    onOpenFile: workspaceTabActions.openDocumentWorkspaceTab,
     onPickDirectory: pickAndOpenDirectory,
     onPickDocument: pickAndOpenDocument,
     onRefreshTree: refreshTree,
-    onRemoveBookmark: removeBookmarkEntry,
-    onReorderBookmarks: moveBookmark,
-    onReorderOpenTabs: reorderOpenTabs,
+    onRemoveBookmark: bookmarkActions.removeBookmarkEntry,
+    onReorderBookmarks: bookmarkActions.moveBookmark,
+    onReorderOpenTabs: openFileActions.reorderOpenTabs,
     onResetOpenFilesSplitHeight: resetOpenFilesSplitHeight,
     onResetSidebarWidth: resetSidebarWidth,
-    onSelectSidebarTab: setSidebarTab,
+    onSelectSidebarTab: sourceControl.setSidebarTab,
     onSetOpenFilesFilter: setOpenFilesFilter,
     onToggleDirectory: toggleDirectory,
     onToggleOpenFilesCollapsed: toggleOpenFilesCollapsed,
-    onTogglePinned: toggleActivePinnedTab,
+    onTogglePinned: openFileActions.toggleActivePinnedTab,
   });
   const quickOpenCandidates = useQuickOpenCandidates({
     bookmarks,
@@ -1183,18 +956,18 @@ export function App() {
     menuStateKey: nativeAppMenuStateKey,
     dispatchCommand,
     isCommandEnabled,
-    openDocument: openDocumentWorkspaceTab,
+    openDocument: workspaceTabActions.openDocumentWorkspaceTab,
     openDirectory,
     openRecentlyVisitedLocation,
-    restoreClosedTabAt,
+    restoreClosedTabAt: openFileActions.restoreClosedTabAt,
   });
 
   useSiteScreenshotScenario({
-    closeAllTabs: closeAllWorkspaceTabs,
+    closeAllTabs: workspaceTabActions.closeAllWorkspaceTabs,
     dismissInlineNotice,
     documentPayload,
     openDirectory,
-    openDocument: openDocumentWorkspaceTab,
+    openDocument: workspaceTabActions.openDocumentWorkspaceTab,
     openPreferences: openPreferencesTab,
     setConfig,
     setRootDirectory,
@@ -1202,18 +975,9 @@ export function App() {
     setZenModeActive,
     setRightSidebarTab,
     setSearchScope,
-    showGitDiff,
+    showGitDiff: sourceControl.showGitDiff,
     updateSearchQuery,
   });
-
-  useEffect(() => {
-    if (quickOpenOpen) {
-      requestAnimationFrame(() => {
-        quickOpenInputRef.current?.focus();
-        quickOpenInputRef.current?.select();
-      });
-    }
-  }, [quickOpenOpen]);
 
   useActiveHeadingTracking({
     articleRef,
@@ -1221,21 +985,6 @@ export function App() {
     setActiveHeadingId,
     viewerRef,
   });
-
-  function openQuickOpen() {
-    setQuickOpenOpen(true);
-    setQuickOpenQuery("");
-  }
-
-  function closeQuickOpen() {
-    setQuickOpenOpen(false);
-    setQuickOpenQuery("");
-  }
-
-  function showViewerShortcuts() {
-    closeQuickOpen();
-    setViewerShortcutHintsOpen(true);
-  }
 
   async function saveConfig(nextConfig: AppConfig) {
     const normalizedConfig = normalizeConfig(nextConfig);
@@ -1314,10 +1063,10 @@ export function App() {
           if (tab.kind === "preferences") {
             openPreferencesTab();
           } else {
-            activateDocumentWorkspaceTab(tab.path);
+            workspaceTabActions.activateDocumentWorkspaceTab(tab.path);
           }
         },
-        onCloseTab: closeWorkspaceTab,
+        onCloseTab: workspaceTabActions.closeWorkspaceTab,
         onToggleTabMore: () => {
           setTabMoreOpen((current) => !current);
         },
@@ -1332,7 +1081,7 @@ export function App() {
               onClearKrokiCache: () => void clearKrokiCache(),
               onTestKroki: testKrokiPlantUml,
               host,
-              onClose: closePreferencesTab,
+              onClose: workspaceTabActions.closePreferencesTab,
             }
           : null
       }
@@ -1356,19 +1105,19 @@ export function App() {
         searchHits,
         searchIndex,
         viewerRef,
-        onArticleClick: handleArticleClick,
-        onArticleContextMenu: handleArticleContextMenu,
-        onArticleDoubleClick: handleArticleDoubleClick,
-        onArticleBlur: handleArticleBlur,
-        onArticleFocus: handleArticleFocus,
-        onArticlePointerLeave: handleArticlePointerLeave,
-        onArticlePointerMove: handleArticlePointerMove,
-        onClearContentCursor: clearActiveContentCursor,
+        onArticleClick: documentLinks.handleArticleClick,
+        onArticleContextMenu: documentLinks.handleArticleContextMenu,
+        onArticleDoubleClick: documentLinks.handleArticleDoubleClick,
+        onArticleBlur: documentLinks.handleArticleBlur,
+        onArticleFocus: documentLinks.handleArticleFocus,
+        onArticlePointerLeave: documentLinks.handleArticlePointerLeave,
+        onArticlePointerMove: documentLinks.handleArticlePointerMove,
+        onClearContentCursor: contentCursor.clearActiveContentCursor,
         onDismissInlineNotice: dismissInlineNotice,
         onDispatchCommand: (commandId) => void dispatchCommand(commandId),
         onFocusPane: focusPane,
         onActivateSearchHit: (index) => {
-          clearActiveContentCursor();
+          contentCursor.clearActiveContentCursor();
           activateSearchHit(index);
         },
         onConsumePendingMouseGestureContextMenu:
@@ -1397,7 +1146,7 @@ export function App() {
         confirmedRemoteDiagramKeys,
         contextMenu,
         confirmExternalLink,
-        copyText,
+        copyText: documentLinks.copyText,
         diagramPreview,
         diffContentCursorClearRef,
         diffContentCursorCommandRef,
@@ -1406,8 +1155,8 @@ export function App() {
         documentPayload,
         externalLinkConfirmation,
         fileComparePickerOpen,
-        gitCommitDetails,
-        gitRefPicker,
+        gitCommitDetails: sourceControl.gitCommitDetails,
+        gitRefPicker: sourceControl.gitRefPicker,
         host,
         krokiFallbackDiagramKeys,
         loadDiffDocumentContext,
@@ -1424,17 +1173,17 @@ export function App() {
         onCloseContextMenu: closeContextMenu,
         onCloseDocumentDiffPreview: closeDocumentDiffPreview,
         onCloseFileComparePicker: () => setFileComparePickerOpen(false),
-        onCloseGitCommitDetails: () => setGitCommitDetails(null),
-        onCloseGitRefPicker: () => setGitRefPicker(null),
+        onCloseGitCommitDetails: () => sourceControl.setGitCommitDetails(null),
+        onCloseGitRefPicker: () => sourceControl.setGitRefPicker(null),
         onCloseQuickOpen: closeQuickOpen,
         onCompareDocuments: compareDocumentPaths,
         onExternalLinkConfirmation: resolveExternalLinkConfirmation,
         onOpenDiagramPreview: setDiagramPreview,
         onOpenDocument: openDocument,
-        onOpenGitCommitDetailsFile: openGitCommitDetailsFile,
-        onOpenGitRefDiff: openGitRefDiff,
-        onLoadMoreGitRefs: loadMoreGitRefs,
-        onReloadGitRefs: reloadGitRefs,
+        onOpenGitCommitDetailsFile: sourceControl.openGitCommitDetailsFile,
+        onOpenGitRefDiff: sourceControl.openGitRefDiff,
+        onLoadMoreGitRefs: sourceControl.loadMoreGitRefs,
+        onReloadGitRefs: sourceControl.reloadGitRefs,
         onOpenPathInEditor: openPathInEditor,
         onOpenQuickOpenCandidate: openQuickOpenCandidate,
         onSetLastMouseGesture: setLastMouseGesture,

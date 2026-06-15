@@ -1,0 +1,80 @@
+import { useCallback } from "react";
+
+import type {
+  DocumentDiffPreview,
+  DocumentLinkResolution,
+  DocumentPayload,
+  KrokiRequest,
+  KrokiResult,
+  LocalImageResult,
+} from "../../core/types";
+
+interface DiffPreviewHost {
+  getGitDiffPreview(path: string): Promise<DocumentDiffPreview>;
+  openDocument(documentPath: string): Promise<DocumentPayload>;
+  renderDiagram(request: KrokiRequest): Promise<KrokiResult>;
+  resolveDocumentLink(input: {
+    href: string;
+    documentPath: string;
+  }): Promise<DocumentLinkResolution>;
+  resolveLocalImage(
+    source: string,
+    documentPath: string,
+    context: DocumentPayload["asciidocContext"],
+  ): Promise<LocalImageResult>;
+  openExternalUrl(url: string): Promise<void>;
+}
+
+export function useDiffPreviewHostCallbacks(host: DiffPreviewHost) {
+  const resolveDiffDocumentLink = useCallback(
+    (href: string, documentPath: string) =>
+      host.resolveDocumentLink({ href, documentPath }),
+    [host],
+  );
+  const openDiffExternalUrl = useCallback(
+    (url: string): Promise<void> => host.openExternalUrl(url),
+    [host],
+  );
+  const resolveDiffLocalImage = useCallback(
+    (
+      source: string,
+      documentPath: string,
+      context: DocumentPayload["asciidocContext"],
+    ): Promise<LocalImageResult> =>
+      host.resolveLocalImage(source, documentPath, context),
+    [host],
+  );
+  const loadDiffDocumentContext = useCallback(
+    async (
+      documentPath: string,
+    ): Promise<Pick<
+      DocumentPayload,
+      "includeFiles" | "asciidocContext"
+    > | null> => {
+      const document = await host.openDocument(documentPath);
+      return {
+        includeFiles: document.includeFiles,
+        asciidocContext: document.asciidocContext,
+      };
+    },
+    [host],
+  );
+  const renderDiffDiagram = useCallback(
+    (request: KrokiRequest): Promise<KrokiResult> =>
+      host.renderDiagram(request),
+    [host],
+  );
+  const getGitDiffPreview = useCallback(
+    (path: string): Promise<DocumentDiffPreview> => host.getGitDiffPreview(path),
+    [host],
+  );
+
+  return {
+    getGitDiffPreview,
+    loadDiffDocumentContext,
+    openDiffExternalUrl,
+    renderDiffDiagram,
+    resolveDiffDocumentLink,
+    resolveDiffLocalImage,
+  };
+}
