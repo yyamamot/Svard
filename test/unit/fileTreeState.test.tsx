@@ -108,7 +108,7 @@ describe("useFileTreeState directory watching", () => {
         path: "/workspace/docs",
         kind: "created",
       });
-      await vi.advanceTimersByTimeAsync(250);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
     expect(host.listDirectory).toHaveBeenCalledWith("/workspace/docs");
@@ -177,7 +177,7 @@ describe("useFileTreeState directory watching", () => {
         changedPath: "/workspace/docs/new.md",
         kind: "created",
       });
-      await vi.advanceTimersByTimeAsync(250);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
     expect(host.listDirectory).toHaveBeenCalledWith("/workspace/docs");
@@ -322,7 +322,7 @@ describe("useFileTreeState directory watching", () => {
         path: "/workspace/docs",
         kind: "created",
       });
-      await vi.advanceTimersByTimeAsync(250);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
     expect(current().childrenByDirectory["/workspace/docs"]).toEqual(

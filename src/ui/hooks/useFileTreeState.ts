@@ -8,6 +8,8 @@ import type {
 } from "../../core/types";
 import { tracePerf } from "../lib/perfTrace";
 
+const fileTreeWatchReloadDebounceMs = 100;
+
 interface FileTreeHost {
   listDirectory(path: string): Promise<DirectoryEntry[]>;
   watchDirectory(
@@ -261,7 +263,7 @@ export function useFileTreeState({
               return next;
             });
           });
-      }, 250);
+      }, fileTreeWatchReloadDebounceMs);
       debounceTimers.set(path, timer);
     }
 

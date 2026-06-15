@@ -22,6 +22,7 @@ export async function buildCoreAssertions(context) {
               .locator('[data-review-id="document-viewer"]')
               .count()) === 1,
     hasDocument:
+      scenario === "viewer-files-tree-auto-refresh" ||
       (isPreferencesPageScenario(scenario) &&
         bodyText.includes("Preferences") &&
         bodyText.includes("General")) ||

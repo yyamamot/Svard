@@ -10,7 +10,7 @@ import type {
   WorkspacePerformanceMode,
 } from "../../core/types";
 
-const gitStatusDebounceMs = 300;
+const gitStatusDebounceMs = 100;
 
 export function shouldSkipGitStatusHints(
   workspacePerformanceMode: WorkspacePerformanceMode,
