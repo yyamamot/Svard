@@ -275,4 +275,72 @@ describe("workspace performance benchmark script", () => {
     expect(report).toContain("workspace-search: ok, search, 50ms");
     expect(report).toContain("query-dispatch: ok, 10ms");
   });
+
+  it("adds privacy-safe PlantUML component metrics to diagram phase breakdown", () => {
+    const [result] = deriveUiReviewResults([
+      {
+        durationMs: 300,
+        report: {
+          assertionFailures: [],
+          assertions: { diagramVisible: true },
+          captureMetrics: { scenarioMs: 300 },
+          outcome: "passed",
+          plantUmlMetrics: {
+            componentP50Ms: {
+              queueWaitMs: 1.23,
+              renderCoreMs: 90.12,
+              workerTotalMs: 120.34,
+            },
+            componentP95Ms: {
+              queueWaitMs: 2.34,
+              renderCoreMs: 110.23,
+              workerTotalMs: 140.45,
+            },
+            concurrency: 1,
+            diagramCount: 2,
+            errorCount: 0,
+            p50Ms: 121,
+            p95Ms: 141,
+            renderedCount: 2,
+            timeoutCount: 0,
+            totalMs: 250.4,
+            workerCount: 1,
+          },
+        },
+        scenario: "viewer-diagram-samples",
+        status: "ok",
+        workflowId: "diagram-render",
+      },
+    ]);
+
+    expect(result.phaseBreakdown).toContainEqual({
+      details: {
+        concurrency: 1,
+        diagramCount: 2,
+        errorCount: 0,
+        p50Ms: 121,
+        p95Ms: 141,
+        queueWaitP50Ms: 1.23,
+        queueWaitP95Ms: 2.34,
+        renderCoreP50Ms: 90.12,
+        renderCoreP95Ms: 110.23,
+        renderedCount: 2,
+        timeoutCount: 0,
+        workerCount: 1,
+        workerTotalP50Ms: 120.34,
+        workerTotalP95Ms: 140.45,
+      },
+      durationMs: 250.4,
+      name: "plantuml-render-batch",
+      status: "ok",
+    });
+    expect(validatePrivacy(result)).toEqual([]);
+    expect(
+      reportMarkdown({
+        bottleneckCandidates: [],
+        profile: "full",
+        workflows: [result],
+      }),
+    ).toContain("queueWaitP95Ms: 2.34");
+  });
 });

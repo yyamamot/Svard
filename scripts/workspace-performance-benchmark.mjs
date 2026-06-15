@@ -371,6 +371,7 @@ function normalizePhaseBreakdown(phases, report = null, workflowId = "") {
     ? phases
         .filter((phase) => typeof phase?.name === "string")
         .map((phase) => ({
+          details: safePhaseDetails(phase.details),
           durationMs: round(phase.durationMs),
           name: phase.name,
           status: phase.status === "skipped" ? "skipped" : "ok",
@@ -382,6 +383,7 @@ function normalizePhaseBreakdown(phases, report = null, workflowId = "") {
     : null;
   if (plantUmlMetrics) {
     normalized.push({
+      details: plantUmlMetricDetails(plantUmlMetrics),
       durationMs: round(plantUmlMetrics.totalMs),
       name: "plantuml-render-batch",
       status: "ok",
@@ -392,12 +394,59 @@ function normalizePhaseBreakdown(phases, report = null, workflowId = "") {
     : null;
   if (graphvizMetrics) {
     normalized.push({
+      details: safePhaseDetails({
+        diagramCount: graphvizMetrics.diagramCount,
+        renderedCount: graphvizMetrics.renderedCount,
+        timeoutCount: graphvizMetrics.timeoutCount,
+        errorCount: graphvizMetrics.errorCount,
+        p50Ms: graphvizMetrics.p50Ms,
+        p95Ms: graphvizMetrics.p95Ms,
+      }),
       durationMs: round(graphvizMetrics.totalMs),
       name: "graphviz-render-batch",
       status: "ok",
     });
   }
   return normalized;
+}
+
+function safePhaseDetails(details) {
+  if (!details || typeof details !== "object" || Array.isArray(details)) {
+    return undefined;
+  }
+  const safe = {};
+  for (const [key, value] of Object.entries(details)) {
+    if (
+      (typeof value === "number" && Number.isFinite(value)) ||
+      typeof value === "boolean"
+    ) {
+      safe[key] = round(value);
+    } else if (typeof value === "string" && /^[a-z0-9_.:-]+$/iu.test(value)) {
+      safe[key] = value;
+    }
+  }
+  return Object.keys(safe).length > 0 ? safe : undefined;
+}
+
+function plantUmlMetricDetails(metrics) {
+  const componentP50 = metrics.componentP50Ms ?? {};
+  const componentP95 = metrics.componentP95Ms ?? {};
+  return safePhaseDetails({
+    concurrency: metrics.concurrency,
+    diagramCount: metrics.diagramCount,
+    errorCount: metrics.errorCount,
+    p50Ms: metrics.p50Ms,
+    p95Ms: metrics.p95Ms,
+    queueWaitP50Ms: componentP50.queueWaitMs,
+    queueWaitP95Ms: componentP95.queueWaitMs,
+    renderCoreP50Ms: componentP50.renderCoreMs,
+    renderCoreP95Ms: componentP95.renderCoreMs,
+    renderedCount: metrics.renderedCount,
+    timeoutCount: metrics.timeoutCount,
+    workerCount: metrics.workerCount,
+    workerTotalP50Ms: componentP50.workerTotalMs,
+    workerTotalP95Ms: componentP95.workerTotalMs,
+  });
 }
 
 function skippedWorkflow(id, reason) {
@@ -543,7 +592,14 @@ function reportMarkdown(summary) {
       for (const phase of workflow.phaseBreakdown) {
         const phaseDuration =
           typeof phase.durationMs === "number" ? `${phase.durationMs}ms` : "-";
-        lines.push(`  - ${phase.name}: ${phase.status}, ${phaseDuration}`);
+        const details = phase.details
+          ? ` (${Object.entries(phase.details)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(", ")})`
+          : "";
+        lines.push(
+          `  - ${phase.name}: ${phase.status}, ${phaseDuration}${details}`,
+        );
       }
     }
   }

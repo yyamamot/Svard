@@ -333,111 +333,127 @@ export function useDocumentRender({
           skipped: result.krokiDiagrams.length === 0,
           durationMs: perfDuration(krokiStartedAt),
         });
-        const graphvizStartedAt = perfNow();
-        const localGraphvizResults =
-          result.graphvizDiagrams.length > 0 &&
-          diagramConfig.graphvizRenderer === "local"
-            ? await renderGraphvizDiagrams(result.graphvizDiagrams, {
-                timeoutMs: diagramConfig.graphvizTimeoutMs,
-              })
-            : [];
-        const renderedGraphviz = await Promise.all(
-          result.graphvizDiagrams.map(async (diagram) => {
-            const localResult = localGraphvizResults.find(
-              (item) => item.id === diagram.id,
-            )?.result;
-            const shouldUseKroki = diagramConfig.graphvizRenderer === "kroki";
-            const key = diagramKey("graphviz", diagram.id);
-            const shouldTryKroki =
-              shouldUseKroki || krokiFallbackDiagramKeys.has(key);
-            const fallbackResult = shouldTryKroki
-              ? await host.renderDiagram({
-                  diagramType: "graphviz",
-                  source: diagram.source,
-                  config: krokiConfig,
-                  confirmedRemoteSend: confirmedRemoteDiagramKeys.has(key),
-                })
-              : undefined;
+        const renderedGraphvizPromise = (async () => {
+          const graphvizStartedAt = perfNow();
+          try {
+            const localGraphvizResults =
+              result.graphvizDiagrams.length > 0 &&
+              diagramConfig.graphvizRenderer === "local"
+                ? await renderGraphvizDiagrams(result.graphvizDiagrams, {
+                    timeoutMs: diagramConfig.graphvizTimeoutMs,
+                  })
+                : [];
+            return await Promise.all(
+              result.graphvizDiagrams.map(async (diagram) => {
+                const localResult = localGraphvizResults.find(
+                  (item) => item.id === diagram.id,
+                )?.result;
+                const shouldUseKroki =
+                  diagramConfig.graphvizRenderer === "kroki";
+                const key = diagramKey("graphviz", diagram.id);
+                const shouldTryKroki =
+                  shouldUseKroki || krokiFallbackDiagramKeys.has(key);
+                const fallbackResult = shouldTryKroki
+                  ? await host.renderDiagram({
+                      diagramType: "graphviz",
+                      source: diagram.source,
+                      config: krokiConfig,
+                      confirmedRemoteSend: confirmedRemoteDiagramKeys.has(key),
+                    })
+                  : undefined;
 
-            return {
+                return {
+                  ...diagram,
+                  result: localResult,
+                  fallbackResult,
+                };
+              }),
+            );
+          } catch (graphvizError) {
+            return result.graphvizDiagrams.map((diagram) => ({
               ...diagram,
-              result: localResult,
-              fallbackResult,
-            };
-          }),
-        ).catch((graphvizError) =>
-          result.graphvizDiagrams.map((diagram) => ({
-            ...diagram,
-            result: {
-              status: "error" as const,
-              diagnostics: [
-                graphvizError instanceof Error
-                  ? graphvizError.message
-                  : "Graphviz render failed",
-              ],
-            },
-          })),
-        );
-        tracePerf("render.renderGraphvizDiagrams", {
-          basename,
-          format: documentPayload.format,
-          count: result.graphvizDiagrams.length,
-          skipped: result.graphvizDiagrams.length === 0,
-          durationMs: perfDuration(graphvizStartedAt),
-        });
-        const plantUmlStartedAt = perfNow();
-        const localPlantUmlResults =
-          result.plantUmlDiagrams.length > 0 &&
-          diagramConfig.plantumlRenderer === "local"
-            ? await renderPlantUmlDiagrams(result.plantUmlDiagrams, {
-                theme,
-                timeoutMs: diagramConfig.plantumlTimeoutMs,
-              })
-            : [];
-        const renderedPlantUml = await Promise.all(
-          result.plantUmlDiagrams.map(async (diagram) => {
-            const localResult = localPlantUmlResults.find(
-              (item) => item.id === diagram.id,
-            )?.result;
-            const shouldUseKroki = diagramConfig.plantumlRenderer === "kroki";
-            const key = diagramKey("plantuml", diagram.id);
-            const shouldTryKroki =
-              shouldUseKroki || krokiFallbackDiagramKeys.has(key);
-            const fallbackResult = shouldTryKroki
-              ? await host.renderDiagram({
-                  diagramType: "plantuml",
-                  source: normalizePlantUmlRenderSource(diagram.source),
-                  config: krokiConfig,
-                  confirmedRemoteSend: confirmedRemoteDiagramKeys.has(key),
-                })
-              : undefined;
+              result: {
+                status: "error" as const,
+                diagnostics: [
+                  graphvizError instanceof Error
+                    ? graphvizError.message
+                    : "Graphviz render failed",
+                ],
+              },
+            }));
+          } finally {
+            tracePerf("render.renderGraphvizDiagrams", {
+              basename,
+              format: documentPayload.format,
+              count: result.graphvizDiagrams.length,
+              skipped: result.graphvizDiagrams.length === 0,
+              durationMs: perfDuration(graphvizStartedAt),
+            });
+          }
+        })();
+        const renderedPlantUmlPromise = (async () => {
+          const plantUmlStartedAt = perfNow();
+          try {
+            const localPlantUmlResults =
+              result.plantUmlDiagrams.length > 0 &&
+              diagramConfig.plantumlRenderer === "local"
+                ? await renderPlantUmlDiagrams(result.plantUmlDiagrams, {
+                    theme,
+                    timeoutMs: diagramConfig.plantumlTimeoutMs,
+                  })
+                : [];
+            return await Promise.all(
+              result.plantUmlDiagrams.map(async (diagram) => {
+                const localResult = localPlantUmlResults.find(
+                  (item) => item.id === diagram.id,
+                )?.result;
+                const shouldUseKroki =
+                  diagramConfig.plantumlRenderer === "kroki";
+                const key = diagramKey("plantuml", diagram.id);
+                const shouldTryKroki =
+                  shouldUseKroki || krokiFallbackDiagramKeys.has(key);
+                const fallbackResult = shouldTryKroki
+                  ? await host.renderDiagram({
+                      diagramType: "plantuml",
+                      source: normalizePlantUmlRenderSource(diagram.source),
+                      config: krokiConfig,
+                      confirmedRemoteSend: confirmedRemoteDiagramKeys.has(key),
+                    })
+                  : undefined;
 
-            return {
+                return {
+                  ...diagram,
+                  result: localResult,
+                  fallbackResult,
+                };
+              }),
+            );
+          } catch (plantUmlError) {
+            return result.plantUmlDiagrams.map((diagram) => ({
               ...diagram,
-              result: localResult,
-              fallbackResult,
-            };
-          }),
-        ).catch((plantUmlError) =>
-          result.plantUmlDiagrams.map((diagram) => ({
-            ...diagram,
-            result: {
-              status: "error" as const,
-              diagnostics: [
-                plantUmlError instanceof Error
-                  ? plantUmlError.message
-                  : "PlantUML render failed",
-              ],
-            },
-          })),
-        );
-        tracePerf("render.renderPlantUmlDiagrams", {
-          basename,
-          format: documentPayload.format,
-          count: result.plantUmlDiagrams.length,
-          skipped: result.plantUmlDiagrams.length === 0,
-          durationMs: perfDuration(plantUmlStartedAt),
-        });
+              result: {
+                status: "error" as const,
+                diagnostics: [
+                  plantUmlError instanceof Error
+                    ? plantUmlError.message
+                    : "PlantUML render failed",
+                ],
+              },
+            }));
+          } finally {
+            tracePerf("render.renderPlantUmlDiagrams", {
+              basename,
+              format: documentPayload.format,
+              count: result.plantUmlDiagrams.length,
+              skipped: result.plantUmlDiagrams.length === 0,
+              durationMs: perfDuration(plantUmlStartedAt),
+            });
+          }
+        })();
+        const [renderedGraphviz, renderedPlantUml] = await Promise.all([
+          renderedGraphvizPromise,
+          renderedPlantUmlPromise,
+        ]);
         tracePerf("render.diagramsAsyncDone", {
           basename,
           format: documentPayload.format,
