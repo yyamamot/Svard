@@ -576,6 +576,45 @@ $not rendered in source$
     ).toBe("12");
   });
 
+  it("skips document link processing without a resolver while keeping sanitizer URL safety", async () => {
+    const events: Array<Record<string, unknown>> = [];
+    localStorage.setItem("SVARD_PERF_TRACE", "1");
+    const infoSpy = vi
+      .spyOn(console, "info")
+      .mockImplementation((label: unknown, payload: unknown) => {
+        if (label === "[perf]" && payload && typeof payload === "object") {
+          events.push(payload as Record<string, unknown>);
+        }
+      });
+
+    try {
+      const html = await prepareDocumentHtml(
+        '<p><a href="./next.md">Next</a><a href="javascript:alert(1)">bad</a></p>',
+        documentPayload,
+        { security: { allowLocalImages: true, confirmExternalLinks: true } },
+        { headings: [], sourceBlocks: [] },
+      );
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const links = Array.from(doc.querySelectorAll("a"));
+
+      expect(links[0]?.getAttribute("href")).toBe("./next.md");
+      expect(links[1]?.getAttribute("href")).toBeNull();
+      expect(
+        events.find(
+          (event) => event.event === "render.prepareDocumentHtml.links",
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          skipped: true,
+          count: 0,
+        }),
+      );
+    } finally {
+      infoSpy.mockRestore();
+      localStorage.removeItem("SVARD_PERF_TRACE");
+    }
+  });
+
   it("preserves task list checkbox semantics during sanitization", async () => {
     const html = await prepareDocumentHtml(
       '<ul class="contains-task-list"><li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled checked> Done</li><li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled> Todo</li></ul>',

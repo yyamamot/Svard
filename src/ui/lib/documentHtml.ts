@@ -568,7 +568,8 @@ export async function prepareDocumentHtml(
   });
 
   const linksStartedAt = perfNow();
-  const shouldProcessLinks = htmlMayContainElement(html, "a");
+  const shouldProcessLinks =
+    Boolean(options.resolveDocumentLink) && htmlMayContainElement(html, "a");
   const links = shouldProcessLinks
     ? Array.from(doc.querySelectorAll("a[href]"))
     : [];
