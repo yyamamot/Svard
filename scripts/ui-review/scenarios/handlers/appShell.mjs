@@ -478,12 +478,14 @@ export async function applyAppShellScenario(context) {
     });
   } else if (scenario === "viewer-search") {
     const phases = [];
-    const recordPhase = async (name, started) => {
-      const durationMs = Date.now() - started;
+    const recordPhaseDuration = async (name, durationMs) => {
       phases.push({ name, durationMs, status: "ok" });
       await page.evaluate((nextPhases) => {
         window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
       }, phases);
+    };
+    const recordPhase = async (name, started) => {
+      await recordPhaseDuration(name, Date.now() - started);
     };
     await page
       .locator('[data-review-id="mermaid-render"] svg')
@@ -493,17 +495,34 @@ export async function applyAppShellScenario(context) {
     const inputStartedAt = Date.now();
     await page.locator('[data-review-id="search-input"]').fill("AsciiDoc");
     await recordPhase("input-fill", inputStartedAt);
-    const resultsStartedAt = Date.now();
+    await page.waitForFunction(
+      () => window.__SVARD_CURRENT_FILE_SEARCH_TIMING__?.status === "ready",
+    );
+    const searchTiming = await page.evaluate(
+      () => window.__SVARD_CURRENT_FILE_SEARCH_TIMING__ ?? {},
+    );
+    await recordPhaseDuration(
+      "highlight-complete",
+      Number(searchTiming.highlightMs ?? 0),
+    );
+    const resultListStartedAt = Date.now();
     await page.locator('[data-review-id="search-hit"]').first().waitFor();
     await page.locator('[data-review-id="search-result-item"]').first().waitFor();
-    await recordPhase("results-visible", resultsStartedAt);
+    await recordPhase("result-list-rendered", resultListStartedAt);
     const clickStartedAt = Date.now();
     await page.locator('[data-review-id="search-result-item"]').first().click();
     await page
       .locator('[data-review-id="search-result-item"].active')
       .filter({ hasText: "1 /" })
       .waitFor();
-    await recordPhase("result-click-navigation", clickStartedAt);
+    const clickTiming = await page.evaluate(
+      () => window.__SVARD_CURRENT_FILE_SEARCH_TIMING__ ?? {},
+    );
+    await recordPhaseDuration(
+      "active-hit-update",
+      Number(clickTiming.activeHitUpdateMs ?? 0),
+    );
+    await recordPhase("hit-scroll", clickStartedAt);
     const nextStartedAt = Date.now();
     await page.locator('[data-review-id="search-input"]').press("Enter");
     await page

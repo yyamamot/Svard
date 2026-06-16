@@ -14,6 +14,7 @@ import {
 } from "../lib/search";
 import { expandCollapsedSectionsContaining } from "../lib/sectionCollapse";
 import type { SafeHtml } from "../lib/safeHtml";
+import { perfBasename, perfDuration, perfNow } from "../lib/perfTrace";
 
 interface UseSearchStateOptions {
   articleRef: RefObject<HTMLElement | null>;
@@ -30,6 +31,45 @@ interface UseSearchStateOptions {
   setSearchIndex: Dispatch<SetStateAction<number>>;
   setTabQueries: Dispatch<SetStateAction<Record<string, string>>>;
   showLightweightActionFeedback: (message: string) => void;
+}
+
+interface CurrentFileSearchTiming {
+  activeHitUpdateMs?: number;
+  basename: string;
+  hitCount: number;
+  highlightMs?: number;
+  status: "idle" | "ready" | "skipped-document-mismatch" | "no-hit";
+}
+
+declare global {
+  interface Window {
+    __SVARD_CURRENT_FILE_SEARCH_TIMING__?: CurrentFileSearchTiming;
+  }
+}
+
+function updateCurrentFileSearchTiming(
+  nextTiming: CurrentFileSearchTiming,
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.__SVARD_CURRENT_FILE_SEARCH_TIMING__ = nextTiming;
+}
+
+function mergeCurrentFileSearchTiming(
+  nextTiming: Partial<CurrentFileSearchTiming>,
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.__SVARD_CURRENT_FILE_SEARCH_TIMING__ = {
+    ...(window.__SVARD_CURRENT_FILE_SEARCH_TIMING__ ?? {
+      basename: "unknown",
+      hitCount: 0,
+      status: "idle",
+    }),
+    ...nextTiming,
+  };
 }
 
 export function useSearchState({
@@ -49,11 +89,20 @@ export function useSearchState({
   showLightweightActionFeedback,
 }: UseSearchStateOptions) {
   const shouldScrollSearchHitRef = useRef(false);
+  const previousActiveSearchHitIndexRef = useRef<number | null>(null);
   const documentPath = documentPayload?.path ?? null;
 
   useEffect(() => {
+    const startedAt = perfNow();
     const article = articleRef.current;
+    const basename = perfBasename(documentPath);
     if (!article) {
+      previousActiveSearchHitIndexRef.current = null;
+      updateCurrentFileSearchTiming({
+        basename,
+        hitCount: 0,
+        status: "idle",
+      });
       return;
     }
 
@@ -64,11 +113,18 @@ export function useSearchState({
       mark.replaceWith(document.createTextNode(mark.textContent ?? ""));
     });
     article.normalize();
+    previousActiveSearchHitIndexRef.current = null;
 
     if (documentPath && article.dataset.renderedDocumentPath !== documentPath) {
       setSearchHits((currentHits) =>
         currentHits.length === 0 ? currentHits : [],
       );
+      updateCurrentFileSearchTiming({
+        basename,
+        hitCount: 0,
+        highlightMs: perfDuration(startedAt),
+        status: "skipped-document-mismatch",
+      });
       return;
     }
 
@@ -76,20 +132,27 @@ export function useSearchState({
       setSearchHits((currentHits) =>
         currentHits.length === 0 ? currentHits : [],
       );
+      updateCurrentFileSearchTiming({
+        basename,
+        hitCount: 0,
+        highlightMs: perfDuration(startedAt),
+        status: "idle",
+      });
       return;
     }
 
+    const normalizedQuery = query.toLowerCase();
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(escaped, "gi");
     const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
     const textNodes: Text[] = [];
     while (walker.nextNode()) {
       const node = walker.currentNode as Text;
-      if (node.nodeValue?.toLowerCase().includes(query.toLowerCase())) {
+      if (node.nodeValue?.toLowerCase().includes(normalizedQuery)) {
         textNodes.push(node);
       }
     }
 
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pattern = new RegExp(escaped, "gi");
     textNodes.forEach((node) => {
       const fragment = document.createDocumentFragment();
       const source = node.nodeValue ?? "";
@@ -113,6 +176,12 @@ export function useSearchState({
       setSearchHits((currentHits) =>
         currentHits.length === 0 ? currentHits : [],
       );
+      updateCurrentFileSearchTiming({
+        basename,
+        hitCount: 0,
+        highlightMs: perfDuration(startedAt),
+        status: "no-hit",
+      });
       return;
     }
     const nextHits = [...hits].map((hit, index) => {
@@ -126,22 +195,34 @@ export function useSearchState({
     setSearchHits((currentHits) =>
       sameSearchHits(currentHits, nextHits) ? currentHits : nextHits,
     );
+    updateCurrentFileSearchTiming({
+      basename,
+      hitCount: hits.length,
+      highlightMs: perfDuration(startedAt),
+      status: "ready",
+    });
   }, [articleRef, documentHtml, documentPath, query, setSearchHits]);
 
   useEffect(() => {
+    const startedAt = perfNow();
     const article = articleRef.current;
     if (!article) {
+      previousActiveSearchHitIndexRef.current = null;
       return;
     }
     const hits = article.querySelectorAll("mark.search-hit");
     if (hits.length === 0) {
       shouldScrollSearchHitRef.current = false;
+      previousActiveSearchHitIndexRef.current = null;
       return;
     }
     const activeIndex = searchIndex % hits.length;
-    hits.forEach((hit, index) => {
-      hit.classList.toggle("active", index === activeIndex);
-    });
+    const previousActiveIndex = previousActiveSearchHitIndexRef.current;
+    if (previousActiveIndex !== null && previousActiveIndex !== activeIndex) {
+      hits[previousActiveIndex]?.classList.remove("active");
+    }
+    hits[activeIndex]?.classList.add("active");
+    previousActiveSearchHitIndexRef.current = activeIndex;
     if (shouldScrollSearchHitRef.current) {
       shouldScrollSearchHitRef.current = false;
       expandCollapsedSectionsContaining(hits[activeIndex] ?? null);
@@ -150,6 +231,12 @@ export function useSearchState({
         behavior: "auto",
       });
     }
+    mergeCurrentFileSearchTiming({
+      activeHitUpdateMs: perfDuration(startedAt),
+      basename: perfBasename(documentPath),
+      hitCount: hits.length,
+      status: "ready",
+    });
   }, [articleRef, documentHtml, documentPath, matchCount, query, searchIndex]);
 
   function updateQuery(value: string) {

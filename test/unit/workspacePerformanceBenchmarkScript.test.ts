@@ -157,7 +157,10 @@ describe("workspace performance benchmark script", () => {
           assertionFailures: [],
           assertions: { markerVisible: true },
           benchmarkPhases: [
-            { durationMs: 25, name: "result-list-visible", status: "ok" },
+            { durationMs: 4, name: "highlight-complete", status: "ok" },
+            { durationMs: 8, name: "result-list-rendered", status: "ok" },
+            { durationMs: 1, name: "active-hit-update", status: "ok" },
+            { durationMs: 12, name: "hit-scroll", status: "ok" },
           ],
           captureMetrics: { scenarioMs: 210 },
           outcome: "passed",
@@ -193,7 +196,10 @@ describe("workspace performance benchmark script", () => {
       status: "ok",
     });
     expect(results[0].phaseBreakdown).toEqual([
-      { durationMs: 25, name: "result-list-visible", status: "ok" },
+      { durationMs: 4, name: "highlight-complete", status: "ok" },
+      { durationMs: 8, name: "result-list-rendered", status: "ok" },
+      { durationMs: 1, name: "active-hit-update", status: "ok" },
+      { durationMs: 12, name: "hit-scroll", status: "ok" },
     ]);
     expect(results[1]).toMatchObject({
       id: "current-file-search",
