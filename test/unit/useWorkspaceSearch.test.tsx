@@ -161,6 +161,7 @@ describe("useWorkspaceSearch", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -342,6 +343,46 @@ describe("useWorkspaceSearch", () => {
     });
     expect(enterEvent.preventDefault).toHaveBeenCalled();
     expect(clearActiveContentCursor).toHaveBeenCalledTimes(1);
+    harness.cleanup();
+  });
+
+  it("bypasses the workspace search debounce on explicit Enter submit", async () => {
+    vi.useFakeTimers();
+    const { api, harness, hostSearchWorkspace } = renderHookHarness();
+
+    await act(async () => {
+      api().setSearchScope("workspace");
+    });
+    await act(async () => {
+      api().updateSearchQuery("Graphviz");
+    });
+
+    const enterEvent = {
+      key: "Enter",
+      shiftKey: false,
+      preventDefault: vi.fn(),
+    } as unknown as ReactKeyboardEvent<HTMLInputElement>;
+
+    await act(async () => {
+      expect(api().handleWorkspaceSearchEnterKey(enterEvent)).toBe(true);
+      await Promise.resolve();
+    });
+
+    expect(enterEvent.preventDefault).toHaveBeenCalled();
+    expect(hostSearchWorkspace).toHaveBeenCalledTimes(1);
+    expect(hostSearchWorkspace).toHaveBeenCalledWith({
+      rootPath: "/workspace",
+      query: "Graphviz",
+      ...defaultWorkspaceSearchLimits,
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+      await Promise.resolve();
+    });
+
+    expect(hostSearchWorkspace).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
     harness.cleanup();
   });
 

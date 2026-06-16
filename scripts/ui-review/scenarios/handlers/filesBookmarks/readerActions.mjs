@@ -457,17 +457,18 @@ export async function applyReaderActionsScenario(context) {
     const dispatchStartedAt = Date.now();
     await page.locator('[data-review-id="search-input"]').fill("Graphviz");
     await recordPhase("query-dispatch", dispatchStartedAt);
+    await page.locator('[data-review-id="search-input"]').press("Enter");
     await page.waitForFunction(
       () =>
-        typeof window.__SVARD_WORKSPACE_SEARCH_TIMING__?.debounceWaitMs ===
+        typeof window.__SVARD_WORKSPACE_SEARCH_TIMING__?.submitBypassMs ===
         "number",
     );
-    const searchTiming = await page.evaluate(
+    const submitTiming = await page.evaluate(
       () => window.__SVARD_WORKSPACE_SEARCH_TIMING__ ?? {},
     );
     await recordPhaseDuration(
-      "debounce-wait",
-      Number(searchTiming.debounceWaitMs ?? 0),
+      "submit-debounce-bypass",
+      Number(submitTiming.submitBypassMs ?? 0),
     );
     await page.waitForFunction(
       () =>

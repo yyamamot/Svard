@@ -26,6 +26,7 @@ declare global {
       searchedFiles?: number;
       skippedFiles?: number;
       status?: string;
+      submitBypassMs?: number;
     };
   }
 }
@@ -84,6 +85,7 @@ export function useWorkspaceSearch({
     promise: Promise<NonNullable<WorkspaceSearchState["result"]>>;
   } | null>(null);
   const workspaceSearchInputAtRef = useRef<number | null>(null);
+  const workspaceSearchDebounceTimerRef = useRef<number | null>(null);
 
   const updateWorkspaceSearchTiming = useCallback(
     (timing: NonNullable<Window["__SVARD_WORKSPACE_SEARCH_TIMING__"]>) => {
@@ -244,6 +246,7 @@ export function useWorkspaceSearch({
       return;
     }
     const timer = window.setTimeout(() => {
+      workspaceSearchDebounceTimerRef.current = null;
       const inputAt = workspaceSearchInputAtRef.current;
       if (inputAt !== null) {
         updateWorkspaceSearchTiming({
@@ -252,7 +255,13 @@ export function useWorkspaceSearch({
       }
       void runWorkspaceSearch();
     }, 350);
-    return () => window.clearTimeout(timer);
+    workspaceSearchDebounceTimerRef.current = timer;
+    return () => {
+      window.clearTimeout(timer);
+      if (workspaceSearchDebounceTimerRef.current === timer) {
+        workspaceSearchDebounceTimerRef.current = null;
+      }
+    };
   }, [
     runWorkspaceSearch,
     searchScope,
@@ -392,6 +401,16 @@ export function useWorkspaceSearch({
       const resultCount = workspaceSearch.result?.results.length ?? 0;
       if (resultCount === 0) {
         clearActiveContentCursor();
+        if (workspaceSearchDebounceTimerRef.current !== null) {
+          window.clearTimeout(workspaceSearchDebounceTimerRef.current);
+          workspaceSearchDebounceTimerRef.current = null;
+        }
+        const inputAt = workspaceSearchInputAtRef.current;
+        updateWorkspaceSearchTiming({
+          debounceWaitMs: 0,
+          submitBypassMs:
+            inputAt === null ? 0 : Math.max(0, performance.now() - inputAt),
+        });
         void runWorkspaceSearch();
       } else {
         const nextIndex =
