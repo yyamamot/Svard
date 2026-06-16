@@ -119,6 +119,71 @@ afterEach(() => {
 });
 
 describe("IframeGraphvizLocalRenderer", () => {
+  it("warms an idle worker without dispatching a render request", async () => {
+    const fake = createFakeIframeFactory();
+    const renderer = new IframeGraphvizLocalRenderer(1, fake.createIframe);
+
+    await renderer.warm();
+
+    expect(fake.iframes).toHaveLength(1);
+    expect(fake.iframes[0].messages).toHaveLength(0);
+
+    const rendered = renderer.renderSvg({
+      source: "digraph { A -> B }",
+      timeoutMs: 1000,
+    });
+    await flush();
+
+    expect(fake.iframes).toHaveLength(1);
+    sendResult(fake.iframes[0]);
+    await expect(rendered).resolves.toMatchObject({
+      status: "rendered",
+      metrics: { workerReadyWaitMs: 0 },
+    });
+    renderer.dispose();
+    fake.restore();
+  });
+
+  it("does not let a warm failure poison the next render", async () => {
+    let failNextLoad = true;
+    const iframes: FakeIframe[] = [];
+    const createIframe = () => {
+      const iframe = document.createElement("iframe");
+      const messages: unknown[] = [];
+      Object.defineProperty(iframe, "contentWindow", {
+        configurable: true,
+        value: {
+          postMessage(message: unknown) {
+            messages.push(message);
+          },
+        },
+      });
+      queueMicrotask(() => {
+        iframe.dispatchEvent(new Event(failNextLoad ? "error" : "load"));
+        failNextLoad = false;
+      });
+      iframes.push({ iframe, messages });
+      return iframe;
+    };
+    const renderer = new IframeGraphvizLocalRenderer(1, createIframe);
+
+    await expect(renderer.warm()).rejects.toThrow(
+      "Graphviz renderer iframe failed to load",
+    );
+    expect(iframes[0].iframe.isConnected).toBe(false);
+
+    const rendered = renderer.renderSvg({
+      source: "digraph { A -> B }",
+      timeoutMs: 1000,
+    });
+    await flush();
+
+    expect(iframes).toHaveLength(2);
+    sendResult(iframes[1]);
+    await expect(rendered).resolves.toMatchObject({ status: "rendered" });
+    renderer.dispose();
+  });
+
   it("dispatches two renders concurrently and keeps queued result order stable", async () => {
     const fake = createFakeIframeFactory();
     const renderer = new IframeGraphvizLocalRenderer(2, fake.createIframe);

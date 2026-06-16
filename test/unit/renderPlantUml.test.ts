@@ -10,7 +10,7 @@ interface FakeIframe {
   messages: unknown[];
 }
 
-function createFakeIframeFactory() {
+function createFakeIframeFactory(options: { failLoad?: boolean } = {}) {
   const iframes: FakeIframe[] = [];
   const createIframe = () => {
     const iframe = document.createElement("iframe");
@@ -23,7 +23,9 @@ function createFakeIframeFactory() {
         },
       },
     });
-    queueMicrotask(() => iframe.dispatchEvent(new Event("load")));
+    queueMicrotask(() =>
+      iframe.dispatchEvent(new Event(options.failLoad ? "error" : "load")),
+    );
     iframes.push({ iframe, messages });
     return iframe;
   };
@@ -78,6 +80,82 @@ afterEach(() => {
 });
 
 describe("IframePlantUmlLocalRenderer", () => {
+  it("warms an idle worker without dispatching a render request", async () => {
+    const { createIframe, iframes } = createFakeIframeFactory();
+    const renderer = new IframePlantUmlLocalRenderer(1, createIframe);
+
+    await renderer.warm();
+
+    expect(iframes).toHaveLength(1);
+    expect(iframes[0].messages).toHaveLength(0);
+
+    const rendered = renderer.renderSvg({
+      source: "@startuml\nA -> B\n@enduml",
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await flush();
+
+    expect(iframes).toHaveLength(1);
+    const request = iframes[0].messages[0] as { requestId: string };
+    window.dispatchEvent(
+      withSource(
+        resultMessage(request.requestId),
+        iframes[0].iframe.contentWindow,
+      ),
+    );
+    await expect(rendered).resolves.toMatchObject({
+      status: "rendered",
+      metrics: { workerReadyWaitMs: 0 },
+    });
+  });
+
+  it("does not let a warm failure poison the next render", async () => {
+    let failNextLoad = true;
+    const iframes: FakeIframe[] = [];
+    const createIframe = () => {
+      const iframe = document.createElement("iframe");
+      const messages: unknown[] = [];
+      Object.defineProperty(iframe, "contentWindow", {
+        configurable: true,
+        value: {
+          postMessage(message: unknown) {
+            messages.push(message);
+          },
+        },
+      });
+      queueMicrotask(() => {
+        iframe.dispatchEvent(new Event(failNextLoad ? "error" : "load"));
+        failNextLoad = false;
+      });
+      iframes.push({ iframe, messages });
+      return iframe;
+    };
+    const renderer = new IframePlantUmlLocalRenderer(1, createIframe);
+
+    await expect(renderer.warm()).rejects.toThrow(
+      "PlantUML renderer iframe failed to load",
+    );
+    expect(iframes[0].iframe.isConnected).toBe(false);
+
+    const rendered = renderer.renderSvg({
+      source: "@startuml\nA -> B\n@enduml",
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await flush();
+
+    expect(iframes).toHaveLength(2);
+    const request = iframes[1].messages[0] as { requestId: string };
+    window.dispatchEvent(
+      withSource(
+        resultMessage(request.requestId),
+        iframes[1].iframe.contentWindow,
+      ),
+    );
+    await expect(rendered).resolves.toMatchObject({ status: "rendered" });
+  });
+
   it("wraps markerless PlantUML only for render payloads", async () => {
     const { createIframe, iframes } = createFakeIframeFactory();
     const renderer = new IframePlantUmlLocalRenderer(1, createIframe);

@@ -113,6 +113,7 @@ export interface PlantUmlRenderResult {
     initMs?: number;
     renderMs: number;
     queueWaitMs?: number;
+    workerReadyWaitMs?: number;
     parentRoundTripMs?: number;
     workerTotalMs?: number;
     renderCoreMs?: number;
@@ -143,6 +144,7 @@ export interface GraphvizRenderResult {
   metrics?: {
     renderMs: number;
     queueWaitMs?: number;
+    workerReadyWaitMs?: number;
     parentRoundTripMs?: number;
     workerTotalMs?: number;
     svgBytes?: number;

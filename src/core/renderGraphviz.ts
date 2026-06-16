@@ -19,6 +19,7 @@ interface WorkerMessage {
   diagnostics?: string[];
   metrics?: {
     renderMs: number;
+    workerReadyWaitMs?: number;
     svgBytes?: number;
     workerTotalMs?: number;
   };
@@ -61,6 +62,7 @@ class IframeGraphvizWorker {
   private activeTimer: number | null = null;
   private iframe: HTMLIFrameElement | null = null;
   private ready: Promise<void> | null = null;
+  private readyResolvedAt: number | null = null;
 
   constructor(private readonly createIframe: GraphvizIframeFactory) {}
 
@@ -80,7 +82,14 @@ class IframeGraphvizWorker {
       iframe.style.cssText =
         "position:absolute;width:0;height:0;border:0;visibility:hidden;pointer-events:none";
       iframe.setAttribute("aria-hidden", "true");
-      iframe.addEventListener("load", () => resolve(), { once: true });
+      iframe.addEventListener(
+        "load",
+        () => {
+          this.readyResolvedAt = performance.now();
+          resolve();
+        },
+        { once: true },
+      );
       iframe.addEventListener(
         "error",
         () => reject(new Error("Graphviz renderer iframe failed to load")),
@@ -92,6 +101,10 @@ class IframeGraphvizWorker {
     });
 
     return this.ready;
+  }
+
+  async warm(): Promise<void> {
+    await this.initialize();
   }
 
   async renderSvg(
@@ -235,6 +248,7 @@ class IframeGraphvizWorker {
     this.iframe?.remove();
     this.iframe = null;
     this.ready = null;
+    this.readyResolvedAt = null;
   }
 
   private withParentMetrics(
@@ -247,6 +261,13 @@ class IframeGraphvizWorker {
       queueWaitMs: this.active
         ? dispatchedAt - this.active.enqueuedAt
         : undefined,
+      workerReadyWaitMs: this.active
+        ? Math.max(
+            0,
+            Math.min(dispatchedAt, this.readyResolvedAt ?? dispatchedAt) -
+              this.active.enqueuedAt,
+          )
+        : metrics?.workerReadyWaitMs,
       parentRoundTripMs: performance.now() - dispatchedAt,
       workerTotalMs: metrics?.workerTotalMs ?? metrics?.renderMs,
     };
@@ -271,6 +292,23 @@ export class IframeGraphvizLocalRenderer {
       this.queue.push({ enqueuedAt: performance.now(), input, resolve });
       this.pump();
     });
+  }
+
+  async warm(): Promise<void> {
+    const worker = this.idleWorker();
+    if (!worker) {
+      return;
+    }
+    try {
+      await worker.warm();
+    } catch (error) {
+      const index = this.workers.indexOf(worker);
+      if (index >= 0 && worker.idle) {
+        worker.dispose();
+        this.workers.splice(index, 1);
+      }
+      throw error;
+    }
   }
 
   dispose(): void {
@@ -362,6 +400,16 @@ export async function renderGraphvizDiagrams(
   return results;
 }
 
+export async function warmGraphvizRenderer(
+  options: { concurrency?: number } = {},
+) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const localRenderer = getRenderer(normalizeConcurrency(options.concurrency));
+  await localRenderer.warm();
+}
+
 export function disposeGraphvizRenderer() {
   renderer?.dispose();
   renderer = null;
@@ -388,6 +436,7 @@ function publishGraphvizMetrics({
     .sort((left, right) => left - right);
   const componentKeys = [
     "queueWaitMs",
+    "workerReadyWaitMs",
     "parentRoundTripMs",
     "workerTotalMs",
   ] as const;

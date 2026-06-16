@@ -1,10 +1,14 @@
 import { useEffect } from "react";
 import { renderDocument } from "../../core/renderDocument";
-import { renderGraphvizDiagrams } from "../../core/renderGraphviz";
+import {
+  renderGraphvizDiagrams,
+  warmGraphvizRenderer,
+} from "../../core/renderGraphviz";
 import { renderMermaidDiagrams } from "../../core/renderMermaid";
 import {
   normalizePlantUmlRenderSource,
   renderPlantUmlDiagrams,
+  warmPlantUmlRenderer,
 } from "../../core/renderPlantUml";
 import type {
   AppConfig,
@@ -240,6 +244,18 @@ export function useDocumentRender({
           });
           setRenderResult(result);
           setDocumentHtml(placeholderHtml);
+          if (
+            result.graphvizDiagrams.length > 0 &&
+            diagramConfig.graphvizRenderer === "local"
+          ) {
+            void warmGraphvizRenderer().catch(() => undefined);
+          }
+          if (
+            result.plantUmlDiagrams.length > 0 &&
+            diagramConfig.plantumlRenderer === "local"
+          ) {
+            void warmPlantUmlRenderer().catch(() => undefined);
+          }
           tracePerf("render.stateCommit.queued", {
             basename,
             format: documentPayload.format,

@@ -106,13 +106,13 @@ describe("workspace performance benchmark script", () => {
         {
           durationMs: 1234,
           report: {
-          assertionFailures: [],
-          benchmarkPhases: [
-            { durationMs: 12, name: "document-open", status: "ok" },
-          ],
-          assertions: { renderedDiffVisible: true },
-          captureMetrics: { scenarioMs: 320 },
-          outcome: "passed",
+            assertionFailures: [],
+            benchmarkPhases: [
+              { durationMs: 12, name: "document-open", status: "ok" },
+            ],
+            assertions: { renderedDiffVisible: true },
+            captureMetrics: { scenarioMs: 320 },
+            outcome: "passed",
           },
           scenario: "viewer-rendered-diff-quality",
           status: "ok",
@@ -124,20 +124,24 @@ describe("workspace performance benchmark script", () => {
     expect(summary.schemaVersion).toBe(1);
     expect(summary.workflows).toHaveLength(12);
     expect(
-      summary.workflows.find((item: { id: string }) => item.id === "asciidoc-render")
-        ?.durationMs,
+      summary.workflows.find(
+        (item: { id: string }) => item.id === "asciidoc-render",
+      )?.durationMs,
     ).toBe(75);
     expect(
-      summary.workflows.find((item: { id: string }) => item.id === "file-history")
-        ?.durationMs,
+      summary.workflows.find(
+        (item: { id: string }) => item.id === "file-history",
+      )?.durationMs,
     ).toBe(2);
     expect(
-      summary.workflows.find((item: { id: string }) => item.id === "diff-preview-open")
-        ?.durationMs,
+      summary.workflows.find(
+        (item: { id: string }) => item.id === "diff-preview-open",
+      )?.durationMs,
     ).toBe(320);
     expect(
-      summary.workflows.find((item: { id: string }) => item.id === "diff-preview-open")
-        ?.phaseBreakdown,
+      summary.workflows.find(
+        (item: { id: string }) => item.id === "diff-preview-open",
+      )?.phaseBreakdown,
     ).toEqual([{ durationMs: 12, name: "document-open", status: "ok" }]);
     expect(summary.bottleneckCandidates[0]).toMatchObject({
       id: "diff-preview-open",
@@ -236,9 +240,9 @@ describe("workspace performance benchmark script", () => {
     expect(validatePrivacy({ path: "/Users/example/private.md" })).toContain(
       "absolute-private-path",
     );
-    expect(validatePrivacy({ endpoint: "https://example.com/kroki" })).toContain(
-      "endpoint-url",
-    );
+    expect(
+      validatePrivacy({ endpoint: "https://example.com/kroki" }),
+    ).toContain("endpoint-url");
     expect(validatePrivacy({ hunk: "@@ -1 +1 @@" })).toContain("diff-hunk");
 
     const report = reportMarkdown(
@@ -289,11 +293,13 @@ describe("workspace performance benchmark script", () => {
             componentP50Ms: {
               queueWaitMs: 1.23,
               renderCoreMs: 90.12,
+              workerReadyWaitMs: 0.5,
               workerTotalMs: 120.34,
             },
             componentP95Ms: {
               queueWaitMs: 2.34,
               renderCoreMs: 110.23,
+              workerReadyWaitMs: 1.5,
               workerTotalMs: 140.45,
             },
             concurrency: 1,
@@ -327,6 +333,8 @@ describe("workspace performance benchmark script", () => {
         renderedCount: 2,
         timeoutCount: 0,
         workerCount: 1,
+        workerReadyWaitP50Ms: 0.5,
+        workerReadyWaitP95Ms: 1.5,
         workerTotalP50Ms: 120.34,
         workerTotalP95Ms: 140.45,
       },

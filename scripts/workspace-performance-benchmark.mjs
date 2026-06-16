@@ -394,14 +394,7 @@ function normalizePhaseBreakdown(phases, report = null, workflowId = "") {
     : null;
   if (graphvizMetrics) {
     normalized.push({
-      details: safePhaseDetails({
-        diagramCount: graphvizMetrics.diagramCount,
-        renderedCount: graphvizMetrics.renderedCount,
-        timeoutCount: graphvizMetrics.timeoutCount,
-        errorCount: graphvizMetrics.errorCount,
-        p50Ms: graphvizMetrics.p50Ms,
-        p95Ms: graphvizMetrics.p95Ms,
-      }),
+      details: graphvizMetricDetails(graphvizMetrics),
       durationMs: round(graphvizMetrics.totalMs),
       name: "graphviz-render-batch",
       status: "ok",
@@ -444,6 +437,29 @@ function plantUmlMetricDetails(metrics) {
     renderedCount: metrics.renderedCount,
     timeoutCount: metrics.timeoutCount,
     workerCount: metrics.workerCount,
+    workerReadyWaitP50Ms: componentP50.workerReadyWaitMs,
+    workerReadyWaitP95Ms: componentP95.workerReadyWaitMs,
+    workerTotalP50Ms: componentP50.workerTotalMs,
+    workerTotalP95Ms: componentP95.workerTotalMs,
+  });
+}
+
+function graphvizMetricDetails(metrics) {
+  const componentP50 = metrics.componentP50Ms ?? {};
+  const componentP95 = metrics.componentP95Ms ?? {};
+  return safePhaseDetails({
+    concurrency: metrics.concurrency,
+    diagramCount: metrics.diagramCount,
+    errorCount: metrics.errorCount,
+    p50Ms: metrics.p50Ms,
+    p95Ms: metrics.p95Ms,
+    queueWaitP50Ms: componentP50.queueWaitMs,
+    queueWaitP95Ms: componentP95.queueWaitMs,
+    renderedCount: metrics.renderedCount,
+    timeoutCount: metrics.timeoutCount,
+    workerCount: metrics.workerCount,
+    workerReadyWaitP50Ms: componentP50.workerReadyWaitMs,
+    workerReadyWaitP95Ms: componentP95.workerReadyWaitMs,
     workerTotalP50Ms: componentP50.workerTotalMs,
     workerTotalP95Ms: componentP95.workerTotalMs,
   });
@@ -583,7 +599,9 @@ function reportMarkdown(summary) {
   lines.push("", "## Workflow Summary", "");
   for (const workflow of summary.workflows) {
     const duration =
-      typeof workflow.durationMs === "number" ? `${workflow.durationMs}ms` : "-";
+      typeof workflow.durationMs === "number"
+        ? `${workflow.durationMs}ms`
+        : "-";
     const reason = workflow.reason ? `, reason: ${workflow.reason}` : "";
     lines.push(
       `- ${workflow.id}: ${workflow.status}, ${workflow.category}, ${duration}${reason}`,
@@ -665,7 +683,9 @@ function findAvailablePort() {
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
       if (typeof address !== "object" || address === null) {
-        server.close(() => reject(new Error("Failed to allocate a local port")));
+        server.close(() =>
+          reject(new Error("Failed to allocate a local port")),
+        );
         return;
       }
       const { port } = address;
@@ -764,8 +784,7 @@ async function runUiReviewReports({ outputDir, profile }) {
   try {
     for (const definition of uiWorkflowScenarios) {
       const scenario =
-        profile === "diagnostic" &&
-        definition.workflowId === "diagram-render"
+        profile === "diagnostic" && definition.workflowId === "diagram-render"
           ? "viewer-diagram-samples-scroll-stability"
           : definition.scenario;
       const artifactRoot = path.join(uiRoot, definition.workflowId);
@@ -821,7 +840,10 @@ async function writeOutputs(outputDir, summary) {
     path.join(outputDir, "summary.json"),
     `${JSON.stringify(finalSummary, null, 2)}\n`,
   );
-  await fs.writeFile(path.join(outputDir, "report.md"), reportMarkdown(finalSummary));
+  await fs.writeFile(
+    path.join(outputDir, "report.md"),
+    reportMarkdown(finalSummary),
+  );
   return finalSummary;
 }
 

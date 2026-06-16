@@ -20,6 +20,7 @@ interface WorkerMessage {
   metrics?: {
     renderMs: number;
     queueWaitMs?: number;
+    workerReadyWaitMs?: number;
     parentRoundTripMs?: number;
     workerTotalMs?: number;
     renderCoreMs?: number;
@@ -81,6 +82,7 @@ class IframePlantUmlWorker {
   private activeRequestId: string | null = null;
   private activeTimer: number | null = null;
   private activeDispatchedAt: number | null = null;
+  private readyResolvedAt: number | null = null;
 
   constructor(private readonly createIframe: PlantUmlIframeFactory) {}
 
@@ -100,7 +102,14 @@ class IframePlantUmlWorker {
       iframe.style.cssText =
         "position:absolute;width:0;height:0;border:0;visibility:hidden;pointer-events:none";
       iframe.setAttribute("aria-hidden", "true");
-      iframe.addEventListener("load", () => resolve(), { once: true });
+      iframe.addEventListener(
+        "load",
+        () => {
+          this.readyResolvedAt = performance.now();
+          resolve();
+        },
+        { once: true },
+      );
       iframe.addEventListener(
         "error",
         () => reject(new Error("PlantUML renderer iframe failed to load")),
@@ -112,6 +121,10 @@ class IframePlantUmlWorker {
     });
 
     return this.ready;
+  }
+
+  async warm(): Promise<void> {
+    await this.initialize();
   }
 
   async renderSvg(
@@ -152,6 +165,7 @@ class IframePlantUmlWorker {
     });
     this.iframe = null;
     this.ready = null;
+    this.readyResolvedAt = null;
     this.active = null;
     this.activeRequestId = null;
     this.activeDispatchedAt = null;
@@ -238,6 +252,13 @@ class IframePlantUmlWorker {
       queueWaitMs: this.active
         ? dispatchedAt - this.active.enqueuedAt
         : metrics?.queueWaitMs,
+      workerReadyWaitMs: this.active
+        ? Math.max(
+            0,
+            Math.min(dispatchedAt, this.readyResolvedAt ?? dispatchedAt) -
+              this.active.enqueuedAt,
+          )
+        : metrics?.workerReadyWaitMs,
       parentRoundTripMs: performance.now() - dispatchedAt,
     };
   }
@@ -261,6 +282,23 @@ export class IframePlantUmlLocalRenderer {
       this.queue.push({ input, resolve, enqueuedAt: performance.now() });
       this.pump();
     });
+  }
+
+  async warm(): Promise<void> {
+    const worker = this.idleWorker();
+    if (!worker) {
+      return;
+    }
+    try {
+      await worker.warm();
+    } catch (error) {
+      const index = this.workers.indexOf(worker);
+      if (index >= 0 && worker.idle) {
+        worker.dispose();
+        this.workers.splice(index, 1);
+      }
+      throw error;
+    }
   }
 
   dispose(): void {
@@ -362,6 +400,16 @@ export async function renderPlantUmlDiagrams(
   return results;
 }
 
+export async function warmPlantUmlRenderer(
+  options: { concurrency?: number } = {},
+) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const localRenderer = getRenderer(normalizeConcurrency(options.concurrency));
+  await localRenderer.warm();
+}
+
 export function disposePlantUmlRenderer() {
   for (const renderer of renderers.values()) {
     renderer.dispose();
@@ -390,6 +438,7 @@ function publishPlantUmlMetrics({
     .sort((left, right) => left - right);
   const componentKeys = [
     "queueWaitMs",
+    "workerReadyWaitMs",
     "parentRoundTripMs",
     "workerTotalMs",
     "renderCoreMs",
