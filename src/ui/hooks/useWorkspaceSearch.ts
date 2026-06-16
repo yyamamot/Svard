@@ -16,6 +16,20 @@ import type {
   WorkspaceSearchState,
 } from "../types";
 
+declare global {
+  interface Window {
+    __SVARD_WORKSPACE_SEARCH_TIMING__?: {
+      capped?: boolean;
+      debounceWaitMs?: number;
+      hostSearchMs?: number;
+      resultCount?: number;
+      searchedFiles?: number;
+      skippedFiles?: number;
+      status?: string;
+    };
+  }
+}
+
 interface UseWorkspaceSearchInput {
   query: string;
   rootDirectory: string | null | undefined;
@@ -69,6 +83,20 @@ export function useWorkspaceSearch({
     signature: string;
     promise: Promise<NonNullable<WorkspaceSearchState["result"]>>;
   } | null>(null);
+  const workspaceSearchInputAtRef = useRef<number | null>(null);
+
+  const updateWorkspaceSearchTiming = useCallback(
+    (timing: NonNullable<Window["__SVARD_WORKSPACE_SEARCH_TIMING__"]>) => {
+      if (typeof window === "undefined") {
+        return;
+      }
+      window.__SVARD_WORKSPACE_SEARCH_TIMING__ = {
+        ...window.__SVARD_WORKSPACE_SEARCH_TIMING__,
+        ...timing,
+      };
+    },
+    [],
+  );
 
   const workspaceSearchRoot = useCallback(
     () =>
@@ -94,6 +122,7 @@ export function useWorkspaceSearch({
         result: null,
         message: "No search query",
       });
+      updateWorkspaceSearchTiming({ status: "idle" });
       return;
     }
     if (!rootPath) {
@@ -102,6 +131,7 @@ export function useWorkspaceSearch({
         result: null,
         message: "Workspace root is not available.",
       });
+      updateWorkspaceSearchTiming({ status: "error" });
       return;
     }
     const signature = [
@@ -122,6 +152,14 @@ export function useWorkspaceSearch({
         message: result.message ?? null,
       });
       setWorkspaceSearchIndex(0);
+      updateWorkspaceSearchTiming({
+        capped: result.capped,
+        hostSearchMs: 0,
+        resultCount: result.results.length,
+        searchedFiles: result.searchedFiles,
+        skippedFiles: result.skippedFiles,
+        status: result.status,
+      });
       return;
     }
     const requestId = workspaceSearchRequestIdRef.current + 1;
@@ -132,6 +170,7 @@ export function useWorkspaceSearch({
       message: null,
     }));
     try {
+      const hostStartedAt = performance.now();
       let inFlight = workspaceSearchInFlightRef.current;
       if (inFlight?.signature !== signature) {
         inFlight = {
@@ -145,19 +184,32 @@ export function useWorkspaceSearch({
         workspaceSearchInFlightRef.current = inFlight;
       }
       const result = await inFlight.promise;
+      const hostSearchMs = performance.now() - hostStartedAt;
       if (workspaceSearchInFlightRef.current?.signature === signature) {
         workspaceSearchInFlightRef.current = null;
       }
       if (workspaceSearchRequestIdRef.current !== requestId) {
         return;
       }
-      workspaceSearchCacheRef.current = { cachedAt: Date.now(), signature, result };
+      workspaceSearchCacheRef.current = {
+        cachedAt: Date.now(),
+        signature,
+        result,
+      };
       setWorkspaceSearch({
         status: "ready",
         result,
         message: result.message ?? null,
       });
       setWorkspaceSearchIndex(0);
+      updateWorkspaceSearchTiming({
+        capped: result.capped,
+        hostSearchMs,
+        resultCount: result.results.length,
+        searchedFiles: result.searchedFiles,
+        skippedFiles: result.skippedFiles,
+        status: result.status,
+      });
     } catch (error) {
       if (workspaceSearchInFlightRef.current?.signature === signature) {
         workspaceSearchInFlightRef.current = null;
@@ -175,8 +227,9 @@ export function useWorkspaceSearch({
               ? error
               : "Workspace search failed.",
       });
+      updateWorkspaceSearchTiming({ status: "error" });
     }
-  }, [host, workspaceQuery, workspaceSearchRoot]);
+  }, [host, updateWorkspaceSearchTiming, workspaceQuery, workspaceSearchRoot]);
 
   useEffect(() => {
     if (searchScope !== "workspace") {
@@ -187,13 +240,25 @@ export function useWorkspaceSearch({
     if (!trimmedQuery) {
       setWorkspaceSearch({ status: "idle", result: null, message: null });
       setWorkspaceSearchIndex(0);
+      updateWorkspaceSearchTiming({ status: "idle" });
       return;
     }
     const timer = window.setTimeout(() => {
+      const inputAt = workspaceSearchInputAtRef.current;
+      if (inputAt !== null) {
+        updateWorkspaceSearchTiming({
+          debounceWaitMs: performance.now() - inputAt,
+        });
+      }
       void runWorkspaceSearch();
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [runWorkspaceSearch, searchScope, workspaceQuery]);
+  }, [
+    runWorkspaceSearch,
+    searchScope,
+    updateWorkspaceSearchTiming,
+    workspaceQuery,
+  ]);
 
   useEffect(() => {
     if (
@@ -222,6 +287,12 @@ export function useWorkspaceSearch({
         setWorkspaceQuery(value);
         setWorkspaceSearch({ status: "idle", result: null, message: null });
         setWorkspaceSearchIndex(0);
+        workspaceSearchInputAtRef.current = performance.now();
+        if (typeof window !== "undefined") {
+          window.__SVARD_WORKSPACE_SEARCH_TIMING__ = {
+            status: "idle",
+          };
+        }
         return;
       }
       updateQuery(value);

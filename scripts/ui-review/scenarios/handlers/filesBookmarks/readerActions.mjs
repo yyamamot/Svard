@@ -444,6 +444,9 @@ export async function applyReaderActionsScenario(context) {
     const phases = [];
     const recordPhase = async (name, started) => {
       const durationMs = Date.now() - started;
+      await recordPhaseDuration(name, durationMs);
+    };
+    const recordPhaseDuration = async (name, durationMs) => {
       phases.push({ name, durationMs, status: "ok" });
       await page.evaluate((nextPhases) => {
         window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
@@ -454,17 +457,47 @@ export async function applyReaderActionsScenario(context) {
     const dispatchStartedAt = Date.now();
     await page.locator('[data-review-id="search-input"]').fill("Graphviz");
     await recordPhase("query-dispatch", dispatchStartedAt);
-    const resultStartedAt = Date.now();
+    await page.waitForFunction(
+      () =>
+        typeof window.__SVARD_WORKSPACE_SEARCH_TIMING__?.debounceWaitMs ===
+        "number",
+    );
+    const searchTiming = await page.evaluate(
+      () => window.__SVARD_WORKSPACE_SEARCH_TIMING__ ?? {},
+    );
+    await recordPhaseDuration(
+      "debounce-wait",
+      Number(searchTiming.debounceWaitMs ?? 0),
+    );
+    await page.waitForFunction(
+      () =>
+        typeof window.__SVARD_WORKSPACE_SEARCH_TIMING__?.hostSearchMs ===
+        "number",
+    );
+    const hostTiming = await page.evaluate(
+      () => window.__SVARD_WORKSPACE_SEARCH_TIMING__ ?? {},
+    );
+    await recordPhaseDuration(
+      "host-search-complete",
+      Number(hostTiming.hostSearchMs ?? 0),
+    );
+    const renderStartedAt = Date.now();
     await page
       .locator('[data-review-id="workspace-search-result-item"]')
       .first()
       .waitFor();
-    await recordPhase("result-list-visible", resultStartedAt);
+    await recordPhase("result-list-rendered", renderStartedAt);
     await page.evaluate(() => {
+      const timing = window.__SVARD_WORKSPACE_SEARCH_TIMING__ ?? {};
       window.__SVARD_WORKSPACE_SEARCH_PERF_CHECK__ = {
+        capped: Boolean(timing.capped),
         resultCount: document.querySelectorAll(
           '[data-review-id="workspace-search-result-item"]',
         ).length,
+        searchResultCount: Number(timing.resultCount ?? 0),
+        searchedFiles: Number(timing.searchedFiles ?? 0),
+        skippedFiles: Number(timing.skippedFiles ?? 0),
+        status: String(timing.status ?? ""),
         hasScope: Boolean(
           document.querySelector('[data-review-id="search-scope-control"]'),
         ),
