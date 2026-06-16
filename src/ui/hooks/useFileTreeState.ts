@@ -6,7 +6,12 @@ import type {
   WatchHandle,
   WorkspacePerformanceMode,
 } from "../../core/types";
-import { tracePerf } from "../lib/perfTrace";
+import {
+  perfBasename,
+  perfDuration,
+  perfNow,
+  tracePerf,
+} from "../lib/perfTrace";
 
 const fileTreeWatchReloadDebounceMs = 100;
 
@@ -35,6 +40,27 @@ interface UseFileTreeStateOptions {
 export interface WorkspaceFileChangeEvent {
   reason: "manual-refresh" | "directory-watch";
   changedPath: string | null;
+}
+
+interface FileTreeTiming {
+  basename: string;
+  durationMs?: number;
+  entryCount: number;
+  reason: "manual-refresh" | "directory-watch" | "directory-load";
+  status: "ready" | "failed" | "unchanged";
+}
+
+declare global {
+  interface Window {
+    __SVARD_FILE_TREE_TIMING__?: FileTreeTiming;
+  }
+}
+
+function updateFileTreeTiming(timing: FileTreeTiming): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.__SVARD_FILE_TREE_TIMING__ = timing;
 }
 
 export function useFileTreeState({
@@ -82,12 +108,20 @@ export function useFileTreeState({
       return next;
     });
 
+    const startedAt = perfNow();
     try {
       const nextEntries = await host.listDirectory(path);
       setChildrenByDirectory((current) => ({
         ...current,
         [path]: nextEntries,
       }));
+      updateFileTreeTiming({
+        basename: perfBasename(path),
+        durationMs: perfDuration(startedAt),
+        entryCount: nextEntries.length,
+        reason: "directory-load",
+        status: "ready",
+      });
       return nextEntries;
     } catch (listError) {
       const message =
@@ -95,6 +129,13 @@ export function useFileTreeState({
           ? listError.message
           : "Directory load failed";
       setDirectoryErrors((current) => ({ ...current, [path]: message }));
+      updateFileTreeTiming({
+        basename: perfBasename(path),
+        durationMs: perfDuration(startedAt),
+        entryCount: 0,
+        reason: "directory-load",
+        status: "failed",
+      });
       throw listError;
     } finally {
       setLoadingDirectories((current) => {
@@ -135,6 +176,7 @@ export function useFileTreeState({
     }
 
     const directories = [rootDirectory, ...expandedDirectories];
+    const startedAt = perfNow();
     const refreshed = await Promise.all(
       directories.map((path) =>
         host
@@ -156,6 +198,16 @@ export function useFileTreeState({
       ...current,
       ...Object.fromEntries(refreshed),
     }));
+    updateFileTreeTiming({
+      basename: perfBasename(rootDirectory),
+      durationMs: perfDuration(startedAt),
+      entryCount: refreshed.reduce(
+        (count, [, entries]) => count + entries.length,
+        0,
+      ),
+      reason: "manual-refresh",
+      status: "ready",
+    });
     onWorkspaceFileChangeRef.current?.({
       reason: "manual-refresh",
       changedPath: null,
@@ -230,6 +282,7 @@ export function useFileTreeState({
           reason: "directory-watch",
           changedPath,
         });
+        const startedAt = perfNow();
         void host
           .listDirectory(path)
           .then((entries) => {
@@ -240,6 +293,13 @@ export function useFileTreeState({
               ...current,
               [path]: entries,
             }));
+            updateFileTreeTiming({
+              basename: perfBasename(path),
+              durationMs: perfDuration(startedAt),
+              entryCount: entries.length,
+              reason: "directory-watch",
+              status: "ready",
+            });
           })
           .catch((watchError) => {
             if (disposed) {
@@ -252,6 +312,13 @@ export function useFileTreeState({
                   ? watchError.message
                   : "Directory refresh failed",
             }));
+            updateFileTreeTiming({
+              basename: perfBasename(path),
+              durationMs: perfDuration(startedAt),
+              entryCount: 0,
+              reason: "directory-watch",
+              status: "failed",
+            });
           })
           .finally(() => {
             if (disposed) {

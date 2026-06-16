@@ -107,7 +107,8 @@ export async function buildCoreAssertions(context) {
     hasFullWidthReader:
       scenario === "viewer-basic" ||
       scenario === "viewer-markdown-basic" ||
-      scenario === "viewer-diagram-samples"
+      scenario === "viewer-diagram-samples" ||
+      scenario === "viewer-diagram-samples-after-open"
         ? documentUsesViewerWidth &&
           (await page.locator('[data-review-id="document-body"]').count()) === 1
         : true,

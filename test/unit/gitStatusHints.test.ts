@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   collectGitStatusPaths,
+  gitStatusEntriesToMap,
   shouldSkipGitStatusHints,
 } from "../../src/ui/hooks/useGitStatusHints";
 import {
@@ -11,6 +12,41 @@ import {
 import { gitStatusDisplay } from "../../src/ui/lib/gitStatusDisplay";
 
 describe("git status hints", () => {
+  it("maps Git status entries into a path keyed summary", () => {
+    expect(
+      gitStatusEntriesToMap([
+        {
+          path: "/workspace/docs/a.md",
+          status: "modified",
+        },
+        {
+          path: "/workspace/docs/b.md",
+          status: "untracked",
+        },
+      ]),
+    ).toEqual({
+      "/workspace/docs/a.md": "modified",
+      "/workspace/docs/b.md": "untracked",
+    });
+  });
+
+  it("uses the latest status when duplicate paths are returned", () => {
+    expect(
+      gitStatusEntriesToMap([
+        {
+          path: "/workspace/docs/a.md",
+          status: "modified",
+        },
+        {
+          path: "/workspace/docs/a.md",
+          status: "untracked",
+        },
+      ]),
+    ).toEqual({
+      "/workspace/docs/a.md": "untracked",
+    });
+  });
+
   it("collects unique supported file paths from tabs, visible tree entries, and file bookmarks", () => {
     const paths = collectGitStatusPaths({
       tabs: [

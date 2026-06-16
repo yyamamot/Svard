@@ -179,16 +179,20 @@ export async function applyRendererScenario(context) {
   } else if (scenario === "viewer-diagram-samples") {
     const startedAt = Date.now();
     const phases = [];
-    const recordPhase = async (name, started) => {
+    const recordPhase = async (name, started, details = undefined) => {
       const durationMs = Date.now() - started;
-      phases.push({ name, durationMs, status: "ok" });
+      phases.push({ name, durationMs, status: "ok", details });
       await page.evaluate((nextPhases) => {
         window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
       }, phases);
     };
-    await openDiagramFixture(page, "diagrams-mixed-long-ja.adoc");
+    const clickStartedAt = await openDiagramFixture(page, {
+      fileName: "diagrams-mixed-long-ja.adoc",
+      recordPhase,
+    });
     await page.locator("text=Mixed Diagram Japanese Sample").waitFor();
-    await recordPhase("document-open", startedAt);
+    await recordPhase("heading-visible", clickStartedAt);
+    await recordDiagramPlaceholderPhase(page, recordPhase, clickStartedAt);
     const mermaidStartedAt = Date.now();
     await page.locator('[data-review-id="mermaid-render"]').waitFor();
     await recordPhase("mermaid-visible", mermaidStartedAt);
@@ -205,6 +209,37 @@ export async function applyRendererScenario(context) {
       .waitFor();
     await recordPhase("graphviz-visible", graphvizStartedAt);
     await recordPhase("all-diagrams-visible", startedAt);
+  } else if (scenario === "viewer-diagram-samples-after-open") {
+    const phases = [];
+    const recordPhase = async (name, started, details = undefined) => {
+      const durationMs = Date.now() - started;
+      phases.push({ name, durationMs, status: "ok", details });
+      await page.evaluate((nextPhases) => {
+        window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
+      }, phases);
+    };
+    const clickStartedAt = await openDiagramFixture(page, {
+      fileName: "diagrams-mixed-long-ja.adoc",
+    });
+    await page.locator("text=Mixed Diagram Japanese Sample").waitFor();
+    await recordPhase("heading-visible", clickStartedAt);
+    await recordDiagramPlaceholderPhase(page, recordPhase, clickStartedAt);
+    const mermaidStartedAt = Date.now();
+    await page.locator('[data-review-id="mermaid-render"]').waitFor();
+    await recordPhase("mermaid-visible", mermaidStartedAt);
+    const plantUmlStartedAt = Date.now();
+    await page
+      .locator('[data-review-id="plantuml-render"]')
+      .locator("svg")
+      .waitFor();
+    await recordPhase("plantuml-visible", plantUmlStartedAt);
+    const graphvizStartedAt = Date.now();
+    await page
+      .locator('[data-review-id="graphviz-render"]')
+      .locator("svg")
+      .waitFor();
+    await recordPhase("graphviz-visible", graphvizStartedAt);
+    await recordPhase("all-diagrams-visible", clickStartedAt);
   } else if (scenario === "viewer-diagram-samples-scroll-stability") {
     await installPerfEventCollector(page);
     await openDiagramFixture(page, "diagrams-mixed-long-ja.adoc");
@@ -325,9 +360,16 @@ export async function applyRendererScenario(context) {
   return true;
 }
 
-async function openDiagramFixture(page, fileName) {
+async function openDiagramFixture(page, input) {
+  const fileName = typeof input === "string" ? input : input.fileName;
+  const recordPhase = typeof input === "string" ? null : input.recordPhase;
+  let phaseStartedAt = Date.now();
   await page.locator('[data-review-id="file-tree"]').waitFor();
+  await recordPhase?.("file-tree-ready", phaseStartedAt);
+  phaseStartedAt = Date.now();
   await page.locator('[data-review-id="tree-collapse-all"]').click();
+  await recordPhase?.("tree-collapse", phaseStartedAt);
+  phaseStartedAt = Date.now();
   await page
     .locator('[data-review-id="tree-folder-toggle"]')
     .filter({ hasText: "docs" })
@@ -335,11 +377,32 @@ async function openDiagramFixture(page, fileName) {
   await page
     .locator('[data-review-id="tree-folder-toggle"]')
     .filter({ hasText: "diagrams" })
-    .click();
+    .waitFor();
+  await recordPhase?.("docs-folder-expanded", phaseStartedAt);
+  phaseStartedAt = Date.now();
   await page
-    .locator('[data-review-id="tree-file"]')
-    .filter({ hasText: fileName })
+    .locator('[data-review-id="tree-folder-toggle"]')
+    .filter({ hasText: "diagrams" })
     .click();
+  const targetFile = page
+    .locator('[data-review-id="tree-file"]')
+    .filter({ hasText: fileName });
+  await targetFile.waitFor();
+  await recordPhase?.("diagrams-folder-expanded", phaseStartedAt);
+  phaseStartedAt = Date.now();
+  await targetFile.click();
+  await recordPhase?.("file-click-dispatched", phaseStartedAt);
+  return phaseStartedAt;
+}
+
+async function recordDiagramPlaceholderPhase(page, recordPhase, started) {
+  const placeholderCount = await page
+    .locator('[data-review-id="diagram-placeholder"]')
+    .count();
+  await recordPhase("placeholder-visible", started, {
+    count: placeholderCount,
+    status: placeholderCount > 0 ? "visible" : "not-visible",
+  });
 }
 
 async function installPerfEventCollector(page) {

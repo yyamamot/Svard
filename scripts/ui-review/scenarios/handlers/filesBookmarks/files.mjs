@@ -100,12 +100,40 @@ export async function applyFilesScenario(context) {
     await page.locator('[data-review-id="tree-refresh"]').click();
   } else if (scenario === "viewer-files-tree-auto-refresh") {
     const phases = [];
-    const recordPhase = async (name, started) => {
+    const recordPhase = async (name, started, details = undefined) => {
       const durationMs = Date.now() - started;
-      phases.push({ name, durationMs, status: "ok" });
+      phases.push({ name, durationMs, status: "ok", details });
       await page.evaluate((nextPhases) => {
         window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
       }, phases);
+    };
+    const timingDetails = (timing) => {
+      if (!timing || typeof timing !== "object") {
+        return undefined;
+      }
+      return {
+        entryCount: Number(timing.entryCount ?? 0),
+        pathCount: Number(timing.pathCount ?? 0),
+        status: String(timing.status ?? "unknown"),
+        statusCount: Number(timing.statusCount ?? 0),
+      };
+    };
+    const waitForTiming = async (globalName, reason) => {
+      await page.waitForFunction(
+        ({ globalName: nextGlobalName, reason: nextReason }) => {
+          const timing = window[nextGlobalName];
+          return (
+            timing &&
+            timing.reason === nextReason &&
+            (timing.status === "ready" || timing.status === "unchanged")
+          );
+        },
+        { globalName, reason },
+      );
+      return page.evaluate(
+        ({ globalName: nextGlobalName }) => window[nextGlobalName] ?? null,
+        { globalName },
+      );
     };
     const rootStartedAt = Date.now();
     await page.waitForFunction(
@@ -114,6 +142,8 @@ export async function applyFilesScenario(context) {
     await recordPhase("root-ready", rootStartedAt);
     const refreshStartedAt = Date.now();
     await page.evaluate(() => {
+      window.__SVARD_FILE_TREE_TIMING__ = undefined;
+      window.__SVARD_GIT_STATUS_HINT_TIMING__ = undefined;
       window.__SVARD_DIRECTORY_ENTRIES__ = {
         "/workspace/docs": [
           {
@@ -129,13 +159,38 @@ export async function applyFilesScenario(context) {
       window.__SVARD_TRIGGER_DIRECTORY_CHANGE__?.("/workspace/docs", "created");
       window.__SVARD_TRIGGER_GIT_STATUS_CHANGE__?.();
     });
-    await recordPhase("refresh-trigger", refreshStartedAt);
-    const settledStartedAt = Date.now();
+    await recordPhase("watch-event-dispatched", refreshStartedAt);
+    const directoryTiming = await waitForTiming(
+      "__SVARD_FILE_TREE_TIMING__",
+      "directory-watch",
+    );
+    await recordPhase(
+      "directory-list-complete",
+      refreshStartedAt,
+      timingDetails(directoryTiming),
+    );
+    const treeFileStartedAt = Date.now();
+    await page
+      .locator('[data-review-id="tree-file"]')
+      .filter({ hasText: "auto-created.md" })
+      .waitFor();
+    await recordPhase("tree-file-visible", treeFileStartedAt);
+    const gitTiming = await waitForTiming(
+      "__SVARD_GIT_STATUS_HINT_TIMING__",
+      "refresh",
+    );
+    await recordPhase(
+      "git-status-summary-complete",
+      refreshStartedAt,
+      timingDetails(gitTiming),
+    );
+    const badgeStartedAt = Date.now();
     await page
       .locator('[data-review-id="tree-file"][data-git-status="untracked"]')
       .filter({ hasText: "auto-created.md" })
       .waitFor();
-    await recordPhase("tree-settled", settledStartedAt);
+    await recordPhase("git-badge-visible", badgeStartedAt);
+    await recordPhase("tree-settled", refreshStartedAt);
   } else if (scenario === "viewer-file-tree-new-file-watch-refresh") {
     await page.waitForFunction(
       () => typeof window.__SVARD_TRIGGER_DIRECTORY_CHANGE__ === "function",

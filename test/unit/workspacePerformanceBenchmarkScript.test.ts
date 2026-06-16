@@ -122,7 +122,7 @@ describe("workspace performance benchmark script", () => {
     });
 
     expect(summary.schemaVersion).toBe(1);
-    expect(summary.workflows).toHaveLength(12);
+    expect(summary.workflows).toHaveLength(13);
     expect(
       summary.workflows.find(
         (item: { id: string }) => item.id === "asciidoc-render",
@@ -227,7 +227,7 @@ describe("workspace performance benchmark script", () => {
       "quick",
     );
 
-    expect(workflows).toHaveLength(12);
+    expect(workflows).toHaveLength(13);
     expect(
       workflows.find((item: { id: string }) => item.id === "workspace-search"),
     ).toMatchObject({
@@ -321,7 +321,7 @@ describe("workspace performance benchmark script", () => {
         },
         scenario: "viewer-diagram-samples",
         status: "ok",
-        workflowId: "diagram-render",
+        workflowId: "diagram-render-after-open",
       },
     ]);
 
@@ -356,5 +356,34 @@ describe("workspace performance benchmark script", () => {
         workflows: [result],
       }),
     ).toContain("queueWaitP95Ms: 2.34");
+  });
+
+  it("uses the after-open phase duration for diagram render workflow", () => {
+    const [result] = deriveUiReviewResults([
+      {
+        durationMs: 900,
+        report: {
+          assertionFailures: [],
+          assertions: { diagramVisible: true },
+          benchmarkPhases: [
+            { durationMs: 20, name: "heading-visible", status: "ok" },
+            { durationMs: 220, name: "all-diagrams-visible", status: "ok" },
+          ],
+          captureMetrics: { scenarioMs: 900 },
+          outcome: "passed",
+        },
+        scenario: "viewer-diagram-samples-after-open",
+        status: "ok",
+        workflowId: "diagram-render-after-open",
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      durationMs: 220,
+      id: "diagram-render-after-open",
+      metric: "uiScenario.phase.all-diagrams-visible",
+      status: "ok",
+    });
+    expect(validatePrivacy(result)).toEqual([]);
   });
 });

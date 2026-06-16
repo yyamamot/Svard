@@ -9,7 +9,8 @@ const workflowDefinitions = [
   { id: "initial-document-open", category: "render" },
   { id: "markdown-render", category: "render" },
   { id: "asciidoc-render", category: "render" },
-  { id: "diagram-render", category: "diagram" },
+  { id: "diagram-open-via-tree", category: "filesystem" },
+  { id: "diagram-render-after-open", category: "diagram" },
   { id: "filetree-root-expand-refresh", category: "filesystem" },
   { id: "current-file-search", category: "search" },
   { id: "workspace-search", category: "search" },
@@ -29,8 +30,12 @@ const categoryByEventPrefix = [
 
 const uiWorkflowScenarios = [
   {
-    workflowId: "diagram-render",
+    workflowId: "diagram-open-via-tree",
     scenario: "viewer-diagram-samples",
+  },
+  {
+    workflowId: "diagram-render-after-open",
+    scenario: "viewer-diagram-samples-after-open",
   },
   {
     workflowId: "filetree-root-expand-refresh",
@@ -336,13 +341,19 @@ function deriveUiReviewResults(reports = []) {
     const tableCellMarkerCount =
       entry.report?.postDiffMarkerSummary?.tableSummary?.tableCellMarkerCount ??
       0;
-    const scenarioDurationMs =
-      entry.report?.captureMetrics?.scenarioMs ?? entry.durationMs;
     const phaseBreakdown = normalizePhaseBreakdown(
       entry.report?.benchmarkPhases ?? [],
       entry.report,
       entry.workflowId,
     );
+    const durationOverridePhase =
+      entry.workflowId === "diagram-render-after-open"
+        ? phaseBreakdown.find((phase) => phase.name === "all-diagrams-visible")
+        : null;
+    const scenarioDurationMs =
+      durationOverridePhase?.durationMs ??
+      entry.report?.captureMetrics?.scenarioMs ??
+      entry.durationMs;
     return workflowResult({
       category: definition?.category ?? "other",
       durationMs: scenarioDurationMs,
@@ -352,7 +363,9 @@ function deriveUiReviewResults(reports = []) {
           : Object.keys(entry.report?.assertions ?? {}).length,
       fixtureId: entry.scenario,
       id: entry.workflowId,
-      metric: "uiScenario.scenarioMs",
+      metric: durationOverridePhase
+        ? `uiScenario.phase.${durationOverridePhase.name}`
+        : "uiScenario.scenarioMs",
       phaseBreakdown,
       reason:
         entry.status === "ok"
@@ -377,7 +390,7 @@ function normalizePhaseBreakdown(phases, report = null, workflowId = "") {
           status: phase.status === "skipped" ? "skipped" : "ok",
         }))
     : [];
-  const shouldIncludeDiagramMetrics = workflowId === "diagram-render";
+  const shouldIncludeDiagramMetrics = workflowId === "diagram-render-after-open";
   const plantUmlMetrics = shouldIncludeDiagramMetrics
     ? report?.plantUmlMetrics
     : null;
@@ -783,10 +796,7 @@ async function runUiReviewReports({ outputDir, profile }) {
 
   try {
     for (const definition of uiWorkflowScenarios) {
-      const scenario =
-        profile === "diagnostic" && definition.workflowId === "diagram-render"
-          ? "viewer-diagram-samples-scroll-stability"
-          : definition.scenario;
+      const scenario = definition.scenario;
       const artifactRoot = path.join(uiRoot, definition.workflowId);
       await fs.mkdir(path.join(artifactRoot, "screenshots"), {
         recursive: true,

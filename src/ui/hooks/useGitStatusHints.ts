@@ -6,6 +6,7 @@ import type {
   DirectoryEntry,
   DocumentPayload,
   GitDiffStatus,
+  GitStatusEntry,
   HostAdapter,
   WorkspacePerformanceMode,
 } from "../../core/types";
@@ -50,6 +51,37 @@ export function collectGitStatusPaths({
   return [...paths].sort();
 }
 
+interface GitStatusHintTiming {
+  durationMs?: number;
+  pathCount: number;
+  reason: "refresh" | "watch-setup" | "skipped";
+  status: "ready" | "failed" | "skipped" | "unchanged";
+  statusCount?: number;
+}
+
+declare global {
+  interface Window {
+    __SVARD_GIT_STATUS_HINT_TIMING__?: GitStatusHintTiming;
+  }
+}
+
+function updateGitStatusHintTiming(timing: GitStatusHintTiming): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.__SVARD_GIT_STATUS_HINT_TIMING__ = timing;
+}
+
+export function gitStatusEntriesToMap(
+  entries: GitStatusEntry[],
+): Record<string, GitDiffStatus> {
+  const next: Record<string, GitDiffStatus> = {};
+  for (const entry of entries) {
+    next[entry.path] = entry.status;
+  }
+  return next;
+}
+
 export function useGitStatusHints({
   bookmarks,
   childrenByDirectory,
@@ -84,11 +116,15 @@ export function useGitStatusHints({
           if (disposed()) {
             return;
           }
-          const next: Record<string, GitDiffStatus> = {};
-          for (const entry of entries) {
-            next[entry.path] = entry.status;
-          }
+          const next = gitStatusEntriesToMap(entries);
           setStatusByPath(next);
+          updateGitStatusHintTiming({
+            durationMs: perfDuration(startedAt),
+            pathCount: paths.length,
+            reason: "refresh",
+            status: "ready",
+            statusCount: Object.keys(next).length,
+          });
         })
         .catch(() => {
           tracePerf("useGitStatusHints.host.getGitStatusSummary.failed", {
@@ -97,6 +133,13 @@ export function useGitStatusHints({
           });
           if (!disposed()) {
             setStatusByPath({});
+            updateGitStatusHintTiming({
+              durationMs: perfDuration(startedAt),
+              pathCount: paths.length,
+              reason: "refresh",
+              status: "failed",
+              statusCount: 0,
+            });
           }
         });
     },
@@ -115,6 +158,12 @@ export function useGitStatusHints({
         count: paths.length,
       });
       setStatusByPath({});
+      updateGitStatusHintTiming({
+        pathCount: paths.length,
+        reason: "skipped",
+        status: "skipped",
+        statusCount: 0,
+      });
       return;
     }
     let disposed = false;
@@ -161,6 +210,12 @@ export function useGitStatusHints({
           count: paths.length,
           durationMs: perfDuration(startedAt),
         });
+        updateGitStatusHintTiming({
+          durationMs: perfDuration(startedAt),
+          pathCount: paths.length,
+          reason: "watch-setup",
+          status: "ready",
+        });
         if (disposed) {
           nextHandle.dispose();
           return;
@@ -171,6 +226,12 @@ export function useGitStatusHints({
         tracePerf("useGitStatusHints.host.watchGitStatus.failed", {
           count: paths.length,
           durationMs: perfDuration(startedAt),
+        });
+        updateGitStatusHintTiming({
+          durationMs: perfDuration(startedAt),
+          pathCount: paths.length,
+          reason: "watch-setup",
+          status: "failed",
         });
         // Silent fallback: keep the regular debounce refresh behavior.
       });

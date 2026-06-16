@@ -134,7 +134,8 @@ export async function buildRendererAssertions({
           !bodyText.includes("digraph G")
         : true,
     hasDiagramSamples:
-      scenario === "viewer-diagram-samples"
+      scenario === "viewer-diagram-samples" ||
+      scenario === "viewer-diagram-samples-after-open"
         ? bodyText.includes("Mixed Diagram Japanese Sample") &&
           bodyText.includes("Mermaid + PlantUML + Graphviz") &&
           (await page
@@ -197,6 +198,7 @@ export async function buildRendererAssertions({
         : true,
     hasReadableDiagramScale:
       scenario === "viewer-diagram-samples" ||
+      scenario === "viewer-diagram-samples-after-open" ||
       scenario === "viewer-theme-contrast-light" ||
       scenario === "viewer-theme-contrast-dark"
         ? diagramFit !== null &&
