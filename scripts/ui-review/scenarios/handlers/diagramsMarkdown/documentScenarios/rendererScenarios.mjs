@@ -213,15 +213,23 @@ export async function applyRendererScenario(context) {
     await page.locator('[data-review-id="document-body"]').waitFor();
     await recordPhase("document-body-visible", clickStartedAt);
     await page.locator("text=Mixed Diagram Japanese Sample").waitFor();
-    await recordPhase("document-heading-visible", clickStartedAt);
+    const documentHeadingVisibleAtMs = Date.now() - clickStartedAt;
+    await recordPhase(
+      "document-heading-visible",
+      clickStartedAt,
+      undefined,
+      "ok",
+      documentHeadingVisibleAtMs,
+    );
     await recordPhase("heading-visible", clickStartedAt);
+    await recordDiagramPlaceholderPhase(page, recordPhase, clickStartedAt);
     await recordDocumentOpenPerfPhases(
       page,
       recordPhase,
       clickStartedAt,
       perfBaseline,
+      documentHeadingVisibleAtMs,
     );
-    await recordDiagramPlaceholderPhase(page, recordPhase, clickStartedAt);
     const mermaidStartedAt = Date.now();
     await page.locator('[data-review-id="mermaid-render"]').waitFor();
     await recordPhase("mermaid-visible", mermaidStartedAt);
@@ -354,20 +362,6 @@ export async function applyRendererScenario(context) {
     }, baseline);
   } else if (scenario === "viewer-diagram-placeholder-startup") {
     await page.evaluate(() => localStorage.setItem("SVARD_PERF_TRACE", "1"));
-    await page.evaluate(async () => {
-      await window.__SVARD_COMMANDS__?.dispatch("preferences.open");
-    });
-    await page.locator('[data-review-id="preferences-dialog"]').waitFor();
-    await page
-      .locator('[data-review-id="preferences-nav-item"]')
-      .filter({ hasText: "Experimental" })
-      .click();
-    await page
-      .locator('[data-review-id="experimental-diagram-placeholder-rendering-control"]')
-      .click();
-    await page
-      .locator('[data-review-id="preferences-dialog"] button:has-text("Close")')
-      .click();
     await openDiagramFixture(page, "diagrams-mixed-long-ja.adoc");
     await Promise.all([
       page.locator("text=Mixed Diagram Japanese Sample").waitFor(),
@@ -376,23 +370,23 @@ export async function applyRendererScenario(context) {
         .first()
         .waitFor({ timeout: 5000 }),
     ]);
-    const beforeHydration = await readPlaceholderStartupMetrics(page);
+    const beforeSvgApply = await readPlaceholderStartupMetrics(page);
     await page.locator('[data-review-id="mermaid-render"] svg').waitFor();
     await page.locator('[data-review-id="plantuml-render"] svg').waitFor();
     await page.locator('[data-review-id="graphviz-render"] svg').waitFor();
-    const afterHydration = await readPlaceholderStartupMetrics(page);
+    const afterSvgApply = await readPlaceholderStartupMetrics(page);
     await page.evaluate(
       ({ before, after }) => {
         window.__SVARD_DIAGRAM_PLACEHOLDER_STARTUP__ = {
           placeholderSeen: before.placeholderCount > 0,
-          hydratedDiagramCount: after.hydratedDiagramCount,
+          appliedDiagramCount: after.appliedDiagramCount,
           scrollTopStable: before.viewerScrollTop === after.viewerScrollTop,
           scrollHeightDelta: Math.abs(
             after.viewerScrollHeight - before.viewerScrollHeight,
           ),
         };
       },
-      { before: beforeHydration, after: afterHydration },
+      { before: beforeSvgApply, after: afterSvgApply },
     );
   } else if (scenario === "viewer-mermaid-japanese-flow") {
     await openDiagramFixture(page, "mermaid-japanese-flow.adoc");
@@ -457,9 +451,20 @@ async function recordDocumentOpenPerfPhases(
   recordPhase,
   started,
   baseline,
+  documentHeadingVisibleAtMs,
 ) {
   const details = await readDocumentOpenPerfSummary(page, baseline, started);
   const timelinePhases = [
+    ["open-document-host-done-seen", details.openDocumentHostDoneAtMs],
+    [
+      "open-document-state-before-set-payload-seen",
+      details.openDocumentStateBeforeSetPayloadAtMs,
+    ],
+    [
+      "open-document-state-after-set-payload-queued-seen",
+      details.openDocumentStateAfterSetPayloadQueuedAtMs,
+    ],
+    ["open-document-total-seen", details.openDocumentTotalAtMs],
     ["render-effect-start-seen", details.renderEffectStartAtMs],
     ["render-worker-response-seen", details.renderWorkerResponseAtMs],
     ["render-prepare-html-done-seen", details.renderPrepareHtmlDoneAtMs],
@@ -478,6 +483,34 @@ async function recordDocumentOpenPerfPhases(
     } else {
       await recordPhase(name, started, { status: "not-seen" }, "skipped");
     }
+  }
+  if (
+    typeof documentHeadingVisibleAtMs === "number" &&
+    Number.isFinite(documentHeadingVisibleAtMs) &&
+    typeof details.postCommitAnimationFrameAtMs === "number" &&
+    Number.isFinite(details.postCommitAnimationFrameAtMs)
+  ) {
+    await recordPhase(
+      "heading-visible-after-post-commit-frame",
+      started,
+      {
+        documentHeadingVisibleAtMs,
+        postCommitAnimationFrameAtMs: details.postCommitAnimationFrameAtMs,
+        status: "seen",
+      },
+      "ok",
+      Math.max(
+        0,
+        documentHeadingVisibleAtMs - details.postCommitAnimationFrameAtMs,
+      ),
+    );
+  } else {
+    await recordPhase(
+      "heading-visible-after-post-commit-frame",
+      started,
+      { status: "not-seen" },
+      "skipped",
+    );
   }
   await recordPhase(
     "article-html-commit-seen",
@@ -583,11 +616,18 @@ async function readDocumentOpenPerfSummary(page, baseline, clickStartedAt) {
   return page.evaluate(({ baselineSnapshot, clickStartedAtMs }) => {
     const allEvents = window.__SVARD_PERF_EVENTS__ ?? [];
     const events = allEvents.slice(baselineSnapshot?.eventCount ?? 0);
+    const allowedOpenDocumentEvents = new Set([
+      "openDocument.host.openDocument",
+      "openDocument.state.beforeSetPayload",
+      "openDocument.state.afterSetPayloadQueued",
+      "openDocument.total",
+    ]);
     const allowedEvents = events.filter((event) => {
       const eventName = event?.event;
       return (
         typeof eventName === "string" &&
         (eventName.startsWith("openDocument.dispatch.") ||
+          allowedOpenDocumentEvents.has(eventName) ||
           eventName.startsWith("render.") ||
           eventName === "viewer.render")
       );
@@ -631,13 +671,41 @@ async function readDocumentOpenPerfSummary(page, baseline, clickStartedAt) {
       openDispatchEventCount: countEvent((eventName) =>
         eventName?.startsWith("openDocument.dispatch."),
       ),
+      openDocumentEventCount: countEvent((eventName) =>
+        allowedOpenDocumentEvents.has(eventName),
+      ),
+      openDocumentHostDoneAtMs: firstEventOffset(
+        "openDocument.host.openDocument",
+      ),
+      openDocumentHostDoneCount: countEvent(
+        (eventName) => eventName === "openDocument.host.openDocument",
+      ),
+      openDocumentStateAfterSetPayloadQueuedAtMs: firstEventOffset(
+        "openDocument.state.afterSetPayloadQueued",
+      ),
+      openDocumentStateAfterSetPayloadQueuedCount: countEvent(
+        (eventName) =>
+          eventName === "openDocument.state.afterSetPayloadQueued",
+      ),
+      openDocumentStateBeforeSetPayloadAtMs: firstEventOffset(
+        "openDocument.state.beforeSetPayload",
+      ),
+      openDocumentStateBeforeSetPayloadCount: countEvent(
+        (eventName) => eventName === "openDocument.state.beforeSetPayload",
+      ),
+      openDocumentTotalAtMs: firstEventOffset("openDocument.total"),
+      openDocumentTotalCount: countEvent(
+        (eventName) => eventName === "openDocument.total",
+      ),
       postCommitAnimationFrameAtMs: firstEventOffset(
         "render.postCommitAnimationFrame",
       ),
       postCommitAnimationFrameCount: countEvent(
         (eventName) => eventName === "render.postCommitAnimationFrame",
       ),
-      renderEventCount: countEvent((eventName) => eventName?.startsWith("render.")),
+      renderEventCount: countEvent((eventName) =>
+        eventName?.startsWith("render."),
+      ),
       renderEffectStartAtMs: firstEventOffset("render.effect.start"),
       renderHtmlStateQueuedAtMs: firstEventOffset(
         "render.afterHtmlStateSetQueued",
@@ -719,7 +787,7 @@ async function readPlaceholderStartupMetrics(page) {
       placeholderCount: document.querySelectorAll(
         '[data-review-id="diagram-placeholder"]',
       ).length,
-      hydratedDiagramCount: document.querySelectorAll(
+      appliedDiagramCount: document.querySelectorAll(
         '[data-review-id="mermaid-render"] svg, [data-review-id="plantuml-render"] svg, [data-review-id="graphviz-render"] svg, [data-review-id="kroki-render"] svg, [data-review-id="kroki-render"] img',
       ).length,
       viewerScrollTop: viewer instanceof HTMLElement ? viewer.scrollTop : 0,

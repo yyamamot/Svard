@@ -94,7 +94,7 @@ describe("normalizeSvgAspectRatio", () => {
 });
 
 describe("applyInlineDiagramsToHtml", () => {
-  it("keeps diagram slots visible as loading placeholders before hydration", () => {
+  it("keeps diagram slots visible as loading placeholders before SVG apply", () => {
     const html = applyDiagramPlaceholdersToHtml({
       html: markSafeHtml(
         '<div class="diagram-slot" data-diagram-id="plantuml-1" data-diagram-type="plantuml" data-diagram-renderer="plantuml"></div>',
@@ -124,7 +124,7 @@ describe("applyInlineDiagramsToHtml", () => {
     expect(html).not.toContain("@startuml");
   });
 
-  it("replaces loading placeholders with hydrated diagram HTML", () => {
+  it("replaces loading placeholders with applied diagram SVG HTML", () => {
     const placeholderHtml = applyDiagramPlaceholdersToHtml({
       html: markSafeHtml(
         '<div class="diagram-slot" data-diagram-id="mermaid-1" data-diagram-type="mermaid" data-diagram-renderer="mermaid"></div>',
@@ -153,7 +153,7 @@ describe("applyInlineDiagramsToHtml", () => {
         {
           id: "mermaid-1",
           source: "graph TD; A-->B",
-          svg: '<svg viewBox="0 0 100 50"><text>Hydrated</text></svg>',
+          svg: '<svg viewBox="0 0 100 50"><text>Applied</text></svg>',
         },
       ],
       plantUmlDiagrams: [],
@@ -163,7 +163,7 @@ describe("applyInlineDiagramsToHtml", () => {
     });
 
     expect(html).toContain('data-review-id="mermaid-render"');
-    expect(html).toContain("Hydrated");
+    expect(html).toContain("Applied");
     expect(html).not.toContain("Rendering Mermaid diagram...");
     expect(html).not.toContain("diagram-placeholder-slot");
   });

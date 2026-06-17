@@ -379,6 +379,7 @@ fn config_preserves_experimental_search_hit_ruler() {
     value["experimental"]["searchHitRuler"] = serde_json::Value::Bool(true);
     value["experimental"]["restoreAdditionalWindowsOnStartup"] = serde_json::Value::Bool(true);
     value["experimental"]["diagramPlaceholderRendering"] = serde_json::Value::Bool(true);
+    value["experimental"]["diagramPlaceholderRenderingConfigured"] = serde_json::Value::Bool(true);
     value["experimental"]["postDiffGitMarkers"] = serde_json::Value::Bool(true);
 
     let config: AppConfig = serde_json::from_value(value).expect("deserialize config");
@@ -386,11 +387,12 @@ fn config_preserves_experimental_search_hit_ruler() {
     assert!(config.experimental.search_hit_ruler);
     assert!(config.experimental.restore_additional_windows_on_startup);
     assert!(config.experimental.diagram_placeholder_rendering);
+    assert!(config.experimental.diagram_placeholder_rendering_configured);
     assert!(config.experimental.post_diff_git_markers);
 }
 
 #[test]
-fn config_defaults_missing_experimental_to_disabled_features() {
+fn config_defaults_missing_experimental_to_default_features() {
     let mut value = serde_json::to_value(default_config()).expect("serialize config");
     value
         .as_object_mut()
@@ -401,7 +403,8 @@ fn config_defaults_missing_experimental_to_disabled_features() {
 
     assert!(!config.experimental.search_hit_ruler);
     assert!(!config.experimental.restore_additional_windows_on_startup);
-    assert!(!config.experimental.diagram_placeholder_rendering);
+    assert!(config.experimental.diagram_placeholder_rendering);
+    assert!(config.experimental.diagram_placeholder_rendering_configured);
     assert!(!config.experimental.post_diff_git_markers);
 }
 

@@ -483,6 +483,16 @@ export function PreferencesPanel({
             config={config}
             onOpenKrokiSettings={() => setActiveSection("kroki")}
             onUpdateRenderer={updateDiagramRenderer}
+            onUpdateFastDiagramLoading={(diagramPlaceholderRendering) =>
+              onChange({
+                ...config,
+                experimental: {
+                  ...config.experimental,
+                  diagramPlaceholderRendering,
+                  diagramPlaceholderRenderingConfigured: true,
+                },
+              })
+            }
             onUpdateTimeout={updateDiagramTimeout}
           />
         );

@@ -8,12 +8,15 @@ describe("config normalization", () => {
     expect(defaultConfig.zoomWithMouseWheel).toBe(false);
   });
 
-  it("keeps experimental search hit ruler disabled by default", () => {
+  it("keeps experimental defaults aligned with feature policy", () => {
     expect(defaultConfig.experimental.searchHitRuler).toBe(false);
     expect(defaultConfig.experimental.restoreAdditionalWindowsOnStartup).toBe(
       false,
     );
-    expect(defaultConfig.experimental.diagramPlaceholderRendering).toBe(false);
+    expect(defaultConfig.experimental.diagramPlaceholderRendering).toBe(true);
+    expect(defaultConfig.experimental.diagramPlaceholderRenderingConfigured).toBe(
+      true,
+    );
     expect(defaultConfig.experimental.postDiffGitMarkers).toBe(false);
   });
 
@@ -168,7 +171,7 @@ describe("config normalization", () => {
     expect(config.security.showExternalImages).toBe(false);
   });
 
-  it("migrates missing experimental config to disabled features", () => {
+  it("migrates missing experimental config to default features", () => {
     const config = normalizeConfig({
       ...defaultConfig,
       experimental: undefined,
@@ -176,8 +179,40 @@ describe("config normalization", () => {
 
     expect(config.experimental.searchHitRuler).toBe(false);
     expect(config.experimental.restoreAdditionalWindowsOnStartup).toBe(false);
-    expect(config.experimental.diagramPlaceholderRendering).toBe(false);
+    expect(config.experimental.diagramPlaceholderRendering).toBe(true);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
     expect(config.experimental.postDiffGitMarkers).toBe(false);
+  });
+
+  it("migrates old saved default false for fast diagram loading to enabled", () => {
+    const config = normalizeConfig({
+      ...defaultConfig,
+      experimental: {
+        searchHitRuler: false,
+        restoreAdditionalWindowsOnStartup: false,
+        diagramPlaceholderRendering: false,
+        postDiffGitMarkers: false,
+      },
+    });
+
+    expect(config.experimental.diagramPlaceholderRendering).toBe(true);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
+  });
+
+  it("keeps explicit fast diagram loading opt-out after migration", () => {
+    const config = normalizeConfig({
+      ...defaultConfig,
+      experimental: {
+        searchHitRuler: false,
+        restoreAdditionalWindowsOnStartup: false,
+        diagramPlaceholderRendering: false,
+        diagramPlaceholderRenderingConfigured: true,
+        postDiffGitMarkers: false,
+      },
+    });
+
+    expect(config.experimental.diagramPlaceholderRendering).toBe(false);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
   });
 
   it("keeps explicit experimental feature opt-ins", () => {
@@ -187,6 +222,7 @@ describe("config normalization", () => {
         searchHitRuler: true,
         restoreAdditionalWindowsOnStartup: true,
         diagramPlaceholderRendering: true,
+        diagramPlaceholderRenderingConfigured: true,
         postDiffGitMarkers: true,
       },
     });
@@ -194,6 +230,7 @@ describe("config normalization", () => {
     expect(config.experimental.searchHitRuler).toBe(true);
     expect(config.experimental.restoreAdditionalWindowsOnStartup).toBe(true);
     expect(config.experimental.diagramPlaceholderRendering).toBe(true);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
     expect(config.experimental.postDiffGitMarkers).toBe(true);
   });
 

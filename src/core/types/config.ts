@@ -174,6 +174,7 @@ export interface ExperimentalConfig {
   searchHitRuler: boolean;
   restoreAdditionalWindowsOnStartup: boolean;
   diagramPlaceholderRendering: boolean;
+  diagramPlaceholderRenderingConfigured?: boolean;
   postDiffGitMarkers: boolean;
 }
 

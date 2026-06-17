@@ -240,24 +240,39 @@ describe("PreferencesPanel settings and recording", () => {
     const restoreAdditionalWindows = harness.inputByReviewId(
       "experimental-restore-additional-windows-control",
     );
-    const diagramPlaceholderRendering = harness.inputByReviewId(
-      "experimental-diagram-placeholder-rendering-control",
-    );
     expect(harness.byReviewId("preferences-tab-experimental")).toBeTruthy();
     expect(searchHitRuler?.checked).toBe(false);
     expect(restoreAdditionalWindows?.checked).toBe(false);
-    expect(diagramPlaceholderRendering?.checked).toBe(false);
     expect(harness.container.textContent).toContain(
-      "These features are opt-in",
+      "These features may be removed or redesigned.",
     );
+    expect(
+      harness.container.querySelector(
+        '[data-review-id="experimental-diagram-placeholder-rendering-control"]',
+      ),
+    ).toBeNull();
 
     await harness.click(searchHitRuler);
     await harness.click(restoreAdditionalWindows);
-    await harness.click(diagramPlaceholderRendering);
 
     expect(config.experimental.searchHitRuler).toBe(true);
     expect(config.experimental.restoreAdditionalWindowsOnStartup).toBe(true);
-    expect(config.experimental.diagramPlaceholderRendering).toBe(true);
+  });
+
+  it("stores fast diagram loading from the Diagrams section", async () => {
+    render();
+    await harness.click(harness.buttonByText("Diagrams"));
+
+    const diagramPlaceholderRendering = harness.inputByReviewId(
+      "experimental-diagram-placeholder-rendering-control",
+    );
+    expect(harness.byReviewId("preferences-tab-diagrams")).toBeTruthy();
+    expect(diagramPlaceholderRendering?.checked).toBe(true);
+
+    await harness.click(diagramPlaceholderRendering);
+
+    expect(config.experimental.diagramPlaceholderRendering).toBe(false);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
   });
 
   it("stores remote provider tokens outside config metadata", async () => {

@@ -94,7 +94,8 @@ export const defaultConfig: AppConfig = {
   experimental: {
     searchHitRuler: false,
     restoreAdditionalWindowsOnStartup: false,
-    diagramPlaceholderRendering: false,
+    diagramPlaceholderRendering: true,
+    diagramPlaceholderRenderingConfigured: true,
     postDiffGitMarkers: false,
   },
   keybindings: {

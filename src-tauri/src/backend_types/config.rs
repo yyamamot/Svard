@@ -185,8 +185,10 @@ pub struct ExperimentalConfig {
     pub search_hit_ruler: bool,
     #[serde(default)]
     pub restore_additional_windows_on_startup: bool,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub diagram_placeholder_rendering: bool,
+    #[serde(default)]
+    pub diagram_placeholder_rendering_configured: bool,
     #[serde(default)]
     pub post_diff_git_markers: bool,
 }
@@ -510,7 +512,8 @@ fn default_experimental_config() -> ExperimentalConfig {
     ExperimentalConfig {
         search_hit_ruler: false,
         restore_additional_windows_on_startup: false,
-        diagram_placeholder_rendering: false,
+        diagram_placeholder_rendering: true,
+        diagram_placeholder_rendering_configured: true,
         post_diff_git_markers: false,
     }
 }

@@ -51,6 +51,7 @@ export interface DiagramsSectionProps {
     renderer: "plantumlRenderer" | "graphvizRenderer",
     value: AppConfig["diagram"]["plantumlRenderer"],
   ) => void;
+  onUpdateFastDiagramLoading: (enabled: boolean) => void;
   onUpdateTimeout: (
     field: "plantumlTimeoutMs" | "graphvizTimeoutMs",
     value: number,

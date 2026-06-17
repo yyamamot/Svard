@@ -11,7 +11,7 @@ export function ExperimentalSection({
     >
       <h3>Experimental</h3>
       <p className="preference-help-text">
-        These features are opt-in and may be removed or redesigned.
+        These features may be removed or redesigned.
       </p>
       <label className="checkbox-row checkbox-row-detailed">
         <input
@@ -56,29 +56,6 @@ export function ExperimentalSection({
           <span className="preference-help-text">
             Reopen saved additional viewer windows on startup. This may restore
             private document paths and is disabled by default.
-          </span>
-        </span>
-      </label>
-      <label className="checkbox-row checkbox-row-detailed">
-        <input
-          type="checkbox"
-          data-review-id="experimental-diagram-placeholder-rendering-control"
-          checked={config.experimental.diagramPlaceholderRendering}
-          onChange={(event) =>
-            onChange({
-              ...config,
-              experimental: {
-                ...config.experimental,
-                diagramPlaceholderRendering: event.target.checked,
-              },
-            })
-          }
-        />
-        <span className="checkbox-copy">
-          <span>Fast diagram loading</span>
-          <span className="preference-help-text">
-            Show diagram placeholders first so the document becomes readable
-            sooner. This is disabled by default.
           </span>
         </span>
       </label>

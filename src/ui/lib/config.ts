@@ -57,6 +57,7 @@ type RawAppConfig = Partial<AppConfig> & {
     searchHitRuler?: unknown;
     restoreAdditionalWindowsOnStartup?: unknown;
     diagramPlaceholderRendering?: unknown;
+    diagramPlaceholderRenderingConfigured?: unknown;
     postDiffGitMarkers?: unknown;
   };
 };
@@ -255,14 +256,25 @@ function normalizeExperimentalConfig(
   config: AppConfig,
   rawConfig: RawAppConfig,
 ): AppConfig["experimental"] {
+  const diagramPlaceholderRenderingConfigured =
+    rawConfig.experimental?.diagramPlaceholderRenderingConfigured === true;
+  const rawDiagramPlaceholderRendering =
+    rawConfig.experimental?.diagramPlaceholderRendering;
   return {
     ...defaultConfig.experimental,
     ...(config.experimental ?? {}),
     searchHitRuler: rawConfig.experimental?.searchHitRuler === true,
     restoreAdditionalWindowsOnStartup:
       rawConfig.experimental?.restoreAdditionalWindowsOnStartup === true,
-    diagramPlaceholderRendering:
-      rawConfig.experimental?.diagramPlaceholderRendering === true,
+    diagramPlaceholderRendering: diagramPlaceholderRenderingConfigured
+      ? rawDiagramPlaceholderRendering !== false
+      : booleanDefault(
+          rawDiagramPlaceholderRendering === false
+            ? undefined
+            : rawDiagramPlaceholderRendering,
+          defaultConfig.experimental.diagramPlaceholderRendering,
+        ),
+    diagramPlaceholderRenderingConfigured: true,
     postDiffGitMarkers: rawConfig.experimental?.postDiffGitMarkers === true,
   };
 }

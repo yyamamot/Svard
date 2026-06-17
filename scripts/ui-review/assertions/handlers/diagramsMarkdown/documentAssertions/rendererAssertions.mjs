@@ -178,7 +178,7 @@ export async function buildRendererAssertions({
             const result = window.__SVARD_DIAGRAM_PLACEHOLDER_STARTUP__;
             return (
               result?.placeholderSeen === true &&
-              result.hydratedDiagramCount >= 3 &&
+              result.appliedDiagramCount >= 3 &&
               result.scrollTopStable === true &&
               result.scrollHeightDelta < 900
             );

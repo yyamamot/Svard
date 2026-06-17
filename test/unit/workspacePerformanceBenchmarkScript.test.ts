@@ -478,6 +478,26 @@ describe("workspace performance benchmark script", () => {
             { durationMs: 700, name: "active-title-visible", status: "ok" },
             { durationMs: 780, name: "document-body-visible", status: "ok" },
             { durationMs: 900, name: "document-heading-visible", status: "ok" },
+            {
+              durationMs: 150,
+              name: "open-document-host-done-seen",
+              status: "ok",
+            },
+            {
+              durationMs: 155,
+              name: "open-document-state-before-set-payload-seen",
+              status: "ok",
+            },
+            {
+              durationMs: 165,
+              name: "open-document-state-after-set-payload-queued-seen",
+              status: "ok",
+            },
+            {
+              durationMs: 166,
+              name: "open-document-total-seen",
+              status: "ok",
+            },
             { durationMs: 210, name: "render-effect-start-seen", status: "ok" },
             {
               details: { status: "not-seen" },
@@ -505,16 +525,35 @@ describe("workspace performance benchmark script", () => {
             },
             {
               details: {
+                documentHeadingVisibleAtMs: 960,
+                postCommitAnimationFrameAtMs: 930,
+                status: "seen",
+              },
+              durationMs: 30,
+              name: "heading-visible-after-post-commit-frame",
+              status: "ok",
+            },
+            {
+              details: {
                 articleCommitCount: 1,
                 articleHtmlCommitAtMs: 910,
                 articleRefReadyAtMs: 905,
                 articleRefReadyCount: 1,
-                eventCount: 12,
+                eventCount: 16,
                 layoutEffectDoneAtMs: 912,
                 layoutEffectDoneCount: 1,
                 layoutEffectStartAtMs: 906,
                 layoutEffectStartCount: 1,
                 openDispatchEventCount: 2,
+                openDocumentEventCount: 4,
+                openDocumentHostDoneAtMs: 150,
+                openDocumentHostDoneCount: 1,
+                openDocumentStateAfterSetPayloadQueuedAtMs: 165,
+                openDocumentStateAfterSetPayloadQueuedCount: 1,
+                openDocumentStateBeforeSetPayloadAtMs: 155,
+                openDocumentStateBeforeSetPayloadCount: 1,
+                openDocumentTotalAtMs: 166,
+                openDocumentTotalCount: 1,
                 postCommitAnimationFrameAtMs: 930,
                 postCommitAnimationFrameCount: 1,
                 renderEventCount: 5,
@@ -545,12 +584,21 @@ describe("workspace performance benchmark script", () => {
         articleHtmlCommitAtMs: 910,
         articleRefReadyAtMs: 905,
         articleRefReadyCount: 1,
-        eventCount: 12,
+        eventCount: 16,
         layoutEffectDoneAtMs: 912,
         layoutEffectDoneCount: 1,
         layoutEffectStartAtMs: 906,
         layoutEffectStartCount: 1,
         openDispatchEventCount: 2,
+        openDocumentEventCount: 4,
+        openDocumentHostDoneAtMs: 150,
+        openDocumentHostDoneCount: 1,
+        openDocumentStateAfterSetPayloadQueuedAtMs: 165,
+        openDocumentStateAfterSetPayloadQueuedCount: 1,
+        openDocumentStateBeforeSetPayloadAtMs: 155,
+        openDocumentStateBeforeSetPayloadCount: 1,
+        openDocumentTotalAtMs: 166,
+        openDocumentTotalCount: 1,
         postCommitAnimationFrameAtMs: 930,
         postCommitAnimationFrameCount: 1,
         renderEventCount: 5,
@@ -563,6 +611,36 @@ describe("workspace performance benchmark script", () => {
       },
       durationMs: 910,
       name: "article-html-commit-seen",
+      status: "ok",
+    });
+    expect(result.phaseBreakdown).toContainEqual({
+      durationMs: 150,
+      name: "open-document-host-done-seen",
+      status: "ok",
+    });
+    expect(result.phaseBreakdown).toContainEqual({
+      durationMs: 155,
+      name: "open-document-state-before-set-payload-seen",
+      status: "ok",
+    });
+    expect(result.phaseBreakdown).toContainEqual({
+      durationMs: 165,
+      name: "open-document-state-after-set-payload-queued-seen",
+      status: "ok",
+    });
+    expect(result.phaseBreakdown).toContainEqual({
+      durationMs: 166,
+      name: "open-document-total-seen",
+      status: "ok",
+    });
+    expect(result.phaseBreakdown).toContainEqual({
+      details: {
+        documentHeadingVisibleAtMs: 960,
+        postCommitAnimationFrameAtMs: 930,
+        status: "seen",
+      },
+      durationMs: 30,
+      name: "heading-visible-after-post-commit-frame",
       status: "ok",
     });
     expect(result.phaseBreakdown).toContainEqual({

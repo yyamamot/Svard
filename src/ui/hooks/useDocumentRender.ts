@@ -499,13 +499,13 @@ export function useDocumentRender({
             durationMs: perfDuration(applyStartedAt),
           });
           if (diagramPlaceholderRendering) {
-            const hydrationCommitStartedAt = perfNow();
+            const diagramSvgApplyStartedAt = perfNow();
             setDocumentHtml(finalHtml);
-            tracePerf("render.diagramHydrationCommit", {
+            tracePerf("render.diagramSvgApply", {
               basename,
               format: documentPayload.format,
               skipped: result.diagramSlots.length === 0,
-              durationMs: perfDuration(hydrationCommitStartedAt),
+              durationMs: perfDuration(diagramSvgApplyStartedAt),
               totalDurationMs: perfDuration(totalStartedAt),
             });
           } else {

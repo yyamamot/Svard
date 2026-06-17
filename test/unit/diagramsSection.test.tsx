@@ -11,6 +11,7 @@ describe("DiagramsSection", () => {
   let root: Root;
   const onOpenKrokiSettings = vi.fn();
   const onUpdateRenderer = vi.fn();
+  const onUpdateFastDiagramLoading = vi.fn();
   const onUpdateTimeout = vi.fn();
 
   beforeEach(() => {
@@ -35,6 +36,7 @@ describe("DiagramsSection", () => {
           config={config}
           onOpenKrokiSettings={onOpenKrokiSettings}
           onUpdateRenderer={onUpdateRenderer}
+          onUpdateFastDiagramLoading={onUpdateFastDiagramLoading}
           onUpdateTimeout={onUpdateTimeout}
         />,
       );

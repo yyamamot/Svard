@@ -4,6 +4,7 @@ export function DiagramsSection({
   config,
   onOpenKrokiSettings,
   onUpdateRenderer,
+  onUpdateFastDiagramLoading,
   onUpdateTimeout,
 }: DiagramsSectionProps) {
   return (
@@ -15,6 +16,21 @@ export function DiagramsSection({
       <p className="preference-section-intro">
         Choose the renderer used for each diagram format.
       </p>
+      <label className="checkbox-row checkbox-row-detailed">
+        <input
+          type="checkbox"
+          data-review-id="experimental-diagram-placeholder-rendering-control"
+          checked={config.experimental.diagramPlaceholderRendering}
+          onChange={(event) => onUpdateFastDiagramLoading(event.target.checked)}
+        />
+        <span className="checkbox-copy">
+          <span>Fast diagram loading</span>
+          <span className="preference-help-text">
+            Show diagram placeholders first so the document becomes readable
+            sooner. This is enabled by default and can be disabled here.
+          </span>
+        </span>
+      </label>
       <div
         className="diagram-settings"
         data-review-id="diagram-renderer-settings"

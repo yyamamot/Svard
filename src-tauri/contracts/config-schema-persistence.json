@@ -68,6 +68,7 @@
     "experimental.searchHitRuler",
     "experimental.restoreAdditionalWindowsOnStartup",
     "experimental.diagramPlaceholderRendering",
+    "experimental.diagramPlaceholderRenderingConfigured",
     "experimental.postDiffGitMarkers",
     "keybindings.preset",
     "keybindings.mappings",
