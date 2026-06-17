@@ -180,9 +180,19 @@ export async function applyRendererScenario(context) {
     const startedAt = Date.now();
     const phases = [];
     let perfBaseline = null;
-    const recordPhase = async (name, started, details = undefined) => {
-      const durationMs = Date.now() - started;
-      phases.push({ name, durationMs, status: "ok", details });
+    const recordPhase = async (
+      name,
+      started,
+      details = undefined,
+      status = "ok",
+      durationOverrideMs = undefined,
+    ) => {
+      const durationMs =
+        typeof durationOverrideMs === "number" &&
+        Number.isFinite(durationOverrideMs)
+          ? durationOverrideMs
+          : Date.now() - started;
+      phases.push({ name, durationMs, status, details });
       await page.evaluate((nextPhases) => {
         window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
       }, phases);
@@ -205,7 +215,7 @@ export async function applyRendererScenario(context) {
     await page.locator("text=Mixed Diagram Japanese Sample").waitFor();
     await recordPhase("document-heading-visible", clickStartedAt);
     await recordPhase("heading-visible", clickStartedAt);
-    await recordDocumentOpenPerfPhase(
+    await recordDocumentOpenPerfPhases(
       page,
       recordPhase,
       clickStartedAt,
@@ -416,14 +426,33 @@ async function openDiagramFixture(page, input) {
   return phaseStartedAt;
 }
 
-async function recordDocumentOpenPerfPhase(
+async function recordDocumentOpenPerfPhases(
   page,
   recordPhase,
   started,
   baseline,
 ) {
-  const details = await readDocumentOpenPerfSummary(page, baseline);
-  await recordPhase("article-html-commit-seen", started, details);
+  const details = await readDocumentOpenPerfSummary(page, baseline, started);
+  const timelinePhases = [
+    ["render-effect-start-seen", details.renderEffectStartAtMs],
+    ["render-worker-response-seen", details.renderWorkerResponseAtMs],
+    ["render-prepare-html-done-seen", details.renderPrepareHtmlDoneAtMs],
+    ["render-html-state-queued-seen", details.renderHtmlStateQueuedAtMs],
+  ];
+  for (const [name, offsetMs] of timelinePhases) {
+    if (typeof offsetMs === "number" && Number.isFinite(offsetMs)) {
+      await recordPhase(name, started, { status: "seen" }, "ok", offsetMs);
+    } else {
+      await recordPhase(name, started, { status: "not-seen" }, "skipped");
+    }
+  }
+  await recordPhase(
+    "article-html-commit-seen",
+    started,
+    details,
+    "ok",
+    details.articleHtmlCommitAtMs,
+  );
 }
 
 async function recordDiagramPlaceholderPhase(page, recordPhase, started) {
@@ -447,7 +476,10 @@ async function installPerfEventCollector(page) {
     const originalInfo = console.info.bind(console);
     console.info = (...args) => {
       if (args[0] === "[perf]" && args[1] && typeof args[1] === "object") {
-        window.__SVARD_PERF_EVENTS__?.push(args[1]);
+        window.__SVARD_PERF_EVENTS__?.push({
+          ...args[1],
+          collectedAtMs: Date.now(),
+        });
       }
       originalInfo(...args);
     };
@@ -485,8 +517,8 @@ async function readPerfEventBaseline(page) {
   });
 }
 
-async function readDocumentOpenPerfSummary(page, baseline) {
-  return page.evaluate((baselineSnapshot) => {
+async function readDocumentOpenPerfSummary(page, baseline, clickStartedAt) {
+  return page.evaluate(({ baselineSnapshot, clickStartedAtMs }) => {
     const allEvents = window.__SVARD_PERF_EVENTS__ ?? [];
     const events = allEvents.slice(baselineSnapshot?.eventCount ?? 0);
     const allowedEvents = events.filter((event) => {
@@ -500,18 +532,38 @@ async function readDocumentOpenPerfSummary(page, baseline) {
     });
     const countEvent = (predicate) =>
       allowedEvents.filter((event) => predicate(event?.event)).length;
+    const firstEventOffset = (eventName) => {
+      const matched = allowedEvents.find((event) => event?.event === eventName);
+      if (
+        !matched ||
+        typeof matched.collectedAtMs !== "number" ||
+        !Number.isFinite(matched.collectedAtMs)
+      ) {
+        return undefined;
+      }
+      return Math.max(0, Math.round(matched.collectedAtMs - clickStartedAtMs));
+    };
     const durations = allowedEvents
       .map((event) => event?.durationMs)
-      .filter((duration) => typeof duration === "number" && Number.isFinite(duration));
+      .filter(
+        (duration) => typeof duration === "number" && Number.isFinite(duration),
+      );
     return {
       articleCommitCount: countEvent(
         (eventName) => eventName === "render.articleInnerHtmlCommit",
       ),
+      articleHtmlCommitAtMs: firstEventOffset("render.articleInnerHtmlCommit"),
       eventCount: allowedEvents.length,
       openDispatchEventCount: countEvent((eventName) =>
         eventName?.startsWith("openDocument.dispatch."),
       ),
       renderEventCount: countEvent((eventName) => eventName?.startsWith("render.")),
+      renderEffectStartAtMs: firstEventOffset("render.effect.start"),
+      renderHtmlStateQueuedAtMs: firstEventOffset(
+        "render.afterHtmlStateSetQueued",
+      ),
+      renderPrepareHtmlDoneAtMs: firstEventOffset("render.prepareDocumentHtml"),
+      renderWorkerResponseAtMs: firstEventOffset("render.workerPool.response"),
       slowestDurationMs: durations.length > 0 ? Math.max(...durations) : 0,
       status:
         countEvent((eventName) => eventName === "render.articleInnerHtmlCommit") > 0
@@ -519,7 +571,7 @@ async function readDocumentOpenPerfSummary(page, baseline) {
           : "not-seen",
       viewerRenderCount: countEvent((eventName) => eventName === "viewer.render"),
     };
-  }, baseline);
+  }, { baselineSnapshot: baseline, clickStartedAtMs: clickStartedAt });
 }
 
 async function readPlaceholderStartupMetrics(page) {

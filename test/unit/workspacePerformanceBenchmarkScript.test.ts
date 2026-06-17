@@ -399,12 +399,33 @@ describe("workspace performance benchmark script", () => {
             { durationMs: 700, name: "active-title-visible", status: "ok" },
             { durationMs: 780, name: "document-body-visible", status: "ok" },
             { durationMs: 900, name: "document-heading-visible", status: "ok" },
+            { durationMs: 210, name: "render-effect-start-seen", status: "ok" },
+            {
+              details: { status: "not-seen" },
+              durationMs: 910,
+              name: "render-worker-response-seen",
+              status: "skipped",
+            },
+            {
+              durationMs: 360,
+              name: "render-prepare-html-done-seen",
+              status: "ok",
+            },
+            {
+              durationMs: 720,
+              name: "render-html-state-queued-seen",
+              status: "ok",
+            },
             {
               details: {
                 articleCommitCount: 1,
+                articleHtmlCommitAtMs: 910,
                 eventCount: 8,
                 openDispatchEventCount: 2,
                 renderEventCount: 5,
+                renderEffectStartAtMs: 210,
+                renderHtmlStateQueuedAtMs: 720,
+                renderPrepareHtmlDoneAtMs: 360,
                 slowestDurationMs: 12.34,
                 status: "seen",
                 viewerRenderCount: 1,
@@ -426,9 +447,13 @@ describe("workspace performance benchmark script", () => {
     expect(result.phaseBreakdown).toContainEqual({
       details: {
         articleCommitCount: 1,
+        articleHtmlCommitAtMs: 910,
         eventCount: 8,
         openDispatchEventCount: 2,
         renderEventCount: 5,
+        renderEffectStartAtMs: 210,
+        renderHtmlStateQueuedAtMs: 720,
+        renderPrepareHtmlDoneAtMs: 360,
         slowestDurationMs: 12.34,
         status: "seen",
         viewerRenderCount: 1,
@@ -436,6 +461,12 @@ describe("workspace performance benchmark script", () => {
       durationMs: 910,
       name: "article-html-commit-seen",
       status: "ok",
+    });
+    expect(result.phaseBreakdown).toContainEqual({
+      details: { status: "not-seen" },
+      durationMs: 910,
+      name: "render-worker-response-seen",
+      status: "skipped",
     });
     expect(validatePrivacy(result)).toEqual([]);
     expect(
