@@ -54,12 +54,14 @@ export function renderedTableHighlightsForSide({
 }
 
 export function applyRenderedTableHighlights({
+  focusRows = false,
   highlights,
   html,
   leftHtml,
   rightHtml,
   side,
 }: {
+  focusRows?: boolean;
   highlights: readonly RenderedTableCellHighlight[];
   html: string;
   leftHtml?: string;
@@ -163,7 +165,47 @@ export function applyRenderedTableHighlights({
     });
   });
 
+  if (focusRows) {
+    keepFocusedTableRows(table, highlights);
+  }
+
   return doc.body.innerHTML;
+}
+
+function keepFocusedTableRows(
+  table: HTMLTableElement,
+  highlights: readonly RenderedTableCellHighlight[],
+) {
+  const targetRows = new Set(highlights.map((highlight) => highlight.rowIndex));
+  if (targetRows.size === 0) {
+    return;
+  }
+  const rows = Array.from(table.rows);
+  const rowsToKeep = new Set<number>();
+  const firstTargetRow = Math.min(...targetRows);
+
+  rows.forEach((row, rowIndex) => {
+    if (
+      rowIndex < firstTargetRow &&
+      Array.from(row.cells).some((cell) => cell.tagName.toLowerCase() === "th")
+    ) {
+      rowsToKeep.add(rowIndex);
+    }
+  });
+  if (rowsToKeep.size === 0 && firstTargetRow > 0) {
+    rowsToKeep.add(0);
+  }
+  for (const rowIndex of targetRows) {
+    rowsToKeep.add(rowIndex - 1);
+    rowsToKeep.add(rowIndex);
+    rowsToKeep.add(rowIndex + 1);
+  }
+
+  rows.forEach((row, rowIndex) => {
+    if (!rowsToKeep.has(rowIndex)) {
+      row.remove();
+    }
+  });
 }
 
 function cellTextsByPosition(html: string | undefined): Map<string, string> {

@@ -87,6 +87,23 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             .locator('[data-review-id="git-diff-table-cell"]')
             .count()) > 0
         : true,
+    hasLargeMarkdownTableRowAddition:
+      scenario === "viewer-git-diff-large-markdown-table-row-addition"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_LARGE_TABLE_ROW_DIFF__;
+            return (
+              result?.changesOnlyText?.includes("Local PlantUML SVG cache") &&
+              !result?.changesOnlyText?.includes("Open in editor") &&
+              result?.changesOnlyRows?.some((row) =>
+                row.includes("Local PlantUML SVG cache"),
+              ) &&
+              result?.renderedChangedRows === 1 &&
+              result?.tableText?.includes("Local PlantUML SVG cache") &&
+              result?.tableChangeTargets === 1 &&
+              result?.tableChangedCells === 3
+            );
+          })
+        : true,
     hasDiffTableContextMenu:
       scenario === "viewer-diff-context-menu-table"
         ? await page.evaluate(() => {

@@ -206,6 +206,7 @@ export function RenderedDiffPane({
   documentClassName,
   documentFormat = "markdown",
   activeChangeIndex,
+  focusTableRows = false,
   showBlockMeta = true,
   showInlineWordDiff = true,
   changeIndexForEntry,
@@ -226,6 +227,7 @@ export function RenderedDiffPane({
   documentClassName: string;
   documentFormat?: DocumentFormat;
   activeChangeIndex?: number;
+  focusTableRows?: boolean;
   showBlockMeta?: boolean;
   showInlineWordDiff?: boolean;
   changeIndexForEntry: (entry: RenderedDiffPresentationEntry) => number | null;
@@ -276,6 +278,15 @@ export function RenderedDiffPane({
         contentCursorActive.tableRowIndex === rowIndex,
       side,
     });
+    if (
+      focusTableRows &&
+      block.kind === "changed" &&
+      block.blockKind === "table" &&
+      block.tableChanges?.length &&
+      tableHighlights.length === 0
+    ) {
+      return null;
+    }
     const structuredHighlights = renderedStructuredChildHighlightsForSide({
       activeChangeIndex,
       block,
@@ -289,6 +300,7 @@ export function RenderedDiffPane({
     });
     const applyChildHighlights = (html: string) =>
       applyRenderedTableHighlights({
+        focusRows: focusTableRows,
         highlights: tableHighlights,
         html: applyRenderedStructuredChildHighlights(
           applyRenderedListItemHighlights(html, itemHighlights),
@@ -328,6 +340,15 @@ export function RenderedDiffPane({
     const visibleBlock = side === "left" ? block.left : block.right;
     const highlightedHtml = highlightedBlockHtml(entry, block);
     if (!visibleBlock) {
+      return null;
+    }
+    if (
+      focusTableRows &&
+      block.kind === "changed" &&
+      block.blockKind === "table" &&
+      block.tableChanges?.length &&
+      highlightedHtml === null
+    ) {
       return null;
     }
     return (

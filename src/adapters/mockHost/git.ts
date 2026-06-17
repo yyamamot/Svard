@@ -318,6 +318,17 @@ export async function getGitBranchFileDiff(
 }
 
 export async function getGitDiffPreview(path: string): Promise<GitDiffPreview> {
+  if (typeof window !== "undefined") {
+    const overrides = (
+      window as unknown as {
+        __SVARD_GIT_DIFF_OVERRIDES__?: Record<string, GitDiffPreview>;
+      }
+    ).__SVARD_GIT_DIFF_OVERRIDES__;
+    const override = overrides?.[path];
+    if (override) {
+      return structuredClone(override);
+    }
+  }
   return getFixtureGitDiffPreview(path);
 }
 

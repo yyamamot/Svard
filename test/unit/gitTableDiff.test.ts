@@ -49,7 +49,7 @@ describe("git table diff", () => {
     expect(nested?.complex).toBe(true);
   });
 
-  it("compares rendered table cells by row and column index", () => {
+  it("compares rendered table cells with row changes", () => {
     const diff = compareRenderedTable(
       [
         ["Name", "Status"],
@@ -62,17 +62,101 @@ describe("git table diff", () => {
       ],
     );
 
-    expect(diff[0]?.[0]?.kind).toBe("unchanged");
-    expect(diff[1]?.[1]).toEqual({
+    expect(diff.cells[0]?.[0]?.kind).toBe("unchanged");
+    expect(diff.cells[1]?.[1]).toEqual({
       left: "Beta",
       right: "Stable",
       kind: "changed",
     });
-    expect(diff[2]?.[0]).toEqual({
+    expect(diff.cells[2]?.[0]).toEqual({
       left: "",
       right: "Pro",
       kind: "added",
     });
+    expect(diff.rowChanges).toEqual([
+      { kind: "changed", rowIndex: 1, side: "both" },
+      { kind: "added", rowIndex: 2, side: "right" },
+    ]);
+  });
+
+  it("aligns large table row additions without changing following rows", () => {
+    const leftRows = [
+      ["Area", "Feature", "Status"],
+      ["Documents", "Open files", "Stable"],
+      ["Diagrams", "Fast diagram loading", "Stable"],
+      ["Files", "File tree", "Stable"],
+      ["Search", "Quick Open", "Stable"],
+    ];
+    const rightRows = [
+      ["Area", "Feature", "Status"],
+      ["Documents", "Open files", "Stable"],
+      ["Diagrams", "Fast diagram loading", "Stable"],
+      ["Diagrams", "Local PlantUML SVG cache", "Stable"],
+      ["Files", "File tree", "Stable"],
+      ["Search", "Quick Open", "Stable"],
+    ];
+
+    const diff = compareRenderedTable(leftRows, rightRows);
+
+    expect(diff.fallbackReason).toBeUndefined();
+    expect(diff.rowChanges).toEqual([
+      { kind: "added", rowIndex: 3, side: "right" },
+    ]);
+    expect(diff.cells[4]).toEqual([
+      { left: "Files", right: "Files", kind: "unchanged" },
+      { left: "File tree", right: "File tree", kind: "unchanged" },
+      { left: "Stable", right: "Stable", kind: "unchanged" },
+    ]);
+  });
+
+  it("counts multiple changed cells in one row as one row change", () => {
+    const diff = compareRenderedTable(
+      [
+        ["Name", "Status", "Owner"],
+        ["Feature", "Draft", "Team A"],
+      ],
+      [
+        ["Name", "Status", "Owner"],
+        ["Feature", "Stable", "Team B"],
+      ],
+    );
+
+    expect(diff.rowChanges).toEqual([
+      { kind: "changed", rowIndex: 1, side: "both" },
+    ]);
+    expect(diff.cells[1]?.filter((cell) => cell.kind === "changed")).toHaveLength(
+      2,
+    );
+  });
+
+  it("falls back for duplicate or reordered table rows", () => {
+    expect(
+      compareRenderedTable(
+        [
+          ["Name"],
+          ["Duplicate"],
+          ["Duplicate"],
+        ],
+        [
+          ["Name"],
+          ["Duplicate"],
+        ],
+      ).fallbackReason,
+    ).toBe("ambiguous");
+    expect(
+      compareRenderedTable(
+        [
+          ["Name"],
+          ["A"],
+          ["B"],
+        ],
+        [
+          ["Name"],
+          ["B"],
+          ["A"],
+        ],
+      ).fallbackReason,
+    ).toBe("ambiguous");
   });
 
   it("marks changed Markdown and AsciiDoc source table blocks when hunks overlap", () => {

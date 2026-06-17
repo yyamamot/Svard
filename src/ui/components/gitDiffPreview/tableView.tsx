@@ -14,10 +14,14 @@ export function fallbackMessage(
   reason: TableFallbackReason | undefined,
 ): string {
   switch (reason) {
+    case "ambiguous":
+      return "Table rows are ambiguous. Use Source view.";
     case "complex-span":
       return "This table uses spans or nested tables. Use Source view.";
     case "render-error":
       return "Table diff is not available. Use Source view.";
+    case "shape-mismatch":
+      return "Table row shape changed too much for visual diff. Use Source view.";
     case "table-mismatch":
       return "Table structure changed too much for visual diff. Use Source view.";
     case "no-table":
@@ -28,25 +32,18 @@ export function fallbackMessage(
 }
 
 export function changedCellCount(table: RenderedTableDiff | undefined): number {
-  return (
-    table?.cells.reduce(
-      (count, row) =>
-        count + row.filter((cell) => cell.kind !== "unchanged").length,
-      0,
-    ) ?? 0
-  );
+  return table?.rowChanges.length ?? 0;
 }
 
 export function tableCellIndexes(
   table: RenderedTableDiff | undefined,
 ): Map<string, number> {
   const indexes = new Map<string, number>();
-  let changeIndex = 0;
-  table?.cells.forEach((row, rowIndex) => {
-    row.forEach((cell, cellIndex) => {
+  table?.rowChanges.forEach((rowChange, changeIndex) => {
+    const row = table.cells[rowChange.rowIndex];
+    row?.forEach((cell, cellIndex) => {
       if (cell.kind !== "unchanged") {
-        indexes.set(`${rowIndex}:${cellIndex}`, changeIndex);
-        changeIndex += 1;
+        indexes.set(`${rowChange.rowIndex}:${cellIndex}`, changeIndex);
       }
     });
   });

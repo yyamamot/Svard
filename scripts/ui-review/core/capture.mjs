@@ -672,6 +672,8 @@ export async function captureScenario({
                   ? "markdown-footnotes-admonitions.md"
                   : bodyText.includes("Markdown 日本語確認")
                     ? "markdown-japanese.md"
+                    : bodyText.includes("Large Table Row Addition")
+                      ? "git-large-table-row-addition.md"
                     : bodyText.includes("Git Markdown Table Cell Fixture")
                       ? "git-table-cells.md"
                       : bodyText.includes("Git Markdown Table Untracked Fixture")

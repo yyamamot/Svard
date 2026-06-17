@@ -291,6 +291,7 @@ export function DiffPreviewBody({
             documentClassName={documentClassName}
             documentFormat={documentFormat}
             activeChangeIndex={activeChangeIndex}
+            focusTableRows={true}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "left")
             }
@@ -336,6 +337,7 @@ export function DiffPreviewBody({
             documentClassName={documentClassName}
             documentFormat={documentFormat}
             activeChangeIndex={activeChangeIndex}
+            focusTableRows={true}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "right")
             }

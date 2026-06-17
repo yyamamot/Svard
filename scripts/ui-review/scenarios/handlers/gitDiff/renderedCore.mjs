@@ -5,7 +5,107 @@ export async function applyGitDiffRenderedCoreScenario(context) {
   if (await applyGitDiffRenderedCoreAdvancedScenario(context)) {
     return true;
   }
-  if (
+  if (scenario === "viewer-git-diff-large-markdown-table-row-addition") {
+    const path = "/workspace/docs/git-large-table-row-addition.md";
+    const leftText = largeMarkdownTableSource({ includeLocalPlantUmlCache: false });
+    const rightText = largeMarkdownTableSource({ includeLocalPlantUmlCache: true });
+    await page.evaluate(
+      ({ leftText, path, rightText }) => {
+        window.__SVARD_PICK_DOCUMENT__ = path;
+        window.__SVARD_DOCUMENT_OVERRIDES__ = {
+          ...(window.__SVARD_DOCUMENT_OVERRIDES__ ?? {}),
+          [path]: { source: rightText },
+        };
+        window.__SVARD_GIT_STATUS_OVERRIDES__ = {
+          ...(window.__SVARD_GIT_STATUS_OVERRIDES__ ?? {}),
+          [path]: "modified",
+        };
+        window.__SVARD_GIT_DIFF_OVERRIDES__ = {
+          ...(window.__SVARD_GIT_DIFF_OVERRIDES__ ?? {}),
+          [path]: {
+            repositoryRoot: null,
+            relativePath: "docs/git-large-table-row-addition.md",
+            leftPath: path,
+            rightPath: path,
+            status: "modified",
+            leftLabel: "HEAD",
+            rightLabel: "Working Tree",
+            hunks: [
+              {
+                oldStart: 1,
+                oldLines: 18,
+                newStart: 1,
+                newLines: 19,
+                lines: [
+                  { kind: "context", oldLine: 1, newLine: 1, text: "# Large Table Row Addition" },
+                  { kind: "context", oldLine: 2, newLine: 2, text: "" },
+                  { kind: "context", oldLine: 3, newLine: 3, text: "| Area | Feature | Status |" },
+                  { kind: "context", oldLine: 4, newLine: 4, text: "| --- | --- | --- |" },
+                  { kind: "context", oldLine: 5, newLine: 5, text: "| Documents | Open files | Stable |" },
+                  { kind: "context", oldLine: 6, newLine: 6, text: "| Diagrams | Fast diagram loading | Stable |" },
+                  { kind: "added", oldLine: null, newLine: 7, text: "| Diagrams | Local PlantUML SVG cache | Stable |" },
+                  { kind: "context", oldLine: 7, newLine: 8, text: "| Files | File tree | Stable |" },
+                  { kind: "context", oldLine: 8, newLine: 9, text: "| Search | Quick Open | Stable |" },
+                ],
+              },
+            ],
+            message: null,
+            leftText,
+            rightText,
+          },
+        };
+      },
+      { leftText, path, rightText },
+    );
+    await page.evaluate(() => window.__SVARD_COMMANDS__?.dispatch("file.open"));
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Large Table Row Addition" })
+      .waitFor();
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.getByRole("button", { name: "Changes Only" }).click();
+    await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+    await page.evaluate(() => {
+      const rightPane = document.querySelector(
+        '[data-review-id="git-rendered-right-pane"]',
+      );
+      window.__SVARD_LARGE_TABLE_ROW_DIFF__ = {
+        changesOnlyText: rightPane?.textContent ?? "",
+        changesOnlyRows: Array.from(rightPane?.querySelectorAll("tr") ?? []).map(
+          (row) => row.textContent?.replace(/\s+/g, " ").trim() ?? "",
+        ),
+        renderedChangedRows: rightPane?.querySelectorAll(
+          '[data-review-id="git-rendered-table-row-change"]',
+        ).length ?? 0,
+      };
+    });
+    await page.locator('[data-review-id="git-diff-table-view"]').click();
+    await page.locator('[data-review-id="git-diff-table-diff"]').waitFor();
+    await page.evaluate(() => {
+      const result = window.__SVARD_LARGE_TABLE_ROW_DIFF__ ?? {};
+      const tablePane = document.querySelector(
+        '[data-review-id="git-diff-table-right-pane"]',
+      );
+      window.__SVARD_LARGE_TABLE_ROW_DIFF__ = {
+        ...result,
+        tableText: tablePane?.textContent ?? "",
+        tableChangeTargets: new Set(
+          Array.from(
+            tablePane?.querySelectorAll("[data-change-index]") ?? [],
+          ).map((cell) => cell.getAttribute("data-change-index")),
+        ).size,
+        tableChangedCells: tablePane?.querySelectorAll(
+          '[data-review-id="git-diff-table-cell"].added, [data-review-id="git-diff-table-cell"].changed, [data-review-id="git-diff-table-cell"].removed',
+        ).length ?? 0,
+      };
+    });
+    await page.getByRole("button", { name: "Changes Only" }).click();
+    await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+    return true;
+  } else if (
     scenario === "viewer-git-diff-rendered-markdown" ||
     scenario === "viewer-diff-context-menu-rendered"
   ) {
@@ -572,6 +672,33 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     return false;
   }
   return true;
+}
+
+function largeMarkdownTableSource({ includeLocalPlantUmlCache }) {
+  const rows = [
+    ["Documents", "Open files", "Stable"],
+    ["Diagrams", "Fast diagram loading", "Stable"],
+    ...(includeLocalPlantUmlCache
+      ? [["Diagrams", "Local PlantUML SVG cache", "Stable"]]
+      : []),
+    ["Files", "File tree", "Stable"],
+    ["Search", "Quick Open", "Stable"],
+    ["Navigation", "Table of contents", "Stable"],
+    ["Review", "Source Control changes", "Stable"],
+    ["Review", "Rendered diff", "Stable"],
+    ["Review", "Table view", "Stable"],
+    ["Review", "Change navigation", "Stable"],
+    ["Context", "Copy as TSV", "Stable"],
+    ["Context", "Open in editor", "Stable"],
+    ["Preferences", "Theme", "Stable"],
+    ["Preferences", "Cache", "Stable"],
+  ];
+  return `# Large Table Row Addition
+
+| Area | Feature | Status |
+| --- | --- | --- |
+${rows.map((row) => `| ${row.join(" | ")} |`).join("\n")}
+`;
 }
 
 async function sampleCodeFenceWordHighlight(page, rootSelectors) {

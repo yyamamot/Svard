@@ -232,12 +232,12 @@ describe("render and diff user-visible integration flows", () => {
 
     expect(leftTable?.label).toBe("Table 1 · Git Table Diff Fixture");
     expect(rightTable?.rows.at(-1)).toEqual(["Enterprise", "$50", "New"]);
-    expect(tableDiff[1]?.[1]).toEqual({
+    expect(tableDiff.cells[1]?.[1]).toEqual({
       left: "$10",
       right: "$12",
       kind: "changed",
     });
-    expect(tableDiff[3]?.[0]).toEqual({
+    expect(tableDiff.cells[3]?.[0]).toEqual({
       left: "",
       right: "Enterprise",
       kind: "added",

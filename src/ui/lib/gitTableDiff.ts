@@ -6,8 +6,10 @@ export type TableCellDiffKind = "unchanged" | "added" | "removed" | "changed";
 
 export type TableFallbackReason =
   | "complex-span"
+  | "ambiguous"
   | "render-error"
   | "no-table"
+  | "shape-mismatch"
   | "table-mismatch";
 
 export interface TableCellDiff {
@@ -16,11 +18,18 @@ export interface TableCellDiff {
   kind: TableCellDiffKind;
 }
 
+export interface TableRowDiff {
+  kind: Exclude<TableCellDiffKind, "unchanged">;
+  rowIndex: number;
+  side: "left" | "right" | "both";
+}
+
 export interface RenderedTableDiff {
   id: string;
   format: DocumentFormat;
   label: string;
   cells: TableCellDiff[][];
+  rowChanges: TableRowDiff[];
 }
 
 export interface TableBlockMarker {
@@ -92,37 +101,232 @@ export function extractRenderedTablesFromHtml(html: string): RenderedTable[] {
   });
 }
 
+export interface RenderedTableCompareResult {
+  cells: TableCellDiff[][];
+  rowChanges: TableRowDiff[];
+  fallbackReason?: TableFallbackReason;
+}
+
 export function compareRenderedTable(
   leftRows: string[][] = [],
   rightRows: string[][] = [],
-): TableCellDiff[][] {
-  const height = Math.max(leftRows.length, rightRows.length);
-  const width = Math.max(
-    0,
-    ...leftRows.map((row) => row.length),
-    ...rightRows.map((row) => row.length),
-  );
-  return Array.from({ length: height }, (_, rowIndex) =>
-    Array.from({ length: width }, (_, columnIndex) => {
-      const left = leftRows[rowIndex]?.[columnIndex] ?? "";
-      const right = rightRows[rowIndex]?.[columnIndex] ?? "";
-      const hasLeft = leftRows[rowIndex]?.[columnIndex] !== undefined;
-      const hasRight = rightRows[rowIndex]?.[columnIndex] !== undefined;
-      const kind: TableCellDiffKind =
-        !hasLeft && hasRight
-          ? "added"
-          : hasLeft && !hasRight
-            ? "removed"
-            : left === right
-              ? "unchanged"
-              : "changed";
-      return { left, right, kind };
-    }),
-  );
+): RenderedTableCompareResult {
+  const leftSignatures = leftRows.map(rowSignature);
+  const rightSignatures = rightRows.map(rowSignature);
+  if (hasDuplicateValues(leftSignatures) || hasDuplicateValues(rightSignatures)) {
+    return { cells: [], rowChanges: [], fallbackReason: "ambiguous" };
+  }
+  if (hasReorderedCommonRows(leftSignatures, rightSignatures)) {
+    return { cells: [], rowChanges: [], fallbackReason: "ambiguous" };
+  }
+
+  const matches = alignRowsBySignature(leftSignatures, rightSignatures);
+  const cells: TableCellDiff[][] = [];
+  const rowChanges: TableRowDiff[] = [];
+  let leftIndex = 0;
+  let rightIndex = 0;
+
+  for (const match of matches) {
+    const gap = appendRowGap({
+      cells,
+      leftRows: leftRows.slice(leftIndex, match.leftIndex),
+      rightRows: rightRows.slice(rightIndex, match.rightIndex),
+      rowChanges,
+    });
+    if (gap) {
+      return gap;
+    }
+    const rowIndex = cells.length;
+    cells.push(rowCells(leftRows[match.leftIndex], rightRows[match.rightIndex]));
+    if (rowHasChanges(cells[rowIndex])) {
+      rowChanges.push({ kind: "changed", rowIndex, side: "both" });
+    }
+    leftIndex = match.leftIndex + 1;
+    rightIndex = match.rightIndex + 1;
+  }
+
+  const tail = appendRowGap({
+    cells,
+    leftRows: leftRows.slice(leftIndex),
+    rightRows: rightRows.slice(rightIndex),
+    rowChanges,
+  });
+  if (tail) {
+    return tail;
+  }
+
+  return { cells, rowChanges };
 }
 
-function hasCellChanges(cells: TableCellDiff[][]): boolean {
-  return cells.some((row) => row.some((cell) => cell.kind !== "unchanged"));
+function hasTableChanges(table: RenderedTableDiff): boolean {
+  return table.rowChanges.length > 0;
+}
+
+function rowSignature(row: string[]): string {
+  return row.map(normalizedText).join("\u001f");
+}
+
+function hasDuplicateValues(values: readonly string[]): boolean {
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) {
+      return true;
+    }
+    seen.add(value);
+  }
+  return false;
+}
+
+function hasReorderedCommonRows(
+  leftSignatures: readonly string[],
+  rightSignatures: readonly string[],
+): boolean {
+  const rightIndexes = new Map(
+    rightSignatures.map((signature, index) => [signature, index]),
+  );
+  let previousRightIndex = -1;
+  for (const signature of leftSignatures) {
+    const rightIndex = rightIndexes.get(signature);
+    if (rightIndex === undefined) {
+      continue;
+    }
+    if (rightIndex < previousRightIndex) {
+      return true;
+    }
+    previousRightIndex = rightIndex;
+  }
+  return false;
+}
+
+function alignRowsBySignature(
+  leftSignatures: readonly string[],
+  rightSignatures: readonly string[],
+): Array<{ leftIndex: number; rightIndex: number }> {
+  const rows = leftSignatures.length + 1;
+  const columns = rightSignatures.length + 1;
+  const scores = Array.from({ length: rows }, () =>
+    Array.from({ length: columns }, () => 0),
+  );
+
+  for (let leftIndex = leftSignatures.length - 1; leftIndex >= 0; leftIndex -= 1) {
+    for (
+      let rightIndex = rightSignatures.length - 1;
+      rightIndex >= 0;
+      rightIndex -= 1
+    ) {
+      scores[leftIndex][rightIndex] =
+        leftSignatures[leftIndex] === rightSignatures[rightIndex]
+          ? scores[leftIndex + 1][rightIndex + 1] + 1
+          : Math.max(
+              scores[leftIndex + 1][rightIndex],
+              scores[leftIndex][rightIndex + 1],
+            );
+    }
+  }
+
+  const matches: Array<{ leftIndex: number; rightIndex: number }> = [];
+  let leftIndex = 0;
+  let rightIndex = 0;
+  while (leftIndex < leftSignatures.length && rightIndex < rightSignatures.length) {
+    if (
+      leftSignatures[leftIndex] === rightSignatures[rightIndex] &&
+      scores[leftIndex][rightIndex] ===
+        scores[leftIndex + 1][rightIndex + 1] + 1
+    ) {
+      matches.push({ leftIndex, rightIndex });
+      leftIndex += 1;
+      rightIndex += 1;
+    } else if (
+      scores[leftIndex + 1][rightIndex] >= scores[leftIndex][rightIndex + 1]
+    ) {
+      leftIndex += 1;
+    } else {
+      rightIndex += 1;
+    }
+  }
+  return matches;
+}
+
+function appendRowGap({
+  cells,
+  leftRows,
+  rightRows,
+  rowChanges,
+}: {
+  cells: TableCellDiff[][];
+  leftRows: string[][];
+  rightRows: string[][];
+  rowChanges: TableRowDiff[];
+}): RenderedTableCompareResult | null {
+  if (leftRows.length === 0 && rightRows.length === 0) {
+    return null;
+  }
+  if (leftRows.length === 0) {
+    for (const right of rightRows) {
+      const rowIndex = cells.length;
+      cells.push(rowCells(undefined, right, "added"));
+      rowChanges.push({ kind: "added", rowIndex, side: "right" });
+    }
+    return null;
+  }
+  if (rightRows.length === 0) {
+    for (const left of leftRows) {
+      const rowIndex = cells.length;
+      cells.push(rowCells(left, undefined, "removed"));
+      rowChanges.push({ kind: "removed", rowIndex, side: "left" });
+    }
+    return null;
+  }
+  const pairedRows = Math.min(leftRows.length, rightRows.length);
+  for (let index = 0; index < pairedRows; index += 1) {
+    if (leftRows[index]?.length !== rightRows[index]?.length) {
+      return { cells: [], rowChanges: [], fallbackReason: "shape-mismatch" };
+    }
+    const rowIndex = cells.length;
+    cells.push(rowCells(leftRows[index], rightRows[index]));
+    if (rowHasChanges(cells[rowIndex])) {
+      rowChanges.push({ kind: "changed", rowIndex, side: "both" });
+    }
+  }
+  for (const right of rightRows.slice(pairedRows)) {
+    const rowIndex = cells.length;
+    cells.push(rowCells(undefined, right, "added"));
+    rowChanges.push({ kind: "added", rowIndex, side: "right" });
+  }
+  for (const left of leftRows.slice(pairedRows)) {
+    const rowIndex = cells.length;
+    cells.push(rowCells(left, undefined, "removed"));
+    rowChanges.push({ kind: "removed", rowIndex, side: "left" });
+  }
+  return null;
+}
+
+function rowCells(
+  leftRow: string[] | undefined,
+  rightRow: string[] | undefined,
+  forcedKind?: "added" | "removed",
+): TableCellDiff[] {
+  const width = Math.max(leftRow?.length ?? 0, rightRow?.length ?? 0);
+  return Array.from({ length: width }, (_, columnIndex) => {
+    const left = leftRow?.[columnIndex] ?? "";
+    const right = rightRow?.[columnIndex] ?? "";
+    const hasLeft = leftRow?.[columnIndex] !== undefined;
+    const hasRight = rightRow?.[columnIndex] !== undefined;
+    const kind: TableCellDiffKind =
+      forcedKind ??
+      (!hasLeft && hasRight
+        ? "added"
+        : hasLeft && !hasRight
+          ? "removed"
+          : left === right
+            ? "unchanged"
+            : "changed");
+    return { left, right, kind };
+  });
+}
+
+function rowHasChanges(row: readonly TableCellDiff[] | undefined): boolean {
+  return Boolean(row?.some((cell) => cell.kind !== "unchanged"));
 }
 
 function extractAsciiDocTableBlocks(
@@ -289,23 +493,33 @@ export async function deriveGitTableDiffSummary(
     };
   }
 
-  const renderedTables = Array.from({ length: tableCount }, (_, index) => {
+  const renderedTables: RenderedTableDiff[] = [];
+  for (let index = 0; index < tableCount; index += 1) {
     const left = leftTables[index];
     const right = rightTables[index];
-    const cells = compareRenderedTable(left?.rows, right?.rows);
-    return {
+    const comparison = compareRenderedTable(left?.rows, right?.rows);
+    if (comparison.fallbackReason) {
+      return {
+        renderedTables: [],
+        tableMarkers,
+        fallbackReason: comparison.fallbackReason,
+      };
+    }
+    renderedTables.push({
       id: `rendered-table:${index}`,
       format,
       label: right?.label ?? left?.label ?? `Table ${index + 1}`,
-      cells,
-    };
-  }).filter((table) => hasCellChanges(table.cells));
+      cells: comparison.cells,
+      rowChanges: comparison.rowChanges,
+    });
+  }
+  const changedTables = renderedTables.filter(hasTableChanges);
 
   return {
-    renderedTables,
+    renderedTables: changedTables,
     tableMarkers,
     fallbackReason:
-      renderedTables.length === 0 && tableMarkers.length > 0
+      changedTables.length === 0 && tableMarkers.length > 0
         ? "no-table"
         : undefined,
   };

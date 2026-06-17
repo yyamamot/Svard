@@ -165,6 +165,13 @@ export function markerCompletenessForScenario(scenario, geometry) {
           "diagram-inline-image",
         );
       }
+    } else if (scenario === "viewer-git-diff-large-markdown-table-row-addition") {
+      scenarioMarkers.push(
+        "git-diff-rendered-view",
+        "git-rendered-diff",
+        "git-rendered-left-pane",
+        "git-rendered-right-pane",
+      );
     } else if (
       scenario === "viewer-git-diff-markdown-table" ||
       scenario === "viewer-git-diff-asciidoc-table-dom"

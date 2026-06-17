@@ -199,6 +199,49 @@ describe("git rendered diff tables", () => {
     expect(body.querySelector('[data-content-cursor-active="true"]')).toBeNull();
   });
 
+  it("focuses rendered table rows around table row changes", () => {
+    const [block] = compareRenderedBlocks(
+      blocksFromHtml(
+        `<table><caption>Feature inventory</caption><tbody><tr><th>Area</th><th>Feature</th><th>Status</th></tr><tr><td>Documents</td><td>Open files</td><td>Stable</td></tr><tr><td>Diagrams</td><td>Fast diagram loading</td><td>Stable</td></tr><tr><td>Files</td><td>File tree</td><td>Stable</td></tr><tr><td>Search</td><td>Quick Open</td><td>Stable</td></tr></tbody></table>`,
+      ),
+      blocksFromHtml(
+        `<table><caption>Feature inventory</caption><tbody><tr><th>Area</th><th>Feature</th><th>Status</th></tr><tr><td>Documents</td><td>Open files</td><td>Stable</td></tr><tr><td>Diagrams</td><td>Fast diagram loading</td><td>Stable</td></tr><tr><td>Diagrams</td><td>Local PlantUML SVG cache</td><td>Stable</td></tr><tr><td>Files</td><td>File tree</td><td>Stable</td></tr><tr><td>Search</td><td>Quick Open</td><td>Stable</td></tr></tbody></table>`,
+      ),
+    );
+    const highlights = renderedTableHighlightsForSide({
+      activeChangeIndex: 0,
+      block: block as NonNullable<typeof block>,
+      changeIndexForRow: () => 0,
+      side: "right",
+    });
+    const html = applyRenderedTableHighlights({
+      focusRows: true,
+      highlights,
+      html: block?.right?.html ?? "",
+      leftHtml: block?.left?.html,
+      rightHtml: block?.right?.html,
+      side: "right",
+    });
+    const body = parseHtmlBody(html);
+    const rows = Array.from(body.querySelectorAll("tr")).map((row) =>
+      row.textContent?.replace(/\s+/g, " ").trim(),
+    );
+
+    expect(rows).toEqual([
+      "AreaFeatureStatus",
+      "DiagramsFast diagram loadingStable",
+      "DiagramsLocal PlantUML SVG cacheStable",
+      "FilesFile treeStable",
+    ]);
+    expect(
+      body.querySelector('[data-review-id="git-rendered-table-row-change"]')
+        ?.textContent,
+    ).toContain("Local PlantUML SVG cache");
+    expect(body.querySelector('[data-change-index="0"]')).toBeTruthy();
+    expect(html).not.toContain("Documents");
+    expect(html).not.toContain("Search");
+  });
+
   it("marks table row content cursor only when the cursor row matches", () => {
     const [block] = compareRenderedBlocks(
       blocksFromHtml(
