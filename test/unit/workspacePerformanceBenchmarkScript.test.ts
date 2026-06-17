@@ -386,4 +386,75 @@ describe("workspace performance benchmark script", () => {
     });
     expect(validatePrivacy(result)).toEqual([]);
   });
+
+  it("uses the search interaction phase duration for current file search", () => {
+    const [result] = deriveUiReviewResults([
+      {
+        durationMs: 1400,
+        report: {
+          assertionFailures: [],
+          assertions: { searchVisible: true },
+          benchmarkPhases: [
+            { durationMs: 900, name: "document-ready-for-search", status: "ok" },
+            { durationMs: 40, name: "search-results-visible", status: "ok" },
+            {
+              durationMs: 180,
+              name: "search-interaction-complete",
+              status: "ok",
+            },
+          ],
+          captureMetrics: { scenarioMs: 1400 },
+          outcome: "passed",
+        },
+        scenario: "viewer-search",
+        status: "ok",
+        workflowId: "current-file-search",
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      durationMs: 180,
+      id: "current-file-search",
+      metric: "uiScenario.phase.search-interaction-complete",
+      reason: null,
+      status: "ok",
+    });
+    expect(validatePrivacy(result)).toEqual([]);
+  });
+
+  it("falls back to scenario duration when the search interaction phase is missing", () => {
+    const [result] = deriveUiReviewResults([
+      {
+        durationMs: 1400,
+        report: {
+          assertionFailures: [],
+          assertions: { searchVisible: true },
+          benchmarkPhases: [
+            { durationMs: 900, name: "document-ready-for-search", status: "ok" },
+          ],
+          captureMetrics: { scenarioMs: 1400 },
+          outcome: "passed",
+        },
+        scenario: "viewer-search",
+        status: "ok",
+        workflowId: "current-file-search",
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      durationMs: 1400,
+      id: "current-file-search",
+      metric: "uiScenario.scenarioMs",
+      reason: "missing-phase:search-interaction-complete",
+      status: "ok",
+    });
+    expect(
+      reportMarkdown({
+        bottleneckCandidates: [],
+        profile: "full",
+        workflows: [result],
+      }),
+    ).toContain("reason: missing-phase:search-interaction-complete");
+    expect(validatePrivacy(result)).toEqual([]);
+  });
 });

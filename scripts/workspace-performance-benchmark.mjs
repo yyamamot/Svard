@@ -346,10 +346,13 @@ function deriveUiReviewResults(reports = []) {
       entry.report,
       entry.workflowId,
     );
-    const durationOverridePhase =
-      entry.workflowId === "diagram-render-after-open"
-        ? phaseBreakdown.find((phase) => phase.name === "all-diagrams-visible")
-        : null;
+    const durationOverridePhase = phaseBreakdown.find(
+      (phase) => phase.name === durationOverridePhaseName(entry.workflowId),
+    );
+    const missingOverridePhaseReason = missingDurationOverrideReason(
+      entry.workflowId,
+      durationOverridePhase,
+    );
     const scenarioDurationMs =
       durationOverridePhase?.durationMs ??
       entry.report?.captureMetrics?.scenarioMs ??
@@ -369,7 +372,7 @@ function deriveUiReviewResults(reports = []) {
       phaseBreakdown,
       reason:
         entry.status === "ok"
-          ? null
+          ? missingOverridePhaseReason
           : assertionFailures.length > 0
             ? "ui-scenario-assertion-failure"
             : (entry.reason ?? "ui-scenario-failed"),
@@ -377,6 +380,24 @@ function deriveUiReviewResults(reports = []) {
       status: entry.status,
     });
   });
+}
+
+function durationOverridePhaseName(workflowId) {
+  if (workflowId === "diagram-render-after-open") {
+    return "all-diagrams-visible";
+  }
+  if (workflowId === "current-file-search") {
+    return "search-interaction-complete";
+  }
+  return null;
+}
+
+function missingDurationOverrideReason(workflowId, durationOverridePhase) {
+  const phaseName = durationOverridePhaseName(workflowId);
+  if (phaseName === null || durationOverridePhase !== undefined) {
+    return null;
+  }
+  return `missing-phase:${phaseName}`;
 }
 
 function normalizePhaseBreakdown(phases, report = null, workflowId = "") {
