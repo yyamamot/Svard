@@ -462,11 +462,15 @@ function plantUmlMetricDetails(metrics) {
   const componentP50 = metrics.componentP50Ms ?? {};
   const componentP95 = metrics.componentP95Ms ?? {};
   return safePhaseDetails({
+    cacheHitCount: metrics.cacheHitCount,
+    cacheMissCount: metrics.cacheMissCount,
     concurrency: metrics.concurrency,
     diagramCount: metrics.diagramCount,
     errorCount: metrics.errorCount,
+    memoryHitCount: metrics.memoryHitCount,
     p50Ms: metrics.p50Ms,
     p95Ms: metrics.p95Ms,
+    persistentHitCount: metrics.persistentHitCount,
     queueWaitP50Ms: componentP50.queueWaitMs,
     queueWaitP95Ms: componentP95.queueWaitMs,
     renderCoreP50Ms: componentP50.renderCoreMs,

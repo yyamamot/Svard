@@ -27,6 +27,10 @@ import type {
   KrokiResult,
   LocalImageResult,
   NativeFileDropEvent,
+  PlantUmlSvgCacheReadInput,
+  PlantUmlSvgCacheReadResult,
+  PlantUmlSvgCacheWriteInput,
+  PlantUmlSvgCacheWriteResult,
   ProviderTokenStatus,
   RemoteProviderTestStatus,
   ViewerWindowOpenRequest,
@@ -151,6 +155,22 @@ export class MockHostAdapter implements HostAdapter {
 
   clearKrokiCache(): Promise<void> {
     return this.kroki.clearKrokiCache();
+  }
+
+  readPlantUmlSvgCache(
+    input: PlantUmlSvgCacheReadInput,
+  ): Promise<PlantUmlSvgCacheReadResult> {
+    return this.kroki.readPlantUmlSvgCache(input);
+  }
+
+  writePlantUmlSvgCache(
+    input: PlantUmlSvgCacheWriteInput,
+  ): Promise<PlantUmlSvgCacheWriteResult> {
+    return this.kroki.writePlantUmlSvgCache(input);
+  }
+
+  clearPlantUmlSvgCache(): Promise<void> {
+    return this.kroki.clearPlantUmlSvgCache();
   }
 
   openExternalUrl(url: string): Promise<void> {

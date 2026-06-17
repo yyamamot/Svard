@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  clearPlantUmlSvgMemoryCache,
+  createPlantUmlSvgCacheKey,
   IframePlantUmlLocalRenderer,
   normalizePlantUmlRenderSource,
+  renderPlantUmlDiagrams,
 } from "../../src/core/renderPlantUml";
 
 interface FakeIframe {
@@ -77,6 +80,7 @@ async function flush() {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  clearPlantUmlSvgMemoryCache();
 });
 
 describe("IframePlantUmlLocalRenderer", () => {
@@ -429,6 +433,126 @@ describe("IframePlantUmlLocalRenderer", () => {
     await expect(active).resolves.toMatchObject({ status: "error" });
     await expect(queued).resolves.toMatchObject({ status: "error" });
     expect(document.querySelectorAll("iframe")).toHaveLength(0);
+  });
+});
+
+describe("renderPlantUmlDiagrams cache", () => {
+  it("uses a persistent cache hit without creating a TeaVM worker iframe", async () => {
+    const readInputs: unknown[] = [];
+    const writeInputs: unknown[] = [];
+
+    const results = await renderPlantUmlDiagrams(
+      [{ id: "plantuml-1", source: "A -> B" }],
+      {
+        cache: {
+          async readPlantUmlSvgCache(input) {
+            readInputs.push(input);
+            return { status: "hit", svg: "<svg>cached</svg>" };
+          },
+          async writePlantUmlSvgCache(input) {
+            writeInputs.push(input);
+            return { status: "written" };
+          },
+        },
+        theme: "light",
+        timeoutMs: 1000,
+      },
+    );
+
+    expect(results).toEqual([
+      {
+        id: "plantuml-1",
+        result: {
+          diagnostics: [],
+          metrics: {
+            cacheLayer: "persistent",
+            cacheStatus: "hit",
+            renderMs: 0,
+            svgBytes: 17,
+          },
+          status: "rendered",
+          svg: "<svg>cached</svg>",
+        },
+      },
+    ]);
+    expect(document.querySelector("iframe")).toBeNull();
+    expect(writeInputs).toEqual([]);
+    expect(readInputs).toHaveLength(1);
+    expect(JSON.stringify(readInputs)).not.toContain("A -> B");
+    expect(JSON.stringify(readInputs)).not.toContain("plantuml-1");
+    expect(JSON.stringify(readInputs)).not.toContain("html");
+    expect(JSON.stringify(readInputs)).not.toContain("/Users/");
+  });
+
+  it("uses the in-memory cache after a persistent hit", async () => {
+    let readCount = 0;
+    const cache = {
+      async readPlantUmlSvgCache() {
+        readCount += 1;
+        return { status: "hit" as const, svg: "<svg>cached</svg>" };
+      },
+      async writePlantUmlSvgCache() {
+        return { status: "written" as const };
+      },
+    };
+
+    await renderPlantUmlDiagrams([{ id: "one", source: "A -> B" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    const second = await renderPlantUmlDiagrams(
+      [{ id: "two", source: "@startuml\nA -> B\n@enduml" }],
+      {
+        cache,
+        theme: "light",
+        timeoutMs: 1000,
+      },
+    );
+
+    expect(readCount).toBe(1);
+    expect(second[0].result.metrics).toMatchObject({
+      cacheLayer: "memory",
+      cacheStatus: "hit",
+    });
+  });
+
+  it("keys markerless and explicit marker source together", async () => {
+    await expect(
+      createPlantUmlSvgCacheKey({
+        source: "A -> B",
+        theme: "light",
+        timeoutMs: 1000,
+      }),
+    ).resolves.toBe(
+      await createPlantUmlSvgCacheKey({
+        source: "@startuml\nA -> B\n@enduml",
+        theme: "light",
+        timeoutMs: 1000,
+      }),
+    );
+  });
+
+  it("changes cache keys when render options change", async () => {
+    const base = await createPlantUmlSvgCacheKey({
+      source: "A -> B",
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await expect(
+      createPlantUmlSvgCacheKey({
+        source: "A -> B",
+        theme: "dark",
+        timeoutMs: 1000,
+      }),
+    ).resolves.not.toBe(base);
+    await expect(
+      createPlantUmlSvgCacheKey({
+        source: "A -> B",
+        theme: "light",
+        timeoutMs: 2000,
+      }),
+    ).resolves.not.toBe(base);
   });
 });
 

@@ -1,14 +1,29 @@
-import type { HostAdapter, KrokiRequest, KrokiResult } from "../../core/types";
+import type {
+  HostAdapter,
+  KrokiRequest,
+  KrokiResult,
+  PlantUmlSvgCacheReadInput,
+  PlantUmlSvgCacheReadResult,
+  PlantUmlSvgCacheWriteInput,
+  PlantUmlSvgCacheWriteResult,
+} from "../../core/types";
 
 export type MockKrokiFacade = Pick<
   HostAdapter,
-  "renderDiagram" | "clearKrokiCache"
+  | "renderDiagram"
+  | "clearKrokiCache"
+  | "readPlantUmlSvgCache"
+  | "writePlantUmlSvgCache"
+  | "clearPlantUmlSvgCache"
 >;
 
 export function createMockKrokiFacade(): MockKrokiFacade {
   return {
     renderDiagram,
     clearKrokiCache,
+    readPlantUmlSvgCache,
+    writePlantUmlSvgCache,
+    clearPlantUmlSvgCache,
   };
 }
 
@@ -74,4 +89,20 @@ export async function renderDiagram(input: KrokiRequest): Promise<KrokiResult> {
 
 export async function clearKrokiCache(): Promise<void> {
   // Browser harness has no persistent Kroki cache.
+}
+
+export async function readPlantUmlSvgCache(
+  _input: PlantUmlSvgCacheReadInput,
+): Promise<PlantUmlSvgCacheReadResult> {
+  return { status: "miss" };
+}
+
+export async function writePlantUmlSvgCache(
+  _input: PlantUmlSvgCacheWriteInput,
+): Promise<PlantUmlSvgCacheWriteResult> {
+  return { status: "skipped" };
+}
+
+export async function clearPlantUmlSvgCache(): Promise<void> {
+  // Browser harness has no persistent PlantUML cache.
 }

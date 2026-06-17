@@ -36,6 +36,7 @@ describe("PreferencesPanel settings and recording", () => {
           render();
         }}
         onClearKrokiCache={() => undefined}
+        onClearPlantUmlSvgCache={() => undefined}
         onTestKroki={async () => ({ status: "rendered" })}
         host={host}
         onClose={closeSpy}

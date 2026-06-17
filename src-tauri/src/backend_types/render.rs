@@ -24,6 +24,41 @@ pub struct KrokiResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct PlantUmlSvgCacheReadInput {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantUmlSvgCacheReadResult {
+    pub status: String,
+    pub svg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantUmlSvgCacheMetadata {
+    pub renderer: String,
+    pub theme: String,
+    pub version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantUmlSvgCacheWriteInput {
+    pub key: String,
+    pub svg: String,
+    pub metadata: Option<PlantUmlSvgCacheMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantUmlSvgCacheWriteResult {
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct LocalImageResult {
     pub status: String,
     pub media_type: Option<String>,

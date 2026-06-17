@@ -14,6 +14,7 @@ mod document_io;
 mod kroki;
 mod local_assets;
 mod path_policy;
+mod plantuml_cache;
 mod shared;
 mod source_control;
 mod watchers;

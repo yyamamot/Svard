@@ -57,6 +57,7 @@ export function PreferencesPanel({
   config,
   onChange,
   onClearKrokiCache,
+  onClearPlantUmlSvgCache,
   onTestKroki,
   host,
   onClose,
@@ -64,7 +65,8 @@ export function PreferencesPanel({
 }: {
   config: AppConfig;
   onChange: (config: AppConfig) => void;
-  onClearKrokiCache: () => void;
+  onClearKrokiCache: () => void | Promise<void>;
+  onClearPlantUmlSvgCache: () => void | Promise<void>;
   onTestKroki: (config: AppConfig) => Promise<KrokiResult>;
   host: HostAdapter;
   onClose: () => void;
@@ -527,6 +529,7 @@ export function PreferencesPanel({
             config={config}
             onChange={onChange}
             onClearKrokiCache={onClearKrokiCache}
+            onClearPlantUmlSvgCache={onClearPlantUmlSvgCache}
           />
         );
       case "mouseGestures":

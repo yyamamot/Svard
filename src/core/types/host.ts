@@ -35,7 +35,15 @@ import type {
   GitStatusEntry,
   GitStatusWatchEvent,
 } from "./git";
-import type { KrokiRequest, KrokiResult, LocalImageResult } from "./render";
+import type {
+  KrokiRequest,
+  KrokiResult,
+  LocalImageResult,
+  PlantUmlSvgCacheReadInput,
+  PlantUmlSvgCacheReadResult,
+  PlantUmlSvgCacheWriteInput,
+  PlantUmlSvgCacheWriteResult,
+} from "./render";
 
 export interface WatchHandle {
   dispose(): void;
@@ -123,6 +131,13 @@ export interface HostAdapter {
   ): Promise<LocalImageResult>;
   renderDiagram(input: KrokiRequest): Promise<KrokiResult>;
   clearKrokiCache(): Promise<void>;
+  readPlantUmlSvgCache(
+    input: PlantUmlSvgCacheReadInput,
+  ): Promise<PlantUmlSvgCacheReadResult>;
+  writePlantUmlSvgCache(
+    input: PlantUmlSvgCacheWriteInput,
+  ): Promise<PlantUmlSvgCacheWriteResult>;
+  clearPlantUmlSvgCache(): Promise<void>;
   openExternalUrl(url: string): Promise<void>;
   openPathInEditor(path: string): Promise<void>;
   openNewWindow(request: ViewerWindowOpenRequest): Promise<void>;

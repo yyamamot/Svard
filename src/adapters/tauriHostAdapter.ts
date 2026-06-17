@@ -32,6 +32,10 @@ import type {
   KrokiResult,
   LocalImageResult,
   NativeFileDropEvent,
+  PlantUmlSvgCacheReadInput,
+  PlantUmlSvgCacheReadResult,
+  PlantUmlSvgCacheWriteInput,
+  PlantUmlSvgCacheWriteResult,
   ProviderTokenStatus,
   RemoteProviderTestStatus,
   ViewerWindowOpenRequest,
@@ -359,6 +363,22 @@ export class TauriHostAdapter implements HostAdapter {
 
   clearKrokiCache(): Promise<void> {
     return invoke("clear_kroki_cache");
+  }
+
+  readPlantUmlSvgCache(
+    input: PlantUmlSvgCacheReadInput,
+  ): Promise<PlantUmlSvgCacheReadResult> {
+    return invoke("read_plantuml_svg_cache", { input });
+  }
+
+  writePlantUmlSvgCache(
+    input: PlantUmlSvgCacheWriteInput,
+  ): Promise<PlantUmlSvgCacheWriteResult> {
+    return invoke("write_plantuml_svg_cache", { input });
+  }
+
+  clearPlantUmlSvgCache(): Promise<void> {
+    return invoke("clear_plantuml_svg_cache");
   }
 
   openExternalUrl(url: string): Promise<void> {

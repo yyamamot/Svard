@@ -22,6 +22,7 @@ mod kroki;
 mod local_assets;
 mod path_policy;
 mod perf_trace;
+mod plantuml_cache;
 mod remote_providers;
 mod watchers;
 mod workspace_paths;
@@ -38,6 +39,7 @@ pub use git_diff::{
 use kroki::*;
 use local_assets::*;
 use path_policy::*;
+use plantuml_cache::*;
 use remote_providers::*;
 use watchers::*;
 use workspace_paths::*;
@@ -721,6 +723,42 @@ fn clear_kroki_cache(app: tauri::AppHandle) -> Result<(), String> {
     clear_kroki_cache_dir(&cache_dir)
 }
 
+#[tauri::command]
+fn read_plantuml_svg_cache(
+    app: tauri::AppHandle,
+    input: PlantUmlSvgCacheReadInput,
+) -> Result<PlantUmlSvgCacheReadResult, String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("failed to resolve app cache dir: {error}"))?
+        .join("plantuml-local");
+    read_plantuml_svg_cache_dir(input, &cache_dir)
+}
+
+#[tauri::command]
+fn write_plantuml_svg_cache(
+    app: tauri::AppHandle,
+    input: PlantUmlSvgCacheWriteInput,
+) -> Result<PlantUmlSvgCacheWriteResult, String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("failed to resolve app cache dir: {error}"))?
+        .join("plantuml-local");
+    write_plantuml_svg_cache_dir(input, &cache_dir)
+}
+
+#[tauri::command]
+fn clear_plantuml_svg_cache(app: tauri::AppHandle) -> Result<(), String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("failed to resolve app cache dir: {error}"))?
+        .join("plantuml-local");
+    clear_plantuml_svg_cache_dir(&cache_dir)
+}
+
 fn config_file_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app
         .path()
@@ -837,7 +875,10 @@ pub fn run() {
             save_config,
             take_pending_open_requests,
             render_diagram,
-            clear_kroki_cache
+            clear_kroki_cache,
+            read_plantuml_svg_cache,
+            write_plantuml_svg_cache,
+            clear_plantuml_svg_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running Svard");

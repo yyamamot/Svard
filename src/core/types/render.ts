@@ -1,5 +1,4 @@
 import type { KrokiConfig } from "./config";
-import type { AsciiDocRenderContext } from "./document";
 
 export interface KrokiRequest {
   diagramType: string;
@@ -105,6 +104,29 @@ export interface PlantUmlRenderInput {
   probeMode?: "normal" | "skip-diagnostic" | "dummy-svg";
 }
 
+export interface PlantUmlSvgCacheReadInput {
+  key: string;
+}
+
+export interface PlantUmlSvgCacheReadResult {
+  status: "hit" | "miss" | "error";
+  svg?: string;
+}
+
+export interface PlantUmlSvgCacheWriteInput {
+  key: string;
+  svg: string;
+  metadata?: {
+    renderer: "plantuml";
+    theme: "light" | "dark";
+    version: string;
+  };
+}
+
+export interface PlantUmlSvgCacheWriteResult {
+  status: "written" | "skipped" | "error";
+}
+
 export interface PlantUmlRenderResult {
   status: "rendered" | "error" | "timeout";
   svg?: string;
@@ -121,6 +143,8 @@ export interface PlantUmlRenderResult {
     encodeMs?: number;
     postMessageMs?: number;
     svgBytes?: number;
+    cacheStatus?: "disabled" | "hit" | "miss" | "not-written";
+    cacheLayer?: "memory" | "persistent";
     mode?: "renderToString" | "dom" | "dummy";
   };
 }

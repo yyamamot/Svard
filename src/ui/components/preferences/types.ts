@@ -91,7 +91,8 @@ export interface ExperimentalSectionProps {
 export interface CacheSectionProps {
   config: AppConfig;
   onChange: (config: AppConfig) => void;
-  onClearKrokiCache: () => void;
+  onClearKrokiCache: () => void | Promise<void>;
+  onClearPlantUmlSvgCache: () => void | Promise<void>;
 }
 
 export interface MouseGesturesSectionProps {

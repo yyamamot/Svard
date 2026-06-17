@@ -303,6 +303,8 @@ describe("workspace performance benchmark script", () => {
           captureMetrics: { scenarioMs: 300 },
           outcome: "passed",
           plantUmlMetrics: {
+            cacheHitCount: 1,
+            cacheMissCount: 1,
             componentP50Ms: {
               queueWaitMs: 1.23,
               renderCoreMs: 90.12,
@@ -318,8 +320,10 @@ describe("workspace performance benchmark script", () => {
             concurrency: 1,
             diagramCount: 2,
             errorCount: 0,
+            memoryHitCount: 1,
             p50Ms: 121,
             p95Ms: 141,
+            persistentHitCount: 0,
             renderedCount: 2,
             timeoutCount: 0,
             totalMs: 250.4,
@@ -334,11 +338,15 @@ describe("workspace performance benchmark script", () => {
 
     expect(result.phaseBreakdown).toContainEqual({
       details: {
+        cacheHitCount: 1,
+        cacheMissCount: 1,
         concurrency: 1,
         diagramCount: 2,
         errorCount: 0,
+        memoryHitCount: 1,
         p50Ms: 121,
         p95Ms: 141,
+        persistentHitCount: 0,
         queueWaitP50Ms: 1.23,
         queueWaitP95Ms: 2.34,
         renderCoreP50Ms: 90.12,

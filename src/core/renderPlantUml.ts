@@ -2,6 +2,8 @@ import type {
   PlantUmlDiagram,
   PlantUmlRenderInput,
   PlantUmlRenderResult,
+  PlantUmlSvgCacheReadResult,
+  PlantUmlSvgCacheWriteResult,
 } from "./types";
 import { createRenderRequestId } from "./renderRequestId";
 
@@ -35,8 +37,23 @@ interface WorkerMessage {
 const workerUrl = "/vendor/plantuml-teavm/worker.html";
 export const defaultPlantUmlConcurrency = 1;
 const maxPlantUmlConcurrency = 4;
+export const plantUmlLocalRendererCacheVersion = "plantuml-teavm-2026.4-v1";
 
 type PlantUmlIframeFactory = () => HTMLIFrameElement;
+export interface PlantUmlSvgCacheFacade {
+  readPlantUmlSvgCache(input: {
+    key: string;
+  }): Promise<PlantUmlSvgCacheReadResult>;
+  writePlantUmlSvgCache(input: {
+    key: string;
+    svg: string;
+    metadata: {
+      renderer: "plantuml";
+      theme: "light" | "dark";
+      version: string;
+    };
+  }): Promise<PlantUmlSvgCacheWriteResult>;
+}
 
 export interface PlantUmlRenderBatchMetrics {
   diagramCount: number;
@@ -50,6 +67,10 @@ export interface PlantUmlRenderBatchMetrics {
   workerCount: number;
   componentP50Ms?: Record<string, number | null>;
   componentP95Ms?: Record<string, number | null>;
+  cacheHitCount?: number;
+  cacheMissCount?: number;
+  memoryHitCount?: number;
+  persistentHitCount?: number;
 }
 
 declare global {
@@ -347,6 +368,8 @@ export class IframePlantUmlLocalRenderer {
 }
 
 let renderers = new Map<number, IframePlantUmlLocalRenderer>();
+const svgMemoryCache = new Map<string, string>();
+const pendingCachedRenders = new Map<string, Promise<PlantUmlRenderResult>>();
 
 function normalizeConcurrency(value: number | undefined): number {
   if (!Number.isFinite(value) || value === undefined) {
@@ -365,6 +388,22 @@ function getRenderer(concurrency: number) {
   return renderer;
 }
 
+export async function createPlantUmlSvgCacheKey(
+  input: PlantUmlRenderInput,
+): Promise<string | null> {
+  const normalizedSource = normalizePlantUmlRenderSource(input.source).trim();
+  const keyMaterial = JSON.stringify({
+    normalizedSource,
+    probeMode: input.probeMode ?? "normal",
+    renderer: "plantuml",
+    theme: input.theme,
+    timeoutMs: input.timeoutMs,
+    version: plantUmlLocalRendererCacheVersion,
+    workerUrl,
+  });
+  return sha256Hex(keyMaterial);
+}
+
 export async function renderPlantUmlDiagrams(
   diagrams: PlantUmlDiagram[],
   options: {
@@ -372,6 +411,7 @@ export async function renderPlantUmlDiagrams(
     timeoutMs: number;
     concurrency?: number;
     probeMode?: PlantUmlRenderInput["probeMode"];
+    cache?: PlantUmlSvgCacheFacade | null;
   },
 ) {
   if (diagrams.length === 0) {
@@ -381,15 +421,18 @@ export async function renderPlantUmlDiagrams(
   const localRenderer = getRenderer(normalizeConcurrency(options.concurrency));
   const started = performance.now();
   const results = await Promise.all(
-    diagrams.map(async (diagram) => ({
-      id: diagram.id,
-      result: await localRenderer.renderSvg({
+    diagrams.map(async (diagram) => {
+      const input = {
         source: diagram.source,
         theme: options.theme,
         timeoutMs: options.timeoutMs,
         probeMode: options.probeMode,
-      }),
-    })),
+      };
+      return {
+        id: diagram.id,
+        result: await renderPlantUmlWithCache(input, localRenderer, options),
+      };
+    }),
   );
   publishPlantUmlMetrics({
     results: results.map((result) => result.result),
@@ -415,6 +458,141 @@ export function disposePlantUmlRenderer() {
     renderer.dispose();
   }
   renderers = new Map();
+  clearPlantUmlSvgMemoryCache();
+}
+
+export function clearPlantUmlSvgMemoryCache() {
+  svgMemoryCache.clear();
+  pendingCachedRenders.clear();
+}
+
+async function renderPlantUmlWithCache(
+  input: PlantUmlRenderInput,
+  localRenderer: IframePlantUmlLocalRenderer,
+  options: { cache?: PlantUmlSvgCacheFacade | null },
+): Promise<PlantUmlRenderResult> {
+  const key = await createPlantUmlSvgCacheKey(input);
+  if (!key) {
+    return withCacheMiss(await localRenderer.renderSvg(input), "disabled");
+  }
+
+  const memorySvg = svgMemoryCache.get(key);
+  if (memorySvg !== undefined) {
+    return cacheHitResult(memorySvg, "memory");
+  }
+
+  const persistentHit = await readPersistentPlantUmlSvgCache(
+    options.cache,
+    key,
+  );
+  if (persistentHit !== null) {
+    svgMemoryCache.set(key, persistentHit);
+    return cacheHitResult(persistentHit, "persistent");
+  }
+
+  const pending = pendingCachedRenders.get(key);
+  if (pending) {
+    return pending;
+  }
+
+  const renderPromise = (async () => {
+    const result = withCacheMiss(await localRenderer.renderSvg(input), "miss");
+    if (result.status === "rendered" && result.svg) {
+      svgMemoryCache.set(key, result.svg);
+      await writePersistentPlantUmlSvgCache(options.cache, key, result.svg, {
+        renderer: "plantuml",
+        theme: input.theme,
+        version: plantUmlLocalRendererCacheVersion,
+      });
+    }
+    return result;
+  })();
+  pendingCachedRenders.set(key, renderPromise);
+  try {
+    return await renderPromise;
+  } finally {
+    pendingCachedRenders.delete(key);
+  }
+}
+
+async function readPersistentPlantUmlSvgCache(
+  cache: PlantUmlSvgCacheFacade | null | undefined,
+  key: string,
+): Promise<string | null> {
+  if (!cache) {
+    return null;
+  }
+  try {
+    const result = await cache.readPlantUmlSvgCache({ key });
+    return result.status === "hit" && typeof result.svg === "string"
+      ? result.svg
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writePersistentPlantUmlSvgCache(
+  cache: PlantUmlSvgCacheFacade | null | undefined,
+  key: string,
+  svg: string,
+  metadata: {
+    renderer: "plantuml";
+    theme: "light" | "dark";
+    version: string;
+  },
+): Promise<void> {
+  if (!cache) {
+    return;
+  }
+  try {
+    await cache.writePlantUmlSvgCache({ key, svg, metadata });
+  } catch {
+    // Cache writes are best-effort and must not change render behavior.
+  }
+}
+
+function cacheHitResult(
+  svg: string,
+  cacheLayer: "memory" | "persistent",
+): PlantUmlRenderResult {
+  return {
+    status: "rendered",
+    svg,
+    diagnostics: [],
+    metrics: {
+      cacheLayer,
+      cacheStatus: "hit",
+      renderMs: 0,
+      svgBytes: svg.length,
+    },
+  };
+}
+
+function withCacheMiss(
+  result: PlantUmlRenderResult,
+  cacheStatus: "disabled" | "miss",
+): PlantUmlRenderResult {
+  return {
+    ...result,
+    metrics: {
+      ...result.metrics,
+      cacheStatus,
+      renderMs: result.metrics?.renderMs ?? 0,
+    },
+  };
+}
+
+async function sha256Hex(value: string): Promise<string | null> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    return null;
+  }
+  const encoded = new TextEncoder().encode(value);
+  const digest = await subtle.digest("SHA-256", encoded);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function publishPlantUmlMetrics({
@@ -447,6 +625,12 @@ function publishPlantUmlMetrics({
     "postMessageMs",
   ] as const;
   window.__svardPlantUmlMetrics = {
+    cacheHitCount: results.filter(
+      (result) => result.metrics?.cacheStatus === "hit",
+    ).length,
+    cacheMissCount: results.filter(
+      (result) => result.metrics?.cacheStatus === "miss",
+    ).length,
     diagramCount: results.length,
     renderedCount: results.filter((result) => result.status === "rendered")
       .length,
@@ -457,6 +641,12 @@ function publishPlantUmlMetrics({
     p50Ms: percentile(renderTimes, 0.5),
     p95Ms: percentile(renderTimes, 0.95),
     concurrency,
+    memoryHitCount: results.filter(
+      (result) => result.metrics?.cacheLayer === "memory",
+    ).length,
+    persistentHitCount: results.filter(
+      (result) => result.metrics?.cacheLayer === "persistent",
+    ).length,
     workerCount,
     componentP50Ms: Object.fromEntries(
       componentKeys.map((key) => [

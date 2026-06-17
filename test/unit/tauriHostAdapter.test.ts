@@ -448,6 +448,57 @@ describe("TauriHostAdapter.watchDocument", () => {
     });
   });
 
+  it("delegates PlantUML SVG cache operations to native commands", async () => {
+    const adapter = new TauriHostAdapter();
+    tauriMocks.invoke.mockResolvedValueOnce({
+      status: "hit",
+      svg: "<svg></svg>",
+    });
+    tauriMocks.invoke.mockResolvedValueOnce({ status: "written" });
+    tauriMocks.invoke.mockResolvedValueOnce(undefined);
+
+    await expect(
+      adapter.readPlantUmlSvgCache({ key: "abc123" }),
+    ).resolves.toEqual({
+      status: "hit",
+      svg: "<svg></svg>",
+    });
+    await expect(
+      adapter.writePlantUmlSvgCache({
+        key: "abc123",
+        svg: "<svg></svg>",
+        metadata: {
+          renderer: "plantuml",
+          theme: "light",
+          version: "plantuml-teavm-test",
+        },
+      }),
+    ).resolves.toEqual({ status: "written" });
+    await expect(adapter.clearPlantUmlSvgCache()).resolves.toBeUndefined();
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "read_plantuml_svg_cache",
+      { input: { key: "abc123" } },
+    );
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "write_plantuml_svg_cache",
+      {
+        input: {
+          key: "abc123",
+          svg: "<svg></svg>",
+          metadata: {
+            renderer: "plantuml",
+            theme: "light",
+            version: "plantuml-teavm-test",
+          },
+        },
+      },
+    );
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "clear_plantuml_svg_cache",
+    );
+  });
+
   it("authorizes directories through the native command", async () => {
     const adapter = new TauriHostAdapter();
 

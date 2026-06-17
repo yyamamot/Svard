@@ -18,6 +18,8 @@ import type {
   DocumentLinkResolution,
   LocalImageResult,
   RenderResult,
+  PlantUmlSvgCacheReadResult,
+  PlantUmlSvgCacheWriteResult,
 } from "../../core/types";
 import {
   applyDiagramPlaceholdersToHtml,
@@ -46,6 +48,18 @@ interface RenderHost {
     target?: string | null;
     label?: string | null;
   }): Promise<DocumentLinkResolution>;
+  readPlantUmlSvgCache?(input: {
+    key: string;
+  }): Promise<PlantUmlSvgCacheReadResult>;
+  writePlantUmlSvgCache?(input: {
+    key: string;
+    svg: string;
+    metadata: {
+      renderer: "plantuml";
+      theme: "light" | "dark";
+      version: string;
+    };
+  }): Promise<PlantUmlSvgCacheWriteResult>;
 }
 
 interface UseDocumentRenderOptions {
@@ -414,6 +428,17 @@ export function useDocumentRender({
               result.plantUmlDiagrams.length > 0 &&
               diagramConfig.plantumlRenderer === "local"
                 ? await renderPlantUmlDiagrams(result.plantUmlDiagrams, {
+                    cache:
+                      host.readPlantUmlSvgCache && host.writePlantUmlSvgCache
+                        ? {
+                            readPlantUmlSvgCache: (input) =>
+                              host.readPlantUmlSvgCache?.(input) ??
+                              Promise.resolve({ status: "miss" }),
+                            writePlantUmlSvgCache: (input) =>
+                              host.writePlantUmlSvgCache?.(input) ??
+                              Promise.resolve({ status: "skipped" }),
+                          }
+                        : null,
                     theme,
                     timeoutMs: diagramConfig.plantumlTimeoutMs,
                   })

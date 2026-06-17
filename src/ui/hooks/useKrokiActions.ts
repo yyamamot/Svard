@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { AppConfig, HostAdapter, KrokiResult } from "../../core/types";
+import { clearPlantUmlSvgMemoryCache } from "../../core/renderPlantUml";
 
 const krokiPlantUmlDiagnosticSource = `@startuml
 Alice -> Bob: Hello from Kroki
@@ -23,6 +24,12 @@ export function useKrokiActions({
   async function clearKrokiCache() {
     await host.clearKrokiCache();
     showInlineNotice("Kroki cache cleared", { tone: "success" });
+  }
+
+  async function clearPlantUmlSvgCache() {
+    clearPlantUmlSvgMemoryCache();
+    await host.clearPlantUmlSvgCache();
+    showInlineNotice("Local diagram cache cleared", { tone: "success" });
   }
 
   async function testKrokiPlantUml(
@@ -60,6 +67,7 @@ export function useKrokiActions({
 
   return {
     clearKrokiCache,
+    clearPlantUmlSvgCache,
     confirmKrokiRender,
     testKrokiPlantUml,
     tryKrokiFallback,

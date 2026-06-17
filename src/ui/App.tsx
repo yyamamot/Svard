@@ -191,6 +191,7 @@ export function App() {
     useContextMenuState();
   const {
     clearKrokiCache,
+    clearPlantUmlSvgCache,
     confirmKrokiRender,
     testKrokiPlantUml,
     tryKrokiFallback,
@@ -1078,7 +1079,8 @@ export function App() {
               config,
               mode: "page",
               onChange: (nextConfig) => void saveConfig(nextConfig),
-              onClearKrokiCache: () => void clearKrokiCache(),
+              onClearKrokiCache: clearKrokiCache,
+              onClearPlantUmlSvgCache: clearPlantUmlSvgCache,
               onTestKroki: testKrokiPlantUml,
               host,
               onClose: workspaceTabActions.closePreferencesTab,
