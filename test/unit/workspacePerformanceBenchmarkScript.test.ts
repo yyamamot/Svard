@@ -293,6 +293,13 @@ describe("workspace performance benchmark script", () => {
         report: {
           assertionFailures: [],
           assertions: { diagramVisible: true },
+          benchmarkPhases: [
+            {
+              durationMs: 180,
+              name: "all-diagrams-visible-after-heading",
+              status: "ok",
+            },
+          ],
           captureMetrics: { scenarioMs: 300 },
           outcome: "passed",
           plantUmlMetrics: {
@@ -367,6 +374,54 @@ describe("workspace performance benchmark script", () => {
           assertions: { diagramVisible: true },
           benchmarkPhases: [
             { durationMs: 20, name: "heading-visible", status: "ok" },
+            {
+              details: { status: "seen" },
+              durationMs: 120,
+              name: "render-diagrams-async-done-seen",
+              status: "ok",
+            },
+            {
+              details: { status: "seen" },
+              durationMs: 125,
+              name: "diagram-html-apply-done-seen",
+              status: "ok",
+            },
+            {
+              details: { status: "seen" },
+              durationMs: 130,
+              name: "diagram-dom-commit-seen",
+              status: "ok",
+            },
+            {
+              details: { status: "seen" },
+              durationMs: 145,
+              name: "diagram-post-commit-frame-seen",
+              status: "ok",
+            },
+            {
+              details: {
+                articleCommitCount: 1,
+                diagramDomCommitAtMs: 130,
+                diagramHtmlApplyDoneAtMs: 125,
+                diagramPostCommitFrameAtMs: 145,
+                diagramsAsyncDoneAtMs: 120,
+                eventCount: 18,
+                htmlApplyCount: 1,
+                postCommitFrameCount: 1,
+                renderDiagramsAsyncDoneCount: 1,
+                renderEventCount: 18,
+                slowestDurationMs: 80.5,
+                status: "seen",
+              },
+              durationMs: 80.5,
+              name: "diagram-render-after-open-events",
+              status: "ok",
+            },
+            {
+              durationMs: 180,
+              name: "all-diagrams-visible-after-heading",
+              status: "ok",
+            },
             { durationMs: 220, name: "all-diagrams-visible", status: "ok" },
           ],
           captureMetrics: { scenarioMs: 900 },
@@ -379,9 +434,33 @@ describe("workspace performance benchmark script", () => {
     ]);
 
     expect(result).toMatchObject({
-      durationMs: 220,
+      durationMs: 180,
       id: "diagram-render-after-open",
-      metric: "uiScenario.phase.all-diagrams-visible",
+      metric: "uiScenario.phase.all-diagrams-visible-after-heading",
+      status: "ok",
+    });
+    expect(result.phaseBreakdown).toContainEqual({
+      details: {
+        articleCommitCount: 1,
+        diagramDomCommitAtMs: 130,
+        diagramHtmlApplyDoneAtMs: 125,
+        diagramPostCommitFrameAtMs: 145,
+        diagramsAsyncDoneAtMs: 120,
+        eventCount: 18,
+        htmlApplyCount: 1,
+        postCommitFrameCount: 1,
+        renderDiagramsAsyncDoneCount: 1,
+        renderEventCount: 18,
+        slowestDurationMs: 80.5,
+        status: "seen",
+      },
+      durationMs: 80.5,
+      name: "diagram-render-after-open-events",
+      status: "ok",
+    });
+    expect(result.phaseBreakdown).toContainEqual({
+      durationMs: 220,
+      name: "all-diagrams-visible",
       status: "ok",
     });
     expect(validatePrivacy(result)).toEqual([]);

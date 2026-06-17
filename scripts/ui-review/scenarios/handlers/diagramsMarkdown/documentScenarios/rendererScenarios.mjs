@@ -240,19 +240,35 @@ export async function applyRendererScenario(context) {
     await recordPhase("all-diagrams-visible", startedAt);
   } else if (scenario === "viewer-diagram-samples-after-open") {
     const phases = [];
-    const recordPhase = async (name, started, details = undefined) => {
-      const durationMs = Date.now() - started;
-      phases.push({ name, durationMs, status: "ok", details });
+    const recordPhase = async (
+      name,
+      started,
+      details = undefined,
+      status = "ok",
+      durationOverrideMs = undefined,
+    ) => {
+      const durationMs =
+        typeof durationOverrideMs === "number" &&
+        Number.isFinite(durationOverrideMs)
+          ? durationOverrideMs
+          : Date.now() - started;
+      phases.push({ name, durationMs, status, details });
       await page.evaluate((nextPhases) => {
         window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
       }, phases);
     };
+    await installPerfEventCollector(page);
+    let perfBaseline = null;
     const clickStartedAt = await openDiagramFixture(page, {
+      beforeFileClick: async () => {
+        perfBaseline = await readPerfEventBaseline(page);
+      },
       fileName: "diagrams-mixed-long-ja.adoc",
     });
     await page.locator("text=Mixed Diagram Japanese Sample").waitFor();
     await recordPhase("heading-visible", clickStartedAt);
     await recordDiagramPlaceholderPhase(page, recordPhase, clickStartedAt);
+    const diagramsVisibleStartedAt = Date.now();
     const mermaidStartedAt = Date.now();
     await page.locator('[data-review-id="mermaid-render"]').waitFor();
     await recordPhase("mermaid-visible", mermaidStartedAt);
@@ -268,6 +284,16 @@ export async function applyRendererScenario(context) {
       .locator("svg")
       .waitFor();
     await recordPhase("graphviz-visible", graphvizStartedAt);
+    await recordAfterOpenDiagramPerfPhases(
+      page,
+      recordPhase,
+      clickStartedAt,
+      perfBaseline,
+    );
+    await recordPhase(
+      "all-diagrams-visible-after-heading",
+      diagramsVisibleStartedAt,
+    );
     await recordPhase("all-diagrams-visible", clickStartedAt);
   } else if (scenario === "viewer-diagram-samples-scroll-stability") {
     await installPerfEventCollector(page);
@@ -472,6 +498,35 @@ async function recordDiagramPlaceholderPhase(page, recordPhase, started) {
   });
 }
 
+async function recordAfterOpenDiagramPerfPhases(
+  page,
+  recordPhase,
+  started,
+  baseline,
+) {
+  const details = await readAfterOpenDiagramPerfSummary(page, baseline, started);
+  const timelinePhases = [
+    ["render-diagrams-async-done-seen", details.diagramsAsyncDoneAtMs],
+    ["diagram-html-apply-done-seen", details.diagramHtmlApplyDoneAtMs],
+    ["diagram-dom-commit-seen", details.diagramDomCommitAtMs],
+    ["diagram-post-commit-frame-seen", details.diagramPostCommitFrameAtMs],
+  ];
+  for (const [name, offsetMs] of timelinePhases) {
+    if (typeof offsetMs === "number" && Number.isFinite(offsetMs)) {
+      await recordPhase(name, started, { status: "seen" }, "ok", offsetMs);
+    } else {
+      await recordPhase(name, started, { status: "not-seen" }, "skipped");
+    }
+  }
+  await recordPhase(
+    "diagram-render-after-open-events",
+    started,
+    details,
+    "ok",
+    details.slowestDurationMs,
+  );
+}
+
 async function installPerfEventCollector(page) {
   await page.evaluate(() => {
     localStorage.setItem("SVARD_PERF_TRACE", "1");
@@ -595,6 +650,64 @@ async function readDocumentOpenPerfSummary(page, baseline, clickStartedAt) {
           ? "seen"
           : "not-seen",
       viewerRenderCount: countEvent((eventName) => eventName === "viewer.render"),
+    };
+  }, { baselineSnapshot: baseline, clickStartedAtMs: clickStartedAt });
+}
+
+async function readAfterOpenDiagramPerfSummary(page, baseline, clickStartedAt) {
+  return page.evaluate(({ baselineSnapshot, clickStartedAtMs }) => {
+    const allEvents = window.__SVARD_PERF_EVENTS__ ?? [];
+    const events = allEvents.slice(baselineSnapshot?.eventCount ?? 0);
+    const allowedEvents = events.filter((event) => {
+      const eventName = event?.event;
+      return typeof eventName === "string" && eventName.startsWith("render.");
+    });
+    const countEvent = (predicate) =>
+      allowedEvents.filter((event) => predicate(event?.event)).length;
+    const firstEventOffset = (eventName) => {
+      const matched = allowedEvents.find((event) => event?.event === eventName);
+      if (
+        !matched ||
+        typeof matched.collectedAtMs !== "number" ||
+        !Number.isFinite(matched.collectedAtMs)
+      ) {
+        return undefined;
+      }
+      return Math.max(0, Math.round(matched.collectedAtMs - clickStartedAtMs));
+    };
+    const durations = allowedEvents
+      .map((event) => event?.durationMs)
+      .filter(
+        (duration) => typeof duration === "number" && Number.isFinite(duration),
+      );
+    return {
+      articleCommitCount: countEvent(
+        (eventName) => eventName === "render.articleInnerHtmlCommit",
+      ),
+      diagramDomCommitAtMs: firstEventOffset("render.articleInnerHtmlCommit"),
+      diagramHtmlApplyDoneAtMs: firstEventOffset(
+        "render.applyInlineDiagramsToHtml",
+      ),
+      diagramPostCommitFrameAtMs: firstEventOffset(
+        "render.postCommitAnimationFrame",
+      ),
+      diagramsAsyncDoneAtMs: firstEventOffset("render.diagramsAsyncDone"),
+      eventCount: allowedEvents.length,
+      htmlApplyCount: countEvent(
+        (eventName) => eventName === "render.applyInlineDiagramsToHtml",
+      ),
+      postCommitFrameCount: countEvent(
+        (eventName) => eventName === "render.postCommitAnimationFrame",
+      ),
+      renderDiagramsAsyncDoneCount: countEvent(
+        (eventName) => eventName === "render.diagramsAsyncDone",
+      ),
+      renderEventCount: countEvent((eventName) => eventName?.startsWith("render.")),
+      slowestDurationMs: durations.length > 0 ? Math.max(...durations) : 0,
+      status:
+        countEvent((eventName) => eventName === "render.diagramsAsyncDone") > 0
+          ? "seen"
+          : "not-seen",
     };
   }, { baselineSnapshot: baseline, clickStartedAtMs: clickStartedAt });
 }

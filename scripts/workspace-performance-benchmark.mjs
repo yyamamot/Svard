@@ -387,7 +387,7 @@ function durationOverridePhaseName(workflowId) {
     return "document-heading-visible";
   }
   if (workflowId === "diagram-render-after-open") {
-    return "all-diagrams-visible";
+    return "all-diagrams-visible-after-heading";
   }
   if (workflowId === "current-file-search") {
     return "search-interaction-complete";
