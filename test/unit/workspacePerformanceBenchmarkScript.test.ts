@@ -387,6 +387,66 @@ describe("workspace performance benchmark script", () => {
     expect(validatePrivacy(result)).toEqual([]);
   });
 
+  it("keeps diagram open path document-ready phase details privacy-safe", () => {
+    const [result] = deriveUiReviewResults([
+      {
+        durationMs: 1800,
+        report: {
+          assertionFailures: [],
+          assertions: { diagramVisible: true },
+          benchmarkPhases: [
+            { durationMs: 120, name: "file-click-dispatched", status: "ok" },
+            { durationMs: 700, name: "active-title-visible", status: "ok" },
+            { durationMs: 780, name: "document-body-visible", status: "ok" },
+            { durationMs: 900, name: "document-heading-visible", status: "ok" },
+            {
+              details: {
+                articleCommitCount: 1,
+                eventCount: 8,
+                openDispatchEventCount: 2,
+                renderEventCount: 5,
+                slowestDurationMs: 12.34,
+                status: "seen",
+                viewerRenderCount: 1,
+              },
+              durationMs: 910,
+              name: "article-html-commit-seen",
+              status: "ok",
+            },
+          ],
+          captureMetrics: { scenarioMs: 1800 },
+          outcome: "passed",
+        },
+        scenario: "viewer-diagram-samples",
+        status: "ok",
+        workflowId: "diagram-open-via-tree",
+      },
+    ]);
+
+    expect(result.phaseBreakdown).toContainEqual({
+      details: {
+        articleCommitCount: 1,
+        eventCount: 8,
+        openDispatchEventCount: 2,
+        renderEventCount: 5,
+        slowestDurationMs: 12.34,
+        status: "seen",
+        viewerRenderCount: 1,
+      },
+      durationMs: 910,
+      name: "article-html-commit-seen",
+      status: "ok",
+    });
+    expect(validatePrivacy(result)).toEqual([]);
+    expect(
+      reportMarkdown({
+        bottleneckCandidates: [],
+        profile: "full",
+        workflows: [result],
+      }),
+    ).toContain("document-heading-visible: ok, 900ms");
+  });
+
   it("uses the search interaction phase duration for current file search", () => {
     const [result] = deriveUiReviewResults([
       {

@@ -179,6 +179,7 @@ export async function applyRendererScenario(context) {
   } else if (scenario === "viewer-diagram-samples") {
     const startedAt = Date.now();
     const phases = [];
+    let perfBaseline = null;
     const recordPhase = async (name, started, details = undefined) => {
       const durationMs = Date.now() - started;
       phases.push({ name, durationMs, status: "ok", details });
@@ -186,12 +187,30 @@ export async function applyRendererScenario(context) {
         window.__SVARD_BENCHMARK_PHASES__ = nextPhases;
       }, phases);
     };
+    await installPerfEventCollector(page);
     const clickStartedAt = await openDiagramFixture(page, {
+      beforeFileClick: async () => {
+        perfBaseline = await readPerfEventBaseline(page);
+      },
       fileName: "diagrams-mixed-long-ja.adoc",
       recordPhase,
     });
+    await page
+      .locator('[data-review-id="active-document-title"]')
+      .filter({ hasText: "diagrams-mixed-long-ja.adoc" })
+      .waitFor();
+    await recordPhase("active-title-visible", clickStartedAt);
+    await page.locator('[data-review-id="document-body"]').waitFor();
+    await recordPhase("document-body-visible", clickStartedAt);
     await page.locator("text=Mixed Diagram Japanese Sample").waitFor();
+    await recordPhase("document-heading-visible", clickStartedAt);
     await recordPhase("heading-visible", clickStartedAt);
+    await recordDocumentOpenPerfPhase(
+      page,
+      recordPhase,
+      clickStartedAt,
+      perfBaseline,
+    );
     await recordDiagramPlaceholderPhase(page, recordPhase, clickStartedAt);
     const mermaidStartedAt = Date.now();
     await page.locator('[data-review-id="mermaid-render"]').waitFor();
@@ -363,6 +382,7 @@ export async function applyRendererScenario(context) {
 async function openDiagramFixture(page, input) {
   const fileName = typeof input === "string" ? input : input.fileName;
   const recordPhase = typeof input === "string" ? null : input.recordPhase;
+  const beforeFileClick = typeof input === "string" ? null : input.beforeFileClick;
   let phaseStartedAt = Date.now();
   await page.locator('[data-review-id="file-tree"]').waitFor();
   await recordPhase?.("file-tree-ready", phaseStartedAt);
@@ -390,9 +410,20 @@ async function openDiagramFixture(page, input) {
   await targetFile.waitFor();
   await recordPhase?.("diagrams-folder-expanded", phaseStartedAt);
   phaseStartedAt = Date.now();
+  await beforeFileClick?.();
   await targetFile.click();
   await recordPhase?.("file-click-dispatched", phaseStartedAt);
   return phaseStartedAt;
+}
+
+async function recordDocumentOpenPerfPhase(
+  page,
+  recordPhase,
+  started,
+  baseline,
+) {
+  const details = await readDocumentOpenPerfSummary(page, baseline);
+  await recordPhase("article-html-commit-seen", started, details);
 }
 
 async function recordDiagramPlaceholderPhase(page, recordPhase, started) {
@@ -452,6 +483,43 @@ async function readPerfEventBaseline(page) {
       },
     };
   });
+}
+
+async function readDocumentOpenPerfSummary(page, baseline) {
+  return page.evaluate((baselineSnapshot) => {
+    const allEvents = window.__SVARD_PERF_EVENTS__ ?? [];
+    const events = allEvents.slice(baselineSnapshot?.eventCount ?? 0);
+    const allowedEvents = events.filter((event) => {
+      const eventName = event?.event;
+      return (
+        typeof eventName === "string" &&
+        (eventName.startsWith("openDocument.dispatch.") ||
+          eventName.startsWith("render.") ||
+          eventName === "viewer.render")
+      );
+    });
+    const countEvent = (predicate) =>
+      allowedEvents.filter((event) => predicate(event?.event)).length;
+    const durations = allowedEvents
+      .map((event) => event?.durationMs)
+      .filter((duration) => typeof duration === "number" && Number.isFinite(duration));
+    return {
+      articleCommitCount: countEvent(
+        (eventName) => eventName === "render.articleInnerHtmlCommit",
+      ),
+      eventCount: allowedEvents.length,
+      openDispatchEventCount: countEvent((eventName) =>
+        eventName?.startsWith("openDocument.dispatch."),
+      ),
+      renderEventCount: countEvent((eventName) => eventName?.startsWith("render.")),
+      slowestDurationMs: durations.length > 0 ? Math.max(...durations) : 0,
+      status:
+        countEvent((eventName) => eventName === "render.articleInnerHtmlCommit") > 0
+          ? "seen"
+          : "not-seen",
+      viewerRenderCount: countEvent((eventName) => eventName === "viewer.render"),
+    };
+  }, baseline);
 }
 
 async function readPlaceholderStartupMetrics(page) {
