@@ -230,6 +230,11 @@ export function ViewerPane({
     }
 
     const startedAt = perfNow();
+    tracePerf("render.articleRefReady", {
+      basename: perfBasename(documentPath),
+      format: documentFormat,
+      durationMs: 0,
+    });
     tracePerf("render.layoutEffect.start", {
       basename: perfBasename(documentPath),
       format: documentFormat,
@@ -248,6 +253,16 @@ export function ViewerPane({
       format: documentFormat,
       durationMs: perfDuration(startedAt),
     });
+    const animationFrame = window.requestAnimationFrame(() => {
+      tracePerf("render.postCommitAnimationFrame", {
+        basename: perfBasename(documentPath),
+        format: documentFormat,
+        durationMs: perfDuration(startedAt),
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+    };
   }, [documentFormat, documentPath, hasRenderResult, html]);
 
   useEffect(() => {

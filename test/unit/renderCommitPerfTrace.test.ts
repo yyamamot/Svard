@@ -15,8 +15,10 @@ describe("render commit perf trace", () => {
   it("records state and layout commit boundaries without private body data", () => {
     expect(renderHookSource).toContain("render.stateCommit.start");
     expect(renderHookSource).toContain("render.stateCommit.queued");
+    expect(viewerPaneSource).toContain("render.articleRefReady");
     expect(viewerPaneSource).toContain("render.layoutEffect.start");
     expect(viewerPaneSource).toContain("render.layoutEffect.done");
+    expect(viewerPaneSource).toContain("render.postCommitAnimationFrame");
 
     const stateTraceBody = renderHookSource.slice(
       renderHookSource.indexOf('tracePerf("render.stateCommit.start"'),
@@ -42,6 +44,10 @@ describe("render commit perf trace", () => {
     expect(layoutEffectBody).toContain(
       "[documentFormat, documentPath, hasRenderResult, html]",
     );
+    expect(layoutEffectBody).not.toContain("tracePerf(\"render.articleRefReady\", {\n      html");
+    expect(layoutEffectBody).not.toContain("tracePerf(\"render.postCommitAnimationFrame\", {\n        html");
+    expect(layoutEffectBody).not.toContain("source");
+    expect(layoutEffectBody).not.toContain("documentPayload.path");
     expect(layoutEffectBody).not.toContain("[html, payload, result]");
   });
 });

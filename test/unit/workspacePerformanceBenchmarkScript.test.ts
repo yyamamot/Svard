@@ -416,12 +416,28 @@ describe("workspace performance benchmark script", () => {
               name: "render-html-state-queued-seen",
               status: "ok",
             },
+            { durationMs: 905, name: "article-ref-ready-seen", status: "ok" },
+            { durationMs: 906, name: "layout-effect-start-seen", status: "ok" },
+            { durationMs: 912, name: "layout-effect-done-seen", status: "ok" },
+            {
+              durationMs: 930,
+              name: "post-commit-animation-frame-seen",
+              status: "ok",
+            },
             {
               details: {
                 articleCommitCount: 1,
                 articleHtmlCommitAtMs: 910,
-                eventCount: 8,
+                articleRefReadyAtMs: 905,
+                articleRefReadyCount: 1,
+                eventCount: 12,
+                layoutEffectDoneAtMs: 912,
+                layoutEffectDoneCount: 1,
+                layoutEffectStartAtMs: 906,
+                layoutEffectStartCount: 1,
                 openDispatchEventCount: 2,
+                postCommitAnimationFrameAtMs: 930,
+                postCommitAnimationFrameCount: 1,
                 renderEventCount: 5,
                 renderEffectStartAtMs: 210,
                 renderHtmlStateQueuedAtMs: 720,
@@ -448,8 +464,16 @@ describe("workspace performance benchmark script", () => {
       details: {
         articleCommitCount: 1,
         articleHtmlCommitAtMs: 910,
-        eventCount: 8,
+        articleRefReadyAtMs: 905,
+        articleRefReadyCount: 1,
+        eventCount: 12,
+        layoutEffectDoneAtMs: 912,
+        layoutEffectDoneCount: 1,
+        layoutEffectStartAtMs: 906,
+        layoutEffectStartCount: 1,
         openDispatchEventCount: 2,
+        postCommitAnimationFrameAtMs: 930,
+        postCommitAnimationFrameCount: 1,
         renderEventCount: 5,
         renderEffectStartAtMs: 210,
         renderHtmlStateQueuedAtMs: 720,
@@ -468,6 +492,13 @@ describe("workspace performance benchmark script", () => {
       name: "render-worker-response-seen",
       status: "skipped",
     });
+    expect(result.durationMs).toBe(900);
+    expect(result.metric).toBe("uiScenario.phase.document-heading-visible");
+    expect(result.phaseBreakdown).toContainEqual({
+      durationMs: 930,
+      name: "post-commit-animation-frame-seen",
+      status: "ok",
+    });
     expect(validatePrivacy(result)).toEqual([]);
     expect(
       reportMarkdown({
@@ -476,6 +507,13 @@ describe("workspace performance benchmark script", () => {
         workflows: [result],
       }),
     ).toContain("document-heading-visible: ok, 900ms");
+    expect(
+      reportMarkdown({
+        bottleneckCandidates: [],
+        profile: "full",
+        workflows: [result],
+      }),
+    ).toContain("diagram-open-via-tree: ok, filesystem, 900ms");
   });
 
   it("uses the search interaction phase duration for current file search", () => {

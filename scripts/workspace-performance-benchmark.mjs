@@ -383,6 +383,9 @@ function deriveUiReviewResults(reports = []) {
 }
 
 function durationOverridePhaseName(workflowId) {
+  if (workflowId === "diagram-open-via-tree") {
+    return "document-heading-visible";
+  }
   if (workflowId === "diagram-render-after-open") {
     return "all-diagrams-visible";
   }

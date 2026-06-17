@@ -438,6 +438,13 @@ async function recordDocumentOpenPerfPhases(
     ["render-worker-response-seen", details.renderWorkerResponseAtMs],
     ["render-prepare-html-done-seen", details.renderPrepareHtmlDoneAtMs],
     ["render-html-state-queued-seen", details.renderHtmlStateQueuedAtMs],
+    ["article-ref-ready-seen", details.articleRefReadyAtMs],
+    ["layout-effect-start-seen", details.layoutEffectStartAtMs],
+    ["layout-effect-done-seen", details.layoutEffectDoneAtMs],
+    [
+      "post-commit-animation-frame-seen",
+      details.postCommitAnimationFrameAtMs,
+    ],
   ];
   for (const [name, offsetMs] of timelinePhases) {
     if (typeof offsetMs === "number" && Number.isFinite(offsetMs)) {
@@ -553,9 +560,27 @@ async function readDocumentOpenPerfSummary(page, baseline, clickStartedAt) {
         (eventName) => eventName === "render.articleInnerHtmlCommit",
       ),
       articleHtmlCommitAtMs: firstEventOffset("render.articleInnerHtmlCommit"),
+      articleRefReadyAtMs: firstEventOffset("render.articleRefReady"),
+      articleRefReadyCount: countEvent(
+        (eventName) => eventName === "render.articleRefReady",
+      ),
       eventCount: allowedEvents.length,
+      layoutEffectDoneAtMs: firstEventOffset("render.layoutEffect.done"),
+      layoutEffectDoneCount: countEvent(
+        (eventName) => eventName === "render.layoutEffect.done",
+      ),
+      layoutEffectStartAtMs: firstEventOffset("render.layoutEffect.start"),
+      layoutEffectStartCount: countEvent(
+        (eventName) => eventName === "render.layoutEffect.start",
+      ),
       openDispatchEventCount: countEvent((eventName) =>
         eventName?.startsWith("openDocument.dispatch."),
+      ),
+      postCommitAnimationFrameAtMs: firstEventOffset(
+        "render.postCommitAnimationFrame",
+      ),
+      postCommitAnimationFrameCount: countEvent(
+        (eventName) => eventName === "render.postCommitAnimationFrame",
       ),
       renderEventCount: countEvent((eventName) => eventName?.startsWith("render.")),
       renderEffectStartAtMs: firstEventOffset("render.effect.start"),
