@@ -74,8 +74,8 @@ export function CacheSection({
         <strong>app cache dir / kroki</strong>
       </div>
       <p className="mode-help" data-review-id="cache-retention-note">
-        Cached files are kept until you clear them or the operating system
-        removes app cache data.
+        Each diagram cache keeps up to 128 MiB and removes the least recently
+        used files automatically.
       </p>
       <button
         type="button"
@@ -92,7 +92,8 @@ export function CacheSection({
         <strong>app cache dir / plantuml-local</strong>
       </div>
       <p className="mode-help">
-        Reuses built-in PlantUML SVG results without using Kroki.
+        Reuses built-in PlantUML SVG results without using Kroki. Also keeps up
+        to 128 MiB on disk.
       </p>
       <button
         type="button"

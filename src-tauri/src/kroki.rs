@@ -3,7 +3,10 @@ use sha2::{Digest, Sha256};
 use std::{fs, path::Path, time::Duration};
 use url::Url;
 
-use crate::{KrokiConfig, KrokiRequest, KrokiResult};
+use crate::{
+    prune_cache_dir, remove_oversized_cache_file, touch_cache_file, KrokiConfig, KrokiRequest,
+    KrokiResult,
+};
 
 pub(crate) const PUBLIC_KROKI_ENDPOINT: &str = "https://kroki.io";
 
@@ -11,6 +14,8 @@ const KROKI_MIN_TIMEOUT_MS: u64 = 1_000;
 const KROKI_MAX_TIMEOUT_MS: u64 = 60_000;
 const KROKI_MIN_BODY_BYTES: u64 = 1;
 const KROKI_MAX_BODY_BYTES: u64 = 2 * 1024 * 1024;
+const KROKI_MAX_CACHE_ENTRY_BYTES: usize = 2 * 1024 * 1024;
+const KROKI_MAX_CACHE_TOTAL_BYTES: u64 = 128 * 1024 * 1024;
 const KROKI_DIAGRAM_TYPES: &[&str] = &[
     "actdiag",
     "blockdiag",
@@ -101,16 +106,23 @@ pub(crate) fn render_diagram_with_cache_dir(
     ));
 
     if input.config.cache_enabled && cache_file.exists() {
-        let content = fs::read_to_string(&cache_file)
-            .map_err(|error| format!("failed to read Kroki cache: {error}"))?;
-        return Ok(KrokiResult {
-            status: "rendered".to_string(),
-            message: Some("Rendered from Kroki cache.".to_string()),
-            artifact_url: None,
-            media_type: Some(media_type),
-            content: Some(content),
-            cache_status: Some("hit".to_string()),
-        });
+        let metadata = fs::metadata(&cache_file)
+            .map_err(|error| format!("failed to read Kroki cache metadata: {error}"))?;
+        if metadata.len() as usize > KROKI_MAX_CACHE_ENTRY_BYTES {
+            let _ = remove_oversized_cache_file(&cache_file);
+        } else {
+            let _ = touch_cache_file(&cache_file);
+            let content = fs::read_to_string(&cache_file)
+                .map_err(|error| format!("failed to read Kroki cache: {error}"))?;
+            return Ok(KrokiResult {
+                status: "rendered".to_string(),
+                message: Some("Rendered from Kroki cache.".to_string()),
+                artifact_url: None,
+                media_type: Some(media_type),
+                content: Some(content),
+                cache_status: Some("hit".to_string()),
+            });
+        }
     }
 
     let render_url = format!(
@@ -154,11 +166,24 @@ pub(crate) fn render_diagram_with_cache_dir(
             .map_err(|error| format!("failed to decode Kroki SVG response: {error}"))?
     };
 
-    if input.config.cache_enabled {
-        fs::create_dir_all(cache_dir)
-            .map_err(|error| format!("failed to create Kroki cache dir: {error}"))?;
-        fs::write(&cache_file, &content)
-            .map_err(|error| format!("failed to write Kroki cache: {error}"))?;
+    let should_write_cache =
+        input.config.cache_enabled && content.len() <= KROKI_MAX_CACHE_ENTRY_BYTES;
+    let mut cache_status = if input.config.cache_enabled {
+        "not-written"
+    } else {
+        "disabled"
+    };
+    if should_write_cache {
+        let write_result = fs::create_dir_all(cache_dir)
+            .map_err(|error| format!("failed to create Kroki cache dir: {error}"))
+            .and_then(|_| {
+                fs::write(&cache_file, &content)
+                    .map_err(|error| format!("failed to write Kroki cache: {error}"))
+            });
+        if write_result.is_ok() {
+            cache_status = "miss";
+            let _ = prune_cache_dir(cache_dir, KROKI_MAX_CACHE_TOTAL_BYTES);
+        }
     }
 
     Ok(KrokiResult {
@@ -167,11 +192,7 @@ pub(crate) fn render_diagram_with_cache_dir(
         artifact_url: None,
         media_type: Some(media_type),
         content: Some(content),
-        cache_status: Some(if input.config.cache_enabled {
-            "miss".to_string()
-        } else {
-            "disabled".to_string()
-        }),
+        cache_status: Some(cache_status.to_string()),
     })
 }
 

@@ -17,6 +17,7 @@ tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
 base64 = "0.22"
+filetime = "0.2"
 gix = { version = "0.83", default-features = false, features = ["basic", "status", "sha1"] }
 notify = "8"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }

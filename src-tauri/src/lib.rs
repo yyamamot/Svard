@@ -14,6 +14,7 @@ use tauri::{window::Color, Emitter, Manager, Theme, WebviewUrl, WebviewWindowBui
 
 mod app_error;
 mod backend_types;
+mod cache_prune;
 mod config;
 mod desktop_open;
 mod document_io;
@@ -29,6 +30,7 @@ mod workspace_paths;
 
 pub use app_error::*;
 pub use backend_types::*;
+use cache_prune::*;
 use config::*;
 use desktop_open::*;
 use document_io::*;

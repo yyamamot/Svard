@@ -38,6 +38,7 @@ const workerUrl = "/vendor/plantuml-teavm/worker.html";
 export const defaultPlantUmlConcurrency = 1;
 const maxPlantUmlConcurrency = 4;
 export const plantUmlLocalRendererCacheVersion = "plantuml-teavm-2026.4-v1";
+export const maxPlantUmlSvgMemoryCacheBytes = 32 * 1024 * 1024;
 
 type PlantUmlIframeFactory = () => HTMLIFrameElement;
 export interface PlantUmlSvgCacheFacade {
@@ -370,6 +371,7 @@ export class IframePlantUmlLocalRenderer {
 let renderers = new Map<number, IframePlantUmlLocalRenderer>();
 const svgMemoryCache = new Map<string, string>();
 const pendingCachedRenders = new Map<string, Promise<PlantUmlRenderResult>>();
+let svgMemoryCacheBytes = 0;
 
 function normalizeConcurrency(value: number | undefined): number {
   if (!Number.isFinite(value) || value === undefined) {
@@ -463,7 +465,50 @@ export function disposePlantUmlRenderer() {
 
 export function clearPlantUmlSvgMemoryCache() {
   svgMemoryCache.clear();
+  svgMemoryCacheBytes = 0;
   pendingCachedRenders.clear();
+}
+
+function getPlantUmlSvgMemoryCache(key: string): string | undefined {
+  const svg = svgMemoryCache.get(key);
+  if (svg === undefined) {
+    return undefined;
+  }
+  svgMemoryCache.delete(key);
+  svgMemoryCache.set(key, svg);
+  return svg;
+}
+
+function setPlantUmlSvgMemoryCache(key: string, svg: string) {
+  const bytes = byteLength(svg);
+  const previous = svgMemoryCache.get(key);
+  if (previous !== undefined) {
+    svgMemoryCacheBytes -= byteLength(previous);
+    svgMemoryCache.delete(key);
+  }
+  if (bytes > maxPlantUmlSvgMemoryCacheBytes) {
+    return;
+  }
+  svgMemoryCache.set(key, svg);
+  svgMemoryCacheBytes += bytes;
+  prunePlantUmlSvgMemoryCache();
+}
+
+function prunePlantUmlSvgMemoryCache() {
+  while (svgMemoryCacheBytes > maxPlantUmlSvgMemoryCacheBytes) {
+    const oldest = svgMemoryCache.entries().next();
+    if (oldest.done) {
+      svgMemoryCacheBytes = 0;
+      return;
+    }
+    const [key, svg] = oldest.value;
+    svgMemoryCache.delete(key);
+    svgMemoryCacheBytes -= byteLength(svg);
+  }
+}
+
+function byteLength(value: string) {
+  return new TextEncoder().encode(value).byteLength;
 }
 
 async function renderPlantUmlWithCache(
@@ -476,7 +521,7 @@ async function renderPlantUmlWithCache(
     return withCacheMiss(await localRenderer.renderSvg(input), "disabled");
   }
 
-  const memorySvg = svgMemoryCache.get(key);
+  const memorySvg = getPlantUmlSvgMemoryCache(key);
   if (memorySvg !== undefined) {
     return cacheHitResult(memorySvg, "memory");
   }
@@ -486,7 +531,7 @@ async function renderPlantUmlWithCache(
     key,
   );
   if (persistentHit !== null) {
-    svgMemoryCache.set(key, persistentHit);
+    setPlantUmlSvgMemoryCache(key, persistentHit);
     return cacheHitResult(persistentHit, "persistent");
   }
 
@@ -498,7 +543,7 @@ async function renderPlantUmlWithCache(
   const renderPromise = (async () => {
     const result = withCacheMiss(await localRenderer.renderSvg(input), "miss");
     if (result.status === "rendered" && result.svg) {
-      svgMemoryCache.set(key, result.svg);
+      setPlantUmlSvgMemoryCache(key, result.svg);
       await writePersistentPlantUmlSvgCache(options.cache, key, result.svg, {
         renderer: "plantuml",
         theme: input.theme,

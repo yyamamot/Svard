@@ -66,6 +66,17 @@ describe("CacheSection", () => {
     expect(button?.textContent).toBe("Clear Kroki cache");
   });
 
+  it("describes bounded cache retention", () => {
+    renderSection();
+
+    const note = container.querySelector<HTMLElement>(
+      '[data-review-id="cache-retention-note"]',
+    );
+
+    expect(note?.textContent).toContain("128 MiB");
+    expect(note?.textContent).toContain("least recently used");
+  });
+
   it("keeps button feedback scoped to the local diagram cache button", async () => {
     const onClearPlantUmlSvgCache = vi.fn(async () => undefined);
     renderSection({ onClearPlantUmlSvgCache });

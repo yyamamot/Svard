@@ -4926,6 +4926,7 @@ name = "svard"
 version = "1.0.2"
 dependencies = [
  "base64 0.22.1",
+ "filetime",
  "gix",
  "keyring",
  "notify",

@@ -1,5 +1,10 @@
 use super::*;
 
+fn set_old_mtime(path: &Path, seconds: i64) {
+    filetime::set_file_mtime(path, filetime::FileTime::from_unix_time(seconds, 0))
+        .expect("set mtime");
+}
+
 #[test]
 fn disabled_kroki_returns_diagnostic_result() {
     let cache_dir = tempdir().expect("temp dir");
@@ -51,6 +56,26 @@ fn clear_kroki_cache_removes_cache_directory() {
 }
 
 #[test]
+fn kroki_cache_prunes_oldest_entries() {
+    let cache_dir = tempdir().expect("temp dir");
+    let old_file = cache_dir.path().join("old.svg");
+    let recent_file = cache_dir.path().join("recent.svg");
+    let new_file = cache_dir.path().join("new.svg");
+    fs::write(&old_file, "old-cache-entry").expect("write old");
+    fs::write(&recent_file, "recent-cache-entry").expect("write recent");
+    fs::write(&new_file, "new-cache-entry").expect("write new");
+    set_old_mtime(&old_file, 1);
+    set_old_mtime(&recent_file, 2);
+    set_old_mtime(&new_file, 3);
+
+    prune_cache_dir(cache_dir.path(), 34).expect("prune cache");
+
+    assert!(!old_file.exists());
+    assert!(recent_file.exists());
+    assert!(new_file.exists());
+}
+
+#[test]
 fn remote_kroki_allows_lan_endpoint_without_confirmation() {
     let cache_dir = tempdir().expect("temp dir");
     let mut config = default_config().kroki;
@@ -79,6 +104,42 @@ fn remote_kroki_allows_lan_endpoint_without_confirmation() {
 
     assert_eq!(result.status, "rendered");
     assert_eq!(result.cache_status.as_deref(), Some("hit"));
+}
+
+#[test]
+fn kroki_cache_hit_updates_lru_timestamp() {
+    let cache_dir = tempdir().expect("temp dir");
+    let mut config = default_config().kroki;
+    config.mode = KrokiMode::Remote;
+    config.endpoint_url = Some("http://127.0.0.1:8000".to_string());
+    config.cache_enabled = true;
+    let source = "@startuml\n@enduml".to_string();
+    let cache_file = cache_dir.path().join(cache_file_name(
+        "plantuml",
+        "svg",
+        &source,
+        "http://127.0.0.1:8000",
+    ));
+    fs::write(&cache_file, "<svg />").expect("write cache");
+    set_old_mtime(&cache_file, 1);
+
+    let result = render_diagram_with_cache_dir(
+        KrokiRequest {
+            diagram_type: "plantuml".to_string(),
+            source,
+            config,
+            confirmed_remote_send: None,
+        },
+        cache_dir.path(),
+    )
+    .expect("result");
+
+    assert_eq!(result.cache_status.as_deref(), Some("hit"));
+    let modified = fs::metadata(&cache_file)
+        .expect("metadata")
+        .modified()
+        .expect("modified");
+    assert!(modified > std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1));
 }
 
 #[test]

@@ -517,6 +517,107 @@ describe("renderPlantUmlDiagrams cache", () => {
     });
   });
 
+  it("evicts the oldest in-memory SVG when the memory cache exceeds its byte cap", async () => {
+    const firstKey = await createPlantUmlSvgCacheKey({
+      source: "A -> B",
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    const secondKey = await createPlantUmlSvgCacheKey({
+      source: "B -> C",
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    const svgByKey = new Map([
+      [firstKey, `<svg>${"a".repeat(17 * 1024 * 1024)}</svg>`],
+      [secondKey, `<svg>${"b".repeat(17 * 1024 * 1024)}</svg>`],
+    ]);
+    let readCount = 0;
+    const cache = {
+      async readPlantUmlSvgCache(input: { key: string }) {
+        readCount += 1;
+        return { status: "hit" as const, svg: svgByKey.get(input.key) };
+      },
+      async writePlantUmlSvgCache() {
+        return { status: "written" as const };
+      },
+    };
+
+    await renderPlantUmlDiagrams([{ id: "one", source: "A -> B" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await renderPlantUmlDiagrams([{ id: "two", source: "B -> C" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await renderPlantUmlDiagrams([{ id: "one-again", source: "A -> B" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+
+    expect(readCount).toBe(3);
+  });
+
+  it("updates in-memory LRU order on cache hits", async () => {
+    const keys = await Promise.all(
+      ["A -> B", "B -> C", "C -> D"].map((source) =>
+        createPlantUmlSvgCacheKey({
+          source,
+          theme: "light",
+          timeoutMs: 1000,
+        }),
+      ),
+    );
+    const svgByKey = new Map(
+      keys.map((key, index) => [
+        key,
+        `<svg>${String(index).repeat(11 * 1024 * 1024)}</svg>`,
+      ]),
+    );
+    let readCount = 0;
+    const cache = {
+      async readPlantUmlSvgCache(input: { key: string }) {
+        readCount += 1;
+        return { status: "hit" as const, svg: svgByKey.get(input.key) };
+      },
+      async writePlantUmlSvgCache() {
+        return { status: "written" as const };
+      },
+    };
+
+    await renderPlantUmlDiagrams([{ id: "one", source: "A -> B" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await renderPlantUmlDiagrams([{ id: "two", source: "B -> C" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await renderPlantUmlDiagrams([{ id: "one-hit", source: "A -> B" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await renderPlantUmlDiagrams([{ id: "three", source: "C -> D" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+    await renderPlantUmlDiagrams([{ id: "two-again", source: "B -> C" }], {
+      cache,
+      theme: "light",
+      timeoutMs: 1000,
+    });
+
+    expect(readCount).toBe(4);
+  });
+
   it("keys markerless and explicit marker source together", async () => {
     await expect(
       createPlantUmlSvgCacheKey({

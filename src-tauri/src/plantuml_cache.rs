@@ -1,11 +1,12 @@
 use std::{fs, path::Path};
 
 use crate::{
-    PlantUmlSvgCacheReadInput, PlantUmlSvgCacheReadResult, PlantUmlSvgCacheWriteInput,
-    PlantUmlSvgCacheWriteResult,
+    prune_cache_dir, remove_oversized_cache_file, touch_cache_file, PlantUmlSvgCacheReadInput,
+    PlantUmlSvgCacheReadResult, PlantUmlSvgCacheWriteInput, PlantUmlSvgCacheWriteResult,
 };
 
 const MAX_PLANTUML_SVG_CACHE_BYTES: usize = 2 * 1024 * 1024;
+const MAX_PLANTUML_SVG_CACHE_TOTAL_BYTES: u64 = 128 * 1024 * 1024;
 
 pub(crate) fn read_plantuml_svg_cache_dir(
     input: PlantUmlSvgCacheReadInput,
@@ -22,11 +23,13 @@ pub(crate) fn read_plantuml_svg_cache_dir(
     let metadata = fs::metadata(&cache_file)
         .map_err(|error| format!("failed to read PlantUML cache metadata: {error}"))?;
     if metadata.len() as usize > MAX_PLANTUML_SVG_CACHE_BYTES {
+        let _ = remove_oversized_cache_file(&cache_file);
         return Ok(PlantUmlSvgCacheReadResult {
-            status: "error".to_string(),
+            status: "miss".to_string(),
             svg: None,
         });
     }
+    let _ = touch_cache_file(&cache_file);
     let svg = fs::read_to_string(&cache_file)
         .map_err(|error| format!("failed to read PlantUML cache: {error}"))?;
     Ok(PlantUmlSvgCacheReadResult {
@@ -38,6 +41,14 @@ pub(crate) fn read_plantuml_svg_cache_dir(
 pub(crate) fn write_plantuml_svg_cache_dir(
     input: PlantUmlSvgCacheWriteInput,
     cache_dir: &Path,
+) -> Result<PlantUmlSvgCacheWriteResult, String> {
+    write_plantuml_svg_cache_dir_with_limit(input, cache_dir, MAX_PLANTUML_SVG_CACHE_TOTAL_BYTES)
+}
+
+pub(crate) fn write_plantuml_svg_cache_dir_with_limit(
+    input: PlantUmlSvgCacheWriteInput,
+    cache_dir: &Path,
+    max_total_bytes: u64,
 ) -> Result<PlantUmlSvgCacheWriteResult, String> {
     let key = validate_plantuml_svg_cache_key(&input.key)?;
     if input.svg.len() > MAX_PLANTUML_SVG_CACHE_BYTES {
@@ -53,6 +64,7 @@ pub(crate) fn write_plantuml_svg_cache_dir(
         .map_err(|error| format!("failed to write PlantUML cache temp file: {error}"))?;
     fs::rename(&temp_file, &cache_file)
         .map_err(|error| format!("failed to commit PlantUML cache file: {error}"))?;
+    let _ = prune_cache_dir(cache_dir, max_total_bytes);
     Ok(PlantUmlSvgCacheWriteResult {
         status: "written".to_string(),
     })
