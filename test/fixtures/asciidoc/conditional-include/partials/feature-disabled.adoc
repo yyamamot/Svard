@@ -1,0 +1,3 @@
+= Feature Disabled Branch
+
+This content should stay hidden. If it is visible, `ifdef::feature-preview[]` handling regressed.

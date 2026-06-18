@@ -1,0 +1,3 @@
+:propagated-partial: partials/nested
+
+The include above defines `propagated-partial`. The next include in the parent document uses that attribute as its target directory.

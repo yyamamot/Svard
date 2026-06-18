@@ -1,0 +1,3 @@
+ifdef::feature-preview[]
+This line should appear as literal source inside the source block.
+endif::[]

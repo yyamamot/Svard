@@ -1,0 +1,46 @@
+= Conditional Include Compatibility Fixture
+:feature-preview:
+:target-env: prod
+:partialsdir: partials
+
+== ifdef Include
+
+ifdef::feature-preview[]
+include::{partialsdir}/feature-preview.adoc[leveloffset=+1]
+endif::[]
+
+ifndef::feature-preview[]
+include::{partialsdir}/feature-disabled.adoc[leveloffset=+1]
+endif::[]
+
+== ifndef Include
+
+ifndef::legacy-mode[]
+include::{partialsdir}/modern-mode.adoc[leveloffset=+1]
+endif::[]
+
+ifdef::legacy-mode[]
+include::{partialsdir}/legacy-mode.adoc[leveloffset=+1]
+endif::[]
+
+== ifeval Include
+
+ifeval::["{target-env}" == "prod"]
+include::{partialsdir}/prod-target.adoc[leveloffset=+1]
+endif::[]
+
+ifeval::["{target-env}" == "dev"]
+include::{partialsdir}/dev-target.adoc[leveloffset=+1]
+endif::[]
+
+== Attribute Propagation From Include
+
+include::{partialsdir}/attribute-seed.adoc[]
+include::{propagated-partial}/propagated-content.adoc[leveloffset=+1]
+
+== Literal Include In Source Block
+
+[source,asciidoc]
+----
+include::{partialsdir}/literal-snippet.adoc[]
+----

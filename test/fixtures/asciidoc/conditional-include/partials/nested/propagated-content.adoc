@@ -1,0 +1,3 @@
+= Propagated Attribute Include
+
+This section proves that an attribute defined inside an included file can select a later include target.

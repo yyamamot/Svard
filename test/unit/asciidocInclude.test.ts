@@ -36,8 +36,12 @@ Alice -> Bob: included
 
 describe("AsciiDoc include expansion", () => {
   it("keeps the conditional include sample focused on active branches", () => {
-    const samplePath = resolve("docs/samples/conditional-include.adoc");
-    const partialRoot = resolve("docs/samples/partials/conditional");
+    const samplePath = resolve(
+      "test/fixtures/asciidoc/conditional-include/index.adoc",
+    );
+    const partialRoot = resolve(
+      "test/fixtures/asciidoc/conditional-include/partials",
+    );
     const includeFiles: Array<{ path: string; source: string }> = [];
 
     function collect(dir: string) {

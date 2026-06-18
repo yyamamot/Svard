@@ -1,0 +1,3 @@
+= Legacy Mode Branch
+
+This content should stay hidden. If it is visible, `ifndef::legacy-mode[]` handling regressed.

@@ -1,0 +1,5 @@
+= Feature Preview Branch
+
+This section is included because `feature-preview` is defined.
+
+The inactive `feature-disabled.adoc` branch should not be loaded or rendered.

@@ -1,0 +1,5 @@
+= Modern Mode Branch
+
+This section is included because `legacy-mode` is not defined.
+
+The inactive `legacy-mode.adoc` branch should not be loaded or rendered.
