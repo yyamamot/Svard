@@ -7,9 +7,21 @@ import type { SearchScope } from "../../src/ui/types";
 import { createReactRootHarness } from "./helpers/reactHarness";
 
 function renderSearchWiring({
+  diagramInspectorItems = [],
+  rightSidebarTab = "search",
   searchScope = "document",
+  selectedDiagramId = null,
+  setSelectedDiagramId = vi.fn(),
 }: {
+  diagramInspectorItems?: Parameters<
+    typeof useAppRightSidebarWiring
+  >[0]["diagramInspectorItems"];
+  rightSidebarTab?: Parameters<
+    typeof useAppRightSidebarWiring
+  >[0]["rightSidebarTab"];
   searchScope?: SearchScope;
+  selectedDiagramId?: string | null;
+  setSelectedDiagramId?: (id: string) => void;
 } = {}) {
   const harness = createReactRootHarness();
   const dispatchCommand = vi.fn();
@@ -26,7 +38,7 @@ function renderSearchWiring({
       activateWorkspaceSearchResult: vi.fn(),
       clearActiveContentCursor: vi.fn(),
       config: defaultConfig,
-      diagramInspectorItems: [],
+      diagramInspectorItems,
       dispatchCommand,
       handleSearchInputKeyDown,
       handleWorkspaceSearchClear,
@@ -35,14 +47,14 @@ function renderSearchWiring({
       navigateToHeading: vi.fn(),
       pinQuery: vi.fn(),
       renderResult: null,
-      rightSidebarTab: "search",
+      rightSidebarTab,
       searchHits: [],
       searchIndex: 0,
       searchInputQuery: "Graphviz",
       searchInputRef,
       searchScope,
-      selectedDiagramId: null,
-      setSelectedDiagramId: vi.fn(),
+      selectedDiagramId,
+      setSelectedDiagramId,
       setRightSidebarTab,
       setSearchScope: vi.fn(),
       showInlineNotice: vi.fn(),
@@ -152,6 +164,43 @@ describe("useAppRightSidebarWiring search keyboard handling", () => {
     expect(handleSearchInputKeyDown).toHaveBeenCalledTimes(1);
     expect(setRightSidebarTab).not.toHaveBeenCalledWith("contents");
 
+    harness.cleanup();
+  });
+});
+
+describe("useAppRightSidebarWiring diagram inspector handling", () => {
+  it("routes diagram list selection through the provided selection handler", () => {
+    const setSelectedDiagramId = vi.fn();
+    const { harness } = renderSearchWiring({
+      rightSidebarTab: "diagrams",
+      selectedDiagramId: "plantuml-1",
+      setSelectedDiagramId,
+      diagramInspectorItems: [
+        {
+          id: "plantuml-1",
+          renderer: "plantuml",
+          diagramType: "plantuml",
+          renderPath: "local",
+          status: "rendered",
+        },
+        {
+          id: "graphviz-1",
+          renderer: "graphviz",
+          diagramType: "dot",
+          renderPath: "local",
+          status: "rendered",
+        },
+      ],
+    });
+
+    act(() => {
+      const items = harness.container.querySelectorAll<HTMLButtonElement>(
+        '[data-review-id="diagram-inspector-item"]',
+      );
+      items[1]?.click();
+    });
+
+    expect(setSelectedDiagramId).toHaveBeenCalledWith("graphviz-1");
     harness.cleanup();
   });
 });

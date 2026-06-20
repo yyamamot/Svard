@@ -53,6 +53,7 @@ import {
   buildDiagramInspectorItems,
   type DiagramRenderSnapshot,
 } from "./lib/diagramInspector";
+import { revealDiagramInViewer } from "./lib/diagramReveal";
 import { mergeWindowConfigForSave } from "./lib/windowConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
@@ -202,6 +203,13 @@ export function App() {
   useEffect(() => {
     setLinkPreview(null);
   }, [documentPayload?.path]);
+
+  function selectDiagramFromInspector(id: string) {
+    setSelectedDiagramId(id);
+    requestAnimationFrame(() => {
+      revealDiagramInViewer(articleRef.current, id);
+    });
+  }
 
   const {
     activeWorkspaceTabId,
@@ -900,7 +908,7 @@ export function App() {
     searchInputRef,
     searchScope,
     selectedDiagramId,
-    setSelectedDiagramId,
+    setSelectedDiagramId: selectDiagramFromInspector,
     setRightSidebarTab,
     setSearchScope,
     showInlineNotice,

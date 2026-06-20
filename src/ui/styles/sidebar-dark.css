@@ -462,6 +462,11 @@
   background: #203039;
 }
 
+.theme-dark .diagram-inspector-jump-highlight {
+  outline-color: #5ad2c1;
+  box-shadow: 0 0 0 6px rgba(90, 210, 193, 0.2);
+}
+
 .theme-dark .icon-button.active {
   border-color: #6f8792;
   color: #ffffff;

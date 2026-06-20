@@ -434,6 +434,15 @@
   background: #f4f8f7;
 }
 
+.diagram-inspector-jump-highlight {
+  outline: 3px solid #2f9f8f;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px rgba(47, 159, 143, 0.16);
+  transition:
+    outline-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
 .document-body mark.search-hit {
   border-radius: 3px;
   box-decoration-break: clone;
