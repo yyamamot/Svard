@@ -19,6 +19,7 @@ describe("Markdown links and assets render contract", () => {
 [Reference Link][ref-doc]
 
 ![Reference Image][ref-image]
+![Root Image](/images/article/root.svg)
 ![Missing Local](assets/missing%20image.svg)
 ![External Logo](https://example.com/logo.svg)
 
@@ -48,6 +49,7 @@ describe("Markdown links and assets render contract", () => {
     ]);
     expect(imageRequests).toEqual([
       "assets/%E6%97%A5%E6%9C%AC%E8%AA%9E%20image.svg",
+      "/images/article/root.svg",
       "assets/missing%20image.svg",
     ]);
     expect(
@@ -75,6 +77,14 @@ describe("Markdown links and assets render contract", () => {
     expect(
       doc.querySelector(
         'img[alt="Reference Image"][data-image-path="assets/%E6%97%A5%E6%9C%AC%E8%AA%9E%20image.svg"]',
+      ),
+    ).toBeTruthy();
+    expect(
+      doc.querySelector('img[alt="Root Image"][src^="data:image/svg+xml"]'),
+    ).toBeTruthy();
+    expect(
+      doc.querySelector(
+        'img[alt="Root Image"][data-image-path="/images/article/root.svg"]',
       ),
     ).toBeTruthy();
     expect(

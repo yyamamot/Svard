@@ -139,5 +139,13 @@ describe("resolveLocalImageSource", () => {
       status: "blocked",
       placeholderText: "Local image blocked: ./assets/sample.svg",
     });
+    expect(
+      resolveLocalImageSource("/images/article/root.svg", {
+        allowLocalImages: false,
+      }),
+    ).toEqual({
+      status: "blocked",
+      placeholderText: "Local image blocked: /images/article/root.svg",
+    });
   });
 });

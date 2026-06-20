@@ -6,6 +6,7 @@
 - Added Diagram Inspector list navigation so selecting a diagram scrolls the viewer to its rendered location.
 - Added an Includes section to the Contents sidebar for inspecting AsciiDoc include dependencies and status.
 - Added an opt-in external PlantUML fallback for diagrams that the built-in renderer cannot render.
+- Added support for root-relative local image paths such as `/images/...` in static-site style documents.
 
 ## 1.0.3
 

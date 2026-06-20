@@ -677,6 +677,41 @@ $not rendered in source$
     );
   });
 
+  it("passes root-relative local image paths to the backend resolver unchanged", async () => {
+    const html = await prepareDocumentHtml(
+      '<p><img src="/images/article/root.svg" alt="Root"></p>',
+      {
+        ...documentPayload,
+        path: "/workspace/svard/articles/post.md",
+        basePath: "/workspace/svard/articles",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      { headings: [], sourceBlocks: [] },
+      {
+        resolveLocalImage: async (path, documentPath) => {
+          expect(path).toBe("/images/article/root.svg");
+          expect(documentPath).toBe("/workspace/svard/articles/post.md");
+          return {
+            status: "resolved",
+            mediaType: "image/svg+xml",
+            encoding: "utf8",
+            content:
+              '<svg xmlns="http://www.w3.org/2000/svg"><text>Root image</text></svg>',
+          };
+        },
+      },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const image = doc.querySelector("img");
+
+    expect(image?.getAttribute("data-image-path")).toBe(
+      "/images/article/root.svg",
+    );
+    expect(image?.getAttribute("src")).toContain(
+      "data:image/svg+xml;charset=utf-8,",
+    );
+  });
+
   it("keeps AsciiDoc image placeholders visible when a later local image is missing", async () => {
     const html = await prepareDocumentHtml(
       `<div class="imageblock">

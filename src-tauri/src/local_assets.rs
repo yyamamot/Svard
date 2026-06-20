@@ -36,7 +36,7 @@ pub(crate) fn resolve_local_image_from_path_with_context(
     };
 
     ensure_path_allowed(&document_path, roots)?;
-    let image_path = match resolve_local_image_candidates(source, &document_path, context) {
+    let image_path = match resolve_local_image_candidates(source, &document_path, context, roots) {
         Some(candidates) => match candidates
             .into_iter()
             .find_map(|candidate| resolve_existing_file_path(&candidate).ok())
@@ -89,21 +89,24 @@ pub(crate) fn resolve_local_image_candidates(
     source: &str,
     document_path: &Path,
     context: Option<&AsciiDocRenderContext>,
+    roots: &AllowedRoots,
 ) -> Option<Vec<PathBuf>> {
     let mut candidates = Vec::new();
-    push_candidate(
-        &mut candidates,
-        resolve_local_image_candidate(source, document_path)?,
-    );
+    if let Some(candidate) = resolve_local_image_candidate(source, document_path) {
+        push_candidate(&mut candidates, candidate);
+    }
     if let Some(context) = context {
         for candidate in resolve_context_image_candidates(source, context) {
             push_candidate(&mut candidates, candidate);
         }
     }
+    for candidate in resolve_root_relative_image_candidates(source, context, roots, document_path) {
+        push_candidate(&mut candidates, candidate);
+    }
     if let Some(candidate) = resolve_antora_module_image_candidate(source, document_path) {
         push_candidate(&mut candidates, candidate);
     }
-    Some(candidates)
+    (!candidates.is_empty()).then_some(candidates)
 }
 
 pub(crate) fn push_candidate(candidates: &mut Vec<PathBuf>, candidate: PathBuf) {
@@ -120,6 +123,9 @@ pub(crate) fn resolve_context_image_candidates(
         return Vec::new();
     }
     let source = percent_decode_path_source(source.trim());
+    if is_root_relative_local_asset(&source) {
+        return Vec::new();
+    }
     let source_path = PathBuf::from(source.as_ref());
     if source_path.is_absolute() {
         return vec![source_path];
@@ -156,6 +162,9 @@ pub(crate) fn resolve_local_image_candidate(source: &str, document_path: &Path) 
         return None;
     }
     let source = percent_decode_path_source(source.trim());
+    if is_root_relative_local_asset(&source) {
+        return None;
+    }
     let source_path = PathBuf::from(source.as_ref());
     if source_path.is_absolute() {
         return Some(source_path);
@@ -172,12 +181,87 @@ pub(crate) fn resolve_antora_module_image_candidate(
         return None;
     }
     let source = percent_decode_path_source(source.trim());
+    if is_root_relative_local_asset(&source) {
+        return None;
+    }
     let source_path = PathBuf::from(source.as_ref());
     if source_path.is_absolute() || source_path.components().count() != 1 {
         return None;
     }
     let module_root = antora_module_root_for_page(document_path)?;
     Some(normalize_path(module_root.join("images").join(source_path)))
+}
+
+pub(crate) fn resolve_root_relative_image_candidates(
+    source: &str,
+    context: Option<&AsciiDocRenderContext>,
+    roots: &AllowedRoots,
+    document_path: &Path,
+) -> Vec<PathBuf> {
+    let source = percent_decode_path_source(source.trim());
+    let Some(relative_source) = root_relative_local_asset_path(&source) else {
+        return Vec::new();
+    };
+    let relative_path = PathBuf::from(relative_source);
+    let mut candidates = Vec::new();
+
+    if let Some(context) = context {
+        push_candidate(
+            &mut candidates,
+            normalize_path(PathBuf::from(&context.workspace_root).join(&relative_path)),
+        );
+        for root in &context.resource_roots {
+            push_candidate(
+                &mut candidates,
+                normalize_path(PathBuf::from(root).join(&relative_path)),
+            );
+        }
+    }
+
+    for root in allowed_roots_snapshot(roots) {
+        push_candidate(&mut candidates, normalize_path(root.join(&relative_path)));
+    }
+
+    if let Some(parent) = document_path.parent() {
+        push_candidate(&mut candidates, normalize_path(parent.join(relative_path)));
+    }
+
+    candidates
+}
+
+fn allowed_roots_snapshot(roots: &AllowedRoots) -> Vec<PathBuf> {
+    roots
+        .0
+        .lock()
+        .map(|guard| guard.iter().cloned().collect())
+        .unwrap_or_default()
+}
+
+fn root_relative_local_asset_path(source: &str) -> Option<&str> {
+    if !is_root_relative_local_asset(source) {
+        return None;
+    }
+    Some(source.trim_start_matches('/'))
+}
+
+pub(crate) fn is_root_relative_local_asset(source: &str) -> bool {
+    let trimmed = source.trim();
+    if !trimmed.starts_with('/') || trimmed.starts_with("//") {
+        return false;
+    }
+    let without_slash = trimmed.trim_start_matches('/');
+    ROOT_RELATIVE_LOCAL_ASSET_PREFIXES
+        .iter()
+        .any(|prefix| matches_root_relative_asset_prefix(without_slash, prefix))
+}
+
+const ROOT_RELATIVE_LOCAL_ASSET_PREFIXES: [&str; 4] = ["images", "assets", "img", "static"];
+
+fn matches_root_relative_asset_prefix(source: &str, prefix: &str) -> bool {
+    source == prefix
+        || source
+            .strip_prefix(prefix)
+            .is_some_and(|suffix| suffix.starts_with('/'))
 }
 
 pub(crate) fn percent_decode_path_source(source: &str) -> std::borrow::Cow<'_, str> {

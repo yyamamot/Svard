@@ -127,6 +127,105 @@ fn local_image_resolver_decodes_percent_encoded_relative_paths() {
 }
 
 #[test]
+fn local_image_resolver_reads_root_relative_workspace_assets() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("articles");
+    let document = docs.join("article.md");
+    let image = project
+        .join("images")
+        .join("article")
+        .join("sample space.png");
+    let assets_image = project.join("assets").join("logo.svg");
+    let img_image = project.join("img").join("cover.webp");
+    let static_image = project.join("static").join("badge.gif");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::create_dir_all(image.parent().unwrap()).expect("create images");
+    fs::create_dir_all(assets_image.parent().unwrap()).expect("create assets");
+    fs::create_dir_all(img_image.parent().unwrap()).expect("create img");
+    fs::create_dir_all(static_image.parent().unwrap()).expect("create static");
+    fs::write(&document, "# Article\n").expect("write document");
+    fs::write(&image, [137, 80, 78, 71]).expect("write png");
+    fs::write(
+        &assets_image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Logo</text></svg>"#,
+    )
+    .expect("write svg");
+    fs::write(&img_image, "webp").expect("write webp");
+    fs::write(&static_image, "gif").expect("write gif");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register project root");
+
+    let image_result = resolve_local_image_from_path(
+        "/images/article/sample%20space.png",
+        &document.to_string_lossy(),
+        &roots,
+    )
+    .expect("root-relative png");
+    let assets_result =
+        resolve_local_image_from_path("/assets/logo.svg", &document.to_string_lossy(), &roots)
+            .expect("root-relative svg");
+    let img_result =
+        resolve_local_image_from_path("/img/cover.webp", &document.to_string_lossy(), &roots)
+            .expect("root-relative webp");
+    let static_result =
+        resolve_local_image_from_path("/static/badge.gif", &document.to_string_lossy(), &roots)
+            .expect("root-relative gif");
+
+    assert_eq!(image_result.status, "resolved");
+    assert_eq!(image_result.media_type.as_deref(), Some("image/png"));
+    assert_eq!(assets_result.status, "resolved");
+    assert!(assets_result.content.unwrap().contains("Logo"));
+    assert_eq!(img_result.media_type.as_deref(), Some("image/webp"));
+    assert_eq!(static_result.media_type.as_deref(), Some("image/gif"));
+}
+
+#[test]
+fn local_image_resolver_blocks_non_asset_root_relative_paths() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let document = docs.join("guide.md");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::write(&document, "# Guide\n").expect("write document");
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register project root");
+
+    for source in [
+        "/etc/passwd",
+        "/Users/name/file.png",
+        "/private/tmp/image.svg",
+    ] {
+        let result = resolve_local_image_from_path(source, &document.to_string_lossy(), &roots)
+            .expect("blocked root-relative source");
+        assert_eq!(result.status, "blocked");
+    }
+}
+
+#[test]
+fn local_image_resolver_reports_missing_root_relative_workspace_asset() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let document = docs.join("guide.md");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::write(&document, "# Guide\n").expect("write document");
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register project root");
+
+    let result =
+        resolve_local_image_from_path("/images/missing.png", &document.to_string_lossy(), &roots)
+            .expect("missing root-relative image");
+
+    assert_eq!(result.status, "blocked");
+    assert_eq!(
+        result.placeholder_text.as_deref(),
+        Some("Local image is not available.")
+    );
+}
+
+#[test]
 fn antora_page_image_resolver_falls_back_to_module_images_for_plain_name() {
     let dir = tempdir().expect("temp dir");
     let module = dir.path().join("project").join("modules").join("module-a");

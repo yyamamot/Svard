@@ -219,6 +219,8 @@ flowchart LR
 \`\`\`
 
 <script>alert(1)</script>
+
+![Root relative image](/images/coverage/root.svg)
 `);
     const document: DocumentPayload = {
       path: "/workspace/docs/coverage.md",
@@ -232,6 +234,14 @@ flowchart LR
       document,
       securityConfig,
       result,
+      {
+        resolveLocalImage: async (src) => ({
+          status: "resolved",
+          mediaType: "image/svg+xml",
+          encoding: "utf8",
+          content: `<svg xmlns="http://www.w3.org/2000/svg"><text>Image ${src}</text></svg>`,
+        }),
+      },
     );
     const doc = new DOMParser().parseFromString(html, "text/html");
 
@@ -254,5 +264,8 @@ flowchart LR
     expect(doc.querySelector("script")).toBeNull();
     expect(doc.body.innerHTML).toContain("&lt;script&gt;");
     expect(doc.querySelector("td[rowspan], td[colspan]")).toBeNull();
+    expect(
+      doc.querySelector('img[data-image-path="/images/coverage/root.svg"]'),
+    ).toBeTruthy();
   });
 });
