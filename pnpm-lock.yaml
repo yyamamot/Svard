@@ -57,6 +57,9 @@ importers:
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.4.0)
+      '@plantuml/core':
+        specifier: 1.2026.6
+        version: 1.2026.6
       '@playwright/test':
         specifier: 1.60.0
         version: 1.60.0
@@ -274,6 +277,9 @@ packages:
 
   '@oxc-project/types@0.132.0':
     resolution: {integrity: sha512-FESMOxil5Se014ui/Eq8fT5uHJo6nIRwH0PfJrZJXs6Gek3ZVFOrpUv3YIZT20m+extU98Hg1Ym72U58rlsxUQ==}
+
+  '@plantuml/core@1.2026.6':
+    resolution: {integrity: sha512-e+s8jtAKT6kb7yvOCXv0exXOp7FvyKYDcpv+aQrThwXUQgdTGP+fb9hPZQr7jbeEMuUHbxjH1HYLwNZZxw3hJg==}
 
   '@playwright/test@1.60.0':
     resolution: {integrity: sha512-O71yZIbAh/PxDMNGns37GHBIfrVkEVyn+AXyIa5dOTfb4/xNvRWV+Vv/NMbNCtODB/pO7vLlF2OTmMVLhmr7Ag==}
@@ -1852,6 +1858,8 @@ snapshots:
     optional: true
 
   '@oxc-project/types@0.132.0': {}
+
+  '@plantuml/core@1.2026.6': {}
 
   '@playwright/test@1.60.0':
     dependencies:

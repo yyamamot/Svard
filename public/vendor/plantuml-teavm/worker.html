@@ -3,13 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <script src="./viz-global.js"></script>
-    <script src="./plantuml.js"></script>
   </head>
   <body>
     <div id="out"></div>
-    <script>
-      plantumlLoad();
+    <script type="module">
+      import { render, renderToString } from "./plantuml.js";
+
       const target = document.getElementById("out");
+      const plantuml = { render, renderToString };
 
       function diagnosticText(svg) {
         const text =
@@ -65,10 +66,10 @@
           event.data.theme === "dark" ? { dark: true } : undefined;
         target.innerHTML = "";
 
-        if (typeof window.plantuml.renderToString === "function") {
+        if (typeof plantuml.renderToString === "function") {
           try {
             const renderStartedAt = performance.now();
-            window.plantuml.renderToString(
+            plantuml.renderToString(
               event.data.lines,
               (svg) => {
                 const renderFinishedAt = performance.now();
@@ -116,7 +117,7 @@
 
         const renderStartedAt = performance.now();
         try {
-          window.plantuml.render(event.data.lines, "out", options);
+          plantuml.render(event.data.lines, "out", options);
         } catch (error) {
           observer.disconnect();
           window.parent.postMessage(

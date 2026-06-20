@@ -37,7 +37,8 @@ interface WorkerMessage {
 const workerUrl = "/vendor/plantuml-teavm/worker.html";
 export const defaultPlantUmlConcurrency = 1;
 const maxPlantUmlConcurrency = 4;
-export const plantUmlLocalRendererCacheVersion = "plantuml-teavm-2026.4-v1";
+export const plantUmlLocalRendererCacheVersion =
+  "plantuml-teavm-1.2026.6-87b8c74c-ef2cd8a0-v1";
 export const maxPlantUmlSvgMemoryCacheBytes = 32 * 1024 * 1024;
 
 type PlantUmlIframeFactory = () => HTMLIFrameElement;

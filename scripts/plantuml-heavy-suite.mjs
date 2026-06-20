@@ -1,7 +1,8 @@
 import { chromium } from "@playwright/test";
 import fs from "node:fs/promises";
+import http from "node:http";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -84,94 +85,99 @@ async function main() {
 
   const runnerPath = path.join(artifactRoot, "runner.html");
   await fs.writeFile(runnerPath, buildRunnerHtml());
+  const server = await startRunnerServer({ artifactRoot });
 
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
   });
-  await page.goto(pathToFileURL(runnerPath).href);
+  await page.goto(`${server.baseUrl}/runner.html`);
+  await page.waitForFunction(() => Boolean(window.__plantumlHeavySuite));
 
   const results = [];
-  for (const fixture of fixtures) {
-    const runs = [];
-    for (let trial = 1; trial <= trials; trial += 1) {
-      const rendered = await page.evaluate(
-        async ({ source, timeout }) =>
-          window.__plantumlHeavySuite.render(source, timeout),
-        { source: fixture.source, timeout: timeoutMs },
-      );
-      const svgBytes = rendered.svg
-        ? new TextEncoder().encode(rendered.svg).byteLength
-        : 0;
-      const result = {
-        fixtureId: fixture.id,
-        diagramType: fixture.diagramType,
-        trial,
-        status: rendered.status,
-        diagnostics: rendered.diagnostics ?? [],
-        renderMs: rendered.metrics?.renderMs ?? null,
-        svgBytes,
-      };
-      runs.push(result);
-      await fs.appendFile(metricsPath, `${JSON.stringify(result)}\n`);
-
-      if (trial === 1 && rendered.svg) {
-        const svgPath = path.join(svgRoot, `${fixture.id}.svg`);
-        const screenshotPath = path.join(screenshotRoot, `${fixture.id}.png`);
-        await fs.writeFile(svgPath, rendered.svg);
-        await page.evaluate(
-          (svg) => window.__plantumlHeavySuite.preview(svg),
-          rendered.svg,
-        );
-        await page.locator("#preview svg").screenshot({
-          path: screenshotPath,
-          timeout: 5000,
-        });
-      }
-    }
-    results.push(summarizeFixture(fixture, runs));
-  }
-
   const documents = [];
-  for (const fixture of documentFixtures) {
-    const runs = [];
-    for (let trial = 1; trial <= trials; trial += 1) {
-      const run = await page.evaluate(
-        async ({ sources, timeout }) => {
-          const started = performance.now();
-          const results = [];
-          for (const source of sources) {
-            results.push(
-              await window.__plantumlHeavySuite.render(source, timeout),
-            );
-          }
-          return {
-            totalMs: performance.now() - started,
-            results,
-          };
-        },
-        { sources: fixture.sources, timeout: timeoutMs },
-      );
-      const entry = {
-        fixtureId: fixture.id,
-        trial,
-        totalMs: run.totalMs,
-        renderedCount: run.results.filter(
-          (result) => result.status === "rendered",
-        ).length,
-        errorCount: run.results.filter((result) => result.status === "error")
-          .length,
-        timeoutCount: run.results.filter(
-          (result) => result.status === "timeout",
-        ).length,
-      };
-      runs.push(entry);
-      await fs.appendFile(metricsPath, `${JSON.stringify(entry)}\n`);
-    }
-    documents.push(summarizeDocumentFixture(fixture, runs));
-  }
+  try {
+    for (const fixture of fixtures) {
+      const runs = [];
+      for (let trial = 1; trial <= trials; trial += 1) {
+        const rendered = await page.evaluate(
+          async ({ source, timeout }) =>
+            window.__plantumlHeavySuite.render(source, timeout),
+          { source: fixture.source, timeout: timeoutMs },
+        );
+        const svgBytes = rendered.svg
+          ? new TextEncoder().encode(rendered.svg).byteLength
+          : 0;
+        const result = {
+          fixtureId: fixture.id,
+          diagramType: fixture.diagramType,
+          trial,
+          status: rendered.status,
+          diagnostics: rendered.diagnostics ?? [],
+          renderMs: rendered.metrics?.renderMs ?? null,
+          svgBytes,
+        };
+        runs.push(result);
+        await fs.appendFile(metricsPath, `${JSON.stringify(result)}\n`);
 
-  await browser.close();
+        if (trial === 1 && rendered.svg) {
+          const svgPath = path.join(svgRoot, `${fixture.id}.svg`);
+          const screenshotPath = path.join(screenshotRoot, `${fixture.id}.png`);
+          await fs.writeFile(svgPath, rendered.svg);
+          await page.evaluate(
+            (svg) => window.__plantumlHeavySuite.preview(svg),
+            rendered.svg,
+          );
+          await page.locator("#preview svg").screenshot({
+            path: screenshotPath,
+            timeout: 5000,
+          });
+        }
+      }
+      results.push(summarizeFixture(fixture, runs));
+    }
+
+    for (const fixture of documentFixtures) {
+      const runs = [];
+      for (let trial = 1; trial <= trials; trial += 1) {
+        const run = await page.evaluate(
+          async ({ sources, timeout }) => {
+            const started = performance.now();
+            const results = [];
+            for (const source of sources) {
+              results.push(
+                await window.__plantumlHeavySuite.render(source, timeout),
+              );
+            }
+            return {
+              totalMs: performance.now() - started,
+              results,
+            };
+          },
+          { sources: fixture.sources, timeout: timeoutMs },
+        );
+        const entry = {
+          fixtureId: fixture.id,
+          trial,
+          totalMs: run.totalMs,
+          renderedCount: run.results.filter(
+            (result) => result.status === "rendered",
+          ).length,
+          errorCount: run.results.filter((result) => result.status === "error")
+            .length,
+          timeoutCount: run.results.filter(
+            (result) => result.status === "timeout",
+          ).length,
+        };
+        runs.push(entry);
+        await fs.appendFile(metricsPath, `${JSON.stringify(entry)}\n`);
+      }
+      documents.push(summarizeDocumentFixture(fixture, runs));
+    }
+  } finally {
+    await browser.close();
+    await server.close();
+  }
 
   const report = {
     runId,
@@ -207,6 +213,45 @@ async function main() {
       2,
     ),
   );
+}
+
+function contentType(filePath) {
+  if (filePath.endsWith(".html")) {
+    return "text/html; charset=utf-8";
+  }
+  if (filePath.endsWith(".js")) {
+    return "text/javascript; charset=utf-8";
+  }
+  return "application/octet-stream";
+}
+
+async function startRunnerServer({ artifactRoot }) {
+  const server = http.createServer(async (request, response) => {
+    try {
+      const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+      const basename = path.basename(pathname);
+      const filePath =
+        basename === "runner.html"
+          ? path.join(artifactRoot, "runner.html")
+          : path.join(vendorRoot, basename);
+      const body = await fs.readFile(filePath);
+      response.writeHead(200, { "content-type": contentType(filePath) });
+      response.end(body);
+    } catch {
+      response.writeHead(404);
+      response.end("not found");
+    }
+  });
+
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to start PlantUML runner server");
+  }
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise((resolve) => server.close(resolve)),
+  };
 }
 
 function summarizeFixture(fixture, runs) {
@@ -385,10 +430,8 @@ ${sections.join("\n\n")}
 }
 
 function buildRunnerHtml() {
-  const plantumlJs = pathToFileURL(path.join(vendorRoot, "plantuml.js")).href;
-  const vizGlobalJs = pathToFileURL(
-    path.join(vendorRoot, "viz-global.js"),
-  ).href;
+  const plantumlJs = "/plantuml.js";
+  const vizGlobalJs = "/viz-global.js";
   return `<!doctype html>
 <html>
   <head>
@@ -398,13 +441,12 @@ function buildRunnerHtml() {
       #preview { display: inline-block; background: white; }
     </style>
     <script src="${vizGlobalJs}"></script>
-    <script src="${plantumlJs}"></script>
   </head>
   <body>
     <div id="out"></div>
     <div id="preview"></div>
-    <script>
-      plantumlLoad();
+    <script type="module">
+      import { render as renderPlantUml, renderToString } from "${plantumlJs}";
       const target = document.getElementById("out");
       const previewTarget = document.getElementById("preview");
 
@@ -448,9 +490,9 @@ function buildRunnerHtml() {
             resolve(result);
           };
 
-          if (typeof window.plantuml.renderToString === "function") {
+          if (typeof renderToString === "function") {
             try {
-              window.plantuml.renderToString(
+              renderToString(
                 lines,
                 (svg) => resolveOnce(finishFromSvg(svg, started)),
                 (error) =>
@@ -476,7 +518,7 @@ function buildRunnerHtml() {
           observer.observe(target, { childList: true, subtree: true });
 
           try {
-            window.plantuml.render(lines, "out");
+            renderPlantUml(lines, "out");
           } catch (error) {
             observer.disconnect();
             resolveOnce({

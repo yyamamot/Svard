@@ -16,6 +16,8 @@ https://yyamamot.github.io/Svard/
 - Preview-based diff views for Markdown / AsciiDoc documents, including rendered content, tables, diagrams, and source views
 - Privacy-focused review and runtime artifacts that avoid storing source text, diagram source, private absolute paths, or repository roots by default
 
+PlantUML local rendering is based on the official `@plantuml/core` TeaVM browser build. Kroki remains an explicit fallback for diagrams that need compatibility beyond the bundled local renderer.
+
 ## Development
 
 Requirements:
@@ -49,3 +51,5 @@ pnpm run dev:tauri
 ## Acknowledgements
 
 Svard takes inspiration from [Arto](https://github.com/arto-app/Arto) in its emphasis on local-first document reading and quiet desktop viewer workflows.
+
+The bundled PlantUML browser renderer is based on the official [`@plantuml/core`](https://www.npmjs.com/package/@plantuml/core) TeaVM build. Kroki is supported only as an explicit fallback path.

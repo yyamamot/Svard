@@ -78,6 +78,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@plantuml/core": "1.2026.6",
     "@playwright/test": "1.60.0",
     "@tauri-apps/cli": "2.11.2",
     "@types/markdown-it": "^14.1.2",

@@ -1,7 +1,8 @@
 import { chromium } from "@playwright/test";
 import fs from "node:fs/promises";
+import http from "node:http";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -31,26 +32,31 @@ async function main() {
 
   const runnerPath = path.join(artifactRoot, "runner.html");
   await fs.writeFile(runnerPath, buildRunnerHtml());
+  const server = await startRunnerServer({ artifactRoot });
 
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({
     viewport: { width: 1280, height: 900 },
   });
-  await page.goto(pathToFileURL(runnerPath).href);
+  await page.goto(`${server.baseUrl}/runner.html`);
+  await page.waitForFunction(() => Boolean(window.__plantumlSuite));
 
   const results = [];
-  for (const fixture of fixtures) {
-    const result = await runFixture({
-      page,
-      fixture,
-      svgRoot,
-      screenshotRoot,
-      metricsPath,
-    });
-    results.push(result);
+  try {
+    for (const fixture of fixtures) {
+      const result = await runFixture({
+        page,
+        fixture,
+        svgRoot,
+        screenshotRoot,
+        metricsPath,
+      });
+      results.push(result);
+    }
+  } finally {
+    await browser.close();
+    await server.close();
   }
-
-  await browser.close();
 
   const failedRequired = results.filter(
     (result) => result.required && !result.passed,
@@ -96,6 +102,45 @@ async function main() {
   if (failedRequired.length > 0) {
     process.exitCode = 1;
   }
+}
+
+function contentType(filePath) {
+  if (filePath.endsWith(".html")) {
+    return "text/html; charset=utf-8";
+  }
+  if (filePath.endsWith(".js")) {
+    return "text/javascript; charset=utf-8";
+  }
+  return "application/octet-stream";
+}
+
+async function startRunnerServer({ artifactRoot }) {
+  const server = http.createServer(async (request, response) => {
+    try {
+      const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+      const basename = path.basename(pathname);
+      const filePath =
+        basename === "runner.html"
+          ? path.join(artifactRoot, "runner.html")
+          : path.join(vendorRoot, basename);
+      const body = await fs.readFile(filePath);
+      response.writeHead(200, { "content-type": contentType(filePath) });
+      response.end(body);
+    } catch {
+      response.writeHead(404);
+      response.end("not found");
+    }
+  });
+
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to start PlantUML runner server");
+  }
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise((resolve) => server.close(resolve)),
+  };
 }
 
 async function loadFixtures() {
@@ -302,10 +347,8 @@ function normalizeText(value) {
 }
 
 function buildRunnerHtml() {
-  const plantumlJs = pathToFileURL(path.join(vendorRoot, "plantuml.js")).href;
-  const vizGlobalJs = pathToFileURL(
-    path.join(vendorRoot, "viz-global.js"),
-  ).href;
+  const plantumlJs = "/plantuml.js";
+  const vizGlobalJs = "/viz-global.js";
   return `<!doctype html>
 <html>
   <head>
@@ -315,13 +358,12 @@ function buildRunnerHtml() {
       #preview { display: inline-block; background: white; }
     </style>
     <script src="${vizGlobalJs}"></script>
-    <script src="${plantumlJs}"></script>
   </head>
   <body>
     <div id="out"></div>
     <div id="preview"></div>
-    <script>
-      plantumlLoad();
+    <script type="module">
+      import { render as renderPlantUml, renderToString } from "${plantumlJs}";
       const target = document.getElementById("out");
       const previewTarget = document.getElementById("preview");
 
@@ -365,9 +407,9 @@ function buildRunnerHtml() {
             resolve(result);
           };
 
-          if (typeof window.plantuml.renderToString === "function") {
+          if (typeof renderToString === "function") {
             try {
-              window.plantuml.renderToString(
+              renderToString(
                 lines,
                 (svg) => resolveOnce(finishFromSvg(svg, started)),
                 (error) =>
@@ -393,7 +435,7 @@ function buildRunnerHtml() {
           observer.observe(target, { childList: true, subtree: true });
 
           try {
-            window.plantuml.render(lines, "out");
+            renderPlantUml(lines, "out");
           } catch (error) {
             observer.disconnect();
             resolveOnce({

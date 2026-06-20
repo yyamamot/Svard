@@ -6,6 +6,7 @@
 - Added MkDocs-style Markdown admonition rendering for `!!! note` and related alert blocks.
 - Improved document open performance by showing diagram placeholders before local diagram rendering finishes.
 - Added local PlantUML SVG caching so repeated diagrams can reopen faster without using Kroki.
+- Documented PlantUML local renderer assets as pinned `@plantuml/core` TeaVM runtime files with Kroki kept as an explicit fallback.
 - Fixed Change Review Mode table markers and diagnostics, including whole-file-added table row highlighting.
 - Fixed large table Diff Preview so single-row additions stay focused instead of marking following rows changed.
 - Improved large AsciiDoc render preparation performance by reducing sanitizer overhead.
