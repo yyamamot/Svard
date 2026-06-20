@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.3
+
 - Added conditional AsciiDoc include support for `ifdef`, `ifndef`, `ifeval`, and attribute-substituted include targets.
 - Added MkDocs-style Markdown admonition rendering for `!!! note` and related alert blocks.
 - Improved document open performance by showing diagram placeholders before local diagram rendering finishes.
