@@ -367,6 +367,24 @@ fn open_document_collects_conditional_and_attribute_substituted_includes() {
             path_to_ui_string(&propagated.canonicalize().unwrap()),
         ]
     );
+    let include_graph = payload.include_graph.expect("include graph");
+    let active_count = include_graph
+        .nodes
+        .iter()
+        .filter(|node| node.kind == "include" && node.status == "active")
+        .count();
+    let skipped_nodes: Vec<_> = include_graph
+        .nodes
+        .iter()
+        .filter(|node| node.status == "skipped")
+        .collect();
+    assert_eq!(active_count, 4);
+    assert_eq!(skipped_nodes.len(), 1);
+    assert_eq!(skipped_nodes[0].display_path, "disabled.adoc");
+    assert_eq!(skipped_nodes[0].reason.as_deref(), Some("conditional"));
+    let graph_json = serde_json::to_string(&include_graph).expect("serialize include graph");
+    assert!(!graph_json.contains("== Enabled"));
+    assert!(!graph_json.contains("== Disabled"));
 }
 
 #[test]
@@ -535,6 +553,20 @@ fn open_document_rejects_non_text_or_unsafe_include_files() {
     .expect("open document");
 
     assert!(payload.include_files.is_empty());
+    let include_graph = payload.include_graph.expect("include graph");
+    let statuses: Vec<_> = include_graph
+        .nodes
+        .iter()
+        .filter(|node| node.kind == "include")
+        .map(|node| (node.status.as_str(), node.reason.as_deref()))
+        .collect();
+    assert!(
+        statuses.contains(&("blocked", Some("binary")))
+            || statuses.contains(&("blocked", Some("unreadable")))
+    );
+    assert!(statuses.contains(&("blocked", Some("too-large"))));
+    assert!(statuses.contains(&("blocked", Some("outside-root"))));
+    assert!(statuses.contains(&("blocked", Some("unsafe"))));
 }
 
 #[test]

@@ -7,12 +7,50 @@ export interface DocumentPayload {
   source: string;
   updatedAt: string;
   includeFiles?: AsciiDocIncludeFile[];
+  includeGraph?: AsciiDocIncludeGraph;
   asciidocContext?: AsciiDocRenderContext | null;
 }
 
 export interface AsciiDocIncludeFile {
   path: string;
   source: string;
+}
+
+export type AsciiDocIncludeGraphStatus =
+  | "active"
+  | "skipped"
+  | "blocked"
+  | "missing"
+  | "recursive"
+  | "depth-limit";
+
+export interface AsciiDocIncludeGraphSourceLocation {
+  sourcePath?: string;
+  line: number;
+  column?: number;
+}
+
+export interface AsciiDocIncludeGraphNode {
+  id: string;
+  path?: string;
+  displayPath: string;
+  kind: "root" | "include";
+  status: AsciiDocIncludeGraphStatus;
+  reason?: string;
+  sourceLocation?: AsciiDocIncludeGraphSourceLocation;
+  parentId?: string;
+}
+
+export interface AsciiDocIncludeGraphEdge {
+  fromId: string;
+  toId: string;
+  sourceLocation?: AsciiDocIncludeGraphSourceLocation;
+  status: AsciiDocIncludeGraphStatus;
+}
+
+export interface AsciiDocIncludeGraph {
+  nodes: AsciiDocIncludeGraphNode[];
+  edges: AsciiDocIncludeGraphEdge[];
 }
 
 export interface AsciiDocRenderContext {

@@ -331,6 +331,44 @@
   background: #1f2a32;
 }
 
+.theme-dark .contents-section {
+  border-color: #222a31;
+}
+
+.theme-dark .contents-section-header {
+  color: #eef2f4;
+}
+
+.theme-dark .contents-section-count {
+  color: #c8d8dd;
+  background: #1f2a32;
+}
+
+.theme-dark .include-inspector-row:hover {
+  background: #171d22;
+}
+
+.theme-dark .include-inspector-label {
+  color: #eef2f4;
+}
+
+.theme-dark .include-inspector-meta,
+.theme-dark .include-inspector-empty {
+  color: #b7c6cd;
+}
+
+.theme-dark .include-inspector-copy {
+  border-color: #33434c;
+  color: #dce8e5;
+  background: #151f24;
+}
+
+.theme-dark .include-inspector-copy:hover,
+.theme-dark .include-inspector-copy:focus-visible {
+  border-color: #4d6572;
+  background: #203039;
+}
+
 .theme-dark .panel {
   border-color: #222a31;
 }

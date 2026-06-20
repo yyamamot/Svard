@@ -8,6 +8,7 @@ import { isSafeExternalUrlToOpen } from "../../ui/lib/path";
 import {
   fixtureDocuments,
   fixtureEntriesByDirectory,
+  fixtureIncludeGraphForPath,
   fixtureIncludeFilesForPath,
   fixturePath,
 } from "../../core/fixtures";
@@ -106,6 +107,7 @@ export async function openDocument(path: string): Promise<DocumentPayload> {
         format,
         source: override.source,
         includeFiles: fixtureIncludeFilesForPath(path),
+        includeGraph: fixtureIncludeGraphForPath(path),
         asciidocContext:
           format === "asciidoc"
             ? mockAsciiDocContext(path, override.source)
@@ -125,6 +127,7 @@ export async function openDocument(path: string): Promise<DocumentPayload> {
     format: documentFormatForPath(path),
     source,
     includeFiles: fixtureIncludeFilesForPath(path),
+    includeGraph: fixtureIncludeGraphForPath(path),
     asciidocContext:
       documentFormatForPath(path) === "asciidoc"
         ? mockAsciiDocContext(path, source)

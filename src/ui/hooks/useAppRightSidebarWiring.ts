@@ -6,6 +6,7 @@ import type {
 import type { AppConfig, RenderResult } from "../../core/types";
 import type { RightSidebar } from "../components/RightSidebar";
 import type { DiagramInspectorItem } from "../lib/diagramInspector";
+import type { IncludeInspectorItem } from "../lib/includeInspector";
 import type {
   DiagramPreviewState,
   RightSidebarTab,
@@ -23,6 +24,8 @@ interface UseAppRightSidebarWiringOptions {
   clearActiveContentCursor: () => void;
   config: AppConfig | null;
   diagramInspectorItems: DiagramInspectorItem[];
+  documentPayload: AppRightSidebarProps["documentPayload"];
+  includeInspectorItems: IncludeInspectorItem[];
   dispatchCommand: AppRightSidebarProps["onDispatchCommand"];
   handleSearchInputKeyDown: (
     event: ReactKeyboardEvent<HTMLInputElement>,
@@ -33,6 +36,7 @@ interface UseAppRightSidebarWiringOptions {
   ) => boolean;
   matchCount: number;
   navigateToHeading: (headingId: string) => void;
+  openIncludeDocument: (path: string) => void | Promise<void>;
   pinQuery: () => void | Promise<void>;
   renderResult: RenderResult | null;
   rightSidebarTab: RightSidebarTab;
@@ -62,12 +66,15 @@ export function useAppRightSidebarWiring({
   clearActiveContentCursor,
   config,
   diagramInspectorItems,
+  documentPayload,
+  includeInspectorItems,
   dispatchCommand,
   handleSearchInputKeyDown,
   handleWorkspaceSearchClear,
   handleWorkspaceSearchEnterKey,
   matchCount,
   navigateToHeading,
+  openIncludeDocument,
   pinQuery,
   renderResult,
   rightSidebarTab,
@@ -120,6 +127,8 @@ export function useAppRightSidebarWiring({
   const rightSidebarProps: AppRightSidebarProps = {
     activeHeadingId,
     diagramInspectorItems,
+    documentPayload,
+    includeInspectorItems,
     matchCount,
     pinnedSearch: config?.workspace.pinnedSearch ?? null,
     query: searchInputQuery,
@@ -147,6 +156,7 @@ export function useAppRightSidebarWiring({
       navigateToHeading(headingId);
     },
     onOpenDiagramPreview,
+    onOpenInclude: (path) => void openIncludeDocument(path),
     onPinQuery: () => void pinQuery(),
     onSelectDiagram: (id) => {
       clearActiveContentCursor();

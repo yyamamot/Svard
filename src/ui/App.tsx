@@ -54,6 +54,7 @@ import {
   type DiagramRenderSnapshot,
 } from "./lib/diagramInspector";
 import { revealDiagramInViewer } from "./lib/diagramReveal";
+import { buildIncludeInspectorItems } from "./lib/includeInspector";
 import { mergeWindowConfigForSave } from "./lib/windowConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
@@ -188,6 +189,10 @@ export function App() {
       preferencesOpen,
       renderResult,
     ],
+  );
+  const includeInspectorItems = useMemo(
+    () => buildIncludeInspectorItems(activeDocumentPayload),
+    [activeDocumentPayload],
   );
   useEffect(() => {
     if (
@@ -893,12 +898,15 @@ export function App() {
     clearActiveContentCursor: contentCursor.clearActiveContentCursor,
     config,
     diagramInspectorItems,
+    documentPayload: activeDocumentPayload,
+    includeInspectorItems,
     dispatchCommand,
     handleSearchInputKeyDown,
     handleWorkspaceSearchClear,
     handleWorkspaceSearchEnterKey,
     matchCount,
     navigateToHeading: documentLinks.navigateToHeading,
+    openIncludeDocument: workspaceTabActions.openDocumentWorkspaceTab,
     pinQuery,
     renderResult,
     rightSidebarTab,

@@ -1,10 +1,12 @@
 import { ChevronDown, ChevronUp, Pin, Search, X } from "lucide-react";
 import type { KeyboardEvent, RefObject } from "react";
 import { DiagramInspectorPanel } from "./DiagramInspectorPanel";
+import { IncludeInspectorSection } from "./IncludeInspectorSection";
 import { Toc } from "./Toc";
 import type { CommandId } from "../../core/commands";
-import type { RenderResult } from "../../core/types";
+import type { DocumentPayload, RenderResult } from "../../core/types";
 import type { DiagramInspectorItem } from "../lib/diagramInspector";
+import type { IncludeInspectorItem } from "../lib/includeInspector";
 import type {
   DiagramPreviewState,
   RightSidebarTab,
@@ -16,6 +18,8 @@ import type {
 interface RightSidebarProps {
   activeHeadingId: string | null;
   diagramInspectorItems: DiagramInspectorItem[];
+  documentPayload: DocumentPayload | null;
+  includeInspectorItems: IncludeInspectorItem[];
   matchCount: number;
   pinnedSearch: string | null;
   query: string;
@@ -36,6 +40,7 @@ interface RightSidebarProps {
   onNavigateSourceLine: (line: number) => void;
   onNavigateHeading: (headingId: string) => void;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
+  onOpenInclude: (path: string) => void | Promise<void>;
   onPinQuery: () => void;
   onSelectDiagram: (id: string) => void;
   onSetSearchScope: (scope: SearchScope) => void;
@@ -52,6 +57,8 @@ interface RightSidebarProps {
 export function RightSidebar({
   activeHeadingId,
   diagramInspectorItems,
+  documentPayload,
+  includeInspectorItems,
   matchCount,
   pinnedSearch,
   query,
@@ -72,6 +79,7 @@ export function RightSidebar({
   onNavigateSourceLine,
   onNavigateHeading,
   onOpenDiagramPreview,
+  onOpenInclude,
   onPinQuery,
   onSelectDiagram,
   onSetSearchScope,
@@ -146,6 +154,14 @@ export function RightSidebar({
               activeHeadingId={activeHeadingId}
               headings={renderResult?.headings ?? []}
               onNavigate={onNavigateHeading}
+            />
+            <IncludeInspectorSection
+              document={documentPayload}
+              items={includeInspectorItems}
+              onCopyText={onCopyText}
+              onNavigateSourceLine={onNavigateSourceLine}
+              onOpenInclude={onOpenInclude}
+              onShowNotice={onShowInlineNotice}
             />
           </>
         ) : rightSidebarTab === "diagrams" ? (

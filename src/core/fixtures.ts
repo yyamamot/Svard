@@ -1,4 +1,4 @@
-import type { DirectoryEntry } from "./types";
+import type { AsciiDocIncludeGraph, DirectoryEntry } from "./types";
 
 export const fixturePath = "/workspace/docs/mvp-guide.adoc";
 
@@ -1733,7 +1733,7 @@ This rendered Markdown paragraph changed in the working tree.
 `,
   "/workspace/docs/git-large-markdown-scroll.md":
     buildLargeMarkdownScrollDocument(),
-"/workspace/docs/git-rendered-asciidoc.adoc": `= Git Rendered AsciiDoc Diff Fixture
+  "/workspace/docs/git-rendered-asciidoc.adoc": `= Git Rendered AsciiDoc Diff Fixture
 
 This rendered AsciiDoc paragraph changed in the working tree.
 
@@ -2858,7 +2858,10 @@ export function fixtureIncludeFilesForPath(path: string) {
     return /\.(adoc|asciidoc|asc)$/i.test(input);
   }
 
-  function substituteAttributes(input: string, attributes: Map<string, string>) {
+  function substituteAttributes(
+    input: string,
+    attributes: Map<string, string>,
+  ) {
     return input.replace(/\{([^}]+)\}/g, (_match, name: string) => {
       return attributes.get(name.trim()) ?? "";
     });
@@ -2905,7 +2908,9 @@ export function fixtureIncludeFilesForPath(path: string) {
     if (!match) {
       return false;
     }
-    return match[2] === "==" ? match[1].trim() === match[3].trim() : match[1].trim() !== match[3].trim();
+    return match[2] === "=="
+      ? match[1].trim() === match[3].trim()
+      : match[1].trim() !== match[3].trim();
   }
 
   function collect(currentPath: string, source: string) {
@@ -2968,4 +2973,256 @@ export function fixtureIncludeFilesForPath(path: string) {
 
   collect(path, rootSource);
   return includes;
+}
+
+export function fixtureIncludeGraphForPath(
+  path: string,
+): AsciiDocIncludeGraph | undefined {
+  const rootSource = fixtureDocuments[path];
+  if (!rootSource || !/\.a(?:doc|sciidoc|sc)$/i.test(path)) {
+    return undefined;
+  }
+  const graph: AsciiDocIncludeGraph = {
+    nodes: [
+      {
+        id: "root",
+        path,
+        displayPath: basename(path),
+        kind: "root",
+        status: "active",
+      },
+    ],
+    edges: [],
+  };
+  const visited = new Set<string>();
+  let nextId = 1;
+
+  function addInclude(input: {
+    parentId: string;
+    displayPath: string;
+    path?: string;
+    status: AsciiDocIncludeGraph["nodes"][number]["status"];
+    reason?: string;
+    sourcePath: string;
+    line: number;
+  }) {
+    const id = `include-${nextId++}`;
+    const sourceLocation = {
+      sourcePath: input.sourcePath,
+      line: input.line,
+      column: 1,
+    };
+    graph.nodes.push({
+      id,
+      path: input.path,
+      displayPath: input.displayPath,
+      kind: "include",
+      status: input.status,
+      reason: input.reason,
+      sourceLocation,
+      parentId: input.parentId,
+    });
+    graph.edges.push({
+      fromId: input.parentId,
+      toId: id,
+      sourceLocation,
+      status: input.status,
+    });
+    return id;
+  }
+
+  function normalize(input: string) {
+    const parts: string[] = [];
+    for (const part of input.split("/")) {
+      if (!part || part === ".") {
+        continue;
+      }
+      if (part === "..") {
+        parts.pop();
+        continue;
+      }
+      parts.push(part);
+    }
+    return `/${parts.join("/")}`;
+  }
+
+  function dirname(input: string) {
+    const normalized = normalize(input);
+    return normalized.slice(0, normalized.lastIndexOf("/")) || "/";
+  }
+
+  function basename(input: string) {
+    return input.split("/").filter(Boolean).at(-1) ?? input;
+  }
+
+  function isRecursiveAsciiDocPath(input: string) {
+    return /\.(adoc|asciidoc|asc)$/i.test(input);
+  }
+
+  function substituteAttributes(
+    input: string,
+    attributes: Map<string, string>,
+  ) {
+    return input.replace(/\{([^}]+)\}/g, (_match, name: string) => {
+      return attributes.get(name.trim()) ?? "";
+    });
+  }
+
+  function applyAttribute(trimmed: string, attributes: Map<string, string>) {
+    const unset = /^:(?:!([^:]+)|([^:!]+)!):\s*$/.exec(trimmed);
+    if (unset) {
+      attributes.delete((unset[1] ?? unset[2]).trim());
+      return;
+    }
+    const assignment = /^:([^:!\s][^:]*):\s*(.*)$/.exec(trimmed);
+    if (!assignment) {
+      return;
+    }
+    attributes.set(
+      assignment[1].trim(),
+      substituteAttributes(assignment[2].trim(), attributes),
+    );
+  }
+
+  function conditionActive(
+    trimmed: string,
+    attributes: Map<string, string>,
+  ): boolean | null {
+    const conditional = /^(ifdef|ifndef)::([^[]+)\[.*\]\s*$/.exec(trimmed);
+    if (conditional) {
+      const anyDefined = conditional[2]
+        .split(/[,+]/)
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .some((name) => attributes.has(name));
+      return conditional[1] === "ifdef" ? anyDefined : !anyDefined;
+    }
+    const ifeval = /^ifeval::\[(.*)\]\s*$/.exec(trimmed);
+    if (!ifeval) {
+      return null;
+    }
+    const expression = substituteAttributes(ifeval[1], attributes).trim();
+    const match =
+      /^['"]?([^'"]*?)['"]?\s*(==|!=)\s*['"]?([^'"]*?)['"]?\s*$/.exec(
+        expression,
+      );
+    if (!match) {
+      return false;
+    }
+    return match[2] === "=="
+      ? match[1].trim() === match[3].trim()
+      : match[1].trim() !== match[3].trim();
+  }
+
+  function includeTarget(trimmed: string, attributes: Map<string, string>) {
+    if (!trimmed.startsWith("include::")) {
+      return null;
+    }
+    return substituteAttributes(
+      trimmed.slice("include::".length).split("[")[0]?.trim() ?? "",
+      attributes,
+    );
+  }
+
+  function collect(
+    currentPath: string,
+    source: string,
+    parentId: string,
+    attributes: Map<string, string>,
+  ) {
+    const conditionStack: boolean[] = [];
+    let inDelimitedBlock = false;
+    for (const [index, line] of source.split("\n").entries()) {
+      const lineNumber = index + 1;
+      const trimmed = line.trim();
+      if (!inDelimitedBlock) {
+        if (/^endif::(?:[^[]*)?\[\]\s*$/.test(trimmed)) {
+          conditionStack.pop();
+          continue;
+        }
+        const condition = conditionActive(trimmed, attributes);
+        if (condition !== null) {
+          conditionStack.push(conditionStack.every(Boolean) && condition);
+          continue;
+        }
+        if (!conditionStack.every(Boolean)) {
+          const target = includeTarget(trimmed, attributes);
+          if (target) {
+            addInclude({
+              parentId,
+              displayPath: basename(target),
+              status: "skipped",
+              reason: "conditional",
+              sourcePath: currentPath,
+              line: lineNumber,
+            });
+          }
+          continue;
+        }
+        applyAttribute(trimmed, attributes);
+      }
+      if (trimmed === "----" || trimmed === "....") {
+        inDelimitedBlock = !inDelimitedBlock;
+      }
+      const target = includeTarget(trimmed, attributes);
+      if (!target) {
+        continue;
+      }
+      if (!target || target.startsWith("/") || target.includes("://")) {
+        addInclude({
+          parentId,
+          displayPath: basename(target),
+          status: "blocked",
+          reason: "unsafe",
+          sourcePath: currentPath,
+          line: lineNumber,
+        });
+        continue;
+      }
+      const resolved = normalize(`${dirname(currentPath)}/${target}`);
+      const includeSource = fixtureDocuments[resolved];
+      if (includeSource === undefined) {
+        addInclude({
+          parentId,
+          displayPath: basename(target),
+          status: resolved.includes("/private") ? "blocked" : "missing",
+          reason: resolved.includes("/private") ? "outside-root" : "missing",
+          sourcePath: currentPath,
+          line: lineNumber,
+        });
+        continue;
+      }
+      if (visited.has(resolved)) {
+        addInclude({
+          parentId,
+          displayPath: basename(resolved),
+          path: resolved,
+          status: "recursive",
+          reason: "recursive",
+          sourcePath: currentPath,
+          line: lineNumber,
+        });
+        continue;
+      }
+      visited.add(resolved);
+      const includeId = addInclude({
+        parentId,
+        displayPath: basename(resolved),
+        path: resolved,
+        status: "active",
+        sourcePath: currentPath,
+        line: lineNumber,
+      });
+      if (isRecursiveAsciiDocPath(resolved)) {
+        collect(resolved, includeSource, includeId, attributes);
+      }
+    }
+  }
+
+  const attributes = new Map<string, string>();
+  for (const line of rootSource.split("\n")) {
+    applyAttribute(line.trim(), attributes);
+  }
+  collect(path, rootSource, "root", attributes);
+  return graph;
 }

@@ -12,6 +12,8 @@ pub struct DocumentPayload {
     #[serde(default)]
     pub include_files: Vec<AsciiDocIncludeFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include_graph: Option<AsciiDocIncludeGraph>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asciidoc_context: Option<AsciiDocRenderContext>,
 }
 
@@ -20,6 +22,52 @@ pub struct DocumentPayload {
 pub struct AsciiDocIncludeFile {
     pub path: String,
     pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AsciiDocIncludeGraph {
+    #[serde(default)]
+    pub nodes: Vec<AsciiDocIncludeGraphNode>,
+    #[serde(default)]
+    pub edges: Vec<AsciiDocIncludeGraphEdge>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AsciiDocIncludeGraphNode {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    pub display_path: String,
+    pub kind: String,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_location: Option<AsciiDocIncludeGraphSourceLocation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AsciiDocIncludeGraphEdge {
+    pub from_id: String,
+    pub to_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_location: Option<AsciiDocIncludeGraphSourceLocation>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AsciiDocIncludeGraphSourceLocation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_path: Option<String>,
+    pub line: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub column: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createRef } from "react";
 import { act } from "react";
 import { RightSidebar } from "../../src/ui/components/RightSidebar";
+import type { DocumentPayload } from "../../src/core/types";
 import { createReactRootHarness } from "./helpers/reactHarness";
 
 function renderSearchSidebar(
@@ -11,6 +12,8 @@ function renderSearchSidebar(
   const props: Parameters<typeof RightSidebar>[0] = {
     activeHeadingId: null,
     diagramInspectorItems: [],
+    documentPayload: null,
+    includeInspectorItems: [],
     matchCount: 0,
     pinnedSearch: null,
     query: "",
@@ -31,6 +34,7 @@ function renderSearchSidebar(
     onNavigateSourceLine: vi.fn(),
     onNavigateHeading: vi.fn(),
     onOpenDiagramPreview: vi.fn(),
+    onOpenInclude: vi.fn(),
     onPinQuery: vi.fn(),
     onSelectDiagram: vi.fn(),
     onSetSearchScope: vi.fn(),
@@ -247,6 +251,124 @@ describe("RightSidebar diagram inspector panel", () => {
     });
 
     expect(onSelectDiagram).toHaveBeenCalledWith("kroki-1");
+    harness.cleanup();
+  });
+});
+
+describe("RightSidebar contents include section", () => {
+  const asciidocDocument: DocumentPayload = {
+    path: "/workspace/docs/current.adoc",
+    basePath: "/workspace/docs",
+    format: "asciidoc",
+    source: "= Current",
+    updatedAt: "test",
+    asciidocContext: {
+      baseDir: "/workspace",
+      workspaceRoot: "/workspace",
+      documentDir: "/workspace/docs",
+      attributes: {},
+      resourceRoots: ["/workspace"],
+    },
+  };
+
+  it("hides Includes for Markdown documents", () => {
+    const { harness } = renderSearchSidebar({
+      rightSidebarTab: "contents",
+      documentPayload: {
+        ...asciidocDocument,
+        format: "markdown",
+        path: "/workspace/docs/current.md",
+      },
+      includeInspectorItems: [
+        {
+          id: "include-1",
+          label: "partial.adoc",
+          displayPath: "partials/partial.adoc",
+          status: "active",
+          path: "/workspace/docs/partials/partial.adoc",
+          sourcePath: "/workspace/docs/current.md",
+          sourceLine: 3,
+          sourceReference: "/workspace/docs/current.md:3",
+          depth: 0,
+        },
+      ],
+    });
+
+    expect(
+      harness.container.querySelector(
+        '[data-review-id="include-inspector-toggle"]',
+      ),
+    ).toBeNull();
+    harness.cleanup();
+  });
+
+  it("opens active includes from the Contents section", () => {
+    const onOpenInclude = vi.fn();
+    const { harness } = renderSearchSidebar({
+      rightSidebarTab: "contents",
+      documentPayload: asciidocDocument,
+      onOpenInclude,
+      includeInspectorItems: [
+        {
+          id: "include-1",
+          label: "partial.adoc",
+          displayPath: "docs/partials/partial.adoc",
+          status: "active",
+          path: "/workspace/docs/partials/partial.adoc",
+          sourcePath: "/workspace/docs/current.adoc",
+          sourceLine: 4,
+          sourceReference: "/workspace/docs/current.adoc:4",
+          depth: 0,
+        },
+      ],
+    });
+
+    act(() => {
+      harness.byReviewId<HTMLButtonElement>("include-inspector-toggle").click();
+    });
+    act(() => {
+      harness.container
+        .querySelector<HTMLButtonElement>(".include-inspector-main")
+        ?.click();
+    });
+
+    expect(onOpenInclude).toHaveBeenCalledWith(
+      "/workspace/docs/partials/partial.adoc",
+    );
+    harness.cleanup();
+  });
+
+  it("navigates inactive includes to the current source line", () => {
+    const onNavigateSourceLine = vi.fn();
+    const { harness } = renderSearchSidebar({
+      rightSidebarTab: "contents",
+      documentPayload: asciidocDocument,
+      onNavigateSourceLine,
+      includeInspectorItems: [
+        {
+          id: "include-2",
+          label: "disabled.adoc",
+          displayPath: "partials/disabled.adoc",
+          status: "skipped",
+          reason: "conditional",
+          sourcePath: "/workspace/docs/current.adoc",
+          sourceLine: 9,
+          sourceReference: "/workspace/docs/current.adoc:9",
+          depth: 0,
+        },
+      ],
+    });
+
+    act(() => {
+      harness.byReviewId<HTMLButtonElement>("include-inspector-toggle").click();
+    });
+    act(() => {
+      harness.container
+        .querySelector<HTMLButtonElement>(".include-inspector-main")
+        ?.click();
+    });
+
+    expect(onNavigateSourceLine).toHaveBeenCalledWith(9);
     harness.cleanup();
   });
 });

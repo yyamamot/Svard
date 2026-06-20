@@ -159,6 +159,147 @@
   font-weight: 700;
 }
 
+.contents-section {
+  margin-top: 16px;
+  border-top: 1px solid #d8e0e4;
+  padding-top: 12px;
+}
+
+.contents-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  color: #183d37;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.contents-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.contents-section-count {
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: #38515b;
+  background: #e7eef1;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.include-inspector-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 9px;
+}
+
+.include-inspector-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border-radius: 5px;
+  padding: 4px 6px 4px 8px;
+}
+
+.include-inspector-row:hover {
+  background: #f4f8f7;
+}
+
+.include-inspector-main {
+  display: grid;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.include-inspector-label {
+  overflow: hidden;
+  color: #1b2a30;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.include-inspector-meta {
+  overflow: hidden;
+  color: #60737b;
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.include-inspector-status {
+  border-radius: 999px;
+  padding: 2px 6px;
+  color: #4d5c63;
+  background: #edf2f4;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.include-inspector-status.active {
+  color: #1d5c4f;
+  background: #dff0e9;
+}
+
+.include-inspector-status.skipped,
+.include-inspector-status.depth-limit {
+  color: #6c5b2a;
+  background: #f4ecd2;
+}
+
+.include-inspector-status.blocked,
+.include-inspector-status.missing,
+.include-inspector-status.recursive {
+  color: #8d2d2d;
+  background: #f8e4e1;
+}
+
+.include-inspector-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #c7d2d8;
+  border-radius: 5px;
+  color: #41555e;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.include-inspector-copy:hover,
+.include-inspector-copy:focus-visible {
+  border-color: #8fa39d;
+  background: #eef5f3;
+}
+
+.include-inspector-empty {
+  margin: 9px 0 0;
+  color: #5f7178;
+  font-size: 12px;
+}
+
 .search-box {
   display: flex;
   align-items: center;
