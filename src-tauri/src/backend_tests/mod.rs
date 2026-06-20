@@ -15,6 +15,7 @@ mod kroki;
 mod local_assets;
 mod path_policy;
 mod plantuml_cache;
+mod plantuml_external;
 mod shared;
 mod source_control;
 mod watchers;

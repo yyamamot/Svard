@@ -18,6 +18,7 @@ import type {
   DocumentLinkResolution,
   LocalImageResult,
   RenderResult,
+  PlantUmlRenderResult,
   PlantUmlSvgCacheReadResult,
   PlantUmlSvgCacheWriteResult,
 } from "../../core/types";
@@ -37,6 +38,13 @@ import type { SafeHtml } from "../lib/safeHtml";
 
 interface RenderHost {
   renderDiagram(request: KrokiRequest): Promise<KrokiResult>;
+  renderExternalPlantUml(input: {
+    source: string;
+    theme: "light" | "dark";
+    timeoutMs: number;
+    binaryPath: string | null;
+    dotPath?: string | null;
+  }): Promise<PlantUmlRenderResult>;
   resolveLocalImage(
     path: string,
     documentPath: string,
@@ -427,6 +435,24 @@ export function useDocumentRender({
         })();
         const renderedPlantUmlPromise = (async () => {
           const plantUmlStartedAt = perfNow();
+          let externalPlantUmlQueue = Promise.resolve();
+          function renderExternalPlantUmlQueued(input: {
+            source: string;
+            theme: "light" | "dark";
+            timeoutMs: number;
+            binaryPath: string | null;
+            dotPath?: string | null;
+          }): Promise<PlantUmlRenderResult> {
+            const run = externalPlantUmlQueue.then(() =>
+              host.renderExternalPlantUml(input),
+            );
+            externalPlantUmlQueue = run.then(
+              () => undefined,
+              () => undefined,
+            );
+            return run;
+          }
+
           try {
             const localPlantUmlResults =
               result.plantUmlDiagrams.length > 0 &&
@@ -455,6 +481,22 @@ export function useDocumentRender({
                 const shouldUseKroki =
                   diagramConfig.plantumlRenderer === "kroki";
                 const key = diagramKey("plantuml", diagram.id);
+                const shouldTryExternal =
+                  !shouldUseKroki &&
+                  diagramConfig.plantumlExternalFallback ===
+                    "on-local-failure" &&
+                  Boolean(diagramConfig.plantumlExternalBinaryPath) &&
+                  (localResult?.status === "error" ||
+                    localResult?.status === "timeout");
+                const externalResult = shouldTryExternal
+                  ? await renderExternalPlantUmlQueued({
+                      source: normalizePlantUmlRenderSource(diagram.source),
+                      theme,
+                      timeoutMs: diagramConfig.plantumlExternalTimeoutMs,
+                      binaryPath: diagramConfig.plantumlExternalBinaryPath,
+                      dotPath: diagramConfig.plantumlExternalDotPath,
+                    })
+                  : undefined;
                 const shouldTryKroki =
                   shouldUseKroki || krokiFallbackDiagramKeys.has(key);
                 const fallbackResult = shouldTryKroki
@@ -469,22 +511,42 @@ export function useDocumentRender({
                 return {
                   ...diagram,
                   result: localResult,
+                  externalResult,
                   fallbackResult,
                 };
               }),
             );
           } catch (plantUmlError) {
-            return result.plantUmlDiagrams.map((diagram) => ({
-              ...diagram,
-              result: {
-                status: "error" as const,
-                diagnostics: [
-                  plantUmlError instanceof Error
-                    ? plantUmlError.message
-                    : "PlantUML render failed",
-                ],
-              },
-            }));
+            return Promise.all(
+              result.plantUmlDiagrams.map(async (diagram) => {
+                const localResult: PlantUmlRenderResult = {
+                  status: "error",
+                  diagnostics: [
+                    plantUmlError instanceof Error
+                      ? plantUmlError.message
+                      : "PlantUML render failed",
+                  ],
+                };
+                const externalResult =
+                  diagramConfig.plantumlRenderer === "local" &&
+                  diagramConfig.plantumlExternalFallback ===
+                    "on-local-failure" &&
+                  diagramConfig.plantumlExternalBinaryPath
+                    ? await renderExternalPlantUmlQueued({
+                        source: normalizePlantUmlRenderSource(diagram.source),
+                        theme,
+                        timeoutMs: diagramConfig.plantumlExternalTimeoutMs,
+                        binaryPath: diagramConfig.plantumlExternalBinaryPath,
+                        dotPath: diagramConfig.plantumlExternalDotPath,
+                      })
+                    : undefined;
+                return {
+                  ...diagram,
+                  result: localResult,
+                  externalResult,
+                };
+              }),
+            );
           } finally {
             tracePerf("render.renderPlantUmlDiagrams", {
               basename,

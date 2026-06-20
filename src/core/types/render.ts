@@ -104,6 +104,20 @@ export interface PlantUmlRenderInput {
   probeMode?: "normal" | "skip-diagnostic" | "dummy-svg";
 }
 
+export interface ExternalPlantUmlRenderInput {
+  source: string;
+  theme: "light" | "dark";
+  timeoutMs: number;
+  binaryPath: string | null;
+  dotPath?: string | null;
+}
+
+export interface ExternalPlantUmlTestInput {
+  timeoutMs: number;
+  binaryPath: string | null;
+  dotPath?: string | null;
+}
+
 export interface PlantUmlSvgCacheReadInput {
   key: string;
 }
@@ -145,6 +159,7 @@ export interface PlantUmlRenderResult {
     svgBytes?: number;
     cacheStatus?: "disabled" | "hit" | "miss" | "not-written";
     cacheLayer?: "memory" | "persistent";
+    externalVersion?: string;
     mode?: "renderToString" | "dom" | "dummy";
   };
 }

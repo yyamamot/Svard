@@ -109,4 +109,44 @@ describe("buildDiagramInspectorItems", () => {
       sourceReference: "/workspace/include.adoc:8",
     });
   });
+
+  it("marks PlantUML external fallback results separately from Kroki", () => {
+    const items = buildDiagramInspectorItems({
+      document: documentPayload,
+      renderResult: renderResult(),
+      renderSnapshot: {
+        graphvizDiagrams: [],
+        mermaidDiagrams: [],
+        krokiDiagrams: [],
+        plantUmlDiagrams: [
+          {
+            id: "plantuml-1",
+            source: "@startuml\nAlice -> Bob\n@enduml",
+            result: {
+              status: "error",
+              diagnostics: ["Built-in PlantUML failed"],
+            },
+            externalResult: {
+              status: "rendered",
+              svg: "<svg><text>external</text></svg>",
+              diagnostics: [],
+              metrics: {
+                renderMs: 25,
+                svgBytes: 32,
+                cacheStatus: "miss",
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    expect(items[0]).toMatchObject({
+      status: "rendered",
+      renderPath: "external-fallback",
+      svg: "<svg><text>external</text></svg>",
+      cacheStatus: "miss",
+      metrics: { renderMs: 25, svgBytes: 32, cacheStatus: "miss" },
+    });
+  });
 });

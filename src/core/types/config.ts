@@ -119,6 +119,10 @@ export interface DiagramConfig {
   mermaidRenderer: "local" | "kroki";
   plantumlRenderer: "local" | "kroki";
   plantumlTimeoutMs: number;
+  plantumlExternalFallback: "disabled" | "on-local-failure";
+  plantumlExternalBinaryPath: string | null;
+  plantumlExternalTimeoutMs: number;
+  plantumlExternalDotPath: string | null;
   graphvizRenderer: "local" | "kroki";
   graphvizTimeoutMs: number;
 }

@@ -57,6 +57,51 @@ pub struct PlantUmlSvgCacheWriteResult {
     pub status: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalPlantUmlRenderInput {
+    pub source: String,
+    pub theme: String,
+    pub timeout_ms: u64,
+    pub binary_path: Option<String>,
+    #[serde(default)]
+    pub dot_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalPlantUmlTestInput {
+    pub timeout_ms: u64,
+    pub binary_path: Option<String>,
+    #[serde(default)]
+    pub dot_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantUmlRenderMetrics {
+    pub render_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub svg_bytes: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_layer: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantUmlRenderResult {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub svg: Option<String>,
+    pub diagnostics: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<PlantUmlRenderMetrics>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalImageResult {

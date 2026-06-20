@@ -9,6 +9,7 @@ src-tauri/target/
 .artifacts/
 .codegraph/
 .serena/
+.local-tools/
 playwright-report/
 test-results/
 .DS_Store

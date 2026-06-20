@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultConfig } from "../../src/core/defaultConfig";
 import type { AppConfig } from "../../src/core/types";
 import { DiagramsSection } from "../../src/ui/components/preferences/DiagramsSection";
+import type { ExternalPlantUmlTestState } from "../../src/ui/components/preferences/types";
 
 describe("DiagramsSection", () => {
   let container: HTMLDivElement;
@@ -13,6 +14,9 @@ describe("DiagramsSection", () => {
   const onUpdateRenderer = vi.fn();
   const onUpdateFastDiagramLoading = vi.fn();
   const onUpdateTimeout = vi.fn();
+  const onRunExternalPlantUmlTest = vi.fn();
+  const onUpdateExternalPlantUmlFallback = vi.fn();
+  const onUpdateExternalPlantUmlPath = vi.fn();
 
   beforeEach(() => {
     (
@@ -29,7 +33,10 @@ describe("DiagramsSection", () => {
     container.remove();
   });
 
-  function renderSection(config: AppConfig = defaultConfig) {
+  function renderSection(
+    config: AppConfig = defaultConfig,
+    externalPlantUmlTest: ExternalPlantUmlTestState = { status: "idle" },
+  ) {
     act(() => {
       root.render(
         <DiagramsSection
@@ -38,6 +45,10 @@ describe("DiagramsSection", () => {
           onUpdateRenderer={onUpdateRenderer}
           onUpdateFastDiagramLoading={onUpdateFastDiagramLoading}
           onUpdateTimeout={onUpdateTimeout}
+          externalPlantUmlTest={externalPlantUmlTest}
+          onRunExternalPlantUmlTest={onRunExternalPlantUmlTest}
+          onUpdateExternalPlantUmlFallback={onUpdateExternalPlantUmlFallback}
+          onUpdateExternalPlantUmlPath={onUpdateExternalPlantUmlPath}
         />,
       );
     });
@@ -111,5 +122,56 @@ describe("DiagramsSection", () => {
         '[data-review-id="plantuml-timeout-control"]',
       )?.value,
     ).toBe("10000");
+    expect(
+      advanced?.querySelector<HTMLInputElement>(
+        '[data-review-id="plantuml-external-timeout-control"]',
+      )?.min,
+    ).toBe("1000");
+  });
+
+  it("keeps external PlantUML fallback disabled until explicitly enabled", () => {
+    renderSection();
+
+    expect(container.textContent).toContain("External PlantUML fallback");
+    expect(container.textContent).toContain("Not tested.");
+    expect(container.textContent).toContain(
+      "Optional for sequence diagrams.",
+    );
+    expect(container.textContent).toContain(
+      "not Graphviz dot availability.",
+    );
+    expect(
+      container.querySelector<HTMLInputElement>(
+        '[data-review-id="plantuml-external-binary-path"]',
+      )?.disabled,
+    ).toBe(true);
+  });
+
+  it("renders the external PlantUML test SVG on success", () => {
+    renderSection(
+      {
+        ...defaultConfig,
+        diagram: {
+          ...defaultConfig.diagram,
+          plantumlExternalFallback: "on-local-failure",
+          plantumlExternalBinaryPath: "/tmp/plantuml",
+        },
+      },
+      {
+        status: "success",
+        result: {
+          status: "rendered",
+          svg: '<svg viewBox="0 0 20 10"><text>Alice/Bob</text></svg>',
+          diagnostics: [],
+        },
+      },
+    );
+
+    expect(
+      container.querySelector(
+        '[data-review-id="plantuml-external-test-svg"] svg',
+      ),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("Alice/Bob");
   });
 });

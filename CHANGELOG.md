@@ -5,6 +5,7 @@
 - Added a Diagram Inspector sidebar tab for reviewing diagram render status, source references, cache state, metrics, and SVG actions.
 - Added Diagram Inspector list navigation so selecting a diagram scrolls the viewer to its rendered location.
 - Added an Includes section to the Contents sidebar for inspecting AsciiDoc include dependencies and status.
+- Added an opt-in external PlantUML fallback for diagrams that the built-in renderer cannot render.
 
 ## 1.0.3
 

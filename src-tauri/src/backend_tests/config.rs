@@ -14,6 +14,10 @@ fn default_config_keeps_kroki_disabled() {
     assert_eq!(config.diagram.mermaid_renderer, "local");
     assert_eq!(config.diagram.plantuml_renderer, "local");
     assert_eq!(config.diagram.plantuml_timeout_ms, 10_000);
+    assert_eq!(config.diagram.plantuml_external_fallback, "disabled");
+    assert!(config.diagram.plantuml_external_binary_path.is_none());
+    assert_eq!(config.diagram.plantuml_external_timeout_ms, 5_000);
+    assert!(config.diagram.plantuml_external_dot_path.is_none());
     assert_eq!(config.diagram.graphviz_renderer, "local");
     assert_eq!(config.diagram.graphviz_timeout_ms, 10_000);
     assert_eq!(config.layout.left_sidebar_width, 260);
@@ -313,6 +317,7 @@ fn config_fixed_value_enums_serialize_as_existing_strings() {
     config.workspace.source_control_view = SourceControlView::BranchDiff;
     config.workspace.source_control_graph_scope = SourceControlGraphScope::File;
     config.diagram.mermaid_renderer = DiagramRenderer::Kroki;
+    config.diagram.plantuml_external_fallback = PlantUmlExternalFallback::OnLocalFailure;
     config.kroki.mode = KrokiMode::Public;
     config.kroki.output_format = KrokiOutputFormat::Png;
     config.network.http_proxy.mode = HttpProxyMode::Custom;
@@ -330,6 +335,10 @@ fn config_fixed_value_enums_serialize_as_existing_strings() {
     assert_eq!(value["workspace"]["sourceControlView"], "branchDiff");
     assert_eq!(value["workspace"]["sourceControlGraphScope"], "file");
     assert_eq!(value["diagram"]["mermaidRenderer"], "kroki");
+    assert_eq!(
+        value["diagram"]["plantumlExternalFallback"],
+        "on-local-failure"
+    );
     assert_eq!(value["kroki"]["mode"], "public");
     assert_eq!(value["kroki"]["outputFormat"], "png");
     assert_eq!(value["network"]["httpProxy"]["mode"], "custom");
@@ -344,6 +353,7 @@ fn config_fixed_value_enums_fallback_unknown_values_to_defaults() {
     value["workspace"]["sourceControlView"] = serde_json::Value::String("history".to_string());
     value["workspace"]["sourceControlGraphScope"] = serde_json::Value::String("all".to_string());
     value["diagram"]["graphvizRenderer"] = serde_json::Value::String("remote".to_string());
+    value["diagram"]["plantumlExternalFallback"] = serde_json::Value::String("always".to_string());
     value["kroki"]["outputFormat"] = serde_json::Value::String("pdf".to_string());
     value["workspace"]["bookmarks"] = serde_json::json!([
         { "path": "/workspace/docs", "kind": "project" }
@@ -356,6 +366,7 @@ fn config_fixed_value_enums_fallback_unknown_values_to_defaults() {
     assert_eq!(config.workspace.source_control_view, "changes");
     assert_eq!(config.workspace.source_control_graph_scope, "repository");
     assert_eq!(config.diagram.graphviz_renderer, "local");
+    assert_eq!(config.diagram.plantuml_external_fallback, "disabled");
     assert_eq!(config.kroki.output_format, "svg");
     assert_eq!(config.workspace.bookmarks[0].kind, "file");
 }

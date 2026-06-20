@@ -14,6 +14,7 @@ import type {
 
 export type DiagramInspectorRenderPath =
   | "local"
+  | "external-fallback"
   | "kroki-fallback"
   | "disabled";
 
@@ -36,6 +37,7 @@ export interface DiagramRenderSnapshot {
   plantUmlDiagrams: Array<
     PlantUmlDiagram & {
       result?: PlantUmlRenderResult;
+      externalResult?: PlantUmlRenderResult;
       fallbackResult?: KrokiResult;
     }
   >;
@@ -145,6 +147,7 @@ function buildDiagramInspectorItem({
       ...base,
       source: diagram?.source ?? diagramSource(renderResult, slot),
       localResult: diagram?.result,
+      externalResult: diagram?.externalResult,
       fallbackResult: diagram?.fallbackResult,
     });
   }
@@ -168,6 +171,7 @@ function localDiagramItem(input: {
   sourceReference?: string;
   source?: string;
   localResult?: PlantUmlRenderResult | GraphvizRenderResult;
+  externalResult?: PlantUmlRenderResult;
   fallbackResult?: KrokiResult;
 }): DiagramInspectorItem {
   const fallbackSvg =
@@ -179,23 +183,34 @@ function localDiagramItem(input: {
     input.localResult?.status === "rendered"
       ? input.localResult.svg
       : undefined;
+  const externalSvg =
+    input.externalResult?.status === "rendered"
+      ? input.externalResult.svg
+      : undefined;
   const renderPath = input.fallbackResult
     ? "kroki-fallback"
-    : input.localResult
-      ? "local"
-      : "disabled";
-  const status = fallbackSvg
-    ? "rendered"
-    : input.fallbackResult
-      ? krokiStatus(input.fallbackResult)
+    : input.externalResult
+      ? "external-fallback"
       : input.localResult
-        ? localStatus(input.localResult)
+        ? "local"
         : "disabled";
+  const status =
+    fallbackSvg || externalSvg
+      ? "rendered"
+      : input.fallbackResult
+        ? krokiStatus(input.fallbackResult)
+        : input.externalResult
+          ? localStatus(input.externalResult)
+          : input.localResult
+            ? localStatus(input.localResult)
+            : "disabled";
   const message =
     input.fallbackResult?.message ??
+    input.externalResult?.diagnostics.find(Boolean) ??
     input.localResult?.diagnostics.find(Boolean) ??
     undefined;
-  const localMetrics = input.localResult?.metrics;
+  const localMetrics =
+    input.externalResult?.metrics ?? input.localResult?.metrics;
   const metrics = localMetrics
     ? compactMetrics(localMetrics)
     : input.fallbackResult?.cacheStatus
@@ -212,7 +227,7 @@ function localDiagramItem(input: {
     renderPath,
     status,
     message,
-    svg: localSvg ?? fallbackSvg,
+    svg: localSvg ?? externalSvg ?? fallbackSvg,
     metrics,
     cacheStatus:
       metricCacheStatus(localMetrics) ?? input.fallbackResult?.cacheStatus,

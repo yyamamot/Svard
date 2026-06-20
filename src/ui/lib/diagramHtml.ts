@@ -374,6 +374,7 @@ function inlineDiagramHtml({
   plantUmlDiagrams: Array<
     PlantUmlDiagram & {
       result?: PlantUmlRenderResult;
+      externalResult?: PlantUmlRenderResult;
       fallbackResult?: KrokiResult;
     }
   >;
@@ -416,10 +417,12 @@ function inlineDiagramHtml({
     const svg =
       diagram?.result?.status === "rendered"
         ? diagram.result.svg
-        : diagram?.fallbackResult?.status === "rendered" &&
-            diagram.fallbackResult.mediaType === "image/svg+xml"
-          ? diagram.fallbackResult.content
-          : undefined;
+        : diagram?.externalResult?.status === "rendered"
+          ? diagram.externalResult.svg
+          : diagram?.fallbackResult?.status === "rendered" &&
+              diagram.fallbackResult.mediaType === "image/svg+xml"
+            ? diagram.fallbackResult.content
+            : undefined;
     const content = svg
       ? inlineSvgHtml(svg, {
           diagramId: slot.id,
@@ -431,7 +434,7 @@ function inlineDiagramHtml({
       : inlineDiagnosticHtml(
           diagramRenderFailureMessage({
             renderer: "plantuml",
-            result: diagram?.result,
+            result: diagram?.externalResult ?? diagram?.result,
             fallbackResult: diagram?.fallbackResult,
           }),
           {
@@ -570,6 +573,7 @@ export function applyInlineDiagramsToHtml({
   plantUmlDiagrams: Array<
     PlantUmlDiagram & {
       result?: PlantUmlRenderResult;
+      externalResult?: PlantUmlRenderResult;
       fallbackResult?: KrokiResult;
     }
   >;

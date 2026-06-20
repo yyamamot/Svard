@@ -115,6 +115,11 @@ string_enum!(pub enum DiagramRenderer {
     Kroki = "kroki",
 });
 
+string_enum!(pub enum PlantUmlExternalFallback {
+    default Disabled = "disabled",
+    OnLocalFailure = "on-local-failure",
+});
+
 string_enum!(pub enum KrokiMode {
     default Disabled = "disabled",
     Local = "local",
@@ -242,6 +247,14 @@ pub struct DiagramConfig {
     pub plantuml_renderer: DiagramRenderer,
     #[serde(default = "default_plantuml_timeout_ms")]
     pub plantuml_timeout_ms: u64,
+    #[serde(default)]
+    pub plantuml_external_fallback: PlantUmlExternalFallback,
+    #[serde(default)]
+    pub plantuml_external_binary_path: Option<String>,
+    #[serde(default = "default_plantuml_external_timeout_ms")]
+    pub plantuml_external_timeout_ms: u64,
+    #[serde(default)]
+    pub plantuml_external_dot_path: Option<String>,
     #[serde(default = "default_graphviz_renderer")]
     pub graphviz_renderer: DiagramRenderer,
     #[serde(default = "default_graphviz_timeout_ms")]
@@ -369,6 +382,10 @@ fn default_diagram_config() -> DiagramConfig {
         mermaid_renderer: default_mermaid_renderer(),
         plantuml_renderer: default_plantuml_renderer(),
         plantuml_timeout_ms: default_plantuml_timeout_ms(),
+        plantuml_external_fallback: PlantUmlExternalFallback::Disabled,
+        plantuml_external_binary_path: None,
+        plantuml_external_timeout_ms: default_plantuml_external_timeout_ms(),
+        plantuml_external_dot_path: None,
         graphviz_renderer: default_graphviz_renderer(),
         graphviz_timeout_ms: default_graphviz_timeout_ms(),
     }
@@ -384,6 +401,10 @@ fn default_plantuml_renderer() -> DiagramRenderer {
 
 fn default_plantuml_timeout_ms() -> u64 {
     10_000
+}
+
+fn default_plantuml_external_timeout_ms() -> u64 {
+    5_000
 }
 
 fn default_graphviz_renderer() -> DiagramRenderer {

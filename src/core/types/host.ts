@@ -39,6 +39,9 @@ import type {
   KrokiRequest,
   KrokiResult,
   LocalImageResult,
+  ExternalPlantUmlRenderInput,
+  ExternalPlantUmlTestInput,
+  PlantUmlRenderResult,
   PlantUmlSvgCacheReadInput,
   PlantUmlSvgCacheReadResult,
   PlantUmlSvgCacheWriteInput,
@@ -130,6 +133,12 @@ export interface HostAdapter {
     context?: AsciiDocRenderContext | null,
   ): Promise<LocalImageResult>;
   renderDiagram(input: KrokiRequest): Promise<KrokiResult>;
+  renderExternalPlantUml(
+    input: ExternalPlantUmlRenderInput,
+  ): Promise<PlantUmlRenderResult>;
+  testExternalPlantUml(
+    input: ExternalPlantUmlTestInput,
+  ): Promise<PlantUmlRenderResult>;
   clearKrokiCache(): Promise<void>;
   readPlantUmlSvgCache(
     input: PlantUmlSvgCacheReadInput,
@@ -145,9 +154,7 @@ export interface HostAdapter {
   openCurrentDocumentInNewWindow(
     request: ViewerWindowOpenRequest,
   ): Promise<void>;
-  takeCurrentViewerWindowOpenRequest?(): Promise<
-    ViewerWindowOpenRequest | null
-  >;
+  takeCurrentViewerWindowOpenRequest?(): Promise<ViewerWindowOpenRequest | null>;
   getGitStatusSummary(paths: string[]): Promise<GitStatusEntry[]>;
   getGitChanges(pathOrRoot: string): Promise<GitChanges>;
   getGitBranchDiff(

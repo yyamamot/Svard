@@ -5,6 +5,7 @@ import type {
   KeybindingMappingConfig,
   KrokiResult,
   MouseGestureMappingConfig,
+  PlantUmlRenderResult,
 } from "../../../core/types";
 import type { KeybindingPreset, Platform } from "../../../core/keybindings";
 
@@ -24,6 +25,12 @@ export type PreferencesSectionId =
 export interface KrokiTestState {
   status: "idle" | "running" | "success" | "error";
   result?: KrokiResult;
+  message?: string;
+}
+
+export interface ExternalPlantUmlTestState {
+  status: "idle" | "running" | "success" | "error";
+  result?: PlantUmlRenderResult;
   message?: string;
 }
 
@@ -53,8 +60,20 @@ export interface DiagramsSectionProps {
   ) => void;
   onUpdateFastDiagramLoading: (enabled: boolean) => void;
   onUpdateTimeout: (
-    field: "plantumlTimeoutMs" | "graphvizTimeoutMs",
+    field:
+      | "plantumlTimeoutMs"
+      | "plantumlExternalTimeoutMs"
+      | "graphvizTimeoutMs",
     value: number,
+  ) => void;
+  externalPlantUmlTest: ExternalPlantUmlTestState;
+  onRunExternalPlantUmlTest: () => void;
+  onUpdateExternalPlantUmlFallback: (
+    value: AppConfig["diagram"]["plantumlExternalFallback"],
+  ) => void;
+  onUpdateExternalPlantUmlPath: (
+    field: "plantumlExternalBinaryPath" | "plantumlExternalDotPath",
+    value: string | null,
   ) => void;
 }
 

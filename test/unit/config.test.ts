@@ -14,10 +14,33 @@ describe("config normalization", () => {
       false,
     );
     expect(defaultConfig.experimental.diagramPlaceholderRendering).toBe(true);
-    expect(defaultConfig.experimental.diagramPlaceholderRenderingConfigured).toBe(
-      true,
-    );
+    expect(
+      defaultConfig.experimental.diagramPlaceholderRenderingConfigured,
+    ).toBe(true);
     expect(defaultConfig.experimental.postDiffGitMarkers).toBe(false);
+  });
+
+  it("keeps external PlantUML fallback disabled unless explicitly configured", () => {
+    const normalized = normalizeConfig({
+      ...defaultConfig,
+      diagram: {
+        ...defaultConfig.diagram,
+        plantumlExternalFallback: "on-local-failure",
+        plantumlExternalBinaryPath: "  /opt/bin/plantuml  ",
+        plantumlExternalTimeoutMs: 999999,
+        plantumlExternalDotPath: "  ",
+      },
+    });
+
+    expect(defaultConfig.diagram.plantumlExternalFallback).toBe("disabled");
+    expect(normalized.diagram.plantumlExternalFallback).toBe(
+      "on-local-failure",
+    );
+    expect(normalized.diagram.plantumlExternalBinaryPath).toBe(
+      "/opt/bin/plantuml",
+    );
+    expect(normalized.diagram.plantumlExternalTimeoutMs).toBe(60000);
+    expect(normalized.diagram.plantumlExternalDotPath).toBeNull();
   });
 
   it("migrates missing mouse wheel zoom setting to disabled", () => {
@@ -180,7 +203,9 @@ describe("config normalization", () => {
     expect(config.experimental.searchHitRuler).toBe(false);
     expect(config.experimental.restoreAdditionalWindowsOnStartup).toBe(false);
     expect(config.experimental.diagramPlaceholderRendering).toBe(true);
-    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(
+      true,
+    );
     expect(config.experimental.postDiffGitMarkers).toBe(false);
   });
 
@@ -196,7 +221,9 @@ describe("config normalization", () => {
     });
 
     expect(config.experimental.diagramPlaceholderRendering).toBe(true);
-    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(
+      true,
+    );
   });
 
   it("keeps explicit fast diagram loading opt-out after migration", () => {
@@ -212,7 +239,9 @@ describe("config normalization", () => {
     });
 
     expect(config.experimental.diagramPlaceholderRendering).toBe(false);
-    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(
+      true,
+    );
   });
 
   it("keeps explicit experimental feature opt-ins", () => {
@@ -230,7 +259,9 @@ describe("config normalization", () => {
     expect(config.experimental.searchHitRuler).toBe(true);
     expect(config.experimental.restoreAdditionalWindowsOnStartup).toBe(true);
     expect(config.experimental.diagramPlaceholderRendering).toBe(true);
-    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(
+      true,
+    );
     expect(config.experimental.postDiffGitMarkers).toBe(true);
   });
 

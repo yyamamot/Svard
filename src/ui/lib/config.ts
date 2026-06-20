@@ -48,6 +48,12 @@ type RawAppConfig = Partial<AppConfig> & {
     mode?: unknown;
     endpointUrl?: unknown;
   };
+  diagram?: {
+    plantumlExternalFallback?: unknown;
+    plantumlExternalBinaryPath?: unknown;
+    plantumlExternalTimeoutMs?: unknown;
+    plantumlExternalDotPath?: unknown;
+  };
   security?: {
     allowLocalImages?: unknown;
     showExternalImages?: unknown;
@@ -99,6 +105,7 @@ export function normalizeConfig(config: AppConfig): AppConfig {
     reader: normalizeReaderConfig(config, rawConfig),
     zenMode: normalizeZenModeConfig(config, rawConfig),
     network: normalizeNetworkConfig(config, rawConfig),
+    diagram: normalizeDiagramConfig(config, rawConfig),
     remoteProviders: normalizeRemoteProvidersConfig(rawConfig),
     security: normalizeSecurityConfig(config, rawConfig),
     experimental: normalizeExperimentalConfig(config, rawConfig),
@@ -121,6 +128,33 @@ export function normalizeConfig(config: AppConfig): AppConfig {
       ...(config.mouseGestures ?? {}),
       mappings: normalizeMouseGestureMappings(config.mouseGestures?.mappings),
     },
+  };
+}
+
+function normalizeDiagramConfig(
+  config: AppConfig,
+  rawConfig: RawAppConfig,
+): AppConfig["diagram"] {
+  return {
+    ...defaultConfig.diagram,
+    ...(config.diagram ?? {}),
+    plantumlExternalFallback: oneOf(
+      rawConfig.diagram?.plantumlExternalFallback,
+      ["on-local-failure"] as const,
+      "disabled",
+    ),
+    plantumlExternalBinaryPath: trimmedStringOrNull(
+      rawConfig.diagram?.plantumlExternalBinaryPath,
+    ),
+    plantumlExternalTimeoutMs: boundedNumber(
+      rawConfig.diagram?.plantumlExternalTimeoutMs,
+      1000,
+      60000,
+      defaultConfig.diagram.plantumlExternalTimeoutMs,
+    ),
+    plantumlExternalDotPath: trimmedStringOrNull(
+      rawConfig.diagram?.plantumlExternalDotPath,
+    ),
   };
 }
 

@@ -476,27 +476,71 @@ describe("TauriHostAdapter.watchDocument", () => {
     ).resolves.toEqual({ status: "written" });
     await expect(adapter.clearPlantUmlSvgCache()).resolves.toBeUndefined();
 
-    expect(tauriMocks.invoke).toHaveBeenCalledWith(
-      "read_plantuml_svg_cache",
-      { input: { key: "abc123" } },
-    );
-    expect(tauriMocks.invoke).toHaveBeenCalledWith(
-      "write_plantuml_svg_cache",
-      {
-        input: {
-          key: "abc123",
-          svg: "<svg></svg>",
-          metadata: {
-            renderer: "plantuml",
-            theme: "light",
-            version: "plantuml-teavm-test",
-          },
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("read_plantuml_svg_cache", {
+      input: { key: "abc123" },
+    });
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("write_plantuml_svg_cache", {
+      input: {
+        key: "abc123",
+        svg: "<svg></svg>",
+        metadata: {
+          renderer: "plantuml",
+          theme: "light",
+          version: "plantuml-teavm-test",
         },
       },
-    );
-    expect(tauriMocks.invoke).toHaveBeenCalledWith(
-      "clear_plantuml_svg_cache",
-    );
+    });
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("clear_plantuml_svg_cache");
+  });
+
+  it("delegates external PlantUML operations to native commands", async () => {
+    const adapter = new TauriHostAdapter();
+    tauriMocks.invoke.mockResolvedValueOnce({
+      status: "rendered",
+      svg: "<svg></svg>",
+      diagnostics: [],
+      metrics: { renderMs: 1, cacheStatus: "miss" },
+    });
+    tauriMocks.invoke.mockResolvedValueOnce({
+      status: "rendered",
+      svg: "<svg></svg>",
+      diagnostics: [],
+      metrics: { renderMs: 1, cacheStatus: "disabled" },
+    });
+
+    await expect(
+      adapter.renderExternalPlantUml({
+        source: "@startuml\nA -> B\n@enduml",
+        theme: "light",
+        timeoutMs: 5000,
+        binaryPath: "/usr/local/bin/plantuml",
+        dotPath: null,
+      }),
+    ).resolves.toMatchObject({ status: "rendered" });
+    await expect(
+      adapter.testExternalPlantUml({
+        timeoutMs: 5000,
+        binaryPath: "/usr/local/bin/plantuml",
+        dotPath: null,
+      }),
+    ).resolves.toMatchObject({ status: "rendered" });
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("render_external_plantuml", {
+      input: {
+        source: "@startuml\nA -> B\n@enduml",
+        theme: "light",
+        timeoutMs: 5000,
+        binaryPath: "/usr/local/bin/plantuml",
+        dotPath: null,
+      },
+    });
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("test_external_plantuml", {
+      input: {
+        timeoutMs: 5000,
+        binaryPath: "/usr/local/bin/plantuml",
+        dotPath: null,
+      },
+    });
   });
 
   it("authorizes directories through the native command", async () => {

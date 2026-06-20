@@ -24,6 +24,7 @@ mod local_assets;
 mod path_policy;
 mod perf_trace;
 mod plantuml_cache;
+mod plantuml_external;
 mod remote_providers;
 mod watchers;
 mod workspace_paths;
@@ -761,6 +762,26 @@ fn clear_plantuml_svg_cache(app: tauri::AppHandle) -> Result<(), String> {
     clear_plantuml_svg_cache_dir(&cache_dir)
 }
 
+#[tauri::command]
+fn render_external_plantuml(
+    app: tauri::AppHandle,
+    input: ExternalPlantUmlRenderInput,
+) -> Result<PlantUmlRenderResult, String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("failed to resolve app cache dir: {error}"))?
+        .join("plantuml-external");
+    plantuml_external::render_external_plantuml_with_cache_dir(input, &cache_dir)
+}
+
+#[tauri::command]
+fn test_external_plantuml(
+    input: ExternalPlantUmlTestInput,
+) -> Result<PlantUmlRenderResult, String> {
+    plantuml_external::test_external_plantuml(input)
+}
+
 fn config_file_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app
         .path()
@@ -880,7 +901,9 @@ pub fn run() {
             clear_kroki_cache,
             read_plantuml_svg_cache,
             write_plantuml_svg_cache,
-            clear_plantuml_svg_cache
+            clear_plantuml_svg_cache,
+            render_external_plantuml,
+            test_external_plantuml
         ])
         .run(tauri::generate_context!())
         .expect("error while running Svard");

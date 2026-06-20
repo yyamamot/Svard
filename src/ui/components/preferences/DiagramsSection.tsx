@@ -1,4 +1,7 @@
 import type { DiagramsSectionProps } from "./types";
+import { normalizeSvgAspectRatio } from "../../lib/diagramHtml";
+import { sanitizeSvg } from "../../lib/sanitizeHtml";
+import { dangerouslySetSafeHtml } from "../../lib/safeHtml";
 
 export function DiagramsSection({
   config,
@@ -6,7 +9,13 @@ export function DiagramsSection({
   onUpdateRenderer,
   onUpdateFastDiagramLoading,
   onUpdateTimeout,
+  externalPlantUmlTest,
+  onRunExternalPlantUmlTest,
+  onUpdateExternalPlantUmlFallback,
+  onUpdateExternalPlantUmlPath,
 }: DiagramsSectionProps) {
+  const externalPlantUmlEnabled =
+    config.diagram.plantumlExternalFallback === "on-local-failure";
   return (
     <section
       className="preference-section"
@@ -84,6 +93,94 @@ export function DiagramsSection({
             value={config.diagram.plantumlTimeoutMs}
             onChange={(value) => onUpdateTimeout("plantumlTimeoutMs", value)}
           />
+          <div
+            className="preference-field"
+            data-review-id="plantuml-external-fallback-control"
+          >
+            <span className="preference-label">External PlantUML fallback</span>
+            <select
+              value={config.diagram.plantumlExternalFallback}
+              onChange={(event) =>
+                onUpdateExternalPlantUmlFallback(
+                  event.target
+                    .value as typeof config.diagram.plantumlExternalFallback,
+                )
+              }
+            >
+              <option value="disabled">Disabled</option>
+              <option value="on-local-failure">On built-in failure</option>
+            </select>
+            <span className="preference-help-text">
+              Uses a user-provided PlantUML binary only after built-in local
+              rendering fails. The first uncached render can be slow because it
+              starts an external process.
+            </span>
+          </div>
+          <PathControl
+            label="PlantUML binary path"
+            reviewId="plantuml-external-binary-path"
+            value={config.diagram.plantumlExternalBinaryPath}
+            disabled={!externalPlantUmlEnabled}
+            placeholder="/path/to/plantuml"
+            onChange={(value) =>
+              onUpdateExternalPlantUmlPath("plantumlExternalBinaryPath", value)
+            }
+          />
+          <PathControl
+            label="Graphviz dot path (optional)"
+            reviewId="plantuml-external-dot-path"
+            value={config.diagram.plantumlExternalDotPath}
+            disabled={!externalPlantUmlEnabled}
+            placeholder="/path/to/dot"
+            helpText="Optional for sequence diagrams. Set this when class, component, deployment, or other Graphviz layout diagrams fail because PlantUML cannot find dot."
+            onChange={(value) =>
+              onUpdateExternalPlantUmlPath("plantumlExternalDotPath", value)
+            }
+          />
+          <TimeoutControl
+            label="External PlantUML timeout"
+            reviewId="plantuml-external-timeout-control"
+            value={config.diagram.plantumlExternalTimeoutMs}
+            onChange={(value) =>
+              onUpdateTimeout("plantumlExternalTimeoutMs", value)
+            }
+          />
+          <div
+            className="kroki-diagnostic"
+            data-review-id="plantuml-external-test"
+          >
+            <div className="kroki-diagnostic-header">
+              <div>
+                <strong>External PlantUML test</strong>
+                <p className="mode-help">
+                  Renders a small Alice/Bob sample through the configured
+                  binary. This confirms PlantUML startup, but not Graphviz dot
+                  availability.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                data-review-id="plantuml-external-test-run"
+                disabled={
+                  !externalPlantUmlEnabled ||
+                  !config.diagram.plantumlExternalBinaryPath ||
+                  externalPlantUmlTest.status === "running"
+                }
+                onClick={onRunExternalPlantUmlTest}
+              >
+                {externalPlantUmlTest.status === "running"
+                  ? "Testing..."
+                  : "Test external PlantUML"}
+              </button>
+            </div>
+            <div
+              className={`kroki-diagnostic-result ${externalPlantUmlTest.status}`}
+              data-review-id="plantuml-external-test-result"
+            >
+              <ExternalPlantUmlTestResult test={externalPlantUmlTest} />
+            </div>
+          </div>
           <TimeoutControl
             label="Graphviz / DOT timeout"
             reviewId="graphviz-timeout-control"
@@ -94,6 +191,69 @@ export function DiagramsSection({
       </details>
     </section>
   );
+}
+
+function PathControl({
+  label,
+  reviewId,
+  value,
+  disabled,
+  placeholder,
+  helpText,
+  onChange,
+}: {
+  label: string;
+  reviewId: string;
+  value: string | null;
+  disabled: boolean;
+  placeholder: string;
+  helpText?: string;
+  onChange: (value: string | null) => void;
+}) {
+  return (
+    <label className="preference-field">
+      <span className="preference-label">{label}</span>
+      <input
+        type="text"
+        data-review-id={reviewId}
+        value={value ?? ""}
+        disabled={disabled}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value.trim() || null)}
+      />
+      {helpText ? (
+        <span className="preference-help-text">{helpText}</span>
+      ) : null}
+    </label>
+  );
+}
+
+function ExternalPlantUmlTestResult({
+  test,
+}: {
+  test: DiagramsSectionProps["externalPlantUmlTest"];
+}) {
+  if (test.status === "idle") {
+    return <span>Not tested.</span>;
+  }
+  if (test.status === "running") {
+    return <span>Testing external PlantUML...</span>;
+  }
+  if (test.result?.status === "rendered" && test.result.svg) {
+    return (
+      <div
+        className="kroki-diagnostic-svg"
+        data-review-id="plantuml-external-test-svg"
+        dangerouslySetInnerHTML={dangerouslySetSafeHtml(
+          normalizeSvgAspectRatio(sanitizeSvg(test.result.svg)),
+        )}
+      />
+    );
+  }
+  if (test.status === "success") {
+    return <span>External PlantUML returned SVG successfully.</span>;
+  }
+  return <span>{test.message ?? "External PlantUML test failed."}</span>;
 }
 
 function DiagramRendererSetting({
@@ -186,11 +346,13 @@ function TimeoutControl({
   label,
   reviewId,
   value,
+  min = 1000,
   onChange,
 }: {
   label: string;
   reviewId: string;
   value: number;
+  min?: number;
   onChange: (value: number) => void;
 }) {
   return (
@@ -200,7 +362,7 @@ function TimeoutControl({
         <input
           type="number"
           data-review-id={reviewId}
-          min="1000"
+          min={min}
           max="60000"
           step="1000"
           value={value}

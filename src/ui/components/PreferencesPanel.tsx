@@ -37,7 +37,11 @@ import { NetworkSection } from "./preferences/NetworkSection";
 import { RemoteProvidersSection } from "./preferences/RemoteProvidersSection";
 import { SecuritySection } from "./preferences/SecuritySection";
 import { ZenModeSection } from "./preferences/ZenModeSection";
-import type { KrokiTestState, PreferencesSectionId } from "./preferences/types";
+import type {
+  ExternalPlantUmlTestState,
+  KrokiTestState,
+  PreferencesSectionId,
+} from "./preferences/types";
 
 const preferenceSections: Array<{ id: PreferencesSectionId; title: string }> = [
   { id: "general", title: "General" },
@@ -90,6 +94,10 @@ export function PreferencesPanel({
   const [krokiTest, setKrokiTest] = useState<KrokiTestState>({
     status: "idle",
   });
+  const [externalPlantUmlTest, setExternalPlantUmlTest] =
+    useState<ExternalPlantUmlTestState>({
+      status: "idle",
+    });
   const recordingPointsRef = useRef<Array<{ x: number; y: number }>>([]);
 
   const activeSectionTitle =
@@ -157,6 +165,15 @@ export function PreferencesPanel({
     config.kroki.endpointUrl,
     config.kroki.outputFormat,
     config.kroki.timeoutMs,
+  ]);
+
+  useEffect(() => {
+    setExternalPlantUmlTest({ status: "idle" });
+  }, [
+    config.diagram.plantumlExternalFallback,
+    config.diagram.plantumlExternalBinaryPath,
+    config.diagram.plantumlExternalTimeoutMs,
+    config.diagram.plantumlExternalDotPath,
   ]);
 
   function updateKeybindingMappings(
@@ -278,8 +295,27 @@ export function PreferencesPanel({
   }
 
   function updateDiagramTimeout(
-    field: "plantumlTimeoutMs" | "graphvizTimeoutMs",
+    field:
+      | "plantumlTimeoutMs"
+      | "plantumlExternalTimeoutMs"
+      | "graphvizTimeoutMs",
     value: number,
+  ) {
+    onChange({ ...config, diagram: { ...config.diagram, [field]: value } });
+  }
+
+  function updateExternalPlantUmlFallback(
+    plantumlExternalFallback: AppConfig["diagram"]["plantumlExternalFallback"],
+  ) {
+    onChange({
+      ...config,
+      diagram: { ...config.diagram, plantumlExternalFallback },
+    });
+  }
+
+  function updateExternalPlantUmlPath(
+    field: "plantumlExternalBinaryPath" | "plantumlExternalDotPath",
+    value: string | null,
   ) {
     onChange({ ...config, diagram: { ...config.diagram, [field]: value } });
   }
@@ -313,6 +349,30 @@ export function PreferencesPanel({
       setKrokiTest({
         status: "error",
         message: error instanceof Error ? error.message : "Kroki test failed.",
+      });
+    }
+  }
+
+  async function runExternalPlantUmlTest() {
+    setExternalPlantUmlTest({ status: "running" });
+    try {
+      const result = await host.testExternalPlantUml({
+        binaryPath: config.diagram.plantumlExternalBinaryPath,
+        dotPath: config.diagram.plantumlExternalDotPath,
+        timeoutMs: config.diagram.plantumlExternalTimeoutMs,
+      });
+      setExternalPlantUmlTest({
+        status: result.status === "rendered" ? "success" : "error",
+        result,
+        message: result.diagnostics.find(Boolean),
+      });
+    } catch (error) {
+      setExternalPlantUmlTest({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "External PlantUML test failed.",
       });
     }
   }
@@ -496,6 +556,10 @@ export function PreferencesPanel({
               })
             }
             onUpdateTimeout={updateDiagramTimeout}
+            externalPlantUmlTest={externalPlantUmlTest}
+            onRunExternalPlantUmlTest={() => void runExternalPlantUmlTest()}
+            onUpdateExternalPlantUmlFallback={updateExternalPlantUmlFallback}
+            onUpdateExternalPlantUmlPath={updateExternalPlantUmlPath}
           />
         );
       case "kroki":

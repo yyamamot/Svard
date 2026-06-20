@@ -26,6 +26,9 @@ import type {
   KrokiRequest,
   KrokiResult,
   LocalImageResult,
+  ExternalPlantUmlRenderInput,
+  ExternalPlantUmlTestInput,
+  PlantUmlRenderResult,
   NativeFileDropEvent,
   PlantUmlSvgCacheReadInput,
   PlantUmlSvgCacheReadResult,
@@ -153,6 +156,30 @@ export class MockHostAdapter implements HostAdapter {
     return this.kroki.renderDiagram(input);
   }
 
+  renderExternalPlantUml(
+    _input: ExternalPlantUmlRenderInput,
+  ): Promise<PlantUmlRenderResult> {
+    return Promise.resolve({
+      status: "error",
+      diagnostics: [
+        "External PlantUML fallback is not available in browser preview.",
+      ],
+      metrics: { renderMs: 0, cacheStatus: "disabled" },
+    });
+  }
+
+  testExternalPlantUml(
+    _input: ExternalPlantUmlTestInput,
+  ): Promise<PlantUmlRenderResult> {
+    return Promise.resolve({
+      status: "error",
+      diagnostics: [
+        "External PlantUML test is only available in the desktop app.",
+      ],
+      metrics: { renderMs: 0, cacheStatus: "disabled" },
+    });
+  }
+
   clearKrokiCache(): Promise<void> {
     return this.kroki.clearKrokiCache();
   }
@@ -187,9 +214,7 @@ export class MockHostAdapter implements HostAdapter {
     return Promise.resolve();
   }
 
-  openDocumentInNewWindow(
-    request: ViewerWindowOpenRequest,
-  ): Promise<void> {
+  openDocumentInNewWindow(request: ViewerWindowOpenRequest): Promise<void> {
     this.newWindowOpenRequests.push(structuredClone(request));
     recordNewWindowOpenRequest(request);
     return Promise.resolve();
@@ -201,9 +226,7 @@ export class MockHostAdapter implements HostAdapter {
     return this.openDocumentInNewWindow(request);
   }
 
-  takeCurrentViewerWindowOpenRequest(): Promise<
-    ViewerWindowOpenRequest | null
-  > {
+  takeCurrentViewerWindowOpenRequest(): Promise<ViewerWindowOpenRequest | null> {
     return Promise.resolve(null);
   }
 

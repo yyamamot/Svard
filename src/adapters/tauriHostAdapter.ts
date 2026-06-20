@@ -31,6 +31,9 @@ import type {
   KrokiRequest,
   KrokiResult,
   LocalImageResult,
+  ExternalPlantUmlRenderInput,
+  ExternalPlantUmlTestInput,
+  PlantUmlRenderResult,
   NativeFileDropEvent,
   PlantUmlSvgCacheReadInput,
   PlantUmlSvgCacheReadResult,
@@ -361,6 +364,18 @@ export class TauriHostAdapter implements HostAdapter {
     return invoke("render_diagram", { input });
   }
 
+  renderExternalPlantUml(
+    input: ExternalPlantUmlRenderInput,
+  ): Promise<PlantUmlRenderResult> {
+    return invoke("render_external_plantuml", { input });
+  }
+
+  testExternalPlantUml(
+    input: ExternalPlantUmlTestInput,
+  ): Promise<PlantUmlRenderResult> {
+    return invoke("test_external_plantuml", { input });
+  }
+
   clearKrokiCache(): Promise<void> {
     return invoke("clear_kroki_cache");
   }
@@ -396,9 +411,7 @@ export class TauriHostAdapter implements HostAdapter {
     return invokeCommand("open_new_window", { request });
   }
 
-  openDocumentInNewWindow(
-    request: ViewerWindowOpenRequest,
-  ): Promise<void> {
+  openDocumentInNewWindow(request: ViewerWindowOpenRequest): Promise<void> {
     return invokeCommand("open_current_document_in_new_window", { request });
   }
 
@@ -408,9 +421,7 @@ export class TauriHostAdapter implements HostAdapter {
     return this.openDocumentInNewWindow(request);
   }
 
-  takeCurrentViewerWindowOpenRequest(): Promise<
-    ViewerWindowOpenRequest | null
-  > {
+  takeCurrentViewerWindowOpenRequest(): Promise<ViewerWindowOpenRequest | null> {
     return invokeCommand("take_current_viewer_window_open_request");
   }
 
