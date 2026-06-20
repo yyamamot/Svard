@@ -37,6 +37,7 @@ export interface UseDocumentLinksOptions {
   onLinkPreviewChange: (preview: LinkPreviewState | null) => void;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
   onOpenPreferences: () => void;
+  onSelectDiagram: (id: string) => void;
   onCompareGitRef: (kind: GitRefKind, path: string) => void | Promise<void>;
   onShowGitDiff: (path: string) => void | Promise<void>;
   onTryKrokiFallback: (key: string) => void;

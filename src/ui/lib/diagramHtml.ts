@@ -125,10 +125,14 @@ function inlineSvgHtml(
     allowFitWidth?: boolean;
     normalizeAspectRatio?: boolean;
     preferNaturalSize?: boolean;
+    diagramId?: string;
     sourceLine?: number;
     sourceReference?: string;
   } = {},
 ): SafeHtml {
+  const diagramId = options.diagramId
+    ? ` data-diagram-id="${escapeHtml(options.diagramId)}"`
+    : "";
   const sourceReference = options.sourceReference
     ? ` data-source-reference="${escapeHtml(options.sourceReference)}"`
     : "";
@@ -139,7 +143,7 @@ function inlineSvgHtml(
     ? normalizeSvgAspectRatio(sanitizeSvg(html))
     : sanitizeSvg(html);
   return markSafeHtml(
-    `<div class="diagram-inline-image ${svgScaleClass(svg, options)}" data-review-id="diagram-inline-image"${sourceReference}${sourceLine}>${unwrapSafeHtml(svg)}</div>`,
+    `<div class="diagram-inline-image ${svgScaleClass(svg, options)}" data-review-id="diagram-inline-image"${diagramId}${sourceReference}${sourceLine}>${unwrapSafeHtml(svg)}</div>`,
   );
 }
 
@@ -153,10 +157,14 @@ function inlineDiagnosticHtml(
   message: string,
   options: {
     actions?: DiagramDiagnosticAction[];
+    diagramId?: string;
     sourceLine?: number;
     sourceReference?: string;
   } = {},
 ): SafeHtml {
+  const diagramId = options.diagramId
+    ? ` data-diagram-id="${escapeHtml(options.diagramId)}"`
+    : "";
   const sourceReference = options.sourceReference
     ? ` data-source-reference="${escapeHtml(options.sourceReference)}"`
     : "";
@@ -174,7 +182,7 @@ function inlineDiagnosticHtml(
         .join("")}</div>`
     : "";
   return markSafeHtml(
-    `<div class="diagram-inline-diagnostic" data-review-id="diagram-inline-diagnostic"${sourceReference}${sourceLine}><span>${escapeHtml(message)}</span>${actions}</div>`,
+    `<div class="diagram-inline-diagnostic" data-review-id="diagram-inline-diagnostic"${diagramId}${sourceReference}${sourceLine}><span>${escapeHtml(message)}</span>${actions}</div>`,
   );
 }
 
@@ -260,21 +268,21 @@ function diagramPlaceholderHtml(slot: DiagramSlot): SafeHtml {
       ? ` data-source-reference="${escapeHtml(`${slot.sourceLocation.sourcePath}:${slot.sourceLocation.line}`)}"`
       : "";
   return markSafeHtml(
-    `<div class="diagram-placeholder-card" data-review-id="diagram-placeholder"${sourceReference}${sourceLine}><span class="diagram-placeholder-label">${escapeHtml(diagramPlaceholderLabel(slot.renderer))}</span></div>`,
+    `<div class="diagram-placeholder-card" data-review-id="diagram-placeholder" data-diagram-id="${escapeHtml(slot.id)}"${sourceReference}${sourceLine}><span class="diagram-placeholder-label">${escapeHtml(diagramPlaceholderLabel(slot.renderer))}</span></div>`,
   );
 }
 
 function fallbackDiagramSlots(doc: Document): DiagramSlot[] {
-  return Array.from(
-    doc.querySelectorAll(".diagram-slot[data-diagram-id]"),
-  ).map((element) => ({
-    id: element.getAttribute("data-diagram-id") ?? "",
-    diagramType: element.getAttribute("data-diagram-type") ?? "diagram",
-    renderer:
-      (element.getAttribute(
-        "data-diagram-renderer",
-      ) as DiagramSlot["renderer"]) ?? "kroki",
-  }));
+  return Array.from(doc.querySelectorAll(".diagram-slot[data-diagram-id]")).map(
+    (element) => ({
+      id: element.getAttribute("data-diagram-id") ?? "",
+      diagramType: element.getAttribute("data-diagram-type") ?? "diagram",
+      renderer:
+        (element.getAttribute(
+          "data-diagram-renderer",
+        ) as DiagramSlot["renderer"]) ?? "kroki",
+    }),
+  );
 }
 
 function clearDiagramPlaceholderState(element: Element) {
@@ -388,15 +396,17 @@ function inlineDiagramHtml({
     const content = diagram?.svg
       ? inlineSvgHtml(diagram.svg, {
           allowFitWidth: true,
+          diagramId: slot.id,
           sourceLine,
           sourceReference: diagramReference,
         })
       : inlineDiagnosticHtml(minimalDiagramMessage(diagram?.error), {
+          diagramId: slot.id,
           sourceLine,
           sourceReference: diagramReference,
         });
     return markSafeHtml(
-      `<div class="diagram-inline" data-review-id="mermaid-render">${unwrapSafeHtml(content)}</div>`,
+      `<div class="diagram-inline" data-review-id="mermaid-render" data-diagram-id="${escapeHtml(slot.id)}">${unwrapSafeHtml(content)}</div>`,
     );
   }
 
@@ -412,6 +422,7 @@ function inlineDiagramHtml({
           : undefined;
     const content = svg
       ? inlineSvgHtml(svg, {
+          diagramId: slot.id,
           normalizeAspectRatio: Boolean(diagram?.fallbackResult),
           preferNaturalSize: Boolean(diagram?.fallbackResult),
           sourceLine,
@@ -424,6 +435,7 @@ function inlineDiagramHtml({
             fallbackResult: diagram?.fallbackResult,
           }),
           {
+            diagramId: slot.id,
             actions: remoteConfirmationRequired(diagram?.fallbackResult)
               ? [krokiConfirmationAction(key)]
               : diagram?.result &&
@@ -442,7 +454,7 @@ function inlineDiagramHtml({
           },
         );
     return markSafeHtml(
-      `<div class="diagram-inline" data-review-id="plantuml-render">${unwrapSafeHtml(content)}</div>`,
+      `<div class="diagram-inline" data-review-id="plantuml-render" data-diagram-id="${escapeHtml(slot.id)}">${unwrapSafeHtml(content)}</div>`,
     );
   }
 
@@ -458,6 +470,7 @@ function inlineDiagramHtml({
           : undefined;
     const content = svg
       ? inlineSvgHtml(svg, {
+          diagramId: slot.id,
           normalizeAspectRatio: Boolean(diagram?.fallbackResult),
           preferNaturalSize: Boolean(diagram?.fallbackResult),
           sourceLine,
@@ -470,6 +483,7 @@ function inlineDiagramHtml({
             fallbackResult: diagram?.fallbackResult,
           }),
           {
+            diagramId: slot.id,
             actions: remoteConfirmationRequired(diagram?.fallbackResult)
               ? [krokiConfirmationAction(key)]
               : diagram?.result &&
@@ -488,7 +502,7 @@ function inlineDiagramHtml({
           },
         );
     return markSafeHtml(
-      `<div class="diagram-inline" data-review-id="graphviz-render">${unwrapSafeHtml(content)}</div>`,
+      `<div class="diagram-inline" data-review-id="graphviz-render" data-diagram-id="${escapeHtml(slot.id)}">${unwrapSafeHtml(content)}</div>`,
     );
   }
 
@@ -501,8 +515,9 @@ function inlineDiagramHtml({
     result.mediaType === "image/svg+xml"
   ) {
     return markSafeHtml(
-      `<div class="diagram-inline" data-review-id="kroki-render">${unwrapSafeHtml(
+      `<div class="diagram-inline" data-review-id="kroki-render" data-diagram-id="${escapeHtml(slot.id)}">${unwrapSafeHtml(
         inlineSvgHtml(result.content, {
+          diagramId: slot.id,
           normalizeAspectRatio: true,
           preferNaturalSize: true,
           sourceLine,
@@ -518,8 +533,8 @@ function inlineDiagramHtml({
   ) {
     return markSafeHtml(
       [
-        '<div class="diagram-inline" data-review-id="kroki-render">',
-        `<img class="diagram-inline-image" data-review-id="diagram-inline-image"${sourceLine ? ` data-source-line="${sourceLine}"` : ""} alt="${escapeHtml(slot.diagramType)} diagram" src="data:image/png;base64,${result.content}" />`,
+        `<div class="diagram-inline" data-review-id="kroki-render" data-diagram-id="${escapeHtml(slot.id)}">`,
+        `<img class="diagram-inline-image" data-review-id="diagram-inline-image" data-diagram-id="${escapeHtml(slot.id)}"${sourceLine ? ` data-source-line="${sourceLine}"` : ""} alt="${escapeHtml(slot.diagramType)} diagram" src="data:image/png;base64,${result.content}" />`,
         "</div>",
       ].join(""),
     );
@@ -527,6 +542,7 @@ function inlineDiagramHtml({
   return markSafeHtml(
     `<div class="diagram-inline" data-review-id="kroki-render">${unwrapSafeHtml(
       inlineDiagnosticHtml(minimalDiagramMessage(result?.message), {
+        diagramId: slot.id,
         actions: remoteConfirmationRequired(result)
           ? [krokiConfirmationAction(key)]
           : undefined,
@@ -575,7 +591,9 @@ export function applyInlineDiagramsToHtml({
     );
     if (element) {
       clearDiagramPlaceholderState(element);
-      if (element.getAttribute("data-review-id") === "diagram-placeholder-slot") {
+      if (
+        element.getAttribute("data-review-id") === "diagram-placeholder-slot"
+      ) {
         element.removeAttribute("data-review-id");
       }
       setElementSafeHtml(

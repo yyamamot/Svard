@@ -10,6 +10,7 @@ function renderSearchSidebar(
   const harness = createReactRootHarness();
   const props: Parameters<typeof RightSidebar>[0] = {
     activeHeadingId: null,
+    diagramInspectorItems: [],
     matchCount: 0,
     pinnedSearch: null,
     query: "",
@@ -19,16 +20,22 @@ function renderSearchSidebar(
     searchHits: [],
     searchIndex: 0,
     searchInputRef: createRef<HTMLInputElement>(),
+    selectedDiagramId: null,
     workspaceSearch: { status: "idle", result: null, message: null },
     workspaceSearchIndex: 0,
     onActivateSearchHit: vi.fn(),
     onActivateWorkspaceSearchResult: vi.fn(),
     onClearSearch: vi.fn(),
+    onCopyText: vi.fn(),
     onDispatchCommand: vi.fn(),
+    onNavigateSourceLine: vi.fn(),
     onNavigateHeading: vi.fn(),
+    onOpenDiagramPreview: vi.fn(),
     onPinQuery: vi.fn(),
+    onSelectDiagram: vi.fn(),
     onSetSearchScope: vi.fn(),
     onSetRightSidebarTab: vi.fn(),
+    onShowInlineNotice: vi.fn(),
     onSearchInputKeyDown: vi.fn(),
     onUpdateQuery: vi.fn(),
     onWorkspaceSearchIndexChange: vi.fn(),
@@ -48,9 +55,9 @@ describe("RightSidebar search panel", () => {
     expect(harness.byReviewId("search-scope-workspace").textContent).toBe(
       "All Files",
     );
-    expect(harness.byReviewId<HTMLInputElement>("search-input").placeholder).toBe(
-      "Search current file",
-    );
+    expect(
+      harness.byReviewId<HTMLInputElement>("search-input").placeholder,
+    ).toBe("Search current file");
 
     harness.cleanup();
   });
@@ -149,9 +156,9 @@ describe("RightSidebar search panel", () => {
     expect(harness.byReviewId<HTMLInputElement>("search-input").value).toBe(
       "Graphviz",
     );
-    expect(harness.byReviewId<HTMLInputElement>("search-input").placeholder).toBe(
-      "Search all files",
-    );
+    expect(
+      harness.byReviewId<HTMLInputElement>("search-input").placeholder,
+    ).toBe("Search all files");
     expect(
       harness.byReviewId("search-previous").getAttribute("aria-label"),
     ).toBe("Previous workspace result");
@@ -175,6 +182,71 @@ describe("RightSidebar search panel", () => {
     expect(
       harness.byReviewId("workspace-search-result-item").textContent,
     ).toContain("docs/diagram.adoc");
+    harness.cleanup();
+  });
+});
+
+describe("RightSidebar diagram inspector panel", () => {
+  it("shows the diagrams tab and empty state", () => {
+    const { harness } = renderSearchSidebar({
+      rightSidebarTab: "diagrams",
+    });
+
+    expect(harness.byReviewId("right-sidebar-tab-diagrams").textContent).toBe(
+      "Diagrams",
+    );
+    expect(harness.byReviewId("diagram-inspector").textContent).toContain(
+      "No diagrams in this file",
+    );
+
+    harness.cleanup();
+  });
+
+  it("lists diagrams and updates the selected item", () => {
+    const onSelectDiagram = vi.fn();
+    const { harness } = renderSearchSidebar({
+      rightSidebarTab: "diagrams",
+      selectedDiagramId: "plantuml-1",
+      onSelectDiagram,
+      diagramInspectorItems: [
+        {
+          id: "plantuml-1",
+          renderer: "plantuml",
+          diagramType: "plantuml",
+          renderPath: "local",
+          status: "rendered",
+          sourceLocation: { line: 12 },
+          sourceReference: "/workspace/doc.adoc:12",
+          svg: "<svg></svg>",
+          metrics: { renderMs: 42, svgBytes: 1200 },
+          cacheStatus: "hit",
+        },
+        {
+          id: "kroki-1",
+          renderer: "kroki",
+          diagramType: "blockdiag",
+          renderPath: "disabled",
+          status: "disabled",
+          sourceLocation: { line: 30 },
+        },
+      ],
+    });
+
+    expect(harness.byReviewId("diagram-inspector-list").textContent).toContain(
+      "plantuml",
+    );
+    expect(
+      harness.byReviewId("diagram-inspector-details").textContent,
+    ).toContain("renderMs: 42");
+
+    act(() => {
+      const items = harness.container.querySelectorAll<HTMLButtonElement>(
+        '[data-review-id="diagram-inspector-item"]',
+      );
+      items[1]?.click();
+    });
+
+    expect(onSelectDiagram).toHaveBeenCalledWith("kroki-1");
     harness.cleanup();
   });
 });

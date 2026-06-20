@@ -85,7 +85,8 @@ describe("useDocumentRenderSignatures", () => {
     const placeholderChanged = cloneConfig();
     placeholderChanged.experimental = {
       ...placeholderChanged.experimental,
-      diagramPlaceholderRendering: true,
+      diagramPlaceholderRendering:
+        !placeholderChanged.experimental.diagramPlaceholderRendering,
     };
 
     const baseSignature = documentRenderConfigSignature(before);

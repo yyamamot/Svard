@@ -30,6 +30,7 @@ export function useDocumentLinks({
   onLinkPreviewChange,
   onOpenDiagramPreview,
   onOpenPreferences,
+  onSelectDiagram,
   onCompareGitRef,
   onShowGitDiff,
   onTryKrokiFallback,
@@ -124,6 +125,7 @@ export function useDocumentLinks({
   const handleArticleClick = createArticleClickHandler({
     onConfirmKrokiRender,
     onOpenPreferences,
+    onSelectDiagram,
     onTryKrokiFallback,
     openLinkElement,
     copyText,

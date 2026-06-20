@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a Diagram Inspector sidebar tab for reviewing diagram render status, source references, cache state, metrics, and SVG actions.
+
 ## 1.0.3
 
 - Added conditional AsciiDoc include support for `ifdef`, `ifndef`, `ifeval`, and attribute-substituted include targets.

@@ -9,6 +9,7 @@ function clickHandler(copyText = vi.fn()) {
     handler: createArticleClickHandler({
       onConfirmKrokiRender: vi.fn(),
       onOpenPreferences: vi.fn(),
+      onSelectDiagram: vi.fn(),
       onTryKrokiFallback: vi.fn(),
       openLinkElement: vi.fn(),
       copyText,
@@ -76,5 +77,24 @@ describe("createArticleClickHandler source block actions", () => {
     expect(frame.classList.contains("source-block-collapsed")).toBe(false);
     expect(button.getAttribute("aria-expanded")).toBe("true");
     expect(button.textContent).toBe("Collapse");
+  });
+
+  it("selects a clicked diagram without blocking existing handlers", () => {
+    const onSelectDiagram = vi.fn();
+    const handler = createArticleClickHandler({
+      onConfirmKrokiRender: vi.fn(),
+      onOpenPreferences: vi.fn(),
+      onSelectDiagram,
+      onTryKrokiFallback: vi.fn(),
+      openLinkElement: vi.fn(),
+      copyText: vi.fn(),
+    });
+    document.body.innerHTML = `<div data-diagram-id="plantuml-1"><svg><g></g></svg></div>`;
+
+    handler(
+      mouseEventFor(document.querySelector("g") as unknown as HTMLElement),
+    );
+
+    expect(onSelectDiagram).toHaveBeenCalledWith("plantuml-1");
   });
 });

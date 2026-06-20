@@ -260,6 +260,180 @@
   white-space: normal;
 }
 
+.diagram-inspector-count {
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: #38515b;
+  background: #e7eef1;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diagram-inspector-empty {
+  margin: 0;
+  border: 1px dashed #c7d2d8;
+  border-radius: 6px;
+  padding: 12px;
+  color: #5f7178;
+  font-size: 13px;
+}
+
+.diagram-inspector-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.diagram-inspector-item {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  border: 1px solid #d8e0e4;
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: #1b2a30;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.diagram-inspector-item:hover {
+  border-color: #97aaa4;
+  background: #f4f8f7;
+}
+
+.diagram-inspector-item.active {
+  border-color: #287466;
+  background: #e7f0ef;
+  box-shadow: inset 2px 0 0 #287466;
+}
+
+.diagram-inspector-item-main,
+.diagram-inspector-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.diagram-inspector-type {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagram-inspector-item-meta {
+  color: #60737b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diagram-inspector-status {
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: #4d5c63;
+  background: #edf2f4;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.diagram-inspector-status.rendered {
+  color: #1d5c4f;
+  background: #dff0e9;
+}
+
+.diagram-inspector-status.error,
+.diagram-inspector-status.timeout {
+  color: #8d2d2d;
+  background: #f8e4e1;
+}
+
+.diagram-inspector-status.disabled,
+.diagram-inspector-status.pending {
+  color: #6c5b2a;
+  background: #f4ecd2;
+}
+
+.diagram-inspector-details {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #d8e0e4;
+  padding-top: 12px;
+}
+
+.diagram-inspector-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.diagram-inspector-facts dt {
+  color: #60737b;
+  font-weight: 700;
+}
+
+.diagram-inspector-facts dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: #233239;
+}
+
+.diagram-inspector-message {
+  margin: 0;
+  border-radius: 6px;
+  padding: 8px;
+  color: #7b342d;
+  background: #f8e9e6;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.diagram-inspector-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.diagram-inspector-metrics span {
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: #41555e;
+  background: #edf2f4;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diagram-inspector-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.diagram-inspector-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #c7d2d8;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: #20343c;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.diagram-inspector-actions button:hover,
+.diagram-inspector-actions button:focus-visible {
+  border-color: #8fa39d;
+  background: #f4f8f7;
+}
+
 .document-body mark.search-hit {
   border-radius: 3px;
   box-decoration-break: clone;

@@ -25,6 +25,7 @@ import {
   applyDiagramPlaceholdersToHtml,
   applyInlineDiagramsToHtml,
 } from "../lib/diagramHtml";
+import type { DiagramRenderSnapshot } from "../lib/diagramInspector";
 import { prepareDocumentHtml } from "../lib/documentHtml";
 import {
   perfBasename,
@@ -70,6 +71,7 @@ interface UseDocumentRenderOptions {
   krokiFallbackDiagramKeys: ReadonlySet<string>;
   setError: (message: string | null) => void;
   setDocumentHtml: (html: SafeHtml) => void;
+  setDiagramRenderSnapshot: (snapshot: DiagramRenderSnapshot | null) => void;
   setRenderResult: (result: RenderResult | null) => void;
 }
 
@@ -134,6 +136,7 @@ export function useDocumentRender({
   krokiFallbackDiagramKeys,
   setError,
   setDocumentHtml,
+  setDiagramRenderSnapshot,
   setRenderResult,
 }: UseDocumentRenderOptions) {
   const theme = config?.theme;
@@ -175,6 +178,7 @@ export function useDocumentRender({
           format: documentPayload.format,
           durationMs: 0,
         });
+        setDiagramRenderSnapshot(null);
         const diagramKey = (renderer: string, id: string) =>
           `${documentPayload.path}::${renderer}:${id}`;
         const renderDocumentStartedAt = perfNow();
@@ -503,6 +507,12 @@ export function useDocumentRender({
         });
 
         if (!cancelled && !controller.signal.aborted) {
+          const diagramRenderSnapshot: DiagramRenderSnapshot = {
+            graphvizDiagrams: renderedGraphviz,
+            krokiDiagrams: renderedKroki,
+            mermaidDiagrams: renderedMermaid,
+            plantUmlDiagrams: renderedPlantUml,
+          };
           const applyStartedAt = perfNow();
           const finalHtml =
             result.diagramSlots.length === 0
@@ -525,6 +535,7 @@ export function useDocumentRender({
           });
           if (diagramPlaceholderRendering) {
             const diagramSvgApplyStartedAt = perfNow();
+            setDiagramRenderSnapshot(diagramRenderSnapshot);
             setDocumentHtml(finalHtml);
             tracePerf("render.diagramSvgApply", {
               basename,
@@ -546,6 +557,7 @@ export function useDocumentRender({
               durationMs: perfDuration(totalStartedAt),
             });
             setRenderResult(result);
+            setDiagramRenderSnapshot(diagramRenderSnapshot);
             setDocumentHtml(finalHtml);
             tracePerf("render.stateCommit.queued", {
               basename,
@@ -592,6 +604,7 @@ export function useDocumentRender({
     krokiFallbackDiagramKeysSignature,
     renderConfigSignature,
     setDocumentHtml,
+    setDiagramRenderSnapshot,
     setError,
     setRenderResult,
   ]);

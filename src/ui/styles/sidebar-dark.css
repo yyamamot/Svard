@@ -403,6 +403,65 @@
   color: #b7c6cd;
 }
 
+.theme-dark .diagram-inspector-count,
+.theme-dark .diagram-inspector-metrics span {
+  color: #c8d8dd;
+  background: #1f2a32;
+}
+
+.theme-dark .diagram-inspector-empty {
+  border-color: #2b343b;
+  color: #b7c6cd;
+}
+
+.theme-dark .diagram-inspector-item {
+  border-color: #222a31;
+  color: #eef2f4;
+  background: #101417;
+}
+
+.theme-dark .diagram-inspector-item:hover {
+  border-color: #53636d;
+  background: #1a2026;
+}
+
+.theme-dark .diagram-inspector-item.active {
+  border-color: #6f8792;
+  background: #1f2a32;
+  box-shadow: inset 2px 0 0 #6f8792;
+}
+
+.theme-dark .diagram-inspector-item-meta,
+.theme-dark .diagram-inspector-facts dt {
+  color: #a9bac2;
+}
+
+.theme-dark .diagram-inspector-facts dd {
+  color: #eef2f4;
+}
+
+.theme-dark .diagram-inspector-details {
+  border-color: #222a31;
+}
+
+.theme-dark .diagram-inspector-message {
+  color: #f2c4bd;
+  background: #3a1f1d;
+}
+
+.theme-dark .diagram-inspector-actions button {
+  border-color: #33434c;
+  color: #dce8e5;
+  background: #151f24;
+}
+
+.theme-dark .diagram-inspector-actions button:hover,
+.theme-dark .diagram-inspector-actions button:focus-visible {
+  border-color: #4d6572;
+  color: #eef7f4;
+  background: #203039;
+}
+
 .theme-dark .icon-button.active {
   border-color: #6f8792;
   color: #ffffff;

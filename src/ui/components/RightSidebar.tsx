@@ -1,9 +1,12 @@
 import { ChevronDown, ChevronUp, Pin, Search, X } from "lucide-react";
 import type { KeyboardEvent, RefObject } from "react";
+import { DiagramInspectorPanel } from "./DiagramInspectorPanel";
 import { Toc } from "./Toc";
 import type { CommandId } from "../../core/commands";
 import type { RenderResult } from "../../core/types";
+import type { DiagramInspectorItem } from "../lib/diagramInspector";
 import type {
+  DiagramPreviewState,
   RightSidebarTab,
   SearchHitSummary,
   SearchScope,
@@ -12,6 +15,7 @@ import type {
 
 interface RightSidebarProps {
   activeHeadingId: string | null;
+  diagramInspectorItems: DiagramInspectorItem[];
   matchCount: number;
   pinnedSearch: string | null;
   query: string;
@@ -21,16 +25,25 @@ interface RightSidebarProps {
   searchHits: SearchHitSummary[];
   searchIndex: number;
   searchInputRef: RefObject<HTMLInputElement | null>;
+  selectedDiagramId: string | null;
   workspaceSearchIndex: number;
   workspaceSearch: WorkspaceSearchState;
   onActivateSearchHit: (index: number) => void;
   onActivateWorkspaceSearchResult: (index: number) => void;
   onClearSearch: () => void;
+  onCopyText: (label: string, content?: string) => Promise<void>;
   onDispatchCommand: (commandId: CommandId) => void;
+  onNavigateSourceLine: (line: number) => void;
   onNavigateHeading: (headingId: string) => void;
+  onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
   onPinQuery: () => void;
+  onSelectDiagram: (id: string) => void;
   onSetSearchScope: (scope: SearchScope) => void;
   onSetRightSidebarTab: (tab: RightSidebarTab) => void;
+  onShowInlineNotice: (
+    message: string,
+    options?: { tone?: "info" | "success" | "warning" | "error" },
+  ) => void;
   onSearchInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onUpdateQuery: (query: string) => void;
   onWorkspaceSearchIndexChange: (delta: number) => void;
@@ -38,6 +51,7 @@ interface RightSidebarProps {
 
 export function RightSidebar({
   activeHeadingId,
+  diagramInspectorItems,
   matchCount,
   pinnedSearch,
   query,
@@ -47,16 +61,22 @@ export function RightSidebar({
   searchHits,
   searchIndex,
   searchInputRef,
+  selectedDiagramId,
   workspaceSearchIndex,
   workspaceSearch,
   onActivateSearchHit,
   onActivateWorkspaceSearchResult,
   onClearSearch,
+  onCopyText,
   onDispatchCommand,
+  onNavigateSourceLine,
   onNavigateHeading,
+  onOpenDiagramPreview,
   onPinQuery,
+  onSelectDiagram,
   onSetSearchScope,
   onSetRightSidebarTab,
+  onShowInlineNotice,
   onSearchInputKeyDown,
   onUpdateQuery,
   onWorkspaceSearchIndexChange,
@@ -104,6 +124,14 @@ export function RightSidebar({
         >
           Search
         </button>
+        <button
+          type="button"
+          className={rightSidebarTab === "diagrams" ? "active" : ""}
+          data-review-id="right-sidebar-tab-diagrams"
+          onClick={() => onSetRightSidebarTab("diagrams")}
+        >
+          Diagrams
+        </button>
       </div>
       <section
         className="panel right-sidebar-tab-panel"
@@ -120,6 +148,25 @@ export function RightSidebar({
               onNavigate={onNavigateHeading}
             />
           </>
+        ) : rightSidebarTab === "diagrams" ? (
+          <DiagramInspectorPanel
+            items={diagramInspectorItems}
+            selectedDiagramId={selectedDiagramId}
+            onCopyText={onCopyText}
+            onNavigateSourceLine={onNavigateSourceLine}
+            onOpenPreview={(item) => {
+              if (!item.svg) {
+                return;
+              }
+              onOpenDiagramPreview({
+                title: `${item.diagramType} diagram`,
+                svg: item.svg,
+                sourceReference: item.sourceReference,
+              });
+            }}
+            onSelectDiagram={onSelectDiagram}
+            onShowNotice={onShowInlineNotice}
+          />
         ) : (
           <div data-review-id="search">
             <h2>Search</h2>

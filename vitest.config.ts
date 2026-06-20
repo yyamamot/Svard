@@ -5,7 +5,13 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
-    exclude: ["Arto/**", "test/e2e/**", "node_modules/**", "dist/**"],
+    exclude: [
+      "Arto/**",
+      "test/e2e/**",
+      "node_modules/**",
+      "**/node_modules/**",
+      "dist/**",
+    ],
     globals: false,
   },
 });

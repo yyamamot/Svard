@@ -7,18 +7,27 @@ import { isSupportedDocumentHref } from "./shared";
 export function createArticleClickHandler({
   onConfirmKrokiRender,
   onOpenPreferences,
+  onSelectDiagram,
   onTryKrokiFallback,
   openLinkElement,
   copyText,
 }: Pick<
   UseDocumentLinksOptions,
-  "onConfirmKrokiRender" | "onOpenPreferences" | "onTryKrokiFallback"
+  | "onConfirmKrokiRender"
+  | "onOpenPreferences"
+  | "onSelectDiagram"
+  | "onTryKrokiFallback"
 > & {
   openLinkElement: (link: HTMLAnchorElement) => Promise<void>;
   copyText: CopyText;
 }) {
   return function handleArticleClick(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement;
+    const diagram = target.closest<HTMLElement>("[data-diagram-id]");
+    if (diagram?.dataset.diagramId) {
+      onSelectDiagram(diagram.dataset.diagramId);
+    }
+
     const krokiConfirm = target.closest<HTMLElement>(
       "[data-kroki-confirm-key]",
     );

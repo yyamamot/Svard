@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppMainShell } from "./components/AppMainShell";
 import { useActiveHeadingTracking } from "./hooks/useActiveHeadingTracking";
 import { useBookmarksState } from "./hooks/useBookmarksState";
@@ -49,6 +49,10 @@ import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { useZenModeActions } from "./hooks/useZenModeActions";
 import { MAIN_WINDOW_SESSION_ID, normalizeConfig } from "./lib/config";
 import type { ContentCursorCommandHandler } from "./lib/contentCursor";
+import {
+  buildDiagramInspectorItems,
+  type DiagramRenderSnapshot,
+} from "./lib/diagramInspector";
 import { mergeWindowConfigForSave } from "./lib/windowConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
@@ -97,6 +101,11 @@ export function App() {
     RecentlyVisitedLocation[]
   >([]);
   const [renderResult, setRenderResult] = useState<RenderResult | null>(null);
+  const [diagramRenderSnapshot, setDiagramRenderSnapshot] =
+    useState<DiagramRenderSnapshot | null>(null);
+  const [selectedDiagramId, setSelectedDiagramId] = useState<string | null>(
+    null,
+  );
   const [documentHtml, setDocumentHtml] = useState(emptySafeHtml);
   const [confirmedRemoteDiagramKeys, setConfirmedRemoteDiagramKeys] = useState<
     ReadonlySet<string>
@@ -165,6 +174,28 @@ export function App() {
   const preferencesOpen =
     preferencesTabOpen && activeWorkspaceTabKind === "preferences";
   const activeDocumentPayload = preferencesOpen ? null : documentPayload;
+  const diagramInspectorItems = useMemo(
+    () =>
+      buildDiagramInspectorItems({
+        document: activeDocumentPayload,
+        renderResult: preferencesOpen ? null : renderResult,
+        renderSnapshot: preferencesOpen ? null : diagramRenderSnapshot,
+      }),
+    [
+      activeDocumentPayload,
+      diagramRenderSnapshot,
+      preferencesOpen,
+      renderResult,
+    ],
+  );
+  useEffect(() => {
+    if (
+      selectedDiagramId &&
+      !diagramInspectorItems.some((item) => item.id === selectedDiagramId)
+    ) {
+      setSelectedDiagramId(null);
+    }
+  }, [diagramInspectorItems, selectedDiagramId]);
   const [windowSessionId, setWindowSessionId] = useState(
     MAIN_WINDOW_SESSION_ID,
   );
@@ -392,6 +423,7 @@ export function App() {
     krokiFallbackDiagramKeys,
     setError,
     setDocumentHtml,
+    setDiagramRenderSnapshot,
     setRenderResult,
   });
 
@@ -564,6 +596,10 @@ export function App() {
     onLinkPreviewChange: setLinkPreview,
     onOpenDiagramPreview: setDiagramPreview,
     onOpenPreferences: openPreferencesTab,
+    onSelectDiagram: (id) => {
+      setSelectedDiagramId(id);
+      setRightSidebarTab("diagrams");
+    },
     onCompareGitRef: sourceControl.compareWithGitRef,
     onTryKrokiFallback: tryKrokiFallback,
     confirmExternalLink,
@@ -647,12 +683,12 @@ export function App() {
   });
 
   const contentCursor = useContentCursorActions({
-      articleRef,
-      viewerRef,
-      documentDiffPreview,
-      diffContentCursorCommandRef,
-      diffContentCursorClearRef,
-    });
+    articleRef,
+    viewerRef,
+    documentDiffPreview,
+    diffContentCursorCommandRef,
+    diffContentCursorClearRef,
+  });
 
   const {
     activeTitle,
@@ -747,7 +783,8 @@ export function App() {
     onOpenNewWindow: windowActions.openNewWindow,
     onDuplicateWindow: windowActions.duplicateWindow,
     onOpenDocument: openDocument,
-    onOpenCurrentDocumentInNewWindow: windowActions.openCurrentDocumentInNewWindow,
+    onOpenCurrentDocumentInNewWindow:
+      windowActions.openCurrentDocumentInNewWindow,
     onPickAndOpenDirectory: pickAndOpenDirectory,
     onPickAndOpenDocument: pickAndOpenDocument,
     onSaveConfig: saveConfig,
@@ -847,6 +884,7 @@ export function App() {
     activateWorkspaceSearchResult,
     clearActiveContentCursor: contentCursor.clearActiveContentCursor,
     config,
+    diagramInspectorItems,
     dispatchCommand,
     handleSearchInputKeyDown,
     handleWorkspaceSearchClear,
@@ -861,8 +899,14 @@ export function App() {
     searchInputQuery,
     searchInputRef,
     searchScope,
+    selectedDiagramId,
+    setSelectedDiagramId,
     setRightSidebarTab,
     setSearchScope,
+    showInlineNotice,
+    copyText: documentLinks.copyText,
+    navigateToSourceLine,
+    onOpenDiagramPreview: setDiagramPreview,
     updateSearchQuery,
     updateWorkspaceSearchIndex,
     workspaceSearch,
@@ -1136,11 +1180,7 @@ export function App() {
         onClearRecentDocuments: clearRecentDocuments,
         onClearRecentDirectories: clearRecentDirectories,
       }}
-      rightSidebarProps={
-        preferencesOpen
-          ? null
-          : rightSidebarProps
-      }
+      rightSidebarProps={preferencesOpen ? null : rightSidebarProps}
       rightSidebarResizeActive={sidebarResizeState?.side === "right"}
       overlaysProps={{
         chooseCompareDocument,

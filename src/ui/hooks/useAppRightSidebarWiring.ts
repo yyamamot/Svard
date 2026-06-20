@@ -5,7 +5,9 @@ import type {
 } from "react";
 import type { AppConfig, RenderResult } from "../../core/types";
 import type { RightSidebar } from "../components/RightSidebar";
+import type { DiagramInspectorItem } from "../lib/diagramInspector";
 import type {
+  DiagramPreviewState,
   RightSidebarTab,
   SearchHitSummary,
   SearchScope,
@@ -20,6 +22,7 @@ interface UseAppRightSidebarWiringOptions {
   activateWorkspaceSearchResult: (index: number) => void | Promise<void>;
   clearActiveContentCursor: () => void;
   config: AppConfig | null;
+  diagramInspectorItems: DiagramInspectorItem[];
   dispatchCommand: AppRightSidebarProps["onDispatchCommand"];
   handleSearchInputKeyDown: (
     event: ReactKeyboardEvent<HTMLInputElement>,
@@ -37,9 +40,15 @@ interface UseAppRightSidebarWiringOptions {
   searchIndex: number;
   searchInputQuery: string;
   searchInputRef: RefObject<HTMLInputElement | null>;
+  selectedDiagramId: string | null;
   searchScope: SearchScope;
   setRightSidebarTab: (tab: RightSidebarTab) => void;
+  setSelectedDiagramId: (id: string) => void;
   setSearchScope: (scope: SearchScope) => void;
+  showInlineNotice: AppRightSidebarProps["onShowInlineNotice"];
+  copyText: AppRightSidebarProps["onCopyText"];
+  navigateToSourceLine: AppRightSidebarProps["onNavigateSourceLine"];
+  onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
   updateSearchQuery: (query: string) => void;
   updateWorkspaceSearchIndex: (delta: number) => void;
   workspaceSearch: WorkspaceSearchState;
@@ -52,6 +61,7 @@ export function useAppRightSidebarWiring({
   activateWorkspaceSearchResult,
   clearActiveContentCursor,
   config,
+  diagramInspectorItems,
   dispatchCommand,
   handleSearchInputKeyDown,
   handleWorkspaceSearchClear,
@@ -65,9 +75,15 @@ export function useAppRightSidebarWiring({
   searchIndex,
   searchInputQuery,
   searchInputRef,
+  selectedDiagramId,
   searchScope,
   setRightSidebarTab,
+  setSelectedDiagramId,
   setSearchScope,
+  showInlineNotice,
+  copyText,
+  navigateToSourceLine,
+  onOpenDiagramPreview,
   updateSearchQuery,
   updateWorkspaceSearchIndex,
   workspaceSearch,
@@ -103,6 +119,7 @@ export function useAppRightSidebarWiring({
 
   const rightSidebarProps: AppRightSidebarProps = {
     activeHeadingId,
+    diagramInspectorItems,
     matchCount,
     pinnedSearch: config?.workspace.pinnedSearch ?? null,
     query: searchInputQuery,
@@ -112,6 +129,7 @@ export function useAppRightSidebarWiring({
     searchHits,
     searchIndex,
     searchInputRef,
+    selectedDiagramId,
     workspaceSearch,
     workspaceSearchIndex,
     onActivateSearchHit: (index) => {
@@ -121,14 +139,22 @@ export function useAppRightSidebarWiring({
     onActivateWorkspaceSearchResult: (index) =>
       void activateWorkspaceSearchResult(index),
     onClearSearch: handleSearchClear,
+    onCopyText: copyText,
     onDispatchCommand: (commandId) => void dispatchCommand(commandId),
+    onNavigateSourceLine: navigateToSourceLine,
     onNavigateHeading: (headingId) => {
       clearActiveContentCursor();
       navigateToHeading(headingId);
     },
+    onOpenDiagramPreview,
     onPinQuery: () => void pinQuery(),
+    onSelectDiagram: (id) => {
+      clearActiveContentCursor();
+      setSelectedDiagramId(id);
+    },
     onSetSearchScope: setSearchScope,
     onSetRightSidebarTab: setRightSidebarTab,
+    onShowInlineNotice: showInlineNotice,
     onSearchInputKeyDown: handleSearchKeyDown,
     onUpdateQuery: updateSearchQuery,
     onWorkspaceSearchIndexChange: updateWorkspaceSearchIndex,

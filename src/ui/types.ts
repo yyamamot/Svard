@@ -64,8 +64,7 @@ export interface LightweightActionFeedback {
   autoDismissMs: number;
 }
 
-export interface ViewerPostDiffGitMarkerContext
-  extends PostDiffGitMarkerContext {
+export interface ViewerPostDiffGitMarkerContext extends PostDiffGitMarkerContext {
   documentPath: string;
   documentUpdatedAt?: string | null;
 }
@@ -115,7 +114,7 @@ export interface MouseNavigationAutomation {
   status: CommandDispatchResult["status"];
 }
 
-export type RightSidebarTab = "contents" | "search";
+export type RightSidebarTab = "contents" | "search" | "diagrams";
 
 export interface ContextMenuItem {
   id: string;
