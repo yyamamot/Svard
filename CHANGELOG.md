@@ -8,6 +8,7 @@
 - Added an opt-in external PlantUML fallback for diagrams that the built-in renderer cannot render.
 - Added support for root-relative local image paths such as `/images/...` in static-site style documents.
 - Fixed reload rendering so unchanged documents keep their viewer content while local assets are rehydrated.
+- Improved source block toolbars so long code lines are not obscured until hover or focus.
 
 ## 1.0.3
 

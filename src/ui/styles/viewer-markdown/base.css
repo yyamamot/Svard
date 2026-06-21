@@ -649,6 +649,7 @@
 
 .source-block-frame {
   position: relative;
+  isolation: isolate;
 }
 
 .source-block-toolbar {
@@ -666,6 +667,23 @@
   background: var(--reader-surface);
   box-shadow: 0 1px 4px rgb(0 0 0 / 8%);
   font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.source-block-frame:hover .source-block-toolbar,
+.source-block-frame:focus-within .source-block-toolbar,
+.source-block-frame.source-block-collapsed .source-block-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .source-block-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .source-block-language {
