@@ -1,0 +1,1 @@
+The included note is rendered as part of the document while staying inside the sample workspace.

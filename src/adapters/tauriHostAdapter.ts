@@ -191,8 +191,9 @@ export class TauriHostAdapter implements HostAdapter {
     return invokeCommand("save_config", { config });
   }
 
-  setWindowTheme(theme: AppConfig["theme"]): Promise<void> {
-    return setAppTheme(theme);
+  async setWindowTheme(theme: AppConfig["theme"]): Promise<void> {
+    await setAppTheme(theme);
+    await invoke("set_window_theme", { theme });
   }
 
   async watchDocument(

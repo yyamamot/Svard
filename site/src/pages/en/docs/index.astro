@@ -1,0 +1,13 @@
+---
+import { site } from "../../../content/site.en";
+import LandingLayout from "../../../layouts/LandingLayout.astro";
+import DocsLanding from "../../../components/DocsLanding.astro";
+---
+
+<LandingLayout
+  site={site}
+  pageTitle={site.docs.overview.title}
+  pageDescription={site.docs.lead}
+>
+  <DocsLanding docs={site.docs} />
+</LandingLayout>

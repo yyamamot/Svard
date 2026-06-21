@@ -1,0 +1,21 @@
+---
+import FeatureDocPage from "../../../../../components/FeatureDocPage.astro";
+import LandingLayout from "../../../../../layouts/LandingLayout.astro";
+import { site } from "../../../../../content/site.en";
+
+const feature = site.docs.features.prMrProviders;
+---
+
+<LandingLayout
+  site={site}
+  pageTitle={feature.title}
+  pageDescription={feature.lead}
+>
+  <FeatureDocPage
+    docs={site.docs}
+    feature={feature}
+    labels={site.docs.articleLabels}
+    eyebrow={site.docs.featureEyebrow}
+    activeSlug="pr-mr-providers"
+  />
+</LandingLayout>

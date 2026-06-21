@@ -143,7 +143,11 @@ function DiagramInspectorDetails({
       ) : null}
       <div className="diagram-inspector-actions">
         {item.svg ? (
-          <button type="button" onClick={() => onOpenPreview(item)}>
+          <button
+            type="button"
+            data-review-id="diagram-inspector-open-preview"
+            onClick={() => onOpenPreview(item)}
+          >
             <Image size={14} />
             Open Preview
           </button>
@@ -178,7 +182,11 @@ function DiagramInspectorDetails({
           </button>
         ) : null}
         {item.svg ? (
-          <button type="button" onClick={() => void saveSvg()}>
+          <button
+            type="button"
+            data-review-id="diagram-inspector-save-svg"
+            onClick={() => void saveSvg()}
+          >
             <Save size={14} />
             Save SVG
           </button>

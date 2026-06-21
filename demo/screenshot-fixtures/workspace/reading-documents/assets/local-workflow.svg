@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="220" viewBox="0 0 640 220" role="img" aria-label="Local reading workflow">
+  <rect width="640" height="220" rx="18" fill="#f8fafc"/>
+  <rect x="38" y="72" width="132" height="76" rx="12" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/>
+  <rect x="254" y="72" width="132" height="76" rx="12" fill="#dcfce7" stroke="#15803d" stroke-width="2"/>
+  <rect x="470" y="72" width="132" height="76" rx="12" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+  <path d="M184 110h54" stroke="#475569" stroke-width="3" stroke-linecap="round"/>
+  <path d="m232 102 12 8-12 8" fill="none" stroke="#475569" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M400 110h54" stroke="#475569" stroke-width="3" stroke-linecap="round"/>
+  <path d="m448 102 12 8-12 8" fill="none" stroke="#475569" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="104" y="104" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#0f172a">Local files</text>
+  <text x="320" y="104" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#0f172a">Render</text>
+  <text x="536" y="104" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#0f172a">Read</text>
+  <text x="104" y="128" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="13" fill="#334155">AsciiDoc</text>
+  <text x="320" y="128" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="13" fill="#334155">in app</text>
+  <text x="536" y="128" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="13" fill="#334155">preview</text>
+</svg>

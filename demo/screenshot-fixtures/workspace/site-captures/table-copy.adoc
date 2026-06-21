@@ -1,0 +1,22 @@
+= Table Copy Sample
+
+This public sample is used for table copy screenshots.
+
+[cols="1,1,1", options="header"]
+|===
+|Area
+|Owner
+|Status
+
+|Reader
+|Docs
+|Ready
+
+|Search
+|Review
+|Planned
+
+|Diagrams
+|Preview
+|Ready
+|===

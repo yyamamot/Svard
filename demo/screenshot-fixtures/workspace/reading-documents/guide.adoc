@@ -1,0 +1,24 @@
+= Reading Documents Guide
+:imagesdir: assets
+
+This public sample shows the reading features used by the static site.
+
+== Overview
+
+Svard displays local technical documents as readable pages.
+
+== Included note
+
+include::partials/review-note.adoc[]
+
+== Local image
+
+image::local-workflow.svg[Local workflow,width=520]
+
+== Navigation section
+
+The contents panel helps readers move across long documents.
+
+== Display section
+
+Theme and zoom settings change how the document is read.

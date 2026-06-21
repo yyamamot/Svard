@@ -1,0 +1,116 @@
+---
+import ScreenshotPlaceholder from './ScreenshotPlaceholder.astro';
+import DocsSidebar from './DocsSidebar.astro';
+
+const { docs, feature } = Astro.props;
+const labels = Astro.props.labels;
+const workflow = feature.workflow ?? [];
+const screenshots = feature.screenshots ?? (feature.screenshot ? [feature.screenshot] : []);
+const supportMatrix = feature.supportMatrix;
+const relatedHrefByTitle = new Map<string, string>();
+
+for (const group of docs.groups ?? []) {
+  for (const item of group.items ?? []) {
+    if (item.href && !relatedHrefByTitle.has(item.title)) {
+      relatedHrefByTitle.set(item.title, item.href);
+    }
+  }
+}
+
+const relatedItems = (feature.related ?? []).map((label) => ({
+  label,
+  href: relatedHrefByTitle.get(label),
+}));
+
+const detailSections = [
+  { title: labels.whatThisFeatureIs, body: feature.whatThisFeatureIs ?? feature.whatItDoes },
+  { title: labels.whenToUse, body: feature.whenToUse },
+];
+---
+
+<section class="section-shell docs-shell">
+  <DocsSidebar docs={docs} activeSlug={Astro.props.activeSlug} />
+  <main class="docs-main">
+    <section class="docs-article-hero">
+      <p class="eyebrow">{Astro.props.eyebrow}</p>
+      <h1>{feature.title}</h1>
+      <p class="lead">{feature.lead}</p>
+    </section>
+    <div class="docs-article-body">
+      {detailSections.map((section) => (
+        <section>
+          <h2>{section.title}</h2>
+          <p>{section.body}</p>
+        </section>
+      ))}
+      {supportMatrix && (
+        <section>
+          <h2>{supportMatrix.title}</h2>
+          {supportMatrix.lead && <p>{supportMatrix.lead}</p>}
+          <div class="support-matrix-wrap">
+            <table class="support-matrix">
+              <thead>
+                <tr>
+                  {supportMatrix.columns.map((column) => <th scope="col">{column}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {supportMatrix.rows.map((row) => (
+                  <tr>
+                    {row.map((cell) => <td>{cell}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {supportMatrix.note && <p class="support-matrix-note">{supportMatrix.note}</p>}
+        </section>
+      )}
+      {workflow.length > 0 && (
+        <section>
+          <h2>{labels.howItWorks}</h2>
+          <div class="workflow-list">
+            {workflow.map((step) => (
+              <article class="workflow-step">
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.body}</p>
+                  {step.links && step.links.length > 0 && (
+                    <div class="workflow-links">
+                      {step.links.map((link) => (
+                        <a href={link.href} target="_blank" rel="noreferrer" data-astro-reload>
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {step.code && <pre class="workflow-command"><code>{step.code}</code></pre>}
+                </div>
+                {step.screenshot && <ScreenshotPlaceholder screenshot={step.screenshot} compact />}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+      <section>
+        <h2>{labels.notesAndLimits}</h2>
+        <p>{feature.limitations}</p>
+      </section>
+      <section>
+        <h2>{labels.related}</h2>
+        <ul class="related-list">
+          {relatedItems.map((item) => (
+            <li>
+              {item.href ? <a href={item.href}>{item.label}</a> : <span>{item.label}</span>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+    {workflow.length === 0 && screenshots.length > 0 && (
+      <section class="docs-screenshot-section">
+        {screenshots.map((screenshot) => <ScreenshotPlaceholder screenshot={screenshot} compact />)}
+      </section>
+    )}
+  </main>
+</section>

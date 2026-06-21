@@ -29,6 +29,9 @@ import {
   tracePerf,
 } from "../lib/perfTrace";
 
+const envScreenshotFixture = import.meta.env
+  .VITE_SVARD_SITE_SCREENSHOT_FIXTURE as string | undefined;
+
 interface WorkspaceBootHost {
   authorizeDirectory(path: string): Promise<void>;
   loadConfig(): Promise<AppConfig>;
@@ -162,6 +165,14 @@ export function useWorkspaceBoot({
           windowSessionId,
           bootSession,
         );
+        const effectiveBootWorkspace = envScreenshotFixture
+          ? {
+              ...bootWorkspace,
+              activePath: envScreenshotFixture,
+              openTabs: [envScreenshotFixture],
+              pinnedTabs: [],
+            }
+          : bootWorkspace;
         const bootConfig = newWindowRequest
           ? {
               ...nextConfig,
@@ -171,29 +182,29 @@ export function useWorkspaceBoot({
                 newWindowRequest.rightSidebarVisible ??
                 nextConfig.rightSidebarVisible,
               layout: newWindowRequest.layout ?? nextConfig.layout,
-              workspace: bootWorkspace,
+              workspace: effectiveBootWorkspace,
             }
-          : { ...nextConfig, workspace: bootWorkspace };
+          : { ...nextConfig, workspace: effectiveBootWorkspace };
         const splitSession = normalizeSplitSession(
-          bootWorkspace.splitSession,
+          effectiveBootWorkspace.splitSession,
         );
         const restorePaths = uniquePaths([
-          ...bootWorkspace.pinnedTabs,
-          ...bootWorkspace.openTabs,
+          ...effectiveBootWorkspace.pinnedTabs,
+          ...effectiveBootWorkspace.openTabs,
           splitSession?.panePaths.left ?? "",
           splitSession?.panePaths.right ?? "",
-          bootWorkspace.activePath ?? "",
+          effectiveBootWorkspace.activePath ?? "",
         ]);
         const initialPath =
-          bootWorkspace.activePath ?? restorePaths[0] ?? null;
+          effectiveBootWorkspace.activePath ?? restorePaths[0] ?? null;
         if (initialPath) {
           const preResolveStartedAt = perfNow();
           const preResolvedWorkspace = await host
             .resolveWorkspacePaths({
               documentPath: initialPath,
               basePath: null,
-              lastDirectory: bootWorkspace.lastDirectory,
-              recentDirectories: bootWorkspace.recentDirectories.map(
+              lastDirectory: effectiveBootWorkspace.lastDirectory,
+              recentDirectories: effectiveBootWorkspace.recentDirectories.map(
                 (entry) => entry.path,
               ),
               expandedDirectories: [],

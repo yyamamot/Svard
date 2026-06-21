@@ -612,6 +612,11 @@ fn save_config(app: tauri::AppHandle, config: AppConfig) -> Result<(), AppError>
 }
 
 #[tauri::command]
+fn set_window_theme(app: tauri::AppHandle, theme: String) {
+    apply_app_theme(&app, theme.as_str());
+}
+
+#[tauri::command]
 fn take_pending_open_requests(
     state: tauri::State<PendingOpenRequests>,
 ) -> Result<Vec<DesktopOpenRequest>, String> {
@@ -790,8 +795,8 @@ fn config_file_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .join(CONFIG_FILE_NAME))
 }
 
-fn tauri_theme_from_config(config: &AppConfig) -> Option<Theme> {
-    match config.theme.as_str() {
+fn tauri_theme_from_theme(theme: &str) -> Option<Theme> {
+    match theme {
         "dark" => Some(Theme::Dark),
         "light" => Some(Theme::Light),
         _ => None,
@@ -799,16 +804,24 @@ fn tauri_theme_from_config(config: &AppConfig) -> Option<Theme> {
 }
 
 fn window_background_from_config(config: &AppConfig) -> Color {
-    match config.theme.as_str() {
+    window_background_from_theme(config.theme.as_str())
+}
+
+fn window_background_from_theme(theme: &str) -> Color {
+    match theme {
         "dark" => Color(0x10, 0x14, 0x17, 0xff),
         _ => Color(0xf4, 0xf6, 0xf7, 0xff),
     }
 }
 
 fn apply_app_theme_from_config(app: &tauri::AppHandle, config: &AppConfig) {
-    app.set_theme(tauri_theme_from_config(config));
+    apply_app_theme(app, config.theme.as_str());
+}
+
+fn apply_app_theme(app: &tauri::AppHandle, theme: &str) {
+    app.set_theme(tauri_theme_from_theme(theme));
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.set_background_color(Some(window_background_from_config(config)));
+        let _ = window.set_background_color(Some(window_background_from_theme(theme)));
     }
 }
 
@@ -896,6 +909,7 @@ pub fn run() {
             list_directory,
             load_config,
             save_config,
+            set_window_theme,
             take_pending_open_requests,
             render_diagram,
             clear_kroki_cache,

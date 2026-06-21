@@ -6,14 +6,15 @@ const base = sitePath(`${site.locale}/`);
 ---
 
 <header class="site-header">
-  <a class="brand" href={base} aria-label="Svard home">
+  <a class="brand" href={base} aria-label="Svard home" data-astro-reload>
     <img src={sitePath('favicon.png')} alt="" width="26" height="26" />
     <span>Svard</span>
   </a>
   <nav class="nav" aria-label="Primary navigation">
-    <a href={base}>{site.nav.top}</a>
-    <a href={`${base}features/`}>{site.nav.features}</a>
-    <a href={`${base}download/`}>{site.nav.download}</a>
-    <a class="language" href={site.nav.languageHref}>{site.nav.languageLabel}</a>
+    <a href={base} data-astro-reload>{site.nav.top}</a>
+    <a href={`${base}features/`} data-astro-reload>{site.nav.features}</a>
+    <a href={`${base}docs/`} data-astro-reload>{site.nav.docs}</a>
+    <a href={`${base}download/`} data-astro-reload>{site.nav.download}</a>
+    <a class="language" href={site.nav.languageHref} data-astro-reload>{site.nav.languageLabel}</a>
   </nav>
 </header>

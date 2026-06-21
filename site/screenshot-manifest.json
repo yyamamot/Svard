@@ -33,12 +33,204 @@
       "description": "Current document search state."
     },
     {
+      "id": "workspace-search",
+      "scenario": "workspace-search",
+      "output": "workspace-search.png",
+      "fixture": "workspace-search/overview.md",
+      "settleMs": 6500,
+      "description": "Workspace search results for public-safe documents."
+    },
+    {
+      "id": "workspace-search-result",
+      "scenario": "workspace-search-result",
+      "output": "workspace-search-result.png",
+      "fixture": "workspace-search/overview.md",
+      "settleMs": 7000,
+      "description": "Workspace search result opened in the reader."
+    },
+    {
+      "id": "reading-markup-markdown",
+      "scenario": "reading-markup-markdown",
+      "output": "reading-markup-markdown.png",
+      "fixture": "workspace/file-compare/product-guide-a.md",
+      "settleMs": 5000,
+      "description": "Markdown document rendered as a public-safe reading view."
+    },
+    {
+      "id": "reading-markup-asciidoc",
+      "scenario": "reading-markup-asciidoc",
+      "output": "reading-markup-asciidoc.png",
+      "fixture": "workspace/product-overview.adoc",
+      "settleMs": 5000,
+      "description": "AsciiDoc document rendered as a public-safe reading view."
+    },
+    {
+      "id": "first-document-open-folder",
+      "scenario": "first-document-open-folder",
+      "output": "first-document-open-folder.png",
+      "fixture": "workspace/first-document/guide.adoc",
+      "settleMs": 5500,
+      "description": "Open Folder entry visible from a clean public-safe workspace."
+    },
+    {
+      "id": "first-document-reader",
+      "scenario": "first-document-reader",
+      "output": "first-document-reader.png",
+      "fixture": "workspace/first-document/guide.adoc",
+      "settleMs": 5200,
+      "description": "First document reading state without Git status badges."
+    },
+    {
+      "id": "table-of-contents",
+      "scenario": "table-of-contents",
+      "output": "table-of-contents.png",
+      "fixture": "workspace/reading-documents/guide.adoc",
+      "settleMs": 5000,
+      "description": "Contents sidebar and document headings visible together."
+    },
+    {
+      "id": "table-of-contents-jump",
+      "scenario": "table-of-contents-jump",
+      "output": "table-of-contents-jump.png",
+      "fixture": "workspace/reading-documents/guide.adoc",
+      "settleMs": 5500,
+      "description": "Contents navigation after jumping to a document section."
+    },
+    {
+      "id": "includes-local-assets",
+      "scenario": "includes-local-assets",
+      "output": "includes-local-assets.png",
+      "fixture": "workspace/reading-documents/guide.adoc",
+      "settleMs": 5000,
+      "description": "Rendered include content and a local image in the reader."
+    },
+    {
+      "id": "includes-local-assets-boundary",
+      "scenario": "includes-local-assets-boundary",
+      "output": "includes-local-assets-boundary.png",
+      "fixture": "workspace/reading-documents/guide.adoc",
+      "settleMs": 5500,
+      "description": "Contents sidebar showing safe include boundaries."
+    },
+    {
+      "id": "themes-zoom-preferences",
+      "scenario": "themes-zoom-preferences",
+      "output": "themes-zoom-preferences.png",
+      "fixture": "workspace/reading-documents/guide.adoc",
+      "settleMs": 5000,
+      "description": "Preferences General controls for theme and zoom."
+    },
+    {
+      "id": "themes-zoom-reader",
+      "scenario": "themes-zoom-reader",
+      "output": "themes-zoom-reader.png",
+      "fixture": "workspace/reading-documents/guide.adoc",
+      "settleMs": 5000,
+      "description": "Reader showing theme and zoom changes."
+    },
+    {
+      "id": "zen-mode-entry",
+      "scenario": "zen-mode-entry",
+      "output": "zen-mode-entry.png",
+      "fixture": "workspace/reading-documents/guide.adoc",
+      "settleMs": 5000,
+      "description": "Topbar Zen Mode entry with focus."
+    },
+    {
+      "id": "tabs-open-files",
+      "scenario": "tabs-open-files",
+      "output": "tabs-open-files.png",
+      "fixture": "workspace/site-captures/navigation.md",
+      "settleMs": 6000,
+      "description": "Tabs and Open Files visible in a public-safe reading session."
+    },
+    {
+      "id": "tabs-open-files-tabs",
+      "scenario": "tabs-open-files-tabs",
+      "output": "tabs-open-files-tabs.png",
+      "fixture": "workspace/site-captures/navigation.md",
+      "settleMs": 6500,
+      "description": "Top tab bar visible with several public-safe documents open."
+    },
+    {
+      "id": "quick-open",
+      "scenario": "quick-open",
+      "output": "quick-open.png",
+      "fixture": "workspace/site-captures/navigation.md",
+      "settleMs": 6000,
+      "description": "Quick Open overlay with public-safe navigation candidates."
+    },
+    {
+      "id": "command-palette",
+      "scenario": "command-palette",
+      "output": "command-palette.png",
+      "fixture": "workspace/site-captures/navigation.md",
+      "settleMs": 6000,
+      "description": "Quick Open command mode with public-safe command candidates."
+    },
+    {
       "id": "source-control",
       "scenario": "source-control",
       "output": "source-control.png",
       "fixture": "workspace/site-captures/source-control.md",
       "settleMs": 7000,
       "description": "Source Control view with public-safe changed files."
+    },
+    {
+      "id": "source-control-changes",
+      "scenario": "source-control-changes",
+      "output": "source-control-changes.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 7000,
+      "description": "Source Control Changes list with public-safe changed files."
+    },
+    {
+      "id": "source-control-ref-context-menu",
+      "scenario": "source-control-ref-context-menu",
+      "output": "source-control-ref-context-menu.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 7000,
+      "description": "Source Control change item context menu showing ref compare actions."
+    },
+    {
+      "id": "source-control-open-diff",
+      "scenario": "source-control-open-diff",
+      "output": "source-control-open-diff.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 7000,
+      "description": "Rendered diff opened from the Source Control Changes list."
+    },
+    {
+      "id": "source-control-branch-diff",
+      "scenario": "source-control-branch-diff",
+      "output": "source-control-branch-diff.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 9000,
+      "description": "Source Control Branch Diff view with public-safe changed documents."
+    },
+    {
+      "id": "source-control-branch-diff-preview",
+      "scenario": "source-control-branch-diff-preview",
+      "output": "source-control-branch-diff-preview.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 10000,
+      "description": "Rendered preview diff opened from a Branch Diff item."
+    },
+    {
+      "id": "source-control-repo-graph",
+      "scenario": "source-control-repo-graph",
+      "output": "source-control-repo-graph.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 9000,
+      "description": "Source Control Repo Graph with public-safe commit history."
+    },
+    {
+      "id": "source-control-file-history",
+      "scenario": "source-control-file-history",
+      "output": "source-control-file-history.png",
+      "fixture": "workspace/site-captures/source-control.md",
+      "settleMs": 9000,
+      "description": "Source Control File History scoped to the active document."
     },
     {
       "id": "files",
@@ -56,11 +248,155 @@
       "description": "Rendered diff workspace for the static site gallery."
     },
     {
+      "id": "table-list-diff-review",
+      "scenario": "table-list-diff-review",
+      "output": "table-list-diff-review.png",
+      "fixture": "workspace/rendered-diff.md",
+      "settleMs": 5000,
+      "description": "Rendered preview diff showing public-safe list and table changes."
+    },
+    {
+      "id": "table-list-diff-table",
+      "scenario": "table-list-diff-table",
+      "output": "table-list-diff-table.png",
+      "fixture": "workspace/rendered-diff.md",
+      "settleMs": 5000,
+      "description": "Table view showing public-safe changed and added cells."
+    },
+    {
+      "id": "table-copy-context-menu",
+      "scenario": "table-copy-context-menu",
+      "output": "table-copy-context-menu.png",
+      "fixture": "workspace/site-captures/table-copy.adoc",
+      "settleMs": 5500,
+      "description": "Rendered table context menu showing public-safe table copy actions."
+    },
+    {
+      "id": "link-hover-preview",
+      "scenario": "link-hover-preview",
+      "output": "link-hover-preview.png",
+      "fixture": "workspace/site-captures/link-actions.md",
+      "settleMs": 5500,
+      "description": "Rendered document link hover preview with public-safe local target."
+    },
+    {
+      "id": "link-context-menu",
+      "scenario": "link-context-menu",
+      "output": "link-context-menu.png",
+      "fixture": "workspace/site-captures/link-actions.md",
+      "settleMs": 5500,
+      "description": "Rendered document link context menu with public-safe local target."
+    },
+    {
+      "id": "change-review-mode-markers",
+      "scenario": "change-review-mode-markers",
+      "output": "change-review-mode-markers.png",
+      "fixture": "workspace/rendered-diff.md",
+      "settleMs": 18000,
+      "description": "Normal viewer showing current change markers."
+    },
+    {
+      "id": "change-review-settings",
+      "scenario": "change-review-settings",
+      "output": "change-review-settings.png",
+      "fixture": "workspace/site-captures/preferences.md",
+      "settleMs": 5000,
+      "description": "Preferences General page showing Change Review Mode disabled by default."
+    },
+    {
+      "id": "network-settings",
+      "scenario": "network-settings",
+      "output": "network-settings.png",
+      "fixture": "workspace/site-captures/preferences.md",
+      "settleMs": 5000,
+      "description": "Preferences Network page showing HTTP proxy settings without concrete proxy values."
+    },
+    {
+      "id": "pr-mr-providers",
+      "scenario": "pr-mr-providers",
+      "output": "pr-mr-providers.png",
+      "fixture": "workspace/site-captures/preferences.md",
+      "settleMs": 5000,
+      "description": "Preferences PR / MR Providers page showing provider settings without real credentials."
+    },
+    {
+      "id": "file-compare-files",
+      "scenario": "file-compare-files",
+      "output": "file-compare-files.png",
+      "fixture": "workspace/file-compare/product-guide-a.md",
+      "settleMs": 5000,
+      "description": "File tree showing public-safe file-to-file compare inputs."
+    },
+    {
+      "id": "file-compare-context-menu",
+      "scenario": "file-compare-context-menu",
+      "output": "file-compare-context-menu.png",
+      "fixture": "workspace/file-compare/product-guide-a.md",
+      "settleMs": 5000,
+      "description": "File tree context menu showing the public-safe file compare action."
+    },
+    {
+      "id": "file-compare-preview",
+      "scenario": "file-compare-preview",
+      "output": "file-compare-preview.png",
+      "fixture": "workspace/file-compare/product-guide-a.md",
+      "settleMs": 5000,
+      "description": "File-to-file preview diff for public-safe product guide fixtures."
+    },
+    {
       "id": "kroki-fallback",
       "scenario": "kroki-fallback",
       "output": "kroki-fallback.png",
       "fixture": "workspace/site-captures/kroki-fallback.adoc",
       "description": "Preferences page with explicit Kroki fallback settings."
+    },
+    {
+      "id": "external-plantuml-fallback",
+      "scenario": "external-plantuml-fallback",
+      "output": "external-plantuml-fallback.png",
+      "fixture": "workspace/site-captures/kroki-fallback.adoc",
+      "settleMs": 5500,
+      "description": "Preferences Diagrams page showing explicit external PlantUML fallback settings."
+    },
+    {
+      "id": "diagram-inspector",
+      "scenario": "diagram-inspector",
+      "output": "diagram-inspector.png",
+      "fixture": "workspace/diagrams/overview.adoc",
+      "settleMs": 7500,
+      "description": "Diagram Inspector with public-safe diagram list and selected details."
+    },
+    {
+      "id": "diagram-inline-preview-entry",
+      "scenario": "diagram-inline-preview-entry",
+      "output": "diagram-inline-preview-entry.png",
+      "fixture": "workspace/diagrams/overview.adoc",
+      "settleMs": 5000,
+      "description": "Rendered inline diagram focused as the entry point before opening diagram preview."
+    },
+    {
+      "id": "diagram-preview",
+      "scenario": "diagram-preview",
+      "output": "diagram-preview.png",
+      "fixture": "workspace/diagrams/overview.adoc",
+      "settleMs": 8000,
+      "description": "Diagram preview overlay opened from the Diagram Inspector."
+    },
+    {
+      "id": "diagram-save-action",
+      "scenario": "diagram-save-action",
+      "output": "diagram-save-action.png",
+      "fixture": "workspace/diagrams/overview.adoc",
+      "settleMs": 7500,
+      "description": "Representative Diagram Inspector action for saving rendered SVG."
+    },
+    {
+      "id": "diagram-loading-cache",
+      "scenario": "diagram-loading-cache",
+      "output": "diagram-loading-cache.png",
+      "fixture": "workspace/diagrams/overview.adoc",
+      "settleMs": 5500,
+      "description": "Preferences Diagrams controls for fast diagram loading and renderer behavior."
     },
     {
       "id": "navigation",
@@ -81,6 +417,82 @@
       "description": "Bookmarks sidebar for managing frequently used folders and documents."
     },
     {
+      "id": "history-recently-closed",
+      "scenario": "history-recently-closed",
+      "output": "history-recently-closed.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/navigation.md",
+      "fixtureSource": "workspace/site-captures/navigation.md",
+      "extraFixtureSources": [
+        {
+          "source": "workspace/site-captures/navigation-reference.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-reference.md"
+        },
+        {
+          "source": "workspace/site-captures/navigation-bookmarks.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-bookmarks.md"
+        }
+      ],
+      "settleMs": 5000,
+      "description": "Start Page with public-safe recent documents for history navigation."
+    },
+    {
+      "id": "split-view-entry",
+      "scenario": "split-view-entry",
+      "output": "split-view-entry.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/navigation.md",
+      "fixtureSource": "workspace/site-captures/navigation.md",
+      "extraFixtureSources": [
+        {
+          "source": "workspace/site-captures/navigation-reference.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-reference.md"
+        },
+        {
+          "source": "workspace/site-captures/navigation-bookmarks.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-bookmarks.md"
+        }
+      ],
+      "settleMs": 5000,
+      "description": "Reader topbar with the Split View button focused before enabling split layout."
+    },
+    {
+      "id": "split-view",
+      "scenario": "split-view",
+      "output": "split-view.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/navigation.md",
+      "fixtureSource": "workspace/site-captures/navigation.md",
+      "extraFixtureSources": [
+        {
+          "source": "workspace/site-captures/navigation-reference.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-reference.md"
+        },
+        {
+          "source": "workspace/site-captures/navigation-bookmarks.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-bookmarks.md"
+        }
+      ],
+      "settleMs": 6000,
+      "description": "Split View with the reader shown in two panes."
+    },
+    {
+      "id": "bookmarks",
+      "scenario": "bookmarks",
+      "output": "bookmarks.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/navigation.md",
+      "fixtureSource": "workspace/site-captures/navigation.md",
+      "extraFixtureSources": [
+        {
+          "source": "workspace/site-captures/navigation-reference.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-reference.md"
+        },
+        {
+          "source": "workspace/site-captures/navigation-bookmarks.md",
+          "target": "/tmp/svard-site-viewer-fixtures/navigation-bookmarks.md"
+        }
+      ],
+      "settleMs": 5000,
+      "description": "Bookmarks sidebar with public-safe folder and document entries."
+    },
+    {
       "id": "preferences",
       "scenario": "preferences",
       "output": "preferences.png",
@@ -88,11 +500,34 @@
       "description": "Preferences page showing mouse gesture settings."
     },
     {
+      "id": "keybindings",
+      "scenario": "keybindings",
+      "output": "keybindings.png",
+      "fixture": "workspace/site-captures/preferences.md",
+      "settleMs": 5200,
+      "description": "Preferences Keybindings page showing shortcut assignments."
+    },
+    {
+      "id": "mouse-gestures",
+      "scenario": "mouse-gestures",
+      "output": "mouse-gestures.png",
+      "fixture": "workspace/site-captures/preferences.md",
+      "settleMs": 5200,
+      "description": "Preferences Mouse Gestures page showing right-button drag gesture settings."
+    },
+    {
+      "id": "mouse-gestures-record",
+      "scenario": "mouse-gestures-record",
+      "output": "mouse-gestures-record.png",
+      "fixture": "workspace/site-captures/preferences.md",
+      "settleMs": 5600,
+      "description": "Preferences Mouse Gestures assignment table with Record interaction visible."
+    },
+    {
       "id": "zen-mode",
       "scenario": "zen-mode",
       "output": "zen-mode.png",
-      "fixture": "/tmp/svard-site-viewer-fixtures/zen-mode.md",
-      "fixtureSource": "workspace/site-captures/zen-mode.md",
+      "fixture": "workspace/reading-documents/guide.adoc",
       "settleMs": 5000,
       "description": "Focused document reading state with Zen Mode active."
     },

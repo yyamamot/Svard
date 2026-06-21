@@ -1,0 +1,37 @@
+---
+import DocsSidebar from "./DocsSidebar.astro";
+
+const { docs } = Astro.props;
+const overview = docs.overview;
+---
+
+<section class="section-shell docs-shell">
+  <DocsSidebar docs={docs} activeSlug="what-is-svard" />
+  <main class="docs-main">
+    <section class="docs-article-hero">
+      <p class="eyebrow">{docs.eyebrow}</p>
+      <h1>{overview.title}</h1>
+      <p class="lead">{overview.lead}</p>
+    </section>
+    <div class="docs-article-body">
+      {
+        overview.notice && (
+          <section class="docs-notice">
+            <h2>{overview.notice.title}</h2>
+            <p>{overview.notice.body}</p>
+          </section>
+        )
+      }
+      {
+        overview.sections.map((section) => (
+          <section>
+            <h2>{section.title}</h2>
+            {section.body.map((paragraph) => (
+              <p>{paragraph}</p>
+            ))}
+          </section>
+        ))
+      }
+    </div>
+  </main>
+</section>

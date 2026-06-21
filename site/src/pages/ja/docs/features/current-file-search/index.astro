@@ -1,0 +1,11 @@
+---
+import { site } from '../../../../../content/site.ja';
+import LandingLayout from '../../../../../layouts/LandingLayout.astro';
+import FeatureDocPage from '../../../../../components/FeatureDocPage.astro';
+
+const feature = site.docs.features.currentFileSearch;
+---
+
+<LandingLayout site={site} pageTitle={feature.title} pageDescription={feature.lead}>
+  <FeatureDocPage docs={site.docs} feature={feature} labels={site.docs.articleLabels} eyebrow={site.docs.featureEyebrow} activeSlug="current-file-search" />
+</LandingLayout>

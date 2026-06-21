@@ -1,0 +1,51 @@
+---
+const { docs, activeSlug } = Astro.props;
+---
+
+<aside class="docs-sidebar" aria-label="Docs navigation" transition:persist="docs-sidebar">
+  {docs.groups.map((group) => (
+    <section class="docs-sidebar-section">
+      <h2>{group.title}</h2>
+      <ul>
+        {group.items.map((item) => (
+          <li>
+            {item.href ? (
+              <a
+                class:list={['docs-sidebar-link', item.slug === activeSlug && 'is-active']}
+                href={item.href}
+                aria-current={item.slug === activeSlug ? 'page' : undefined}
+                data-docs-sidebar-link
+              >
+                <span>{item.title}</span>
+              </a>
+            ) : (
+              <span class="docs-sidebar-link is-disabled">
+                <span>{item.title}</span>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</aside>
+
+<script>
+  const updateDocsSidebarActiveLink = () => {
+    const currentPath = new URL(window.location.href).pathname.replace(/\/$/, '');
+    document.querySelectorAll<HTMLAnchorElement>('[data-docs-sidebar-link]').forEach((link) => {
+      const linkPath = new URL(link.href).pathname.replace(/\/$/, '');
+      const isActive = linkPath === currentPath;
+      link.classList.toggle('is-active', isActive);
+      if (isActive) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    });
+  };
+
+  document.addEventListener('astro:page-load', updateDocsSidebarActiveLink);
+  document.addEventListener('astro:after-swap', updateDocsSidebarActiveLink);
+  updateDocsSidebarActiveLink();
+</script>
