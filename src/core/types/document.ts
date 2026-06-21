@@ -8,6 +8,7 @@ export interface DocumentPayload {
   updatedAt: string;
   includeFiles?: AsciiDocIncludeFile[];
   includeGraph?: AsciiDocIncludeGraph;
+  resourceContext?: DocumentResourceContext;
   asciidocContext?: AsciiDocRenderContext | null;
 }
 
@@ -60,6 +61,16 @@ export interface AsciiDocRenderContext {
   attributes: Record<string, string>;
   resourceRoots: string[];
 }
+
+export interface DocumentResourceContext {
+  workspaceRoot: string;
+  documentDir: string;
+  resourceRoots: string[];
+}
+
+export type LocalImageResolveContext =
+  | AsciiDocRenderContext
+  | DocumentResourceContext;
 
 export interface DirectoryEntry {
   name: string;

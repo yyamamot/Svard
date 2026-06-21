@@ -684,13 +684,24 @@ $not rendered in source$
         ...documentPayload,
         path: "/workspace/svard/articles/post.md",
         basePath: "/workspace/svard/articles",
+        format: "markdown",
+        resourceContext: {
+          workspaceRoot: "/workspace/svard",
+          documentDir: "/workspace/svard/articles",
+          resourceRoots: ["/workspace/svard", "/workspace/svard/articles"],
+        },
       },
       { security: { allowLocalImages: true, confirmExternalLinks: true } },
       { headings: [], sourceBlocks: [] },
       {
-        resolveLocalImage: async (path, documentPath) => {
+        resolveLocalImage: async (path, documentPath, context) => {
           expect(path).toBe("/images/article/root.svg");
           expect(documentPath).toBe("/workspace/svard/articles/post.md");
+          expect(context).toEqual({
+            workspaceRoot: "/workspace/svard",
+            documentDir: "/workspace/svard/articles",
+            resourceRoots: ["/workspace/svard", "/workspace/svard/articles"],
+          });
           return {
             status: "resolved",
             mediaType: "image/svg+xml",

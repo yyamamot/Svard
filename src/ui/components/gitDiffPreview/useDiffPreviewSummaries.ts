@@ -6,6 +6,7 @@ import type {
   DocumentPayload,
   KrokiRequest,
   KrokiResult,
+  LocalImageResolveContext,
   LocalImageResult,
 } from "../../../core/types";
 import {
@@ -36,14 +37,14 @@ interface UseDiffPreviewSummariesOptions {
     documentPath: string,
   ) => Promise<Pick<
     DocumentPayload,
-    "includeFiles" | "asciidocContext"
+    "includeFiles" | "resourceContext" | "asciidocContext"
   > | null>;
   preview: DocumentDiffPreview;
   renderDiagram?: (request: KrokiRequest) => Promise<KrokiResult>;
   resolveLocalImage?: (
     source: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult>;
   setActiveTableIndex: (index: number) => void;
   view: DiffView;

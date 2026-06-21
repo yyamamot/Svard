@@ -29,11 +29,13 @@ import {
 import type {
   AppConfig,
   AsciiDocRenderContext,
+  DocumentResourceContext,
   DirectoryEntry,
   DocumentLinkResolution,
   DocumentLinkResolutionInput,
   DocumentPayload,
   GitDiffPreview,
+  LocalImageResolveContext,
   LocalImageResult,
   WorkspacePathResolution,
   WorkspacePathResolutionInput,
@@ -108,6 +110,7 @@ export async function openDocument(path: string): Promise<DocumentPayload> {
         source: override.source,
         includeFiles: fixtureIncludeFilesForPath(path),
         includeGraph: fixtureIncludeGraphForPath(path),
+        resourceContext: mockResourceContext(path),
         asciidocContext:
           format === "asciidoc"
             ? mockAsciiDocContext(path, override.source)
@@ -128,6 +131,7 @@ export async function openDocument(path: string): Promise<DocumentPayload> {
     source,
     includeFiles: fixtureIncludeFilesForPath(path),
     includeGraph: fixtureIncludeGraphForPath(path),
+    resourceContext: mockResourceContext(path),
     asciidocContext:
       documentFormatForPath(path) === "asciidoc"
         ? mockAsciiDocContext(path, source)
@@ -369,7 +373,7 @@ function normalizeMockObsidianNoteKey(target: string): string | null {
 export async function resolveLocalImage(
   source: string,
   documentPath: string,
-  context?: AsciiDocRenderContext | null,
+  context?: LocalImageResolveContext | null,
 ): Promise<LocalImageResult> {
   const path = resolveMockLocalImagePathWithContext(
     source,
@@ -380,6 +384,7 @@ export async function resolveLocalImage(
     path === "/workspace/docs/assets/svard-sample.svg" ||
     path === "/workspace/docs/assets/diff-oversized-image.svg" ||
     path === "/workspace/images/test.svg" ||
+    path === "/workspace/images/article/root.svg" ||
     path === "/workspace/images/project-context.svg" ||
     path === "/workspace/modules/module-a/images/diagram.drawio.svg"
   ) {
@@ -435,16 +440,38 @@ function mockAsciiDocContext(
   };
 }
 
+function mockResourceContext(documentPath: string): DocumentResourceContext {
+  const documentDir = documentPath.split("/").slice(0, -1).join("/") || "/";
+  const modulePages = documentPath.match(
+    /^(.+\/modules\/[^/]+)\/pages\/[^/]+$/u,
+  );
+  const workspaceRoot = modulePages ? modulePages[1] : "/workspace";
+  return {
+    workspaceRoot,
+    documentDir,
+    resourceRoots: Array.from(new Set([workspaceRoot, documentDir])),
+  };
+}
+
 function resolveMockLocalImagePathWithContext(
   source: string,
   documentPath: string,
-  context?: AsciiDocRenderContext | null,
+  context?: LocalImageResolveContext | null,
 ) {
   const documentRelative = resolveMockLocalImagePath(source, documentPath);
   if (fixtureDocuments[documentRelative]) {
     return documentRelative;
   }
-  if (context?.baseDir && !source.startsWith("/")) {
+  if (isRootRelativeMockAsset(source) && context?.workspaceRoot) {
+    const relativeSource = source.replace(/^\/+/u, "");
+    for (const root of [context.workspaceRoot, ...(context.resourceRoots ?? [])]) {
+      const rootRelative = normalizeMockPath(`${root}/${relativeSource}`);
+      if (fixtureDocuments[rootRelative] || isKnownMockImagePath(rootRelative)) {
+        return rootRelative;
+      }
+    }
+  }
+  if (context && "baseDir" in context && context.baseDir && !source.startsWith("/")) {
     const baseRelative = normalizeMockPath(`${context.baseDir}/${source}`);
     if (fixtureDocuments[baseRelative]) {
       return baseRelative;
@@ -460,6 +487,19 @@ function resolveMockLocalImagePathWithContext(
     }
   }
   return documentRelative;
+}
+
+function isRootRelativeMockAsset(source: string) {
+  return /^\/(?:images|assets|img|static)(?:\/|$)/u.test(source.trim());
+}
+
+function isKnownMockImagePath(path: string) {
+  return [
+    "/workspace/images/test.svg",
+    "/workspace/images/article/root.svg",
+    "/workspace/images/project-context.svg",
+    "/workspace/modules/module-a/images/diagram.drawio.svg",
+  ].includes(path);
 }
 
 export async function loadConfig(): Promise<AppConfig> {

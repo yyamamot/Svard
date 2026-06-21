@@ -592,10 +592,15 @@ fn unwatch_directory(
 fn resolve_local_image(
     path: String,
     document_path: String,
-    context: Option<AsciiDocRenderContext>,
+    context: Option<LocalImageResolveContext>,
     roots: tauri::State<AllowedRoots>,
 ) -> Result<LocalImageResult, String> {
-    resolve_local_image_from_path_with_context(&path, &document_path, &roots, context.as_ref())
+    resolve_local_image_from_path_with_local_context(
+        &path,
+        &document_path,
+        &roots,
+        context.as_ref(),
+    )
 }
 
 #[tauri::command]

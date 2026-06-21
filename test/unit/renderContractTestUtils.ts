@@ -19,6 +19,7 @@ import type {
   AsciiDocIncludeFile,
   DocumentLinkResolution,
   DocumentPayload,
+  LocalImageResolveContext,
   LocalImageResult,
   RenderResult,
   SecurityConfig,
@@ -72,7 +73,7 @@ export interface RenderAsciiDocContractInput {
   resolveLocalImage?: (
     path: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult> | LocalImageResult;
 }
 
@@ -130,6 +131,11 @@ export async function renderAsciiDocContract({
     source: expanded.source,
     updatedAt: "2026-06-04T00:00:00.000Z",
     includeFiles,
+    resourceContext: {
+      workspaceRoot,
+      documentDir,
+      resourceRoots,
+    },
     asciidocContext: {
       baseDir,
       workspaceRoot,
@@ -168,7 +174,7 @@ export interface RenderMarkdownContractInput {
   resolveLocalImage?: (
     path: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult> | LocalImageResult;
   resolveDocumentLink?: (
     href: string,
@@ -191,6 +197,11 @@ export async function renderMarkdownContract({
     format: "markdown",
     source,
     updatedAt: "2026-06-04T00:00:00.000Z",
+    resourceContext: {
+      workspaceRoot: "/workspace",
+      documentDir,
+      resourceRoots: ["/workspace", documentDir],
+    },
   };
   const preparedHtml = await prepareDocumentHtml(
     renderResult.html,

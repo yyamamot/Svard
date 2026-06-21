@@ -16,6 +16,7 @@ import type {
   KrokiRequest,
   KrokiResult,
   DocumentLinkResolution,
+  LocalImageResolveContext,
   LocalImageResult,
   RenderResult,
   PlantUmlRenderResult,
@@ -48,7 +49,7 @@ interface RenderHost {
   resolveLocalImage(
     path: string,
     documentPath: string,
-    context?: DocumentPayload["asciidocContext"],
+    context?: LocalImageResolveContext | null,
   ): Promise<LocalImageResult>;
   resolveDocumentLink(input: {
     href: string;
@@ -77,6 +78,7 @@ interface UseDocumentRenderOptions {
   documentPayload: DocumentPayload | null;
   host: RenderHost;
   krokiFallbackDiagramKeys: ReadonlySet<string>;
+  renderRevision: number;
   setError: (message: string | null) => void;
   setDocumentHtml: (html: SafeHtml) => void;
   setDiagramRenderSnapshot: (snapshot: DiagramRenderSnapshot | null) => void;
@@ -132,7 +134,18 @@ export function documentPayloadRenderSignature(
         source: file.source,
       })) ?? [],
     path: documentPayload?.path ?? null,
+    resourceContext: documentPayload?.resourceContext ?? null,
     source: documentPayload?.source ?? null,
+  });
+}
+
+export function documentRenderEffectSignature(
+  documentPayload: DocumentPayload | null,
+  renderRevision: number,
+): string {
+  return safeJsonSignature({
+    document: documentPayloadRenderSignature(documentPayload),
+    renderRevision,
   });
 }
 
@@ -142,6 +155,7 @@ export function useDocumentRender({
   documentPayload,
   host,
   krokiFallbackDiagramKeys,
+  renderRevision,
   setError,
   setDocumentHtml,
   setDiagramRenderSnapshot,
@@ -160,8 +174,10 @@ export function useDocumentRender({
     krokiFallbackDiagramKeys,
   );
   const renderConfigSignature = documentRenderConfigSignature(config);
-  const documentPayloadSignature =
-    documentPayloadRenderSignature(documentPayload);
+  const documentEffectSignature = documentRenderEffectSignature(
+    documentPayload,
+    renderRevision,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -661,7 +677,7 @@ export function useDocumentRender({
     };
   }, [
     confirmedRemoteDiagramKeysSignature,
-    documentPayloadSignature,
+    documentEffectSignature,
     host,
     krokiFallbackDiagramKeysSignature,
     renderConfigSignature,

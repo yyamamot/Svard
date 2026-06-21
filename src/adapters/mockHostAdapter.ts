@@ -147,7 +147,7 @@ export class MockHostAdapter implements HostAdapter {
   resolveLocalImage(
     source: string,
     documentPath: string,
-    context?: DocumentPayload["asciidocContext"],
+    context?: DocumentPayload["asciidocContext"] | DocumentPayload["resourceContext"],
   ): Promise<LocalImageResult> {
     return this.documents.resolveLocalImage(source, documentPath, context);
   }

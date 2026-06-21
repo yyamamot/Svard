@@ -7,6 +7,7 @@
 - Added an Includes section to the Contents sidebar for inspecting AsciiDoc include dependencies and status.
 - Added an opt-in external PlantUML fallback for diagrams that the built-in renderer cannot render.
 - Added support for root-relative local image paths such as `/images/...` in static-site style documents.
+- Fixed reload rendering so unchanged documents keep their viewer content while local assets are rehydrated.
 
 ## 1.0.3
 

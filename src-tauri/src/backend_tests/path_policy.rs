@@ -153,11 +153,11 @@ fn asciidoc_context_prefers_most_specific_allowed_root() {
     register_allowed_root(&broad_root, &roots).expect("register broad root");
     register_allowed_root(&project_root, &roots).expect("register project root");
 
-    let context = build_asciidoc_render_context(
+    let resource_context = build_document_resource_context(
         &document.canonicalize().expect("canonical document"),
-        "= Guide\n",
         Some(&roots),
     );
+    let context = build_asciidoc_render_context("= Guide\n", &resource_context);
 
     assert_eq!(
         context.workspace_root,

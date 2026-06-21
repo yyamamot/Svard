@@ -5,7 +5,12 @@ import type { DocumentPayload, RenderResult } from "./types";
 
 export function renderDocument(
   document: Pick<DocumentPayload, "format" | "source"> &
-    Partial<Pick<DocumentPayload, "path" | "includeFiles" | "asciidocContext">>,
+    Partial<
+      Pick<
+        DocumentPayload,
+        "path" | "includeFiles" | "resourceContext" | "asciidocContext"
+      >
+    >,
   options: RenderRequestOptions = {},
 ): Promise<RenderResult> {
   if (document.format === "markdown") {

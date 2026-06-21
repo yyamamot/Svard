@@ -1,6 +1,7 @@
 import type {
   DocumentPayload,
   DocumentLinkResolution,
+  LocalImageResolveContext,
   LocalImageResult,
   RenderResult,
   SecurityConfig,
@@ -20,7 +21,7 @@ interface PrepareDocumentHtmlOptions {
   resolveLocalImage?: (
     path: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult>;
   resolveDocumentLink?: (
     href: string,
@@ -529,7 +530,7 @@ export async function prepareDocumentHtml(
           ? await options.resolveLocalImage(
               resolvedImage.source,
               document.path,
-              document.asciidocContext,
+              document.asciidocContext ?? document.resourceContext,
             )
           : {
               status: "blocked" as const,

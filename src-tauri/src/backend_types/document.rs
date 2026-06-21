@@ -13,6 +13,7 @@ pub struct DocumentPayload {
     pub include_files: Vec<AsciiDocIncludeFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_graph: Option<AsciiDocIncludeGraph>,
+    pub resource_context: DocumentResourceContext,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asciidoc_context: Option<AsciiDocRenderContext>,
 }
@@ -80,6 +81,52 @@ pub struct AsciiDocRenderContext {
     pub attributes: BTreeMap<String, String>,
     #[serde(default)]
     pub resource_roots: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentResourceContext {
+    pub workspace_root: String,
+    pub document_dir: String,
+    #[serde(default)]
+    pub resource_roots: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalImageResolveContext {
+    #[serde(default)]
+    pub base_dir: Option<String>,
+    pub workspace_root: String,
+    pub document_dir: String,
+    #[serde(default)]
+    pub attributes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub resource_roots: Vec<String>,
+}
+
+impl From<&AsciiDocRenderContext> for LocalImageResolveContext {
+    fn from(value: &AsciiDocRenderContext) -> Self {
+        Self {
+            base_dir: Some(value.base_dir.clone()),
+            workspace_root: value.workspace_root.clone(),
+            document_dir: value.document_dir.clone(),
+            attributes: value.attributes.clone(),
+            resource_roots: value.resource_roots.clone(),
+        }
+    }
+}
+
+impl From<&DocumentResourceContext> for LocalImageResolveContext {
+    fn from(value: &DocumentResourceContext) -> Self {
+        Self {
+            base_dir: None,
+            workspace_root: value.workspace_root.clone(),
+            document_dir: value.document_dir.clone(),
+            attributes: BTreeMap::new(),
+            resource_roots: value.resource_roots.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

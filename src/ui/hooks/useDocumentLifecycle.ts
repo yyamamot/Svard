@@ -60,6 +60,7 @@ interface UseDocumentLifecycleOptions {
   >;
   setQuery: Dispatch<SetStateAction<string>>;
   setRenderResult: Dispatch<SetStateAction<RenderResult | null>>;
+  bumpDocumentRenderRevision: () => void;
   setOpenFileReloadStates: Dispatch<
     SetStateAction<Record<string, OpenFileReloadState>>
   >;
@@ -100,6 +101,7 @@ export function useDocumentLifecycle({
   setPendingSmartScrollAnchor,
   setQuery,
   setRenderResult,
+  bumpDocumentRenderRevision,
   setOpenFileReloadStates,
   setRootDirectory,
   setTabs,
@@ -184,6 +186,7 @@ export function useDocumentLifecycle({
         const isActive = activePathRef.current === nextDocument.path;
         if (isActive) {
           setDocumentPayload(nextDocument);
+          bumpDocumentRenderRevision();
           showInlineNotice(`${fileName(nextDocument.path)} reloaded`, {
             tone: "success",
           });
@@ -340,8 +343,14 @@ export function useDocumentLifecycle({
         format: nextDocument.format,
         durationMs: perfDuration(stateStartedAt),
       });
-      setRenderResult(null);
+      const isSameActivePath = activePathRef.current === nextDocument.path;
+      if (!isSameActivePath) {
+        setRenderResult(null);
+      }
       setDocumentPayload(nextDocument);
+      if (options.clearDocumentLinkCache) {
+        bumpDocumentRenderRevision();
+      }
       setQuery(searchQueryForPath(nextDocument.path));
       dismissInlineNotice();
       setTabs((currentTabs) => {

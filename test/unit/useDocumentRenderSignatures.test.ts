@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { defaultConfig } from "../../src/core/defaultConfig";
 import type { AppConfig, DocumentPayload } from "../../src/core/types";
 import {
+  documentRenderEffectSignature,
   documentPayloadRenderSignature,
   documentRenderConfigSignature,
   documentRenderSetSignature,
@@ -137,6 +138,17 @@ describe("useDocumentRenderSignatures", () => {
     expect(
       documentPayloadRenderSignature(
         documentPayload({
+          resourceContext: {
+            workspaceRoot: "/workspace/site",
+            documentDir: "/workspace/site/articles",
+            resourceRoots: ["/workspace/site", "/workspace/site/articles"],
+          },
+        }),
+      ),
+    ).not.toBe(baseSignature);
+    expect(
+      documentPayloadRenderSignature(
+        documentPayload({
           includeFiles: [
             {
               path: "/workspace/docs/partials/intro.adoc",
@@ -146,6 +158,14 @@ describe("useDocumentRenderSignatures", () => {
         }),
       ),
     ).not.toBe(baseSignature);
+  });
+
+  it("uses reload render revision as a render effect input", () => {
+    const base = documentPayload();
+
+    expect(documentRenderEffectSignature(base, 1)).not.toBe(
+      documentRenderEffectSignature(base, 0),
+    );
   });
 
   it("sorts diagram confirmation sets so insertion order does not affect dependencies", () => {

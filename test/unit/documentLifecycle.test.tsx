@@ -124,6 +124,7 @@ describe("useDocumentLifecycle open failures", () => {
         setOpenFileReloadStates,
         setQuery,
         setRenderResult,
+        bumpDocumentRenderRevision: vi.fn(),
         setRootDirectory,
         setTabs,
         setWorkspaceEnvironment,
@@ -167,6 +168,103 @@ describe("useDocumentLifecycle open failures", () => {
     );
   });
 
+  it("clears render state when opening a different document", async () => {
+    const nextDocument: DocumentPayload = {
+      path: "/workspace/docs/next.md",
+      basePath: "/workspace/docs",
+      format: "markdown",
+      source: "# Next",
+      updatedAt: "2026-05-17T00:04:00.000Z",
+    };
+    const host = {
+      openDocument: vi.fn(async () => nextDocument),
+      watchDocument: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+      takePendingOpenRequests: vi.fn(async () => []),
+      watchOpenRequests: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+    } as Partial<HostAdapter> as HostAdapter;
+    const setRenderResult = vi.fn();
+    let api:
+      | {
+          openDocument(path: string): Promise<void>;
+        }
+      | undefined;
+
+    function Harness() {
+      const articleRef = useRef<HTMLElement | null>(null);
+      const viewerRef = useRef<HTMLElement | null>(null);
+      const [payload, setDocumentPayload] = useState<DocumentPayload | null>(
+        currentDocument,
+      );
+      const [tabs, setTabs] = useState<DocumentPayload[]>([currentDocument]);
+      const [, setError] = useState<string | null>(null);
+      const [, setIsLoading] = useState(false);
+      const [, setQuery] = useState("");
+      const [, setChildrenByDirectory] = useState<
+        Record<string, DirectoryEntry[]>
+      >({});
+      const [, setDirectoryErrors] = useState<Record<string, string>>({});
+      const [, setExpandedDirectories] = useState<Set<string>>(new Set());
+      const [, setOpenFileReloadStates] = useState({});
+      const [, setRootDirectory] = useState("");
+      const [, setWorkspaceEnvironment] = useState<WorkspaceEnvironment | null>(
+        null,
+      );
+      const lifecycle = useDocumentLifecycle({
+        activeHeadingId: null,
+        articleRef,
+        config: defaultConfig,
+        dismissInlineNotice: vi.fn(),
+        documentPayload: payload,
+        focusedPaneId: "left",
+        host,
+        persistWorkspace: vi.fn(
+          async (_partial: Partial<AppConfig["workspace"]>) => undefined,
+        ),
+        recordNavigation: vi.fn(),
+        searchQueryForPath: (_path: string, fallbackQuery?: string) =>
+          fallbackQuery ?? "",
+        setChildrenByDirectory,
+        setDirectoryErrors,
+        setDocumentPayload,
+        setError,
+        setExpandedDirectories,
+        setIsLoading,
+        setPendingSmartScrollAnchor: vi.fn(),
+        setOpenFileReloadStates,
+        setQuery,
+        setRenderResult,
+        bumpDocumentRenderRevision: vi.fn(),
+        setRootDirectory,
+        setTabs,
+        setWorkspaceEnvironment,
+        showInlineNotice: vi.fn(),
+        canDrainPendingOpenRequests: true,
+        snapshotForPath: (_path: string): PaneId | null => null,
+        focusPane: vi.fn(),
+        tabs,
+        viewerRef,
+      });
+
+      useEffect(() => {
+        api = { openDocument: lifecycle.openDocument };
+      });
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<Harness />);
+    });
+    await act(async () => {
+      await api?.openDocument(nextDocument.path);
+    });
+
+    expect(setRenderResult).toHaveBeenCalledWith(null);
+  });
+
   it("captures a smart scroll anchor before manual reload", async () => {
     const reloadedDocument: DocumentPayload = {
       ...currentDocument,
@@ -174,6 +272,8 @@ describe("useDocumentLifecycle open failures", () => {
       updatedAt: "2026-05-17T00:02:00.000Z",
     };
     const setPendingSmartScrollAnchor = vi.fn();
+    const setRenderResult = vi.fn();
+    const bumpDocumentRenderRevision = vi.fn();
     const host = {
       clearDocumentLinkCache: vi.fn(async () => undefined),
       openDocument: vi.fn(async () => reloadedDocument),
@@ -206,9 +306,6 @@ describe("useDocumentLifecycle open failures", () => {
       );
       const [tabs, setTabs] = useState<DocumentPayload[]>([currentDocument]);
       const [, setError] = useState<string | null>(null);
-      const [, setRenderResult] = useState<RenderResult | null>(
-        currentRenderResult,
-      );
       const [, setIsLoading] = useState(false);
       const [, setQuery] = useState("");
       const [, setChildrenByDirectory] = useState<
@@ -248,6 +345,7 @@ describe("useDocumentLifecycle open failures", () => {
         setOpenFileReloadStates,
         setQuery,
         setRenderResult,
+        bumpDocumentRenderRevision,
         setRootDirectory,
         setTabs,
         setWorkspaceEnvironment,
@@ -281,6 +379,8 @@ describe("useDocumentLifecycle open failures", () => {
         scrollTop: 321,
       }),
     );
+    expect(bumpDocumentRenderRevision).toHaveBeenCalledTimes(1);
+    expect(setRenderResult).not.toHaveBeenCalledWith(null);
   });
 
   it("clears document link cache before reloading a watched document", async () => {
@@ -294,6 +394,7 @@ describe("useDocumentLifecycle open failures", () => {
       (_message: string, _options?: InlineNoticeOptions) => undefined,
     );
     const clearDocumentLinkCache = vi.fn(async () => undefined);
+    const bumpDocumentRenderRevision = vi.fn();
     const host = {
       clearDocumentLinkCache,
       openDocument: vi.fn(async () => reloadedDocument),
@@ -355,6 +456,7 @@ describe("useDocumentLifecycle open failures", () => {
         setOpenFileReloadStates,
         setQuery,
         setRenderResult,
+        bumpDocumentRenderRevision,
         setRootDirectory,
         setTabs,
         setWorkspaceEnvironment,
@@ -385,6 +487,7 @@ describe("useDocumentLifecycle open failures", () => {
       vi.mocked(host.openDocument).mock.invocationCallOrder[0],
     );
     expect(documentPayload).toEqual(reloadedDocument);
+    expect(bumpDocumentRenderRevision).toHaveBeenCalledTimes(1);
     expect(showInlineNotice).toHaveBeenCalledWith("current.md reloaded", {
       tone: "success",
     });
@@ -404,6 +507,7 @@ describe("useDocumentLifecycle open failures", () => {
     };
     const watchers = new Map<string, () => void>();
     const setPendingSmartScrollAnchor = vi.fn();
+    const bumpDocumentRenderRevision = vi.fn();
     const host = {
       clearDocumentLinkCache: vi.fn(async () => undefined),
       openDocument: vi.fn(async (path: string) =>
@@ -476,6 +580,7 @@ describe("useDocumentLifecycle open failures", () => {
         setOpenFileReloadStates,
         setQuery,
         setRenderResult,
+        bumpDocumentRenderRevision,
         setRootDirectory,
         setTabs,
         setWorkspaceEnvironment,
@@ -496,6 +601,7 @@ describe("useDocumentLifecycle open failures", () => {
       watchers.get(inactiveDocument.path)?.();
     });
     expect(setPendingSmartScrollAnchor).not.toHaveBeenCalled();
+    expect(bumpDocumentRenderRevision).not.toHaveBeenCalled();
 
     await act(async () => {
       watchers.get(currentDocument.path)?.();
@@ -506,5 +612,6 @@ describe("useDocumentLifecycle open failures", () => {
         scrollTop: 111,
       }),
     );
+    expect(bumpDocumentRenderRevision).toHaveBeenCalledTimes(1);
   });
 });

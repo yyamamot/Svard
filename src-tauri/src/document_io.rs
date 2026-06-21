@@ -9,7 +9,8 @@ use crate::backend_types::AllowedRoots;
 use crate::backend_types::{
     AsciiDocIncludeFile, AsciiDocIncludeGraph, AsciiDocIncludeGraphEdge, AsciiDocIncludeGraphNode,
     AsciiDocIncludeGraphSourceLocation, AsciiDocRenderContext, DirectoryEntry, DocumentPayload,
-    EntryKind, WorkspaceSearchInput, WorkspaceSearchResult, WorkspaceSearchResultItem,
+    DocumentResourceContext, EntryKind, WorkspaceSearchInput, WorkspaceSearchResult,
+    WorkspaceSearchResultItem,
 };
 use crate::path_policy::{
     antora_module_root_for_page, display_safe_path, ensure_path_allowed,
@@ -79,9 +80,10 @@ pub(crate) fn open_document_from_canonical_path_with_roots(
 
     let updated_at = document_updated_at(&document_path_string);
     let format = document_format_for_path(&document_path_string).to_string();
+    let resource_context = build_document_resource_context(&document_path, roots);
     let asciidoc_context = if format == "asciidoc" {
         let context_started_at = perf_trace::start();
-        let context = build_asciidoc_render_context(&document_path, &source, roots);
+        let context = build_asciidoc_render_context(&source, &resource_context);
         perf_trace::log(
             "open_document.build_asciidoc_render_context",
             &[
@@ -139,6 +141,7 @@ pub(crate) fn open_document_from_canonical_path_with_roots(
         updated_at,
         include_files,
         include_graph,
+        resource_context,
         asciidoc_context,
     })
 }
@@ -183,32 +186,49 @@ pub(crate) fn collect_asciidoc_include_files_and_graph_with_base(
     (files, graph.finish())
 }
 
-pub(crate) fn build_asciidoc_render_context(
+pub(crate) fn build_document_resource_context(
     document_path: &Path,
-    source: &str,
     roots: Option<&AllowedRoots>,
-) -> AsciiDocRenderContext {
+) -> DocumentResourceContext {
     let document_dir = document_path
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_else(|| PathBuf::from("."));
-    let workspace_root = explicit_allowed_root_for_document(document_path, roots)
+    let workspace_root = static_asset_allowed_root_for_document(document_path, roots)
+        .or_else(|| static_site_root_for_document(document_path))
+        .or_else(|| explicit_allowed_root_for_document(document_path, roots))
         .or_else(|| fallback_allowed_root_for_file(document_path))
         .unwrap_or_else(|| document_dir.clone());
-    let base_dir = workspace_root.clone();
     let mut resource_roots = Vec::new();
     push_unique_path(&mut resource_roots, &workspace_root);
+    for root in allowed_roots_for_document(document_path, roots) {
+        push_unique_path(&mut resource_roots, &root);
+    }
+    if let Some(static_site_root) = static_site_root_for_document(document_path) {
+        push_unique_path(&mut resource_roots, &static_site_root);
+    }
     if let Some(module_root) = antora_module_root_for_page(document_path) {
         push_unique_path(&mut resource_roots, &module_root);
     }
     push_unique_path(&mut resource_roots, &document_dir);
 
-    AsciiDocRenderContext {
-        base_dir: path_to_ui_string(&base_dir),
+    DocumentResourceContext {
         workspace_root: path_to_ui_string(&workspace_root),
         document_dir: path_to_ui_string(&document_dir),
-        attributes: asciidoc_attributes(source),
         resource_roots,
+    }
+}
+
+pub(crate) fn build_asciidoc_render_context(
+    source: &str,
+    resource_context: &DocumentResourceContext,
+) -> AsciiDocRenderContext {
+    AsciiDocRenderContext {
+        base_dir: resource_context.workspace_root.clone(),
+        workspace_root: resource_context.workspace_root.clone(),
+        document_dir: resource_context.document_dir.clone(),
+        attributes: asciidoc_attributes(source),
+        resource_roots: resource_context.resource_roots.clone(),
     }
 }
 
@@ -226,6 +246,53 @@ pub(crate) fn explicit_allowed_root_for_document(
         })
         .max_by_key(|root| root.components().count())
         .cloned()
+}
+
+pub(crate) fn allowed_roots_for_document(
+    document_path: &Path,
+    roots: Option<&AllowedRoots>,
+) -> Vec<PathBuf> {
+    let Some(roots) = roots else {
+        return Vec::new();
+    };
+    let checked_document_path = path_for_policy(document_path);
+    let Ok(guard) = roots.0.lock() else {
+        return Vec::new();
+    };
+    guard
+        .iter()
+        .filter(|root| {
+            checked_document_path == root.as_path() || checked_document_path.starts_with(root)
+        })
+        .cloned()
+        .collect()
+}
+
+fn static_asset_allowed_root_for_document(
+    document_path: &Path,
+    roots: Option<&AllowedRoots>,
+) -> Option<PathBuf> {
+    allowed_roots_for_document(document_path, roots)
+        .into_iter()
+        .filter(|root| {
+            ["images", "assets", "img", "static"]
+                .iter()
+                .any(|directory| root.join(directory).is_dir())
+        })
+        .min_by_key(|root| root.components().count())
+}
+
+fn static_site_root_for_document(document_path: &Path) -> Option<PathBuf> {
+    let mut current = document_path.parent()?;
+    loop {
+        if ["images", "assets", "img", "static"]
+            .iter()
+            .any(|directory| current.join(directory).is_dir())
+        {
+            return Some(current.to_path_buf());
+        }
+        current = current.parent()?;
+    }
 }
 
 pub(crate) fn push_unique_path(paths: &mut Vec<String>, path: &Path) {

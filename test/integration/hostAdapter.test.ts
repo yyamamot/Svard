@@ -174,6 +174,19 @@ describe("MockHostAdapter", () => {
 
     expect(document.source).toContain("Reloaded Fixture");
     expect(document.updatedAt).toBe("2026-05-12T00:02:00.000Z");
+    expect(document.resourceContext).toEqual({
+      workspaceRoot: "/workspace",
+      documentDir: "/workspace/docs",
+      resourceRoots: ["/workspace", "/workspace/docs"],
+    });
+
+    const image = await host.resolveLocalImage(
+      "/images/article/root.svg",
+      document.path,
+      document.resourceContext,
+    );
+    expect(image.status).toBe("resolved");
+    expect(image.mediaType).toBe("image/svg+xml");
   });
 
   it("exposes no-op desktop open request boundaries in the browser harness", async () => {

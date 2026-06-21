@@ -6,6 +6,7 @@ import type {
   DocumentPayload,
   KrokiRequest,
   KrokiResult,
+  LocalImageResolveContext,
   LocalImageResult,
 } from "../../core/types";
 
@@ -20,7 +21,7 @@ interface DiffPreviewHost {
   resolveLocalImage(
     source: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ): Promise<LocalImageResult>;
   openExternalUrl(url: string): Promise<void>;
 }
@@ -39,7 +40,7 @@ export function useDiffPreviewHostCallbacks(host: DiffPreviewHost) {
     (
       source: string,
       documentPath: string,
-      context: DocumentPayload["asciidocContext"],
+      context: LocalImageResolveContext | null | undefined,
     ): Promise<LocalImageResult> =>
       host.resolveLocalImage(source, documentPath, context),
     [host],
@@ -49,11 +50,12 @@ export function useDiffPreviewHostCallbacks(host: DiffPreviewHost) {
       documentPath: string,
     ): Promise<Pick<
       DocumentPayload,
-      "includeFiles" | "asciidocContext"
+      "includeFiles" | "resourceContext" | "asciidocContext"
     > | null> => {
       const document = await host.openDocument(documentPath);
       return {
         includeFiles: document.includeFiles,
+        resourceContext: document.resourceContext,
         asciidocContext: document.asciidocContext,
       };
     },

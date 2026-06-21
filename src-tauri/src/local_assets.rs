@@ -4,7 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::backend_types::{AllowedRoots, AsciiDocRenderContext, LocalImageResult};
+use crate::backend_types::{AllowedRoots, LocalImageResolveContext, LocalImageResult};
+#[cfg(test)]
+use crate::backend_types::{AsciiDocRenderContext, DocumentResourceContext};
 use crate::path_policy::{
     antora_module_root_for_page, ensure_path_allowed, normalize_path, resolve_existing_file_path,
 };
@@ -17,14 +19,36 @@ pub(crate) fn resolve_local_image_from_path(
     document_path: &str,
     roots: &AllowedRoots,
 ) -> Result<LocalImageResult, String> {
-    resolve_local_image_from_path_with_context(source, document_path, roots, None)
+    resolve_local_image_from_path_with_local_context(source, document_path, roots, None)
 }
 
+#[cfg(test)]
 pub(crate) fn resolve_local_image_from_path_with_context(
     source: &str,
     document_path: &str,
     roots: &AllowedRoots,
     context: Option<&AsciiDocRenderContext>,
+) -> Result<LocalImageResult, String> {
+    let context = context.map(LocalImageResolveContext::from);
+    resolve_local_image_from_path_with_local_context(source, document_path, roots, context.as_ref())
+}
+
+#[cfg(test)]
+pub(crate) fn resolve_local_image_from_path_with_resource_context(
+    source: &str,
+    document_path: &str,
+    roots: &AllowedRoots,
+    context: Option<&DocumentResourceContext>,
+) -> Result<LocalImageResult, String> {
+    let context = context.map(LocalImageResolveContext::from);
+    resolve_local_image_from_path_with_local_context(source, document_path, roots, context.as_ref())
+}
+
+pub(crate) fn resolve_local_image_from_path_with_local_context(
+    source: &str,
+    document_path: &str,
+    roots: &AllowedRoots,
+    context: Option<&LocalImageResolveContext>,
 ) -> Result<LocalImageResult, String> {
     let document_path = match resolve_existing_file_path(&PathBuf::from(document_path)) {
         Ok(path) => path,
@@ -46,7 +70,11 @@ pub(crate) fn resolve_local_image_from_path_with_context(
         },
         None => return Ok(blocked_local_image("Local image URL is not allowed.")),
     };
-    if !image_path.is_file() || ensure_path_allowed(&image_path, roots).is_err() {
+    let context_allows_root_relative_asset =
+        is_root_relative_local_asset(source) && context_allows_image_path(context, &image_path);
+    if !image_path.is_file()
+        || (ensure_path_allowed(&image_path, roots).is_err() && !context_allows_root_relative_asset)
+    {
         return Ok(blocked_local_image(
             "Local image is outside the current workspace.",
         ));
@@ -88,7 +116,7 @@ pub(crate) fn resolve_local_image_from_path_with_context(
 pub(crate) fn resolve_local_image_candidates(
     source: &str,
     document_path: &Path,
-    context: Option<&AsciiDocRenderContext>,
+    context: Option<&LocalImageResolveContext>,
     roots: &AllowedRoots,
 ) -> Option<Vec<PathBuf>> {
     let mut candidates = Vec::new();
@@ -117,7 +145,7 @@ pub(crate) fn push_candidate(candidates: &mut Vec<PathBuf>, candidate: PathBuf) 
 
 pub(crate) fn resolve_context_image_candidates(
     source: &str,
-    context: &AsciiDocRenderContext,
+    context: &LocalImageResolveContext,
 ) -> Vec<PathBuf> {
     if has_unsupported_local_image_scheme(source) {
         return Vec::new();
@@ -132,8 +160,12 @@ pub(crate) fn resolve_context_image_candidates(
     }
 
     let mut candidates = Vec::new();
-    let base_dir = PathBuf::from(&context.base_dir);
-    push_candidate(&mut candidates, normalize_path(base_dir.join(&source_path)));
+    if let Some(base_dir) = &context.base_dir {
+        push_candidate(
+            &mut candidates,
+            normalize_path(PathBuf::from(base_dir).join(&source_path)),
+        );
+    }
     if let Some(imagesdir) = context.attributes.get("imagesdir") {
         if !imagesdir.trim().is_empty() {
             push_candidate(
@@ -147,7 +179,11 @@ pub(crate) fn resolve_context_image_candidates(
             push_candidate(
                 &mut candidates,
                 normalize_path(
-                    PathBuf::from(&context.base_dir)
+                    context
+                        .base_dir
+                        .as_ref()
+                        .map(PathBuf::from)
+                        .unwrap_or_else(|| PathBuf::from(&context.workspace_root))
                         .join(imagesdir)
                         .join(source_path),
                 ),
@@ -194,7 +230,7 @@ pub(crate) fn resolve_antora_module_image_candidate(
 
 pub(crate) fn resolve_root_relative_image_candidates(
     source: &str,
-    context: Option<&AsciiDocRenderContext>,
+    context: Option<&LocalImageResolveContext>,
     roots: &AllowedRoots,
     document_path: &Path,
 ) -> Vec<PathBuf> {
@@ -235,6 +271,28 @@ fn allowed_roots_snapshot(roots: &AllowedRoots) -> Vec<PathBuf> {
         .lock()
         .map(|guard| guard.iter().cloned().collect())
         .unwrap_or_default()
+}
+
+fn context_allows_image_path(
+    context: Option<&LocalImageResolveContext>,
+    image_path: &Path,
+) -> bool {
+    let Some(context) = context else {
+        return false;
+    };
+    let checked_image_path = image_path
+        .canonicalize()
+        .unwrap_or_else(|_| image_path.to_path_buf());
+    context
+        .resource_roots
+        .iter()
+        .chain(std::iter::once(&context.workspace_root))
+        .map(PathBuf::from)
+        .any(|root| {
+            root.canonicalize()
+                .map(|canonical_root| checked_image_path.starts_with(canonical_root))
+                .unwrap_or(false)
+        })
 }
 
 fn root_relative_local_asset_path(source: &str) -> Option<&str> {

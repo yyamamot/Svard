@@ -10,6 +10,7 @@ import type {
   GitRefList,
   KrokiRequest,
   KrokiResult,
+  LocalImageResolveContext,
   LocalImageResult,
 } from "../../core/types";
 import type { HostAdapter } from "../../core/types";
@@ -80,13 +81,13 @@ interface AppOverlaysProps {
   resolveDiffLocalImage: (
     source: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult>;
   loadDiffDocumentContext: (
     documentPath: string,
   ) => Promise<Pick<
     DocumentPayload,
-    "includeFiles" | "asciidocContext"
+    "includeFiles" | "resourceContext" | "asciidocContext"
   > | null>;
   renderDiffDiagram: (request: KrokiRequest) => Promise<KrokiResult>;
   resolveDiffDocumentLink: (

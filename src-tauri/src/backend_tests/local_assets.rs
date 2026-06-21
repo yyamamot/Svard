@@ -182,6 +182,48 @@ fn local_image_resolver_reads_root_relative_workspace_assets() {
 }
 
 #[test]
+fn markdown_resource_context_keeps_root_relative_images_stable_after_reload() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let articles = project.join("articles");
+    let document = articles.join("post.md");
+    let image = project.join("images").join("post").join("hero.svg");
+    fs::create_dir_all(&articles).expect("create articles");
+    fs::create_dir_all(image.parent().unwrap()).expect("create images");
+    fs::write(&document, "# Post\n\n![Hero](/images/post/hero.svg)\n").expect("write document");
+    fs::write(
+        &image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Hero</text></svg>"#,
+    )
+    .expect("write image");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&articles.canonicalize().unwrap(), &roots)
+        .expect("register document parent");
+    let payload = open_document_from_canonical_path_with_roots(
+        &document.canonicalize().expect("canonical document"),
+        Some(&roots),
+    )
+    .expect("open markdown document");
+
+    let result = resolve_local_image_from_path_with_resource_context(
+        "/images/post/hero.svg",
+        &payload.path,
+        &roots,
+        Some(&payload.resource_context),
+    )
+    .expect("root-relative image");
+
+    assert_eq!(
+        payload.resource_context.workspace_root,
+        path_to_ui_string(&project.canonicalize().unwrap())
+    );
+    assert_eq!(result.status, "resolved");
+    assert_eq!(result.media_type.as_deref(), Some("image/svg+xml"));
+    assert!(result.content.unwrap().contains("Hero"));
+}
+
+#[test]
 fn local_image_resolver_blocks_non_asset_root_relative_paths() {
     let dir = tempdir().expect("temp dir");
     let project = dir.path().join("project");

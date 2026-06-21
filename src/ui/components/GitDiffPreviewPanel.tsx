@@ -7,6 +7,7 @@ import type {
   DocumentPayload,
   KrokiRequest,
   KrokiResult,
+  LocalImageResolveContext,
   LocalImageResult,
 } from "../../core/types";
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
@@ -38,13 +39,13 @@ interface DocumentDiffPreviewPanelProps {
   resolveLocalImage?: (
     source: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult>;
   loadDocumentContext?: (
     documentPath: string,
   ) => Promise<Pick<
     DocumentPayload,
-    "includeFiles" | "asciidocContext"
+    "includeFiles" | "resourceContext" | "asciidocContext"
   > | null>;
   renderDiagram?: (request: KrokiRequest) => Promise<KrokiResult>;
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;

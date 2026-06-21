@@ -103,6 +103,7 @@ export function App() {
     RecentlyVisitedLocation[]
   >([]);
   const [renderResult, setRenderResult] = useState<RenderResult | null>(null);
+  const [documentRenderRevision, setDocumentRenderRevision] = useState(0);
   const [diagramRenderSnapshot, setDiagramRenderSnapshot] =
     useState<DiagramRenderSnapshot | null>(null);
   const [selectedDiagramId, setSelectedDiagramId] = useState<string | null>(
@@ -434,6 +435,7 @@ export function App() {
     documentPayload,
     host,
     krokiFallbackDiagramKeys,
+    renderRevision: documentRenderRevision,
     setError,
     setDocumentHtml,
     setDiagramRenderSnapshot,
@@ -487,6 +489,8 @@ export function App() {
     setPendingSmartScrollAnchor,
     setQuery,
     setRenderResult,
+    bumpDocumentRenderRevision: () =>
+      setDocumentRenderRevision((revision) => revision + 1),
     setOpenFileReloadStates,
     setRootDirectory,
     setTabs,

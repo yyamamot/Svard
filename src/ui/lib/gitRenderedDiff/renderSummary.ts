@@ -106,7 +106,7 @@ async function renderBlocksFromSource(
     return [];
   }
   const documentContext =
-    documentPath && format === "asciidoc" && options.loadDocumentContext
+    documentPath && options.loadDocumentContext
       ? await loadDiffDocumentContext(documentPath, options)
       : null;
   const result = await renderDocument({
@@ -114,6 +114,7 @@ async function renderBlocksFromSource(
     source,
     path: documentPath ?? undefined,
     includeFiles: documentContext?.includeFiles,
+    resourceContext: documentContext?.resourceContext,
     asciidocContext: documentContext?.asciidocContext,
   });
   const diagramSignatures = diagramSignaturesForRenderResult(result);
@@ -132,6 +133,7 @@ async function renderBlocksFromSource(
     source,
     updatedAt: "",
     includeFiles: documentContext?.includeFiles,
+    resourceContext: documentContext?.resourceContext,
     asciidocContext: documentContext?.asciidocContext,
   };
   const htmlWithDiagrams = await renderDiffDocumentHtml({
@@ -148,7 +150,12 @@ async function renderBlocksFromSource(
 async function loadDiffDocumentContext(
   documentPath: string,
   options: GitRenderedDiffSummaryOptions,
-): Promise<Pick<DocumentPayload, "includeFiles" | "asciidocContext"> | null> {
+): Promise<
+  Pick<
+    DocumentPayload,
+    "includeFiles" | "resourceContext" | "asciidocContext"
+  > | null
+> {
   try {
     return (await options.loadDocumentContext?.(documentPath)) ?? null;
   } catch {

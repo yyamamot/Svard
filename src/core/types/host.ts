@@ -10,11 +10,11 @@ import type {
   WorkspaceState,
 } from "./config";
 import type {
-  AsciiDocRenderContext,
   DirectoryEntry,
   DocumentLinkResolution,
   DocumentLinkResolutionInput,
   DocumentPayload,
+  LocalImageResolveContext,
   WorkspacePathResolution,
   WorkspacePathResolutionInput,
   WorkspaceSearchInput,
@@ -130,7 +130,7 @@ export interface HostAdapter {
   resolveLocalImage(
     source: string,
     documentPath: string,
-    context?: AsciiDocRenderContext | null,
+    context?: LocalImageResolveContext | null,
   ): Promise<LocalImageResult>;
   renderDiagram(input: KrokiRequest): Promise<KrokiResult>;
   renderExternalPlantUml(

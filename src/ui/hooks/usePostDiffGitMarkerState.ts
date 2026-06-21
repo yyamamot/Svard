@@ -8,6 +8,7 @@ import type {
   GitChanges,
   KrokiRequest,
   KrokiResult,
+  LocalImageResolveContext,
   LocalImageResult,
   RenderResult,
 } from "../../core/types";
@@ -39,11 +40,14 @@ interface UsePostDiffGitMarkerStateInput {
   getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
   loadDiffDocumentContext: (
     documentPath: string,
-  ) => Promise<Pick<DocumentPayload, "includeFiles" | "asciidocContext"> | null>;
+  ) => Promise<Pick<
+    DocumentPayload,
+    "includeFiles" | "resourceContext" | "asciidocContext"
+  > | null>;
   resolveDiffLocalImage: (
     source: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult>;
   renderDiffDiagram: (request: KrokiRequest) => Promise<KrokiResult>;
   setDocumentDiffPreview: (preview: DocumentDiffPreview | null) => void;

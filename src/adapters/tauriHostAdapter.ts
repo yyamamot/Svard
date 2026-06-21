@@ -429,7 +429,7 @@ export class TauriHostAdapter implements HostAdapter {
   resolveLocalImage(
     source: string,
     documentPath: string,
-    context?: DocumentPayload["asciidocContext"],
+    context?: DocumentPayload["asciidocContext"] | DocumentPayload["resourceContext"],
   ): Promise<LocalImageResult> {
     return invoke("resolve_local_image", {
       path: source,

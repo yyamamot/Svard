@@ -3,6 +3,7 @@ import type {
   DocumentPayload,
   KrokiRequest,
   KrokiResult,
+  LocalImageResolveContext,
   LocalImageResult,
 } from "../../../core/types";
 
@@ -288,12 +289,12 @@ export interface GitRenderedDiffSummaryOptions {
     documentPath: string,
   ) => Promise<Pick<
     DocumentPayload,
-    "includeFiles" | "asciidocContext"
+    "includeFiles" | "resourceContext" | "asciidocContext"
   > | null>;
   resolveLocalImage?: (
     source: string,
     documentPath: string,
-    context: DocumentPayload["asciidocContext"],
+    context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult>;
   renderDiagram?: (request: KrokiRequest) => Promise<KrokiResult>;
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;
