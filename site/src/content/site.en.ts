@@ -30,16 +30,16 @@ export const site = {
   top: {
     eyebrow: "Local-first document viewer",
     heading: "Svard",
-    lead: "A desktop viewer for reading AsciiDoc and Markdown.",
-    body: "Open local technical documents safely, search the current file or workspace, review preview-based diffs, and handle diagrams around a reader-focused workflow.",
+    lead: "A desktop viewer for rendered AsciiDoc and Markdown diff review.",
+    body: "Open local technical documents safely, render Markdown and AsciiDoc first, then compare reader-visible changes across prose, lists, tables, diagrams, and source views.",
     primaryLink: { label: "Download", href: sitePath("en/download/") },
     secondaryLink: { label: "Features", href: sitePath("en/features/") },
     screenshot: {
       ...screenshot(
-        "hero-plantuml.png",
-        "PlantUML diagram",
-        "Shows a public sample document with a PlantUML diagram rendered in the document preview.",
-        "Svard showing a PlantUML Alice to Bob sequence diagram",
+        "rendered-diff.png",
+        "Rendered diff review",
+        "Shows Markdown and AsciiDoc reviewed as rendered output, with reader-visible changes compared side by side.",
+        "Svard showing rendered output diff comparison",
       ),
     },
     screenshotGallery: [
@@ -61,10 +61,10 @@ export const site = {
       },
       {
         ...screenshot(
-          "rendered-diff.png",
-          "Preview-based diff review",
-          "Shows rendered document changes reviewed in the preview.",
-          "Svard showing preview-based diff review",
+          "hero-plantuml.png",
+          "PlantUML diagram",
+          "Shows a public sample document with a PlantUML diagram rendered in the document preview.",
+          "Svard showing a PlantUML Alice to Bob sequence diagram",
         ),
       },
     ],
@@ -78,8 +78,8 @@ export const site = {
         body: "Search the current document or the full workspace without breaking reading flow.",
       },
       {
-        title: "Review preview-based diffs",
-        body: "Check visible preview changes, not only source line diffs.",
+        title: "Compare rendered diffs",
+        body: "Compare changes as rendered documents, not only as source line diffs.",
       },
       {
         title: "Render diagrams locally",
@@ -91,7 +91,7 @@ export const site = {
       },
       {
         title: "Review Git changes",
-        body: "Review Git changes and differences from GitHub or GitLab merge targets in the preview.",
+        body: "Review Git changes and differences from GitHub or GitLab merge targets as reader-visible rendered output.",
       },
     ],
     privacy: {
@@ -99,8 +99,8 @@ export const site = {
       body: "Svard assumes local files. Kroki is treated only as a fallback for unsupported, fully compatible, or explicitly configured cases. It is not an implicit public-service default.",
     },
     diff: {
-      title: "Preview-based diff review",
-      body: "Git and file-to-file comparison are organized around reviewing document changes in the preview, not only around line-based source diffs.",
+      title: "Compare the rendered result",
+      body: "Git and file-to-file comparison are organized around rendered Markdown and AsciiDoc output, not only line-based source diffs. Prose, lists, tables, and diagrams can be reviewed in the form readers actually see.",
     },
     faq: [
       {

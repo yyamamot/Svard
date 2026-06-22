@@ -30,16 +30,16 @@ export const site = {
   top: {
     eyebrow: "Local-first document viewer",
     heading: "Svard",
-    lead: "AsciiDoc / Markdown を読むためのデスクトップビューア",
-    body: "ローカルの技術文書を安全に開き、文書内検索、ワークスペース検索、プレビューベースの差分確認、図表レンダリングを読み手中心に扱います。",
+    lead: "AsciiDoc / Markdown をレンダリングして差分比較できるデスクトップビューア",
+    body: "ローカルの技術文書を安全に開き、Markdown / AsciiDoc を表示結果としてレンダリングしてから、文章、リスト、表、図表、ソース表示の変化を読み手中心に比較します。",
     primaryLink: { label: "ダウンロード", href: sitePath("ja/download/") },
     secondaryLink: { label: "機能", href: sitePath("ja/features/") },
     screenshot: {
       ...screenshot(
-        "hero-plantuml.png",
-        "PlantUML図表",
-        "公開用サンプル文書で PlantUML 図表を本文プレビューに表示している画面です。",
-        "SvardでPlantUMLのAliceからBobへのシーケンス図を開いている画面",
+        "rendered-diff.png",
+        "レンダリング差分比較",
+        "Markdown / AsciiDoc を表示結果としてレンダリングし、読者に見える差分を左右で比較している画面です。",
+        "Svardでレンダリング結果の差分を比較している画面",
       ),
     },
     screenshotGallery: [
@@ -61,10 +61,10 @@ export const site = {
       },
       {
         ...screenshot(
-          "rendered-diff.png",
-          "プレビューベースの差分確認",
-          "表示結果として読める差分をプレビュー上で確認している画面です。",
-          "Svardでプレビュー上の差分を確認している画面",
+          "hero-plantuml.png",
+          "PlantUML図表",
+          "公開用サンプル文書で PlantUML 図表を本文プレビューに表示している画面です。",
+          "SvardでPlantUMLのAliceからBobへのシーケンス図を開いている画面",
         ),
       },
     ],
@@ -78,8 +78,8 @@ export const site = {
         body: "現在の文書とワークスペース全体の検索を分け、読む作業の流れを保ちます。",
       },
       {
-        title: "プレビューで差分を確認する",
-        body: "ソース行差分だけでなく、プレビュー上で表示結果の変化を確認します。",
+        title: "レンダリングして差分を比較する",
+        body: "ソース行差分だけでなく、文書として表示された結果の変化を比較します。",
       },
       {
         title: "図表はローカルを主経路にする",
@@ -91,7 +91,7 @@ export const site = {
       },
       {
         title: "Gitの差分を確認する",
-        body: "Gitの変更や、GitHub / GitLab のマージ先との差分をレンダリング結果として確認します。",
+        body: "Gitの変更や、GitHub / GitLab のマージ先との差分を、読者に見えるレンダリング結果として確認します。",
       },
     ],
     privacy: {
@@ -99,8 +99,8 @@ export const site = {
       body: "Svard はローカルファイルを前提にしたビューアです。Kroki は未対応、完全互換、ユーザーが明示設定した場合のフォールバックとして扱い、暗黙の公開サービス依存にはしません。",
     },
     diff: {
-      title: "プレビューベースの差分確認",
-      body: "Git やファイル同士の比較は、行単位の差分だけではなく、プレビュー上で文書として読める変化を確認するワークスペースとして整理します。",
+      title: "レンダリング結果で差分を比較",
+      body: "Git やファイル同士の比較は、行単位の差分だけではなく、Markdown / AsciiDoc をレンダリングした表示結果で確認します。文章、リスト、表、図表の変化を、読者に見える形で追えます。",
     },
     faq: [
       {

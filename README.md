@@ -2,6 +2,10 @@
 
 Svard (Specification Viewer and Rendered Diff) is a local-first desktop viewer for technical Markdown and AsciiDoc documents. It is built with Tauri and keeps normal document rendering on the local machine.
 
+Svard focuses on rendered review: it renders Markdown and AsciiDoc first, then compares reader-visible changes across prose, lists, tables, diagrams, and source views.
+
+![Rendered diff comparison in Svard](site/public/screenshots/rendered-diff.png)
+
 ## Website
 
 Product overview, features, and download notes are available at:
@@ -13,7 +17,7 @@ https://yyamamot.github.io/Svard/
 - Local rendering for Markdown, AsciiDoc, Mermaid, PlantUML, and Graphviz-oriented workflows
 - Kroki support only as an explicit fallback path for unsupported or compatibility-focused diagrams
 - Browser-like reading with tabs, history, recently closed documents, quick open, split view, and find-in-page
-- Preview-based diff views for Markdown / AsciiDoc documents, including rendered content, tables, diagrams, and source views
+- Rendered diff views for Markdown / AsciiDoc documents, including reader-visible prose, lists, tables, diagrams, and source views
 - Privacy-focused review and runtime artifacts that avoid storing source text, diagram source, private absolute paths, or repository roots by default
 
 PlantUML local rendering is based on the official `@plantuml/core` TeaVM browser build. Kroki remains an explicit fallback for diagrams that need compatibility beyond the bundled local renderer.
