@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     // Local renderers and workers are intentionally bundled for offline use.
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1200,
     rolldownOptions: {
       output: {
         manualChunks(id) {

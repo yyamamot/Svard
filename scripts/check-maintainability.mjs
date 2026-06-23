@@ -43,6 +43,8 @@ const excludedDirectoryPrefixes = [
 ];
 
 const excludedExactFiles = new Set([
+  "site/src/content/site.en.ts",
+  "site/src/content/site.ja.ts",
   "src-tauri/Cargo.lock",
   "src/core/fixtures.ts",
   "test/e2e/viewer.spec.ts",

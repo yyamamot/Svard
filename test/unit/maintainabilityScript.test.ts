@@ -28,5 +28,17 @@ describe("maintainability script", () => {
     expect(isExcludedMaintainabilityPath("site/src/pages/index.astro")).toBe(
       false,
     );
+    expect(isExcludedMaintainabilityPath("site/src/styles/global.css")).toBe(
+      false,
+    );
+  });
+
+  it("excludes localized site content registries from source maintainability checks", () => {
+    expect(isExcludedMaintainabilityPath("site/src/content/site.en.ts")).toBe(
+      true,
+    );
+    expect(isExcludedMaintainabilityPath("site/src/content/site.ja.ts")).toBe(
+      true,
+    );
   });
 });
