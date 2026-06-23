@@ -79,6 +79,95 @@ export async function applyFilesScenario(context) {
     await page.locator("text=copy-actions.adoc").waitFor();
     await trigger.click();
     await page.locator('[data-review-id="file-tree-open-menu"]').waitFor();
+  } else if (scenario === "viewer-files-documents-source-control") {
+    await page.locator('[data-review-id="file-tree"]').waitFor();
+    await page.locator('[data-review-id="documents-view-toggle"]').click();
+    const modifiedRow = page
+      .locator('[data-review-id="documents-view-row"][data-git-status="modified"]')
+      .filter({ hasText: "git-modified.md" });
+    await modifiedRow.waitFor();
+    const diffButton = modifiedRow.locator(
+      '[data-review-id="git-status-diff-button"]',
+    );
+    await diffButton.hover();
+    await page.waitForFunction(() => {
+      const row = [
+        ...document.querySelectorAll('[data-review-id="documents-view-row"]'),
+      ].find(
+        (candidate) =>
+          candidate instanceof HTMLElement &&
+          candidate.dataset.gitStatus === "modified" &&
+          candidate.textContent?.includes("git-modified.md"),
+      );
+      const button = row?.querySelector(
+        '[data-review-id="git-status-diff-button"]',
+      );
+      if (!(button instanceof HTMLElement)) {
+        return false;
+      }
+      const style = getComputedStyle(button);
+      const label =
+        button.getAttribute("aria-label") ?? button.getAttribute("title") ?? "";
+      return (
+        style.cursor === "pointer" &&
+        label.includes("Modified in Git") &&
+        label.includes("Open diff for git-modified.md")
+      );
+    });
+    await diffButton.click();
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.evaluate(() => {
+      const row = [
+        ...document.querySelectorAll('[data-review-id="documents-view-row"]'),
+      ].find(
+        (candidate) =>
+          candidate instanceof HTMLElement &&
+          candidate.dataset.gitStatus === "modified" &&
+          candidate.textContent?.includes("git-modified.md"),
+      );
+      const button = row?.querySelector(
+        '[data-review-id="git-status-diff-button"]',
+      );
+      window.__SVARD_DOCUMENTS_SOURCE_CONTROL_CHECK__ = {
+        panelOpened:
+          document.querySelector('[data-review-id="git-diff-preview-panel"]') !==
+          null,
+        badgeLabel:
+          button instanceof HTMLElement
+            ? button.getAttribute("aria-label") ?? button.getAttribute("title")
+            : null,
+      };
+    });
+    await page.locator('[data-review-id="git-diff-preview-close"]').click();
+    await page.locator('[data-review-id="documents-view"]').waitFor();
+  } else if (
+    scenario === "viewer-files-documents-source-control-filter" ||
+    scenario === "viewer-files-documents-source-control-privacy"
+  ) {
+    await page.locator('[data-review-id="file-tree"]').waitFor();
+    await page.locator('[data-review-id="documents-view-toggle"]').click();
+    await page.locator('[data-review-id="documents-source-filter"]').waitFor();
+    await page
+      .locator('[data-review-id="documents-source-filter-changed"]')
+      .click();
+    await page
+      .locator('[data-review-id="documents-view-row"][data-git-status]')
+      .first()
+      .waitFor();
+    await page.evaluate(() => {
+      window.__SVARD_DOCUMENTS_SOURCE_CONTROL_PRIVACY_CHECK__ = {
+        bodyHasPrivatePath: document.body.textContent?.includes("/Users/") ?? false,
+        bodyHasDiffHunk:
+          document.body.textContent?.includes("@@") ||
+          document.body.textContent?.includes("diff --git"),
+        rowCount: document.querySelectorAll(
+          '[data-review-id="documents-view-row"]',
+        ).length,
+        changedRowCount: document.querySelectorAll(
+          '[data-review-id="documents-view-row"][data-git-status]',
+        ).length,
+      };
+    });
   } else if (scenario === "viewer-files-tree") {
     await page.locator('[data-review-id="file-tree"]').waitFor();
     await page.locator('[data-review-id="tree-collapse-all"]').click();

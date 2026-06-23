@@ -4,6 +4,7 @@ import {
   ChevronsUp,
   FileText,
   FolderOpen,
+  ListFilter,
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -68,6 +69,9 @@ export function FileTreePanel({
 }: FileTreePanelProps) {
   const [openMenuOpen, setOpenMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"tree" | "documents">("tree");
+  const [documentsFilter, setDocumentsFilter] = useState<"all" | "changed">(
+    "all",
+  );
   const openMenuRef = useRef<HTMLDivElement | null>(null);
   const fileTreeGitStatusByPath = useMemo(
     () => mergeGitStatusWithChanges(gitStatusByPath, gitChanges),
@@ -77,7 +81,7 @@ export function FileTreePanel({
     () => buildGitDirectoryStatusSummary(fileTreeGitStatusByPath),
     [fileTreeGitStatusByPath],
   );
-  const documentEntries = useMemo(() => {
+  const documentRows = useMemo(() => {
     const byPath = new Map<string, DirectoryEntry>();
     for (const entries of Object.values(childrenByDirectory)) {
       for (const entry of entries) {
@@ -86,12 +90,34 @@ export function FileTreePanel({
         }
       }
     }
-    return [...byPath.values()].sort((left, right) =>
-      relativeDocumentPath(left.path, rootDirectory).localeCompare(
-        relativeDocumentPath(right.path, rootDirectory),
-      ),
-    );
-  }, [childrenByDirectory, rootDirectory]);
+    return [...byPath.values()]
+      .sort((left, right) =>
+        relativeDocumentPath(left.path, rootDirectory).localeCompare(
+          relativeDocumentPath(right.path, rootDirectory),
+        ),
+      )
+      .map((entry) => {
+        const gitStatus = gitStatusDisplay(fileTreeGitStatusByPath[entry.path]);
+        const gitStatusLabel = gitStatus
+          ? fileGitStatusBadgeLabel(gitStatus, entry.name)
+          : undefined;
+        return {
+          entry,
+          relativePath: relativeDocumentPath(entry.path, rootDirectory),
+          gitStatus,
+          gitStatusLabel,
+          isChanged: Boolean(gitStatus),
+          isActive: activePath === entry.path,
+        };
+      });
+  }, [activePath, childrenByDirectory, fileTreeGitStatusByPath, rootDirectory]);
+  const visibleDocumentRows = useMemo(
+    () =>
+      documentsFilter === "changed"
+        ? documentRows.filter((row) => row.isChanged)
+        : documentRows,
+    [documentRows, documentsFilter],
+  );
 
   useEffect(() => {
     if (!openMenuOpen) {
@@ -300,7 +326,7 @@ export function FileTreePanel({
       );
     }
 
-    if (documentEntries.length === 0) {
+    if (documentRows.length === 0) {
       return (
         <div className="documents-view-empty" data-review-id="documents-view-empty">
           <strong>No loaded documents</strong>
@@ -309,80 +335,131 @@ export function FileTreePanel({
       );
     }
 
-    return documentEntries.map((entry) => {
-      const isActive = activePath === entry.path;
-      const fileGitStatus = gitStatusDisplay(fileTreeGitStatusByPath[entry.path]);
-      const gitStatusBadgeText = fileGitStatus?.shortLabel;
-      const gitStatusLabel = fileGitStatus
-        ? fileGitStatusBadgeLabel(fileGitStatus, entry.name)
-        : undefined;
-
+    if (visibleDocumentRows.length === 0) {
       return (
+        <>
+          {renderDocumentsSourceFilter()}
+          <div className="documents-view-empty" data-review-id="documents-view-empty">
+            No changed documents
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {renderDocumentsSourceFilter()}
+        {visibleDocumentRows.map((row) => {
+          const entry = row.entry;
+          return (
+            <div
+              key={entry.path}
+              className={`tree-row file documents-view-row ${row.isActive ? "active" : ""} ${row.gitStatus?.className ?? ""}`}
+              data-review-id="documents-view-row"
+              data-context-menu-kind="file-tree"
+              data-path={entry.path}
+              data-entry-kind="file"
+              data-git-status={
+                row.gitStatus ? fileTreeGitStatusByPath[entry.path] : undefined
+              }
+              data-git-status-label={row.gitStatusLabel}
+              title={
+                row.gitStatus
+                  ? `${entry.path} · ${row.gitStatus.label}`
+                  : entry.path
+              }
+              aria-label={
+                row.gitStatus
+                  ? `${entry.name}, ${row.gitStatus.label}`
+                  : entry.name
+              }
+              draggable
+              onPointerDown={() => {
+                prepareFileCompareDragData(entry.path);
+              }}
+              onDragStart={(event) => {
+                writeFileCompareDragData(event.dataTransfer, entry.path);
+              }}
+              onDragEnd={() => scheduleClearFileCompareDragData()}
+            >
+              <button
+                type="button"
+                className="tree-row-main documents-view-row-main"
+                aria-label={entry.name}
+                draggable
+                onPointerDown={() => {
+                  prepareFileCompareDragData(entry.path);
+                }}
+                onDragStart={(event) => {
+                  writeFileCompareDragData(event.dataTransfer, entry.path);
+                }}
+                onDragEnd={() => scheduleClearFileCompareDragData()}
+                onClick={() => onOpenFile(entry.path)}
+              >
+                <FileText size={15} />
+                <span className="documents-view-row-text">
+                  <span className="tree-label">{entry.name}</span>
+                  <span className="documents-view-row-path">
+                    {row.relativePath}
+                  </span>
+                </span>
+              </button>
+              {row.gitStatus ? (
+                <button
+                  type="button"
+                  className={`git-status-badge git-status-diff-button ${row.gitStatus.className}`}
+                  data-review-id="git-status-diff-button"
+                  data-git-status-label={row.gitStatusLabel}
+                  aria-label={row.gitStatusLabel}
+                  title={row.gitStatusLabel}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenGitDiff(entry.path);
+                  }}
+                >
+                  {row.gitStatus.shortLabel}
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
+  function renderDocumentsSourceFilter(): ReactNode {
+    return (
+      <div
+        className="documents-view-header"
+        data-review-id="documents-view-header"
+      >
+        <span className="documents-view-heading">Documents only</span>
         <div
-          key={entry.path}
-          className={`tree-row file documents-view-row ${isActive ? "active" : ""} ${fileGitStatus?.className ?? ""}`}
-          data-review-id="documents-view-row"
-          data-context-menu-kind="file-tree"
-          data-path={entry.path}
-          data-entry-kind="file"
-          data-git-status={
-            fileGitStatus ? fileTreeGitStatusByPath[entry.path] : undefined
-          }
-          data-git-status-label={gitStatusLabel}
-          title={fileGitStatus ? `${entry.path} · ${fileGitStatus.label}` : entry.path}
-          aria-label={
-            fileGitStatus ? `${entry.name}, ${fileGitStatus.label}` : entry.name
-          }
-          draggable
-          onPointerDown={() => {
-            prepareFileCompareDragData(entry.path);
-          }}
-          onDragStart={(event) => {
-            writeFileCompareDragData(event.dataTransfer, entry.path);
-          }}
-          onDragEnd={() => scheduleClearFileCompareDragData()}
+          className="documents-source-filter"
+          data-review-id="documents-source-filter"
+          aria-label="Documents source filter"
         >
           <button
             type="button"
-            className="tree-row-main documents-view-row-main"
-            aria-label={entry.name}
-            draggable
-            onPointerDown={() => {
-              prepareFileCompareDragData(entry.path);
-            }}
-            onDragStart={(event) => {
-              writeFileCompareDragData(event.dataTransfer, entry.path);
-            }}
-            onDragEnd={() => scheduleClearFileCompareDragData()}
-            onClick={() => onOpenFile(entry.path)}
+            className={documentsFilter === "all" ? "active" : ""}
+            data-review-id="documents-source-filter-all"
+            aria-pressed={documentsFilter === "all"}
+            onClick={() => setDocumentsFilter("all")}
           >
-            <FileText size={15} />
-            <span className="documents-view-row-text">
-              <span className="tree-label">{entry.name}</span>
-              <span className="documents-view-row-path">
-                {relativeDocumentPath(entry.path, rootDirectory)}
-              </span>
-            </span>
+            All
           </button>
-          {fileGitStatus ? (
-            <button
-              type="button"
-              className={`git-status-badge git-status-diff-button ${fileGitStatus.className}`}
-              data-review-id="git-status-diff-button"
-              data-git-status-label={gitStatusLabel}
-              aria-label={gitStatusLabel}
-              title={gitStatusLabel}
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenGitDiff(entry.path);
-              }}
-            >
-              {gitStatusBadgeText}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className={documentsFilter === "changed" ? "active" : ""}
+            data-review-id="documents-source-filter-changed"
+            aria-pressed={documentsFilter === "changed"}
+            onClick={() => setDocumentsFilter("changed")}
+          >
+            Changed
+          </button>
         </div>
-      );
-    });
+      </div>
+    );
   }
 
   return (
@@ -446,6 +523,31 @@ export function FileTreePanel({
           </div>
           <button
             type="button"
+            className={`icon-button documents-view-toggle ${
+              viewMode === "documents" ? "active" : ""
+            }`}
+            data-review-id="documents-view-toggle"
+            aria-label={
+              viewMode === "documents"
+                ? "Show file tree"
+                : "Show documents only"
+            }
+            title={
+              viewMode === "documents"
+                ? "Show file tree"
+                : "Show documents only"
+            }
+            aria-pressed={viewMode === "documents"}
+            onClick={() =>
+              setViewMode((current) =>
+                current === "documents" ? "tree" : "documents",
+              )
+            }
+          >
+            <ListFilter size={15} />
+          </button>
+          <button
+            type="button"
             className="icon-button"
             data-review-id="tree-refresh"
             aria-label="Refresh file tree"
@@ -465,30 +567,6 @@ export function FileTreePanel({
             <ChevronsUp size={15} />
           </button>
         </div>
-      </div>
-      <div
-        className="files-view-toggle"
-        data-review-id="files-view-toggle"
-        aria-label="Files view"
-      >
-        <button
-          type="button"
-          className={viewMode === "tree" ? "active" : ""}
-          data-review-id="files-view-toggle-tree"
-          aria-pressed={viewMode === "tree"}
-          onClick={() => setViewMode("tree")}
-        >
-          Tree
-        </button>
-        <button
-          type="button"
-          className={viewMode === "documents" ? "active" : ""}
-          data-review-id="files-view-toggle-documents"
-          aria-pressed={viewMode === "documents"}
-          onClick={() => setViewMode("documents")}
-        >
-          Documents
-        </button>
       </div>
       {viewMode === "tree" ? (
         <div className="file-tree" data-review-id="file-tree">

@@ -2,10 +2,6 @@ export async function buildFilesAssertions(context) {
   const scenario = context.scenario;
   const page = context.page;
   const bodyText = context.bodyText;
-  const commandAutomation = context.commandAutomation;
-  const contextMenuText = context.contextMenuText;
-  const editorOpenRequests = context.editorOpenRequests;
-  const geometryReviewIds = context.geometryReviewIds;
   return {
     hasFileTree:
       scenario === "viewer-files" || scenario === "viewer-files-tree"
@@ -102,6 +98,52 @@ export async function buildFilesAssertions(context) {
               result.itemOrder.join(" / ") === "Open File... / Open Folder..."
             );
           })) && bodyText.includes("copy-actions.adoc")
+        : true,
+    hasDocumentsSourceControl:
+      scenario === "viewer-files-documents-source-control"
+        ? bodyText.includes("git-modified.md") &&
+          (await page.evaluate(() => {
+            const result = window.__SVARD_DOCUMENTS_SOURCE_CONTROL_CHECK__;
+            return (
+              result?.panelOpened === true &&
+              result?.badgeLabel ===
+                "Modified in Git. Open diff for git-modified.md"
+            );
+          })) &&
+          (await page
+            .locator('[data-review-id="git-diff-preview-panel"]')
+            .count()) === 0
+        : true,
+    hasDocumentsSourceControlFilter:
+      scenario === "viewer-files-documents-source-control-filter"
+        ? (await page
+            .locator('[data-review-id="documents-source-filter"]')
+            .count()) === 1 &&
+          (
+            (await page
+              .locator('[data-review-id="documents-source-filter-changed"]')
+              .getAttribute("aria-pressed")) ?? ""
+          ) === "true" &&
+          (await page
+            .locator('[data-review-id="documents-view-row"]')
+            .count()) > 0 &&
+          (await page
+            .locator(
+              '[data-review-id="documents-view-row"]:not([data-git-status])',
+            )
+            .count()) === 0
+        : true,
+    hasDocumentsSourceControlPrivacy:
+      scenario === "viewer-files-documents-source-control-privacy"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_DOCUMENTS_SOURCE_CONTROL_PRIVACY_CHECK__;
+            return (
+              result?.bodyHasPrivatePath === false &&
+              result?.bodyHasDiffHunk === false &&
+              result?.rowCount > 0 &&
+              result?.rowCount === result?.changedRowCount
+            );
+          })
         : true,
   };
 }

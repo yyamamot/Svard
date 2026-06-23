@@ -113,46 +113,77 @@
   padding: 0 8px;
 }
 
-.files-view-toggle {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: center;
-  gap: 2px;
-  margin: 0 8px 7px;
-  border: 1px solid var(--control-segmented-border);
-  border-radius: 8px;
-  padding: 3px;
-  background: var(--control-segmented-bg);
-}
-
-.files-view-toggle button {
-  min-width: 0;
-  min-height: 26px;
-  border: 0;
-  border-radius: 6px;
-  padding: 4px 8px;
-  color: #5c6c74;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 720;
-  cursor: pointer;
-}
-
-.files-view-toggle button.active {
+.documents-view-toggle.active {
   color: var(--control-segmented-active-text);
   background: var(--control-segmented-active-bg);
   box-shadow: 0 1px 3px rgb(12 25 30 / 10%);
-}
-
-.files-view-toggle button:focus-visible {
-  outline: 2px solid #287466;
-  outline-offset: 1px;
 }
 
 .documents-view {
   display: grid;
   gap: 1px;
   padding: 0 8px;
+}
+
+.documents-view-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px 6px;
+  margin: 0 0 6px;
+}
+
+.documents-view-heading {
+  min-width: 0;
+  overflow: hidden;
+  color: #5c6c74;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documents-source-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 0 1 148px;
+  align-items: center;
+  gap: 2px;
+  min-width: 118px;
+  border: 1px solid var(--control-segmented-border);
+  border-radius: 7px;
+  padding: 2px;
+  background: var(--control-segmented-bg);
+}
+
+.documents-source-filter button {
+  min-width: 0;
+  min-height: 24px;
+  border: 0;
+  border-radius: 5px;
+  padding: 3px 7px;
+  overflow: hidden;
+  color: #5c6c74;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.documents-source-filter button.active {
+  color: var(--control-segmented-active-text);
+  background: var(--control-segmented-active-bg);
+  box-shadow: 0 1px 3px rgb(12 25 30 / 10%);
+}
+
+.documents-source-filter button:focus-visible {
+  outline: 2px solid #287466;
+  outline-offset: 1px;
 }
 
 .documents-view-row-main {
