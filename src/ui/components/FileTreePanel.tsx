@@ -67,6 +67,7 @@ export function FileTreePanel({
   onCollapse,
 }: FileTreePanelProps) {
   const [openMenuOpen, setOpenMenuOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"tree" | "documents">("tree");
   const openMenuRef = useRef<HTMLDivElement | null>(null);
   const fileTreeGitStatusByPath = useMemo(
     () => mergeGitStatusWithChanges(gitStatusByPath, gitChanges),
@@ -76,6 +77,21 @@ export function FileTreePanel({
     () => buildGitDirectoryStatusSummary(fileTreeGitStatusByPath),
     [fileTreeGitStatusByPath],
   );
+  const documentEntries = useMemo(() => {
+    const byPath = new Map<string, DirectoryEntry>();
+    for (const entries of Object.values(childrenByDirectory)) {
+      for (const entry of entries) {
+        if (entry.kind === "file" && isSupportedDocumentPath(entry.path)) {
+          byPath.set(entry.path, entry);
+        }
+      }
+    }
+    return [...byPath.values()].sort((left, right) =>
+      relativeDocumentPath(left.path, rootDirectory).localeCompare(
+        relativeDocumentPath(right.path, rootDirectory),
+      ),
+    );
+  }, [childrenByDirectory, rootDirectory]);
 
   useEffect(() => {
     if (!openMenuOpen) {
@@ -275,6 +291,100 @@ export function FileTreePanel({
     });
   }
 
+  function renderDocumentEntries(): ReactNode {
+    if (!rootDirectory) {
+      return (
+        <div className="documents-view-empty" data-review-id="documents-view-empty">
+          Open a folder to list documents
+        </div>
+      );
+    }
+
+    if (documentEntries.length === 0) {
+      return (
+        <div className="documents-view-empty" data-review-id="documents-view-empty">
+          <strong>No loaded documents</strong>
+          <span>Expand folders in Tree to include their documents.</span>
+        </div>
+      );
+    }
+
+    return documentEntries.map((entry) => {
+      const isActive = activePath === entry.path;
+      const fileGitStatus = gitStatusDisplay(fileTreeGitStatusByPath[entry.path]);
+      const gitStatusBadgeText = fileGitStatus?.shortLabel;
+      const gitStatusLabel = fileGitStatus
+        ? fileGitStatusBadgeLabel(fileGitStatus, entry.name)
+        : undefined;
+
+      return (
+        <div
+          key={entry.path}
+          className={`tree-row file documents-view-row ${isActive ? "active" : ""} ${fileGitStatus?.className ?? ""}`}
+          data-review-id="documents-view-row"
+          data-context-menu-kind="file-tree"
+          data-path={entry.path}
+          data-entry-kind="file"
+          data-git-status={
+            fileGitStatus ? fileTreeGitStatusByPath[entry.path] : undefined
+          }
+          data-git-status-label={gitStatusLabel}
+          title={fileGitStatus ? `${entry.path} · ${fileGitStatus.label}` : entry.path}
+          aria-label={
+            fileGitStatus ? `${entry.name}, ${fileGitStatus.label}` : entry.name
+          }
+          draggable
+          onPointerDown={() => {
+            prepareFileCompareDragData(entry.path);
+          }}
+          onDragStart={(event) => {
+            writeFileCompareDragData(event.dataTransfer, entry.path);
+          }}
+          onDragEnd={() => scheduleClearFileCompareDragData()}
+        >
+          <button
+            type="button"
+            className="tree-row-main documents-view-row-main"
+            aria-label={entry.name}
+            draggable
+            onPointerDown={() => {
+              prepareFileCompareDragData(entry.path);
+            }}
+            onDragStart={(event) => {
+              writeFileCompareDragData(event.dataTransfer, entry.path);
+            }}
+            onDragEnd={() => scheduleClearFileCompareDragData()}
+            onClick={() => onOpenFile(entry.path)}
+          >
+            <FileText size={15} />
+            <span className="documents-view-row-text">
+              <span className="tree-label">{entry.name}</span>
+              <span className="documents-view-row-path">
+                {relativeDocumentPath(entry.path, rootDirectory)}
+              </span>
+            </span>
+          </button>
+          {fileGitStatus ? (
+            <button
+              type="button"
+              className={`git-status-badge git-status-diff-button ${fileGitStatus.className}`}
+              data-review-id="git-status-diff-button"
+              data-git-status-label={gitStatusLabel}
+              aria-label={gitStatusLabel}
+              title={gitStatusLabel}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenGitDiff(entry.path);
+              }}
+            >
+              {gitStatusBadgeText}
+            </button>
+          ) : null}
+        </div>
+      );
+    });
+  }
+
   return (
     <>
       <div className="file-toolbar" data-review-id="file-toolbar">
@@ -356,20 +466,64 @@ export function FileTreePanel({
           </button>
         </div>
       </div>
-      <div className="file-tree" data-review-id="file-tree">
-        {rootEntries.length > 0 ? (
-          renderTreeEntries(rootDirectory, 0)
-        ) : (
-          <button
-            type="button"
-            className="tree-row"
-            data-review-id="tree-empty"
-            onClick={onRefresh}
-          >
-            No markup files
-          </button>
-        )}
+      <div
+        className="files-view-toggle"
+        data-review-id="files-view-toggle"
+        aria-label="Files view"
+      >
+        <button
+          type="button"
+          className={viewMode === "tree" ? "active" : ""}
+          data-review-id="files-view-toggle-tree"
+          aria-pressed={viewMode === "tree"}
+          onClick={() => setViewMode("tree")}
+        >
+          Tree
+        </button>
+        <button
+          type="button"
+          className={viewMode === "documents" ? "active" : ""}
+          data-review-id="files-view-toggle-documents"
+          aria-pressed={viewMode === "documents"}
+          onClick={() => setViewMode("documents")}
+        >
+          Documents
+        </button>
       </div>
+      {viewMode === "tree" ? (
+        <div className="file-tree" data-review-id="file-tree">
+          {rootEntries.length > 0 ? (
+            renderTreeEntries(rootDirectory, 0)
+          ) : (
+            <button
+              type="button"
+              className="tree-row"
+              data-review-id="tree-empty"
+              onClick={onRefresh}
+            >
+              No markup files
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="documents-view" data-review-id="documents-view">
+          {renderDocumentEntries()}
+        </div>
+      )}
     </>
   );
+}
+
+function relativeDocumentPath(path: string, rootDirectory: string): string {
+  if (!rootDirectory) {
+    return path;
+  }
+  const normalizedRoot = rootDirectory.replace(/[/\\]+$/, "");
+  if (path === normalizedRoot) {
+    return fileName(path);
+  }
+  if (path.startsWith(`${normalizedRoot}/`) || path.startsWith(`${normalizedRoot}\\`)) {
+    return path.slice(normalizedRoot.length + 1);
+  }
+  return path;
 }

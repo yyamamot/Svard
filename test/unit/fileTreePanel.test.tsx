@@ -505,4 +505,172 @@ describe("FileTreePanel path display", () => {
       directory?.querySelector('[data-review-id="git-status-diff-button"]'),
     ).toBeNull();
   });
+
+  it("defaults to Tree view and toggles to supported documents only", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+            { name: "README.md", path: "/workspace/README.md", kind: "file" },
+            { name: "notes.txt", path: "/workspace/notes.txt", kind: "file" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+              {
+                name: "README.md",
+                path: "/workspace/README.md",
+                kind: "file",
+              },
+              {
+                name: "notes.txt",
+                path: "/workspace/notes.txt",
+                kind: "file",
+              },
+            ],
+            "/workspace/docs": [
+              {
+                name: "guide.adoc",
+                path: "/workspace/docs/guide.adoc",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    expect(container.querySelector('[data-review-id="file-tree"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-review-id="documents-view"]'),
+    ).toBeNull();
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="files-view-toggle-documents"]',
+        )
+        ?.click();
+    });
+
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(container.querySelector('[data-review-id="file-tree"]')).toBeNull();
+    expect(rows).toHaveLength(2);
+    expect(container.textContent).toContain("README.md");
+    expect(container.textContent).toContain("docs/guide.adoc");
+    expect(container.textContent).not.toContain("notes.txt");
+  });
+
+  it("opens active document rows from Documents view", async () => {
+    const onOpenFile = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "README.md", path: "/workspace/README.md", kind: "file" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              {
+                name: "README.md",
+                path: "/workspace/README.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          activePath="/workspace/README.md"
+          gitStatusByPath={{}}
+          gitChanges={null}
+          onOpenFile={onOpenFile}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="files-view-toggle-documents"]',
+        )
+        ?.click();
+    });
+
+    const row = container.querySelector('[data-review-id="documents-view-row"]');
+    expect(row?.classList.contains("active")).toBe(true);
+
+    await act(async () => {
+      row?.querySelector<HTMLButtonElement>(".documents-view-row-main")?.click();
+    });
+
+    expect(onOpenFile).toHaveBeenCalledWith("/workspace/README.md");
+  });
+
+  it("shows a Documents empty state when no loaded documents exist", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="files-view-toggle-documents"]',
+        )
+        ?.click();
+    });
+
+    expect(
+      container.querySelector('[data-review-id="documents-view-empty"]')
+        ?.textContent,
+    ).toContain("No loaded documents");
+  });
 });
