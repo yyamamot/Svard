@@ -18,6 +18,7 @@ mod cache_prune;
 mod config;
 mod desktop_open;
 mod document_io;
+mod document_io_include;
 mod git_diff;
 mod kroki;
 mod local_assets;

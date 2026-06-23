@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { reportMarkdown } from "./workspace-performance/reportMarkdown.mjs";
 
 const workflowDefinitions = [
   { id: "app-boot", category: "render" },
@@ -414,7 +415,8 @@ function normalizePhaseBreakdown(phases, report = null, workflowId = "") {
           status: phase.status === "skipped" ? "skipped" : "ok",
         }))
     : [];
-  const shouldIncludeDiagramMetrics = workflowId === "diagram-render-after-open";
+  const shouldIncludeDiagramMetrics =
+    workflowId === "diagram-render-after-open";
   const plantUmlMetrics = shouldIncludeDiagramMetrics
     ? report?.plantUmlMetrics
     : null;
@@ -616,54 +618,6 @@ function buildSummary({
     traceSummary: markdown.events,
     workflows,
   };
-}
-
-function reportMarkdown(summary) {
-  const lines = [
-    "# Workspace Performance Benchmark",
-    "",
-    `- Profile: \`${summary.profile}\``,
-    `- Workflow count: ${summary.workflows.length}`,
-    "",
-    "## Bottleneck Candidates",
-    "",
-  ];
-  if (summary.bottleneckCandidates.length === 0) {
-    lines.push("- No measured bottleneck candidates.");
-  } else {
-    for (const candidate of summary.bottleneckCandidates) {
-      lines.push(
-        `- ${candidate.id}: ${candidate.durationMs}ms (${candidate.category}, ${candidate.metric})`,
-      );
-    }
-  }
-  lines.push("", "## Workflow Summary", "");
-  for (const workflow of summary.workflows) {
-    const duration =
-      typeof workflow.durationMs === "number"
-        ? `${workflow.durationMs}ms`
-        : "-";
-    const reason = workflow.reason ? `, reason: ${workflow.reason}` : "";
-    lines.push(
-      `- ${workflow.id}: ${workflow.status}, ${workflow.category}, ${duration}${reason}`,
-    );
-    if (workflow.phaseBreakdown?.length > 0) {
-      for (const phase of workflow.phaseBreakdown) {
-        const phaseDuration =
-          typeof phase.durationMs === "number" ? `${phase.durationMs}ms` : "-";
-        const details = phase.details
-          ? ` (${Object.entries(phase.details)
-              .map(([key, value]) => `${key}: ${value}`)
-              .join(", ")})`
-          : "";
-        lines.push(
-          `  - ${phase.name}: ${phase.status}, ${phaseDuration}${details}`,
-        );
-      }
-    }
-  }
-  lines.push("");
-  return `${lines.join("\n")}\n`;
 }
 
 async function runCommand(command, args) {
