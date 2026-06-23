@@ -42,6 +42,7 @@ interface LeftSidebarProps {
   openFilesPaneRef: RefObject<HTMLElement | null>;
   openFilesSplitResizeState: unknown;
   orderedTabs: DocumentPayload[];
+  openDocumentPaths: ReadonlySet<string>;
   pinnedTabs: string[];
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
@@ -137,6 +138,7 @@ export function LeftSidebar({
   openFilesPaneRef,
   openFilesSplitResizeState,
   orderedTabs,
+  openDocumentPaths,
   pinnedTabs,
   rootDirectory,
   rootEntries,
@@ -256,6 +258,7 @@ export function LeftSidebar({
                 activePath={activePath}
                 gitStatusByPath={gitStatusByPath}
                 gitChanges={gitChanges}
+                openDocumentPaths={openDocumentPaths}
                 onOpenFile={onOpenFile}
                 onOpenGitDiff={onOpenGitDiff}
                 onToggleDirectory={onToggleDirectory}

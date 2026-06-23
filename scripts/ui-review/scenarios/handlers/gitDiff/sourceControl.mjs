@@ -124,7 +124,7 @@ export async function applyGitDiffSourceControlScenario(context) {
         style.cursor === "pointer" &&
         style.boxShadow !== "none" &&
         label.includes("Modified in Git") &&
-        label.includes("Open diff for git-modified.md")
+        label.includes("Open rendered diff for git-modified.md")
       );
     });
     await diffButton.click();

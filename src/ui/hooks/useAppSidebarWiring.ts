@@ -1,4 +1,4 @@
-import type { ComponentProps, RefObject } from "react";
+import { useMemo, type ComponentProps, type RefObject } from "react";
 import type {
   AppConfig,
   BookmarkEntry,
@@ -122,6 +122,10 @@ export function useAppSidebarWiring({
   onToggleOpenFilesCollapsed,
   onTogglePinned,
 }: UseAppSidebarWiringOptions): { leftSidebarProps: AppLeftSidebarProps } {
+  const openDocumentPaths = useMemo(
+    () => new Set(orderedTabs.map((tab) => tab.path)),
+    [orderedTabs],
+  );
   const gitStatusByPath = useGitStatusHints({
     bookmarks,
     childrenByDirectory,
@@ -146,6 +150,7 @@ export function useAppSidebarWiring({
     openFilesPaneRef,
     openFilesSplitResizeState,
     orderedTabs,
+    openDocumentPaths,
     pinnedTabs,
     rootDirectory,
     rootEntries,

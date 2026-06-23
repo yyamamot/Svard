@@ -30,6 +30,8 @@ import type {
   GitDiffStatus,
 } from "../../core/types";
 
+const EMPTY_OPEN_DOCUMENT_PATHS: ReadonlySet<string> = new Set();
+
 interface FileTreePanelProps {
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
@@ -40,6 +42,7 @@ interface FileTreePanelProps {
   activePath?: string;
   gitStatusByPath: Record<string, GitDiffStatus>;
   gitChanges: GitChanges | null;
+  openDocumentPaths?: ReadonlySet<string>;
   onOpenFile: (path: string) => void;
   onOpenGitDiff: (path: string) => void;
   onToggleDirectory: (path: string) => void;
@@ -59,6 +62,7 @@ export function FileTreePanel({
   activePath,
   gitStatusByPath,
   gitChanges,
+  openDocumentPaths = EMPTY_OPEN_DOCUMENT_PATHS,
   onOpenFile,
   onOpenGitDiff,
   onToggleDirectory,
@@ -97,7 +101,8 @@ export function FileTreePanel({
         ),
       )
       .map((entry) => {
-        const gitStatus = gitStatusDisplay(fileTreeGitStatusByPath[entry.path]);
+        const rawGitStatus = fileTreeGitStatusByPath[entry.path];
+        const gitStatus = gitStatusDisplay(rawGitStatus);
         const gitStatusLabel = gitStatus
           ? fileGitStatusBadgeLabel(gitStatus, entry.name)
           : undefined;
@@ -108,16 +113,27 @@ export function FileTreePanel({
           gitStatusLabel,
           isChanged: Boolean(gitStatus),
           isActive: activePath === entry.path,
+          isOpen: openDocumentPaths.has(entry.path),
+          sortStatusRank: changedDocumentStatusRank(rawGitStatus),
         };
       });
-  }, [activePath, childrenByDirectory, fileTreeGitStatusByPath, rootDirectory]);
-  const visibleDocumentRows = useMemo(
-    () =>
-      documentsFilter === "changed"
-        ? documentRows.filter((row) => row.isChanged)
-        : documentRows,
-    [documentRows, documentsFilter],
-  );
+  }, [
+    activePath,
+    childrenByDirectory,
+    fileTreeGitStatusByPath,
+    openDocumentPaths,
+    rootDirectory,
+  ]);
+  const visibleDocumentRows = useMemo(() => {
+    if (documentsFilter !== "changed") {
+      return documentRows;
+    }
+    return [...documentRows.filter((row) => row.isChanged)].sort(
+      (left, right) =>
+        left.sortStatusRank - right.sortStatusRank ||
+        left.relativePath.localeCompare(right.relativePath),
+    );
+  }, [documentRows, documentsFilter]);
 
   useEffect(() => {
     if (!openMenuOpen) {
@@ -340,7 +356,7 @@ export function FileTreePanel({
         <>
           {renderDocumentsSourceFilter()}
           <div className="documents-view-empty" data-review-id="documents-view-empty">
-            No changed documents
+            No changed loaded documents
           </div>
         </>
       );
@@ -363,6 +379,7 @@ export function FileTreePanel({
                 row.gitStatus ? fileTreeGitStatusByPath[entry.path] : undefined
               }
               data-git-status-label={row.gitStatusLabel}
+              data-document-open={row.isOpen ? "true" : undefined}
               title={
                 row.gitStatus
                   ? `${entry.path} · ${row.gitStatus.label}`
@@ -401,6 +418,9 @@ export function FileTreePanel({
                   <span className="tree-label">{entry.name}</span>
                   <span className="documents-view-row-path">
                     {row.relativePath}
+                    {row.isOpen ? (
+                      <span className="documents-view-open-indicator">open</span>
+                    ) : null}
                   </span>
                 </span>
               </button>
@@ -604,4 +624,23 @@ function relativeDocumentPath(path: string, rootDirectory: string): string {
     return path.slice(normalizedRoot.length + 1);
   }
   return path;
+}
+
+function changedDocumentStatusRank(status?: GitDiffStatus) {
+  switch (status) {
+    case "deleted":
+      return 0;
+    case "renamed":
+      return 1;
+    case "modified":
+      return 2;
+    case "added":
+      return 3;
+    case "untracked":
+      return 4;
+    case "binary":
+      return 5;
+    default:
+      return 99;
+  }
 }

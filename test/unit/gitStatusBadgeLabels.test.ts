@@ -8,12 +8,12 @@ import { gitStatusDisplay } from "../../src/ui/lib/gitStatusDisplay";
 
 describe("git status badge labels", () => {
   it.each([
-    ["modified", "Modified in Git. Open diff for guide.md"],
-    ["added", "Added in Git. Open diff for guide.md"],
-    ["untracked", "Untracked in Git. Open diff for guide.md"],
-    ["deleted", "Deleted in Git. Open diff for guide.md"],
-    ["renamed", "Renamed in Git. Open diff for guide.md"],
-    ["binary", "Binary changed in Git. Open diff for guide.md"],
+    ["modified", "Modified in Git. Open rendered diff for guide.md"],
+    ["added", "Added in Git. Open rendered diff for guide.md"],
+    ["untracked", "Untracked in Git. Open rendered diff for guide.md"],
+    ["deleted", "Deleted in Git. Open rendered diff for guide.md"],
+    ["renamed", "Renamed in Git. Open rendered diff for guide.md"],
+    ["binary", "Binary changed in Git. Open rendered diff for guide.md"],
   ] as const)("describes %s file badge action", (status, expected) => {
     const display = gitStatusDisplay(status);
     expect(display).not.toBeNull();

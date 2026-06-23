@@ -5,7 +5,7 @@ export function fileGitStatusBadgeLabel(
   display: GitStatusDisplay,
   basename: string,
 ): string {
-  return `${display.label}. Open diff for ${basename}`;
+  return `${display.label}. Open rendered diff for ${basename}`;
 }
 
 export function directoryGitStatusBadgeLabel(

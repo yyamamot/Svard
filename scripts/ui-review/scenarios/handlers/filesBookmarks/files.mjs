@@ -111,7 +111,7 @@ export async function applyFilesScenario(context) {
       return (
         style.cursor === "pointer" &&
         label.includes("Modified in Git") &&
-        label.includes("Open diff for git-modified.md")
+        label.includes("Open rendered diff for git-modified.md")
       );
     });
     await diffButton.click();
@@ -160,6 +160,11 @@ export async function applyFilesScenario(context) {
         bodyHasDiffHunk:
           document.body.textContent?.includes("@@") ||
           document.body.textContent?.includes("diff --git"),
+        rowStatuses: [
+          ...document.querySelectorAll('[data-review-id="documents-view-row"]'),
+        ]
+          .filter((row) => row instanceof HTMLElement)
+          .map((row) => row.dataset.gitStatus ?? ""),
         rowCount: document.querySelectorAll(
           '[data-review-id="documents-view-row"]',
         ).length,

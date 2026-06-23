@@ -107,7 +107,7 @@ export async function buildFilesAssertions(context) {
             return (
               result?.panelOpened === true &&
               result?.badgeLabel ===
-                "Modified in Git. Open diff for git-modified.md"
+                "Modified in Git. Open rendered diff for git-modified.md"
             );
           })) &&
           (await page
@@ -140,6 +140,8 @@ export async function buildFilesAssertions(context) {
             return (
               result?.bodyHasPrivatePath === false &&
               result?.bodyHasDiffHunk === false &&
+              Array.isArray(result?.rowStatuses) &&
+              result.rowStatuses.every((status) => Boolean(status)) &&
               result?.rowCount > 0 &&
               result?.rowCount === result?.changedRowCount
             );

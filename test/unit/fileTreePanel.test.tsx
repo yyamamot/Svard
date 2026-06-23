@@ -438,13 +438,13 @@ describe("FileTreePanel path display", () => {
     );
     expect(diffButton?.textContent).toContain("M");
     expect(diffButton?.getAttribute("title")).toBe(
-      "Modified in Git. Open diff for git-modified.md",
+      "Modified in Git. Open rendered diff for git-modified.md",
     );
     expect(diffButton?.getAttribute("aria-label")).toBe(
-      "Modified in Git. Open diff for git-modified.md",
+      "Modified in Git. Open rendered diff for git-modified.md",
     );
     expect(diffButton?.getAttribute("data-git-status-label")).toBe(
-      "Modified in Git. Open diff for git-modified.md",
+      "Modified in Git. Open rendered diff for git-modified.md",
     );
 
     await act(async () => {
@@ -543,6 +543,7 @@ describe("FileTreePanel path display", () => {
           directoryErrors={{}}
           gitStatusByPath={{}}
           gitChanges={null}
+          openDocumentPaths={new Set(["/workspace/README.md"])}
           onOpenFile={vi.fn()}
           onOpenGitDiff={vi.fn()}
           onToggleDirectory={vi.fn()}
@@ -587,6 +588,10 @@ describe("FileTreePanel path display", () => {
         ?.classList.contains("active"),
     ).toBe(true);
     expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("guide.adoc"),
+      expect.stringContaining("README.md"),
+    ]);
     expect(container.textContent).toContain("README.md");
     expect(container.textContent).toContain("docs/guide.adoc");
     expect(container.textContent).not.toContain("notes.txt");
@@ -598,6 +603,9 @@ describe("FileTreePanel path display", () => {
         .querySelector('[data-review-id="documents-source-filter-all"]')
         ?.getAttribute("aria-pressed"),
     ).toBe("true");
+    const readmeRow = rows.find((row) => row.textContent?.includes("README.md"));
+    expect(readmeRow?.getAttribute("data-document-open")).toBe("true");
+    expect(readmeRow?.textContent).toContain("open");
   });
 
   it("filters Documents view to changed loaded documents", async () => {
@@ -697,6 +705,14 @@ describe("FileTreePanel path display", () => {
       ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
     ];
     expect(rows).toHaveLength(6);
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("deleted.md"),
+      expect.stringContaining("renamed.md"),
+      expect.stringContaining("modified.md"),
+      expect.stringContaining("added.adoc"),
+      expect.stringContaining("untracked.md"),
+      expect.stringContaining("binary.md"),
+    ]);
     expect(container.textContent).toContain("modified.md");
     expect(container.textContent).toContain("added.adoc");
     expect(container.textContent).toContain("deleted.md");
@@ -787,7 +803,7 @@ describe("FileTreePanel path display", () => {
     expect(rows[0]?.textContent).toContain("cached.md");
     expect(rows[0]?.getAttribute("data-git-status")).toBe("modified");
     expect(rows[0]?.getAttribute("data-git-status-label")).toBe(
-      "Modified in Git. Open diff for cached.md",
+      "Modified in Git. Open rendered diff for cached.md",
     );
     expect(container.textContent).not.toContain("unloaded.md");
     expect(container.textContent).not.toContain("plain.md");
@@ -844,7 +860,7 @@ describe("FileTreePanel path display", () => {
     );
     expect(diffButton?.textContent).toContain("M");
     expect(diffButton?.getAttribute("title")).toBe(
-      "Modified in Git. Open diff for README.md",
+      "Modified in Git. Open rendered diff for README.md",
     );
 
     await act(async () => {
@@ -906,7 +922,7 @@ describe("FileTreePanel path display", () => {
     expect(
       container.querySelector('[data-review-id="documents-view-empty"]')
         ?.textContent,
-    ).toContain("No changed documents");
+    ).toContain("No changed loaded documents");
   });
 
   it("opens active document rows from Documents view", async () => {
