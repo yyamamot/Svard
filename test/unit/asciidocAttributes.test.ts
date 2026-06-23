@@ -29,7 +29,8 @@ Body.
     expect(result.htmlPrefix).toContain(
       'class="markdown-frontmatter asciidoc-document-attributes"',
     );
-    expect(result.htmlPrefix).toContain("<summary>Document Attributes</summary>");
+    expect(result.htmlPrefix).toContain("Document Attributes");
+    expect(result.htmlPrefix).toContain("7 items");
     expect(result.htmlPrefix).toContain("<th>icons</th><td>font</td>");
     expect(result.htmlPrefix).toContain(
       '<th>feature</th><td><span class="frontmatter-null">unset</span></td>',
@@ -68,7 +69,9 @@ Body.
 Body.
 `);
 
-    expect(result.htmlPrefix).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(result.htmlPrefix).toContain(
+      "&lt;script&gt;alert(1)&lt;/script&gt;",
+    );
     expect(result.htmlPrefix).toContain("bad&lt;name");
     expect(result.htmlPrefix).not.toContain("<script>");
   });

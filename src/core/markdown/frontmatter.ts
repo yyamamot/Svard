@@ -111,6 +111,11 @@ function renderFrontmatterValue(value: FrontmatterValue): string {
   return `<table class="frontmatter-nested"><tbody>${rows}</tbody></table>`;
 }
 
+function frontmatterSummary(count: number | "raw"): string {
+  const countLabel = count === "raw" ? "raw" : `${count} fields`;
+  return `<summary><span class="metadata-label">Frontmatter</span> · <span class="metadata-count">${countLabel}</span></summary>`;
+}
+
 export function splitFrontmatter(source: string): {
   body: string;
   htmlPrefix: string;
@@ -130,7 +135,7 @@ export function splitFrontmatter(source: string): {
     return {
       body,
       lineOffset,
-      htmlPrefix: `<details class="markdown-frontmatter"><summary>Frontmatter</summary><pre><code>${escapeHtml(frontmatter)}</code></pre></details>`,
+      htmlPrefix: `<details class="markdown-frontmatter">${frontmatterSummary("raw")}<pre><code>${escapeHtml(frontmatter)}</code></pre></details>`,
     };
   }
 
@@ -143,6 +148,6 @@ export function splitFrontmatter(source: string): {
   return {
     body,
     lineOffset,
-    htmlPrefix: `<details class="markdown-frontmatter"><summary>Frontmatter</summary><table><tbody>${tableRows}</tbody></table></details>`,
+    htmlPrefix: `<details class="markdown-frontmatter">${frontmatterSummary(rows.length)}<table><tbody>${tableRows}</tbody></table></details>`,
   };
 }

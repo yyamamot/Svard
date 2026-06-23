@@ -217,6 +217,8 @@ empty_value:
 `);
 
     expect(result.html).toContain("markdown-frontmatter");
+    expect(result.html).toContain("Frontmatter");
+    expect(result.html).toContain("7 fields");
     expect(result.html).toContain("<th>title</th>");
     expect(result.html).toContain("<td>Markdown GitHub Sample</td>");
     expect(result.html).toContain(

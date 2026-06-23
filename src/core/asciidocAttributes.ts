@@ -35,8 +35,8 @@ function renderRows(rows: AsciiDocDocumentAttributeRow[]): string {
     .join("");
 }
 
-function detailsHtml(body: string): string {
-  return `<details class="markdown-frontmatter asciidoc-document-attributes"><summary>Document Attributes</summary>${body}</details>`;
+function detailsHtml(body: string, count: number): string {
+  return `<details class="markdown-frontmatter asciidoc-document-attributes"><summary><span class="metadata-label">Document Attributes</span> · <span class="metadata-count">${count} items</span></summary>${body}</details>`;
 }
 
 export function extractAsciiDocDocumentAttributes(
@@ -105,6 +105,7 @@ export function extractAsciiDocDocumentAttributes(
     return {
       htmlPrefix: detailsHtml(
         `<pre><code>${escapeHtml(rawAttributeLines.join("\n"))}</code></pre>`,
+        rawAttributeLines.length,
       ),
       rows: [],
       parsed: false,
@@ -112,7 +113,10 @@ export function extractAsciiDocDocumentAttributes(
   }
 
   return {
-    htmlPrefix: detailsHtml(`<table><tbody>${renderRows(rows)}</tbody></table>`),
+    htmlPrefix: detailsHtml(
+      `<table><tbody>${renderRows(rows)}</tbody></table>`,
+      rows.length,
+    ),
     rows,
     parsed: true,
   };

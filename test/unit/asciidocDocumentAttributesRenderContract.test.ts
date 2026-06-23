@@ -19,7 +19,7 @@ Body.
     const attributes = doc.querySelector(".asciidoc-document-attributes");
     expect(attributes).toBeTruthy();
     expect(attributes?.querySelector("summary")?.textContent).toBe(
-      "Document Attributes",
+      "Document Attributes · 3 items",
     );
     expect(attributes?.querySelector("table")?.textContent).toContain(
       "imagesdir",
