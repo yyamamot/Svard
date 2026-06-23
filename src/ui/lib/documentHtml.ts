@@ -460,7 +460,7 @@ export async function prepareDocumentHtml(
     const tables = Array.from(doc.querySelectorAll("table")).filter(
       (table) =>
         !table.closest(
-          ".admonitionblock, .markdown-frontmatter, .frontmatter-nested",
+          ".admonitionblock, .markdown-frontmatter, .asciidoc-document-attributes, .frontmatter-nested",
         ),
     );
     tableCount = tables.length;

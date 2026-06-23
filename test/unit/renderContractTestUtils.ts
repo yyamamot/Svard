@@ -1,5 +1,6 @@
 import Asciidoctor from "@asciidoctor/core";
 
+import { extractAsciiDocDocumentAttributes } from "../../src/core/asciidocAttributes";
 import { expandAsciiDocIncludes } from "../../src/core/asciidocInclude";
 import {
   extractHeadings,
@@ -101,9 +102,15 @@ export async function renderAsciiDocContract({
       ...attributes,
     },
   }) as string;
+  const documentAttributes = extractAsciiDocDocumentAttributes(source);
+  const renderedHtml = `${documentAttributes.htmlPrefix}${html}`;
   const renderResult: RenderResult = {
-    html,
-    headings: extractHeadings(html, expanded.source, expanded.lineOrigins),
+    html: renderedHtml,
+    headings: extractHeadings(
+      renderedHtml,
+      expanded.source,
+      expanded.lineOrigins,
+    ),
     sourceBlocks: extractSourceBlocks(expanded.source, expanded.lineOrigins),
     diagnostics: [
       ...expanded.diagnostics,
@@ -145,7 +152,7 @@ export async function renderAsciiDocContract({
     },
   };
   const preparedHtml = await prepareDocumentHtml(
-    html,
+    renderedHtml,
     document,
     renderContractSecurity,
     renderResult,

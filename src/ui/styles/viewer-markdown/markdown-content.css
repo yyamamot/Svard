@@ -119,25 +119,28 @@
 }
 
 .markdown-frontmatter {
-  margin-bottom: 20px;
-  border: 1px solid var(--reader-border);
-  border-radius: 6px;
+  margin: 0 0 14px;
+  border: 1px solid color-mix(in srgb, var(--reader-border) 70%, transparent);
+  border-radius: 4px;
   color: var(--reader-text);
-  background: var(--reader-surface);
+  background: color-mix(in srgb, var(--reader-surface) 45%, transparent);
 }
 
 .markdown-frontmatter summary {
-  padding: 8px 12px;
+  padding: 5px 9px;
   color: var(--reader-muted);
-  font-weight: 700;
+  font-size: 0.88em;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .markdown-frontmatter table,
 .markdown-frontmatter pre {
   margin: 0;
-  border-top: 1px solid var(--reader-border);
+  border-top: 1px solid
+    color-mix(in srgb, var(--reader-border) 70%, transparent);
   border-radius: 0;
+  background: transparent;
 }
 
 .markdown-frontmatter .frontmatter-nested {
@@ -215,11 +218,16 @@
 
 .theme-dark .document-body.format-markdown pre.hljs,
 .theme-dark .document-body.format-markdown blockquote.markdown-alert,
-.theme-dark .markdown-frontmatter,
 .theme-dark .markdown-details {
   border-color: var(--reader-border);
   color: var(--reader-text);
   background: var(--reader-surface);
+}
+
+.theme-dark .markdown-frontmatter {
+  border-color: color-mix(in srgb, var(--reader-border) 70%, transparent);
+  color: var(--reader-text);
+  background: color-mix(in srgb, var(--reader-surface) 45%, transparent);
 }
 
 .theme-dark .document-body.format-markdown .markdown-alert-note {
@@ -251,7 +259,10 @@
 }
 
 .theme-dark .markdown-frontmatter table,
-.theme-dark .markdown-frontmatter pre,
+.theme-dark .markdown-frontmatter pre {
+  border-top-color: color-mix(in srgb, var(--reader-border) 70%, transparent);
+}
+
 .theme-dark .markdown-details-body {
   border-top-color: var(--reader-border);
 }

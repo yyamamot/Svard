@@ -525,6 +525,31 @@ $not rendered in source$
     );
   });
 
+  it("keeps AsciiDoc document attributes tables out of rendered table metadata", async () => {
+    const html = await prepareDocumentHtml(
+      '<details class="markdown-frontmatter asciidoc-document-attributes"><summary>Document Attributes</summary><table><tbody><tr><th>toc</th><td><span class="frontmatter-null">empty</span></td></tr></tbody></table></details><table><tbody><tr><td>Item</td></tr></tbody></table>',
+      {
+        ...documentPayload,
+        source: "= Example\n:toc:\n\n== Table\n\n|===\n|Item\n|===",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      renderResult,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const attributesTable = doc.querySelector(
+      ".asciidoc-document-attributes table",
+    );
+    const renderedTable = doc.querySelector(
+      "body > table, .document-body > table",
+    );
+
+    expect(attributesTable?.getAttribute("data-review-id")).toBeNull();
+    expect(attributesTable?.getAttribute("data-source-reference")).toBeNull();
+    expect(renderedTable?.getAttribute("data-review-id")).toBe(
+      "rendered-table",
+    );
+  });
+
   it("preserves AsciiDoc theme classes for admonitions and table captions", async () => {
     const html = await prepareDocumentHtml(
       '<div class="admonitionblock note"><table><tr><td class="icon"><i class="fa icon-note" title="Note"></i></td><td class="content">Note body</td></tr></table></div><table class="tableblock frame-all grid-all stretch"><caption class="title">Table 1. Caption</caption><tbody><tr><td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Group</p></td><td class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Cell</p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock">Nested</p></td></tr></tbody></table>',

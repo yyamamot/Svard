@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import Asciidoctor from "@asciidoctor/core";
 
+import { extractAsciiDocDocumentAttributes } from "../../src/core/asciidocAttributes";
 import { expandAsciiDocIncludes } from "../../src/core/asciidocInclude";
 import {
   extractHeadings,
@@ -45,9 +46,15 @@ Included paragraph.`,
       icons: "font",
     },
   }) as string;
+  const documentAttributes = extractAsciiDocDocumentAttributes(source);
+  const renderedHtml = `${documentAttributes.htmlPrefix}${html}`;
   const renderResult: RenderResult = {
-    html,
-    headings: extractHeadings(html, expanded.source, expanded.lineOrigins),
+    html: renderedHtml,
+    headings: extractHeadings(
+      renderedHtml,
+      expanded.source,
+      expanded.lineOrigins,
+    ),
     sourceBlocks: extractSourceBlocks(expanded.source, expanded.lineOrigins),
     diagnostics: [
       ...expanded.diagnostics,
@@ -78,7 +85,7 @@ Included paragraph.`,
     },
   };
   const preparedHtml = await prepareDocumentHtml(
-    html,
+    renderedHtml,
     document,
     securityConfig,
     renderResult,
@@ -104,6 +111,7 @@ describe("render coverage matrix", () => {
     const { doc, expanded, renderResult } =
       await renderAsciiDocCoverage(`= Coverage
 :stem:
+:toc:
 
 include::partials/intro.adoc[]
 
@@ -142,6 +150,9 @@ image::../images/sample.svg[]
 `);
 
     expect(expanded.diagnostics).toEqual([]);
+    expect(doc.querySelector(".asciidoc-document-attributes")).toBeTruthy();
+    expect(doc.querySelector(".asciidoc-document-attributes table")).toBeTruthy();
+    expect(doc.body.textContent).toContain("Document Attributes");
     expect(
       renderResult.headings.some(
         (heading) => heading.text === "Included Section",
@@ -149,7 +160,7 @@ image::../images/sample.svg[]
     ).toBe(true);
     expect(renderResult.sourceBlocks[0]).toMatchObject({
       language: "ts",
-      sourceLocation: { line: 23, sourcePath: "/workspace/docs/coverage.adoc" },
+      sourceLocation: { line: 24, sourcePath: "/workspace/docs/coverage.adoc" },
     });
     expect(renderResult.diagramSlots[0]).toMatchObject({
       id: "plantuml-1",
