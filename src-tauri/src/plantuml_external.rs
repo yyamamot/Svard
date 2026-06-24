@@ -4,6 +4,7 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::mpsc,
     thread,
     time::{Duration, Instant, UNIX_EPOCH},
 };
@@ -17,6 +18,7 @@ const MIN_TIMEOUT_MS: u64 = 1_000;
 const MAX_TIMEOUT_MS: u64 = 60_000;
 const MAX_STDOUT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_STDERR_BYTES: usize = 64 * 1024;
+const PIPE_DRAIN_GRACE_MS: u64 = 1_000;
 const MAX_CACHE_TOTAL_BYTES: u64 = 128 * 1024 * 1024;
 const EXTERNAL_PLANTUML_CACHE_VERSION: &str = "plantuml-external-v1";
 const TEST_SOURCE: &str = "@startuml\nAlice -> Bob: test\n@enduml\n";
@@ -127,6 +129,14 @@ pub(crate) fn test_external_plantuml(
             "disabled",
         ));
     }
+    if output.stdout.len() > MAX_STDOUT_BYTES {
+        return Ok(error_result(
+            "error",
+            "External PlantUML test SVG output exceeded the size limit.",
+            render_ms,
+            "disabled",
+        ));
+    }
     let svg = String::from_utf8(output.stdout).map_err(|_| {
         "External PlantUML test returned non-UTF-8 output instead of SVG.".to_string()
     })?;
@@ -167,15 +177,16 @@ fn run_plantuml_command(
         .spawn()
         .map_err(|_| "Failed to start external PlantUML binary.".to_string())?;
     if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(source.as_bytes())
-            .map_err(|_| "Failed to write PlantUML source to external renderer.".to_string())?;
+        let source = source.as_bytes().to_vec();
+        thread::spawn(move || {
+            let _ = stdin.write_all(&source);
+        });
     }
 
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
-    let stdout_reader = thread::spawn(move || read_limited(stdout, MAX_STDOUT_BYTES + 1));
-    let stderr_reader = thread::spawn(move || read_limited(stderr, MAX_STDERR_BYTES));
+    let stdout_reader = spawn_limited_reader(stdout, MAX_STDOUT_BYTES + 1);
+    let stderr_reader = spawn_limited_reader(stderr, MAX_STDERR_BYTES);
 
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
     let mut timed_out = false;
@@ -195,14 +206,31 @@ fn run_plantuml_command(
         }
     };
 
-    let stdout = stdout_reader.join().unwrap_or_else(|_| Vec::new());
-    let _stderr = stderr_reader.join().unwrap_or_else(|_| Vec::new());
+    let stdout = recv_limited_reader(stdout_reader);
+    let _stderr = recv_limited_reader(stderr_reader);
 
     Ok(CommandOutput {
         status_success,
         timed_out,
         stdout,
     })
+}
+
+fn spawn_limited_reader<R: Read + Send + 'static>(
+    reader: Option<R>,
+    max_bytes: usize,
+) -> mpsc::Receiver<Vec<u8>> {
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let _ = sender.send(read_limited(reader, max_bytes));
+    });
+    receiver
+}
+
+fn recv_limited_reader(receiver: mpsc::Receiver<Vec<u8>>) -> Vec<u8> {
+    receiver
+        .recv_timeout(Duration::from_millis(PIPE_DRAIN_GRACE_MS))
+        .unwrap_or_else(|_| Vec::new())
 }
 
 fn read_limited<R: Read>(reader: Option<R>, max_bytes: usize) -> Vec<u8> {
