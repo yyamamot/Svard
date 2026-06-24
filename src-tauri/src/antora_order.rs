@@ -20,10 +20,43 @@ use crate::{
 
 const ANTORA_CONFIG_NAME: &str = "antora.yml";
 
-pub(crate) fn load_antora_order_from_root(
-    root: &Path,
+pub(crate) fn load_antora_order_from_roots(
+    content_roots: &[PathBuf],
     roots: &AllowedRoots,
 ) -> DocumentOrderResult {
+    if content_roots.is_empty() {
+        return none_result(None);
+    }
+    if content_roots.len() == 1 {
+        return load_antora_order_from_content_root(&content_roots[0], roots);
+    }
+
+    let mut sections = Vec::new();
+    for root in content_roots {
+        let result = load_antora_order_from_content_root(root, roots);
+        if result.source != DocumentOrderSource::Antora || result.nodes.is_empty() {
+            continue;
+        }
+        sections.push(DocumentOrderNode::Section {
+            title: antora_content_root_title(root),
+            depth: 0,
+            children: shift_nodes_depth(result.nodes, 1),
+        });
+    }
+
+    if sections.is_empty() {
+        return none_result(Some(
+            "Antora nav did not contain local document entries.".to_string(),
+        ));
+    }
+    DocumentOrderResult {
+        source: DocumentOrderSource::Antora,
+        nodes: sections,
+        message: None,
+    }
+}
+
+fn load_antora_order_from_content_root(root: &Path, roots: &AllowedRoots) -> DocumentOrderResult {
     let config_path = root.join(ANTORA_CONFIG_NAME);
     if !config_path.is_file() {
         return none_result(None);
@@ -80,6 +113,65 @@ pub(crate) fn load_antora_order_from_root(
         source: DocumentOrderSource::Antora,
         nodes,
         message: None,
+    }
+}
+
+fn antora_content_root_title(root: &Path) -> String {
+    let config_path = root.join(ANTORA_CONFIG_NAME);
+    let source = fs::read_to_string(&config_path).ok();
+    let parsed = source
+        .as_deref()
+        .and_then(|source| serde_norway::from_str::<Value>(source).ok());
+    let title = parsed
+        .as_ref()
+        .and_then(Value::as_mapping)
+        .and_then(|mapping| {
+            mapping_get(mapping, "title")
+                .or_else(|| mapping_get(mapping, "name"))
+                .and_then(Value::as_str)
+        })
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    title.unwrap_or_else(|| {
+        root.file_name()
+            .map(|value| value.to_string_lossy().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "Antora content root".to_string())
+    })
+}
+
+fn shift_nodes_depth(nodes: Vec<DocumentOrderNode>, delta: usize) -> Vec<DocumentOrderNode> {
+    nodes
+        .into_iter()
+        .map(|node| shift_node_tree_depth(node, delta))
+        .collect()
+}
+
+fn shift_node_tree_depth(node: DocumentOrderNode, delta: usize) -> DocumentOrderNode {
+    match node {
+        DocumentOrderNode::Section {
+            title,
+            depth,
+            children,
+        } => DocumentOrderNode::Section {
+            title,
+            depth: depth + delta,
+            children: shift_nodes_depth(children, delta),
+        },
+        DocumentOrderNode::Document {
+            title,
+            path,
+            display_path,
+            depth,
+            status,
+        } => DocumentOrderNode::Document {
+            title,
+            path,
+            display_path,
+            depth: depth + delta,
+            status,
+        },
     }
 }
 
@@ -476,7 +568,7 @@ mod tests {
         )
         .expect("descriptor");
 
-        let result = load_antora_order_from_root(dir.path(), &roots_for(dir.path()));
+        let result = load_antora_order_from_content_root(dir.path(), &roots_for(dir.path()));
 
         assert_eq!(result.source, DocumentOrderSource::Antora);
         assert_eq!(result.nodes.len(), 1);
@@ -562,7 +654,7 @@ mod tests {
         )
         .expect("descriptor");
 
-        let result = load_antora_order_from_root(dir.path(), &roots_for(dir.path()));
+        let result = load_antora_order_from_content_root(dir.path(), &roots_for(dir.path()));
 
         assert_eq!(result.source, DocumentOrderSource::Antora);
         assert_eq!(result.nodes.len(), 1);
@@ -613,7 +705,7 @@ mod tests {
         )
         .expect("descriptor");
 
-        let result = load_antora_order_from_root(dir.path(), &roots_for(dir.path()));
+        let result = load_antora_order_from_content_root(dir.path(), &roots_for(dir.path()));
         let serialized = serde_json::to_string(&result).expect("serialize");
 
         assert_eq!(result.source, DocumentOrderSource::Antora);

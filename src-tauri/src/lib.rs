@@ -13,6 +13,7 @@ use tauri::TitleBarStyle;
 use tauri::{Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder, window::Color};
 
 mod antora_order;
+mod antora_playbook;
 mod app_error;
 mod backend_types;
 mod cache_prune;
