@@ -78,6 +78,30 @@ export interface DirectoryEntry {
   kind: "file" | "directory";
 }
 
+export type DocumentOrderSource = "none" | "mkdocs";
+
+export type DocumentOrderNode =
+  | {
+      kind: "section";
+      title: string;
+      depth: number;
+      children: DocumentOrderNode[];
+    }
+  | {
+      kind: "document";
+      title: string;
+      path: string;
+      displayPath: string;
+      depth: number;
+      status: "resolved" | "missing" | "external" | "unsupported";
+    };
+
+export interface DocumentOrderResult {
+  source: DocumentOrderSource;
+  nodes: DocumentOrderNode[];
+  message?: string;
+}
+
 export interface WorkspaceSearchInput {
   rootPath: string;
   query: string;

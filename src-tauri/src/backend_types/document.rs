@@ -139,6 +139,48 @@ pub struct DirectoryEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct DocumentOrderResult {
+    pub source: DocumentOrderSource,
+    pub nodes: Vec<DocumentOrderNode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DocumentOrderSource {
+    None,
+    Mkdocs,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum DocumentOrderNode {
+    Section {
+        title: String,
+        depth: usize,
+        children: Vec<DocumentOrderNode>,
+    },
+    Document {
+        title: String,
+        path: String,
+        display_path: String,
+        depth: usize,
+        status: DocumentOrderDocumentStatus,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum DocumentOrderDocumentStatus {
+    Resolved,
+    Missing,
+    External,
+    Unsupported,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceSearchInput {
     pub root_path: String,
     pub query: String,

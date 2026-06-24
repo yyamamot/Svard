@@ -10,6 +10,7 @@ import { isSafeExternalUrlToOpen } from "../ui/lib/path";
 import type {
   AppConfig,
   DirectoryEntry,
+  DocumentOrderResult,
   DirectoryWatchEvent,
   DesktopOpenRequest,
   DocumentPayload,
@@ -153,6 +154,10 @@ export class TauriHostAdapter implements HostAdapter {
 
   listDirectory(path: string): Promise<DirectoryEntry[]> {
     return invokeCommand("list_directory", { path });
+  }
+
+  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderResult> {
+    return invokeCommand("load_document_order", { rootDirectory });
   }
 
   searchWorkspace(input: WorkspaceSearchInput): Promise<WorkspaceSearchResult> {

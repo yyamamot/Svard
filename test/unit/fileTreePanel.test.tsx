@@ -22,6 +22,21 @@ describe("FileTreePanel path display", () => {
     container.remove();
   });
 
+  async function chooseFileViewMode(reviewId: string) {
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-view-toggle"]',
+        )
+        ?.click();
+    });
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(`[data-review-id="${reviewId}"]`)
+        ?.click();
+    });
+  }
+
   it("shows a basename for a Windows root directory", async () => {
     await act(async () => {
       root.render(
@@ -565,13 +580,7 @@ describe("FileTreePanel path display", () => {
         ?.getAttribute("aria-pressed"),
     ).toBe("false");
 
-    await act(async () => {
-      container
-        .querySelector<HTMLButtonElement>(
-          '[data-review-id="documents-view-toggle"]',
-        )
-        ?.click();
-    });
+    await chooseFileViewMode("documents-view-mode-path");
 
     const rows = [
       ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
@@ -606,6 +615,111 @@ describe("FileTreePanel path display", () => {
     const readmeRow = rows.find((row) => row.textContent?.includes("README.md"));
     expect(readmeRow?.getAttribute("data-document-open")).toBe("true");
     expect(readmeRow?.textContent).toContain("open");
+  });
+
+  it("orders Documents view by MkDocs nav when selected", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "z-last.md",
+                path: "/workspace/docs/z-last.md",
+                kind: "file",
+              },
+              {
+                name: "index.md",
+                path: "/workspace/docs/index.md",
+                kind: "file",
+              },
+              {
+                name: "extra.md",
+                path: "/workspace/docs/extra.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            source: "mkdocs",
+            nodes: [
+              {
+                kind: "document",
+                title: "Home",
+                path: "/workspace/docs/index.md",
+                displayPath: "index.md",
+                depth: 0,
+                status: "resolved",
+              },
+              {
+                kind: "section",
+                title: "Guide",
+                depth: 0,
+                children: [
+                  {
+                    kind: "document",
+                    title: "Last",
+                    path: "/workspace/docs/z-last.md",
+                    displayPath: "z-last.md",
+                    depth: 1,
+                    status: "resolved",
+                  },
+                  {
+                    kind: "document",
+                    title: "Missing",
+                    path: "",
+                    displayPath: "missing.md",
+                    depth: 1,
+                    status: "missing",
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/docs/index.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-mkdocs");
+
+    expect(
+      container.querySelector('[data-review-id="documents-mkdocs-section"]')
+        ?.textContent,
+    ).toContain("Guide");
+    expect(
+      container.querySelector('[data-review-id="documents-mkdocs-not-in-nav"]')
+        ?.textContent,
+    ).toContain("Not in mkdocs.yml");
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Home"),
+      expect.stringContaining("Last"),
+      expect.stringContaining("Missing"),
+      expect.stringContaining("extra.md"),
+    ]);
   });
 
   it("filters Documents view to changed loaded documents", async () => {
@@ -682,13 +796,7 @@ describe("FileTreePanel path display", () => {
       );
     });
 
-    await act(async () => {
-      container
-        .querySelector<HTMLButtonElement>(
-          '[data-review-id="documents-view-toggle"]',
-        )
-        ?.click();
-    });
+    await chooseFileViewMode("documents-view-mode-path");
     expect(
       container.querySelectorAll('[data-review-id="documents-view-row"]'),
     ).toHaveLength(7);
@@ -781,13 +889,7 @@ describe("FileTreePanel path display", () => {
       );
     });
 
-    await act(async () => {
-      container
-        .querySelector<HTMLButtonElement>(
-          '[data-review-id="documents-view-toggle"]',
-        )
-        ?.click();
-    });
+    await chooseFileViewMode("documents-view-mode-path");
     await act(async () => {
       container
         .querySelector<HTMLButtonElement>(
@@ -847,13 +949,7 @@ describe("FileTreePanel path display", () => {
       );
     });
 
-    await act(async () => {
-      container
-        .querySelector<HTMLButtonElement>(
-          '[data-review-id="documents-view-toggle"]',
-        )
-        ?.click();
-    });
+    await chooseFileViewMode("documents-view-mode-path");
 
     const diffButton = container.querySelector<HTMLButtonElement>(
       '[data-review-id="documents-view-row"] [data-review-id="git-status-diff-button"]',
@@ -904,13 +1000,7 @@ describe("FileTreePanel path display", () => {
       );
     });
 
-    await act(async () => {
-      container
-        .querySelector<HTMLButtonElement>(
-          '[data-review-id="documents-view-toggle"]',
-        )
-        ?.click();
-    });
+    await chooseFileViewMode("documents-view-mode-path");
     await act(async () => {
       container
         .querySelector<HTMLButtonElement>(
@@ -961,13 +1051,7 @@ describe("FileTreePanel path display", () => {
       );
     });
 
-    await act(async () => {
-      container
-        .querySelector<HTMLButtonElement>(
-          '[data-review-id="documents-view-toggle"]',
-        )
-        ?.click();
-    });
+    await chooseFileViewMode("documents-view-mode-path");
 
     const row = container.querySelector('[data-review-id="documents-view-row"]');
     expect(row?.classList.contains("active")).toBe(true);
@@ -1008,13 +1092,7 @@ describe("FileTreePanel path display", () => {
       );
     });
 
-    await act(async () => {
-      container
-        .querySelector<HTMLButtonElement>(
-          '[data-review-id="documents-view-toggle"]',
-        )
-        ?.click();
-    });
+    await chooseFileViewMode("documents-view-mode-path");
 
     expect(
       container.querySelector('[data-review-id="documents-view-empty"]')

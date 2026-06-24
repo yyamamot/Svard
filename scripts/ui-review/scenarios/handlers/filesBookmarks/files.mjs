@@ -82,6 +82,8 @@ export async function applyFilesScenario(context) {
   } else if (scenario === "viewer-files-documents-source-control") {
     await page.locator('[data-review-id="file-tree"]').waitFor();
     await page.locator('[data-review-id="documents-view-toggle"]').click();
+    await page.locator('[data-review-id="documents-view-mode-menu"]').waitFor();
+    await page.locator('[data-review-id="documents-view-mode-path"]').click();
     const modifiedRow = page
       .locator('[data-review-id="documents-view-row"][data-git-status="modified"]')
       .filter({ hasText: "git-modified.md" });
@@ -146,6 +148,8 @@ export async function applyFilesScenario(context) {
   ) {
     await page.locator('[data-review-id="file-tree"]').waitFor();
     await page.locator('[data-review-id="documents-view-toggle"]').click();
+    await page.locator('[data-review-id="documents-view-mode-menu"]').waitFor();
+    await page.locator('[data-review-id="documents-view-mode-path"]').click();
     await page.locator('[data-review-id="documents-source-filter"]').waitFor();
     await page
       .locator('[data-review-id="documents-source-filter-changed"]')

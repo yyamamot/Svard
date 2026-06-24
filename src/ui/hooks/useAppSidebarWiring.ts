@@ -1,8 +1,15 @@
-import { useMemo, type ComponentProps, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentProps,
+  type RefObject,
+} from "react";
 import type {
   AppConfig,
   BookmarkEntry,
   DirectoryEntry,
+  DocumentOrderResult,
   DocumentPayload,
   WorkspaceEnvironment,
 } from "../../core/types";
@@ -122,6 +129,10 @@ export function useAppSidebarWiring({
   onToggleOpenFilesCollapsed,
   onTogglePinned,
 }: UseAppSidebarWiringOptions): { leftSidebarProps: AppLeftSidebarProps } {
+  const [documentOrder, setDocumentOrder] = useState<DocumentOrderResult>({
+    source: "none",
+    nodes: [],
+  });
   const openDocumentPaths = useMemo(
     () => new Set(orderedTabs.map((tab) => tab.path)),
     [orderedTabs],
@@ -133,6 +144,33 @@ export function useAppSidebarWiring({
     tabs,
     workspacePerformanceMode,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!rootDirectory) {
+      setDocumentOrder({ source: "none", nodes: [] });
+      return;
+    }
+    void host
+      .loadDocumentOrder(rootDirectory)
+      .then((result) => {
+        if (!cancelled) {
+          setDocumentOrder(result);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDocumentOrder({
+            source: "none",
+            nodes: [],
+            message: "Document order could not be loaded.",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [host, rootDirectory]);
 
   const leftSidebarProps: AppLeftSidebarProps = {
     activePath,
@@ -151,6 +189,7 @@ export function useAppSidebarWiring({
     openFilesSplitResizeState,
     orderedTabs,
     openDocumentPaths,
+    documentOrder,
     pinnedTabs,
     rootDirectory,
     rootEntries,

@@ -26,15 +26,19 @@ import {
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import type {
   DirectoryEntry,
+  DocumentOrderNode,
+  DocumentOrderResult,
   GitChanges,
   GitDiffStatus,
 } from "../../core/types";
 
 const EMPTY_OPEN_DOCUMENT_PATHS: ReadonlySet<string> = new Set();
+type FilesViewMode = "tree" | "documents-path" | "documents-mkdocs";
 
 interface FileTreePanelProps {
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
+  documentOrder?: DocumentOrderResult;
   childrenByDirectory: Record<string, DirectoryEntry[]>;
   expandedDirectories: Set<string>;
   loadingDirectories: Set<string>;
@@ -55,6 +59,7 @@ interface FileTreePanelProps {
 export function FileTreePanel({
   rootDirectory,
   rootEntries,
+  documentOrder = { source: "none", nodes: [] },
   childrenByDirectory,
   expandedDirectories,
   loadingDirectories,
@@ -72,11 +77,13 @@ export function FileTreePanel({
   onCollapse,
 }: FileTreePanelProps) {
   const [openMenuOpen, setOpenMenuOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"tree" | "documents">("tree");
+  const [viewMode, setViewMode] = useState<FilesViewMode>("tree");
   const [documentsFilter, setDocumentsFilter] = useState<"all" | "changed">(
     "all",
   );
+  const [viewModeMenuOpen, setViewModeMenuOpen] = useState(false);
   const openMenuRef = useRef<HTMLDivElement | null>(null);
+  const viewModeMenuRef = useRef<HTMLDivElement | null>(null);
   const fileTreeGitStatusByPath = useMemo(
     () => mergeGitStatusWithChanges(gitStatusByPath, gitChanges),
     [gitChanges, gitStatusByPath],
@@ -128,12 +135,21 @@ export function FileTreePanel({
     if (documentsFilter !== "changed") {
       return documentRows;
     }
+    if (viewMode === "documents-mkdocs") {
+      return documentRows.filter((row) => row.isChanged);
+    }
     return [...documentRows.filter((row) => row.isChanged)].sort(
       (left, right) =>
         left.sortStatusRank - right.sortStatusRank ||
         left.relativePath.localeCompare(right.relativePath),
     );
-  }, [documentRows, documentsFilter]);
+  }, [documentRows, documentsFilter, viewMode]);
+
+  useEffect(() => {
+    if (documentOrder.source !== "mkdocs" && viewMode === "documents-mkdocs") {
+      setViewMode("documents-path");
+    }
+  }, [documentOrder.source, viewMode]);
 
   useEffect(() => {
     if (!openMenuOpen) {
@@ -161,9 +177,40 @@ export function FileTreePanel({
     };
   }, [openMenuOpen]);
 
+  useEffect(() => {
+    if (!viewModeMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!viewModeMenuRef.current?.contains(event.target as Node | null)) {
+        setViewModeMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setViewModeMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown, { capture: true });
+    };
+  }, [viewModeMenuOpen]);
+
   function pickFromOpenMenu(callback: () => void) {
     callback();
     setOpenMenuOpen(false);
+  }
+
+  function pickViewMode(nextMode: FilesViewMode) {
+    setViewMode(nextMode);
+    setViewModeMenuOpen(false);
   }
 
   function renderTreeEntries(parentPath: string, depth: number): ReactNode {
@@ -365,85 +412,190 @@ export function FileTreePanel({
     return (
       <>
         {renderDocumentsSourceFilter()}
-        {visibleDocumentRows.map((row) => {
-          const entry = row.entry;
-          return (
-            <div
-              key={entry.path}
-              className={`tree-row file documents-view-row ${row.isActive ? "active" : ""} ${row.gitStatus?.className ?? ""}`}
-              data-review-id="documents-view-row"
-              data-context-menu-kind="file-tree"
-              data-path={entry.path}
-              data-entry-kind="file"
-              data-git-status={
-                row.gitStatus ? fileTreeGitStatusByPath[entry.path] : undefined
-              }
-              data-git-status-label={row.gitStatusLabel}
-              data-document-open={row.isOpen ? "true" : undefined}
-              title={
-                row.gitStatus
-                  ? `${entry.path} · ${row.gitStatus.label}`
-                  : entry.path
-              }
-              aria-label={
-                row.gitStatus
-                  ? `${entry.name}, ${row.gitStatus.label}`
-                  : entry.name
-              }
-              draggable
-              onPointerDown={() => {
-                prepareFileCompareDragData(entry.path);
-              }}
-              onDragStart={(event) => {
-                writeFileCompareDragData(event.dataTransfer, entry.path);
-              }}
-              onDragEnd={() => scheduleClearFileCompareDragData()}
-            >
-              <button
-                type="button"
-                className="tree-row-main documents-view-row-main"
-                aria-label={entry.name}
-                draggable
-                onPointerDown={() => {
-                  prepareFileCompareDragData(entry.path);
-                }}
-                onDragStart={(event) => {
-                  writeFileCompareDragData(event.dataTransfer, entry.path);
-                }}
-                onDragEnd={() => scheduleClearFileCompareDragData()}
-                onClick={() => onOpenFile(entry.path)}
-              >
-                <FileText size={15} />
-                <span className="documents-view-row-text">
-                  <span className="tree-label">{entry.name}</span>
-                  <span className="documents-view-row-path">
-                    {row.relativePath}
-                    {row.isOpen ? (
-                      <span className="documents-view-open-indicator">open</span>
-                    ) : null}
-                  </span>
-                </span>
-              </button>
-              {row.gitStatus ? (
-                <button
-                  type="button"
-                  className={`git-status-badge git-status-diff-button ${row.gitStatus.className}`}
-                  data-review-id="git-status-diff-button"
-                  data-git-status-label={row.gitStatusLabel}
-                  aria-label={row.gitStatusLabel}
-                  title={row.gitStatusLabel}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenGitDiff(entry.path);
-                  }}
-                >
-                  {row.gitStatus.shortLabel}
-                </button>
-              ) : null}
-            </div>
-          );
-        })}
+        {viewMode === "documents-mkdocs" && documentOrder.source === "mkdocs"
+          ? renderMkdocsDocumentEntries()
+          : visibleDocumentRows.map((row) => renderDocumentRow(row))}
       </>
+    );
+  }
+
+  function renderMkdocsDocumentEntries(): ReactNode {
+    const visibleRowsByPath = new Map(
+      visibleDocumentRows.map((row) => [row.entry.path, row]),
+    );
+    const navPaths = collectDocumentOrderPaths(documentOrder.nodes);
+    const orderedNodes = renderDocumentOrderNodes(
+      documentOrder.nodes,
+      visibleRowsByPath,
+    );
+    const notInNavRows = visibleDocumentRows.filter(
+      (row) => !navPaths.has(row.entry.path),
+    );
+
+    return (
+      <>
+        {orderedNodes}
+        {notInNavRows.length > 0 ? (
+          <div
+            className="documents-order-section"
+            data-review-id="documents-mkdocs-not-in-nav"
+          >
+            Not in mkdocs.yml
+          </div>
+        ) : null}
+        {notInNavRows.map((row) => renderDocumentRow(row))}
+      </>
+    );
+  }
+
+  function renderDocumentOrderNodes(
+    nodes: DocumentOrderNode[],
+    visibleRowsByPath: Map<string, (typeof documentRows)[number]>,
+  ): ReactNode[] {
+    const result: ReactNode[] = [];
+    nodes.forEach((node, index) => {
+      if (node.kind === "section") {
+        const children = renderDocumentOrderNodes(node.children, visibleRowsByPath);
+        if (children.length > 0) {
+          result.push(
+            <div
+              key={`section-${node.depth}-${index}-${node.title}`}
+              className="documents-order-section"
+              data-review-id="documents-mkdocs-section"
+              style={{ paddingLeft: `${4 + node.depth * 12}px` }}
+            >
+              {node.title}
+            </div>,
+            ...children,
+          );
+        }
+        return;
+      }
+
+      if (node.status === "resolved") {
+        const row = visibleRowsByPath.get(node.path);
+        if (row) {
+          result.push(renderDocumentRow(row, node.title, node.depth));
+        }
+        return;
+      }
+
+      if (documentsFilter === "changed") {
+        return;
+      }
+      if (node.status === "missing") {
+        result.push(renderMissingDocumentRow(node, index));
+      }
+    });
+    return result;
+  }
+
+  function renderDocumentRow(
+    row: (typeof documentRows)[number],
+    titleOverride?: string,
+    depth = 0,
+  ): ReactNode {
+    const entry = row.entry;
+    return (
+      <div
+        key={entry.path}
+        className={`tree-row file documents-view-row ${row.isActive ? "active" : ""} ${row.gitStatus?.className ?? ""}`}
+        data-review-id="documents-view-row"
+        data-context-menu-kind="file-tree"
+        data-path={entry.path}
+        data-entry-kind="file"
+        data-git-status={
+          row.gitStatus ? fileTreeGitStatusByPath[entry.path] : undefined
+        }
+        data-git-status-label={row.gitStatusLabel}
+        data-document-open={row.isOpen ? "true" : undefined}
+        title={
+          row.gitStatus ? `${entry.path} · ${row.gitStatus.label}` : entry.path
+        }
+        aria-label={
+          row.gitStatus ? `${entry.name}, ${row.gitStatus.label}` : entry.name
+        }
+        draggable
+        onPointerDown={() => {
+          prepareFileCompareDragData(entry.path);
+        }}
+        onDragStart={(event) => {
+          writeFileCompareDragData(event.dataTransfer, entry.path);
+        }}
+        onDragEnd={() => scheduleClearFileCompareDragData()}
+      >
+        <button
+          type="button"
+          className="tree-row-main documents-view-row-main"
+          style={{ paddingLeft: `${8 + depth * 12}px` }}
+          aria-label={entry.name}
+          draggable
+          onPointerDown={() => {
+            prepareFileCompareDragData(entry.path);
+          }}
+          onDragStart={(event) => {
+            writeFileCompareDragData(event.dataTransfer, entry.path);
+          }}
+          onDragEnd={() => scheduleClearFileCompareDragData()}
+          onClick={() => onOpenFile(entry.path)}
+        >
+          <FileText size={15} />
+          <span className="documents-view-row-text">
+            <span className="tree-label">{titleOverride ?? entry.name}</span>
+            <span className="documents-view-row-path">
+              {row.relativePath}
+              {row.isOpen ? (
+                <span className="documents-view-open-indicator">open</span>
+              ) : null}
+            </span>
+          </span>
+        </button>
+        {row.gitStatus ? (
+          <button
+            type="button"
+            className={`git-status-badge git-status-diff-button ${row.gitStatus.className}`}
+            data-review-id="git-status-diff-button"
+            data-git-status-label={row.gitStatusLabel}
+            aria-label={row.gitStatusLabel}
+            title={row.gitStatusLabel}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenGitDiff(entry.path);
+            }}
+          >
+            {row.gitStatus.shortLabel}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderMissingDocumentRow(
+    node: Extract<DocumentOrderNode, { kind: "document" }>,
+    index: number,
+  ): ReactNode {
+    return (
+      <div
+        key={`missing-${node.depth}-${index}-${node.displayPath}`}
+        className="tree-row file documents-view-row documents-view-row-missing"
+        data-review-id="documents-view-row"
+        data-entry-kind="file"
+        data-document-status="missing"
+      >
+        <span
+          className="tree-row-main documents-view-row-main"
+          style={{ paddingLeft: `${8 + node.depth * 12}px` }}
+        >
+          <FileText size={15} />
+          <span className="documents-view-row-text">
+            <span className="tree-label">{node.title}</span>
+            <span className="documents-view-row-path">
+              {node.displayPath}
+              <span className="documents-view-open-indicator">missing</span>
+            </span>
+          </span>
+        </span>
+      </div>
     );
   }
 
@@ -541,31 +693,76 @@ export function FileTreePanel({
               </div>
             )}
           </div>
-          <button
-            type="button"
-            className={`icon-button documents-view-toggle ${
-              viewMode === "documents" ? "active" : ""
-            }`}
-            data-review-id="documents-view-toggle"
-            aria-label={
-              viewMode === "documents"
-                ? "Show file tree"
-                : "Show documents only"
-            }
-            title={
-              viewMode === "documents"
-                ? "Show file tree"
-                : "Show documents only"
-            }
-            aria-pressed={viewMode === "documents"}
-            onClick={() =>
-              setViewMode((current) =>
-                current === "documents" ? "tree" : "documents",
-              )
-            }
-          >
-            <ListFilter size={15} />
-          </button>
+          <div className="file-tree-open-menu-wrap" ref={viewModeMenuRef}>
+            <button
+              type="button"
+              className={`icon-button documents-view-toggle ${
+                viewMode !== "tree" ? "active" : ""
+              }`}
+              data-review-id="documents-view-toggle"
+              aria-label="Choose file view mode"
+              title="Choose file view mode"
+              aria-haspopup="menu"
+              aria-expanded={viewModeMenuOpen}
+              aria-pressed={viewMode !== "tree"}
+              onClick={() => setViewModeMenuOpen((value) => !value)}
+            >
+              <ListFilter size={15} />
+            </button>
+            {viewModeMenuOpen && (
+              <div
+                className="file-tree-open-menu documents-view-mode-menu"
+                data-review-id="documents-view-mode-menu"
+                role="menu"
+                aria-label="File view mode"
+              >
+                <button
+                  type="button"
+                  className={`file-tree-open-menu-item ${
+                    viewMode === "tree" ? "active" : ""
+                  }`}
+                  data-review-id="documents-view-mode-tree"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "tree"}
+                  onClick={() => pickViewMode("tree")}
+                >
+                  <FolderOpen size={15} />
+                  <span>File tree</span>
+                </button>
+                <button
+                  type="button"
+                  className={`file-tree-open-menu-item ${
+                    viewMode === "documents-path" ? "active" : ""
+                  }`}
+                  data-review-id="documents-view-mode-path"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "documents-path"}
+                  aria-label="Documents only: Path"
+                  title="Documents only: Path"
+                  onClick={() => pickViewMode("documents-path")}
+                >
+                  <FileText size={15} />
+                  <span>Docs: Path</span>
+                </button>
+                <button
+                  type="button"
+                  className={`file-tree-open-menu-item ${
+                    viewMode === "documents-mkdocs" ? "active" : ""
+                  }`}
+                  data-review-id="documents-view-mode-mkdocs"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "documents-mkdocs"}
+                  aria-label="Documents only: MkDocs order"
+                  title="Documents only: MkDocs order"
+                  disabled={documentOrder.source !== "mkdocs"}
+                  onClick={() => pickViewMode("documents-mkdocs")}
+                >
+                  <FileText size={15} />
+                  <span>Docs: MkDocs</span>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="icon-button"
@@ -643,4 +840,18 @@ function changedDocumentStatusRank(status?: GitDiffStatus) {
     default:
       return 99;
   }
+}
+
+function collectDocumentOrderPaths(nodes: DocumentOrderNode[]): Set<string> {
+  const paths = new Set<string>();
+  for (const node of nodes) {
+    if (node.kind === "section") {
+      for (const path of collectDocumentOrderPaths(node.children)) {
+        paths.add(path);
+      }
+    } else if (node.status === "resolved") {
+      paths.add(node.path);
+    }
+  }
+  return paths;
 }

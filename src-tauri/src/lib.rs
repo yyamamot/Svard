@@ -22,6 +22,7 @@ mod document_io_include;
 mod git_diff;
 mod kroki;
 mod local_assets;
+mod mkdocs_order;
 mod path_policy;
 mod perf_trace;
 mod plantuml_cache;
@@ -907,6 +908,7 @@ pub fn run() {
             unwatch_directory,
             resolve_dropped_document_path,
             authorize_directory,
+            load_document_order,
             resolve_workspace_paths,
             resolve_document_link,
             clear_obsidian_vault_cache,

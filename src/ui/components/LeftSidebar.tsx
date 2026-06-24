@@ -14,6 +14,7 @@ import type {
   AppConfig,
   BookmarkEntry,
   DirectoryEntry,
+  DocumentOrderResult,
   DocumentPayload,
   GitBranchDiff,
   GitBranchDiffEntry,
@@ -46,6 +47,7 @@ interface LeftSidebarProps {
   pinnedTabs: string[];
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
+  documentOrder: DocumentOrderResult;
   gitStatusByPath: Record<string, GitDiffStatus>;
   openFileReloadStates: Record<string, OpenFileReloadState>;
   gitChanges: GitChanges | null;
@@ -142,6 +144,7 @@ export function LeftSidebar({
   pinnedTabs,
   rootDirectory,
   rootEntries,
+  documentOrder,
   gitStatusByPath,
   openFileReloadStates,
   gitChanges,
@@ -251,6 +254,7 @@ export function LeftSidebar({
               <FileTreePanel
                 rootDirectory={rootDirectory}
                 rootEntries={rootEntries}
+                documentOrder={documentOrder}
                 childrenByDirectory={childrenByDirectory}
                 expandedDirectories={expandedDirectories}
                 loadingDirectories={loadingDirectories}

@@ -16,6 +16,11 @@ afterEach(() => {
       __SVARD_OPEN_DOCUMENT_ERRORS__?: unknown;
     }
   ).__SVARD_OPEN_DOCUMENT_ERRORS__;
+  delete (
+    window as unknown as {
+      __SVARD_DOCUMENT_ORDER__?: unknown;
+    }
+  ).__SVARD_DOCUMENT_ORDER__;
 });
 
 describe("MockHostAdapter", () => {
@@ -69,6 +74,47 @@ describe("MockHostAdapter", () => {
     expect(docsEntries.map((entry) => entry.name)).toContain(
       "markdown-sample.md",
     );
+  });
+
+  it("loads deterministic document order overrides", async () => {
+    const host = new MockHostAdapter();
+    (
+      window as unknown as {
+        __SVARD_DOCUMENT_ORDER__?: unknown;
+      }
+    ).__SVARD_DOCUMENT_ORDER__ = {
+      "/workspace": {
+        source: "mkdocs",
+        nodes: [
+          {
+            kind: "document",
+            title: "Home",
+            path: "/workspace/docs/index.md",
+            displayPath: "index.md",
+            depth: 0,
+            status: "resolved",
+          },
+        ],
+      },
+    };
+
+    await expect(host.loadDocumentOrder("/other")).resolves.toEqual({
+      source: "none",
+      nodes: [],
+    });
+    await expect(host.loadDocumentOrder("/workspace")).resolves.toEqual({
+      source: "mkdocs",
+      nodes: [
+        {
+          kind: "document",
+          title: "Home",
+          path: "/workspace/docs/index.md",
+          displayPath: "index.md",
+          depth: 0,
+          status: "resolved",
+        },
+      ],
+    });
   });
 
   it("opens Markdown fixture documents", async () => {

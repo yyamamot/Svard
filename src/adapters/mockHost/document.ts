@@ -2,6 +2,7 @@ import {
   authorizeDirectory,
   compareDocuments,
   listDirectory,
+  loadDocumentOrder,
   loadConfig,
   openDocument,
   openExternalUrl,
@@ -25,6 +26,7 @@ export type MockDocumentFacade = Pick<
   | "authorizeDirectory"
   | "openDocument"
   | "listDirectory"
+  | "loadDocumentOrder"
   | "loadConfig"
   | "saveConfig"
   | "resolveWorkspacePaths"
@@ -47,6 +49,7 @@ export function createMockDocumentFacade(): MockDocumentFacade {
     authorizeDirectory,
     openDocument,
     listDirectory,
+    loadDocumentOrder,
     loadConfig,
     saveConfig,
     resolveWorkspacePaths,

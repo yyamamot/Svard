@@ -7,12 +7,14 @@ use std::{
 use crate::app_error::AppError;
 use crate::backend_types::AllowedRoots;
 use crate::backend_types::{
-    AsciiDocRenderContext, DirectoryEntry, DocumentPayload, DocumentResourceContext, EntryKind,
-    WorkspaceSearchInput, WorkspaceSearchResult, WorkspaceSearchResultItem,
+    AsciiDocRenderContext, DirectoryEntry, DocumentOrderResult, DocumentPayload,
+    DocumentResourceContext, EntryKind, WorkspaceSearchInput, WorkspaceSearchResult,
+    WorkspaceSearchResultItem,
 };
 use crate::document_io_include::{
     asciidoc_attributes, collect_asciidoc_include_files_and_graph_with_base,
 };
+use crate::mkdocs_order::load_document_order_from_root;
 use crate::path_policy::{
     antora_module_root_for_page, display_safe_path, ensure_path_allowed,
     fallback_allowed_root_for_file, path_for_policy, path_to_ui_string,
@@ -289,6 +291,14 @@ pub(crate) fn list_directory(
     ensure_path_allowed(&directory_path, &roots).map_err(AppError::from)?;
     list_directory_from_canonical_path_with_roots(&directory_path, Some(&roots))
         .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub(crate) fn load_document_order(
+    root_directory: String,
+    roots: tauri::State<AllowedRoots>,
+) -> Result<DocumentOrderResult, AppError> {
+    load_document_order_from_root(&root_directory, &roots).map_err(AppError::from)
 }
 
 #[cfg(test)]
