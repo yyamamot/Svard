@@ -570,6 +570,127 @@ fn open_document_rejects_non_text_or_unsafe_include_files() {
 }
 
 #[test]
+fn open_document_blocks_protocol_and_absolute_include_targets_as_unsafe() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let document = docs.join("index.adoc");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::write(
+        &document,
+        "= Unsafe Targets\n\ninclude::file:../secrets.adoc[]\ninclude::asset:source.adoc[]\ninclude::https://example.invalid/source.adoc[]\ninclude::C:\\\\Users\\\\name\\\\secret.adoc[]\ninclude::\\\\\\\\server\\\\share\\\\secret.adoc[]\ninclude::/private/secret.adoc[]\ninclude::bad\u{0}target.adoc[]\n",
+    )
+    .expect("write document");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register root");
+    let payload = open_document_from_canonical_path_with_roots(
+        &document.canonicalize().expect("canonical document"),
+        Some(&roots),
+    )
+    .expect("open document");
+
+    assert!(payload.include_files.is_empty());
+    let include_graph = payload.include_graph.expect("include graph");
+    let include_nodes: Vec<_> = include_graph
+        .nodes
+        .iter()
+        .filter(|node| node.kind == "include")
+        .collect();
+    assert_eq!(include_nodes.len(), 7);
+    assert!(include_nodes
+        .iter()
+        .all(|node| node.status == "blocked" && node.reason.as_deref() == Some("unsafe")));
+    let graph_json = serde_json::to_string(&include_graph).expect("serialize include graph");
+    assert!(!graph_json.contains("https://example.invalid"));
+    assert!(!graph_json.contains("/private/secret"));
+    assert!(!graph_json.contains("C:\\"));
+    assert!(!graph_json.contains("\\\\server"));
+}
+
+#[test]
+fn skipped_conditional_include_does_not_read_target_or_leak_source() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let partials = project.join("partials");
+    let document = docs.join("index.adoc");
+    let skipped = partials.join("disabled.adoc");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::create_dir_all(&partials).expect("create partials");
+    fs::write(
+        &document,
+        "= Conditional\n\nifdef::disabled[]\ninclude::../partials/disabled.adoc[]\nendif::[]\n",
+    )
+    .expect("write document");
+    fs::write(&skipped, "== Disabled\n\nDo not read this source body.\n").expect("write skipped");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register root");
+    let payload = open_document_from_canonical_path_with_roots(
+        &document.canonicalize().expect("canonical document"),
+        Some(&roots),
+    )
+    .expect("open document");
+
+    assert!(payload.include_files.is_empty());
+    let include_graph = payload.include_graph.expect("include graph");
+    let graph_json = serde_json::to_string(&include_graph).expect("serialize include graph");
+    assert!(graph_json.contains("\"status\":\"skipped\""));
+    assert!(graph_json.contains("\"reason\":\"conditional\""));
+    assert!(!graph_json.contains("Do not read this source body"));
+    assert!(!graph_json.contains(&path_to_ui_string(&skipped.canonicalize().unwrap())));
+}
+
+#[cfg(unix)]
+#[test]
+fn open_document_blocks_symlink_escape_include_as_outside_root() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let partials = project.join("partials");
+    let outside = dir.path().join("outside");
+    let document = docs.join("index.adoc");
+    let outside_secret = outside.join("secret.adoc");
+    let symlink = partials.join("linked-secret.adoc");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::create_dir_all(&partials).expect("create partials");
+    fs::create_dir_all(&outside).expect("create outside");
+    fs::write(
+        &document,
+        "= Symlink\n\ninclude::../partials/linked-secret.adoc[]\n",
+    )
+    .expect("write document");
+    fs::write(
+        &outside_secret,
+        "== Outside\n\nOutside body must not render.\n",
+    )
+    .expect("write outside");
+    std::os::unix::fs::symlink(&outside_secret, &symlink).expect("create symlink");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register root");
+    let payload = open_document_from_canonical_path_with_roots(
+        &document.canonicalize().expect("canonical document"),
+        Some(&roots),
+    )
+    .expect("open document");
+
+    assert!(payload.include_files.is_empty());
+    let include_graph = payload.include_graph.expect("include graph");
+    let statuses: Vec<_> = include_graph
+        .nodes
+        .iter()
+        .filter(|node| node.kind == "include")
+        .map(|node| (node.status.as_str(), node.reason.as_deref()))
+        .collect();
+    assert_eq!(statuses, vec![("blocked", Some("outside-root"))]);
+    let graph_json = serde_json::to_string(&include_graph).expect("serialize include graph");
+    assert!(!graph_json.contains("Outside body must not render"));
+    assert!(!graph_json.contains(&path_to_ui_string(&outside_secret.canonicalize().unwrap())));
+}
+
+#[test]
 fn open_document_collects_proto_include_inside_source_block() {
     let dir = tempdir().expect("temp dir");
     let project = dir.path().join("project");

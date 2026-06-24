@@ -117,11 +117,25 @@ fn include_display_path(path: &Path) -> String {
 }
 
 fn include_target_display_path(target: &str) -> String {
-    Path::new(target)
+    let sanitized = target
+        .chars()
+        .filter(|ch| !ch.is_control())
+        .collect::<String>()
+        .replace('\\', "/");
+    let candidate = sanitized
+        .trim_matches('/')
+        .rsplit('/')
+        .next()
+        .and_then(|segment| segment.rsplit(':').next())
+        .map(str::trim)
+        .filter(|segment| !segment.is_empty())
+        .unwrap_or("include-target");
+    Path::new(candidate)
         .file_name()
         .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
         .map(str::to_string)
-        .unwrap_or_else(|| target.to_string())
+        .unwrap_or_else(|| "include-target".to_string())
 }
 
 pub(crate) fn asciidoc_attributes(source: &str) -> BTreeMap<String, String> {
@@ -204,11 +218,7 @@ fn collect_asciidoc_include_files_inner(
         if target.is_empty() {
             continue;
         }
-        if target.starts_with('/')
-            || target.contains("://")
-            || target.starts_with("http:")
-            || target.starts_with("https:")
-        {
+        if is_unsafe_include_target(&target) {
             graph.add_include(
                 parent_id,
                 include_target_display_path(&target),
@@ -384,6 +394,31 @@ fn include_target_from_line(
     let rest = trimmed.strip_prefix("include::")?;
     let (target, _attributes) = rest.split_once('[')?;
     Some(substitute_asciidoc_attributes(target.trim(), attributes))
+}
+
+fn is_unsafe_include_target(target: &str) -> bool {
+    let trimmed = target.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+    if trimmed
+        .chars()
+        .any(|ch| ch == '\0' || (ch.is_control() && ch != '\t'))
+    {
+        return true;
+    }
+    if trimmed.starts_with('/') || trimmed.starts_with('\\') {
+        return true;
+    }
+    if trimmed.len() >= 2 {
+        let bytes = trimmed.as_bytes();
+        if bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+            return true;
+        }
+    }
+    let colon_index = trimmed.find(':');
+    let slash_index = trimmed.find(['/', '\\']);
+    colon_index.is_some_and(|colon| slash_index.map_or(true, |slash| colon < slash))
 }
 
 fn substitute_asciidoc_attributes(value: &str, attributes: &BTreeMap<String, String>) -> String {
