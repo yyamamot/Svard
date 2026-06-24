@@ -33,10 +33,12 @@ fn default_config_keeps_kroki_disabled() {
     assert_eq!(config.workspace.sidebar_tab, "files");
     assert_eq!(config.workspace.source_control_view, "changes");
     assert_eq!(config.workspace.source_control_graph_scope, "repository");
-    assert!(config
-        .workspace
-        .source_control_branch_diff_base_ref
-        .is_none());
+    assert!(
+        config
+            .workspace
+            .source_control_branch_diff_base_ref
+            .is_none()
+    );
     assert!(config.workspace.bookmarks.is_empty());
     assert!(config.workspace.window_sessions.is_empty());
     assert!(config.workspace.restorable_window_session_ids.is_empty());

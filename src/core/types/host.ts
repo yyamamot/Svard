@@ -11,7 +11,7 @@ import type {
 } from "./config";
 import type {
   DirectoryEntry,
-  DocumentOrderResult,
+  DocumentOrderCatalog,
   DocumentLinkResolution,
   DocumentLinkResolutionInput,
   DocumentPayload,
@@ -102,7 +102,7 @@ export interface HostAdapter {
   authorizeDirectory(path: string): Promise<void>;
   openDocument(path: string): Promise<DocumentPayload>;
   listDirectory(path: string): Promise<DirectoryEntry[]>;
-  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderResult>;
+  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderCatalog>;
   searchWorkspace(input: WorkspaceSearchInput): Promise<WorkspaceSearchResult>;
   loadConfig(): Promise<AppConfig>;
   saveConfig(config: AppConfig): Promise<void>;

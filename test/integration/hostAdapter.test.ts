@@ -84,34 +84,41 @@ describe("MockHostAdapter", () => {
       }
     ).__SVARD_DOCUMENT_ORDER__ = {
       "/workspace": {
-        source: "mkdocs",
-        nodes: [
+        orders: [
           {
-            kind: "document",
-            title: "Home",
-            path: "/workspace/docs/index.md",
-            displayPath: "index.md",
-            depth: 0,
-            status: "resolved",
+            source: "mkdocs",
+            nodes: [
+              {
+                kind: "document",
+                title: "Home",
+                path: "/workspace/docs/index.md",
+                displayPath: "index.md",
+                depth: 0,
+                status: "resolved",
+              },
+            ],
           },
         ],
       },
     };
 
     await expect(host.loadDocumentOrder("/other")).resolves.toEqual({
-      source: "none",
-      nodes: [],
+      orders: [],
     });
     await expect(host.loadDocumentOrder("/workspace")).resolves.toEqual({
-      source: "mkdocs",
-      nodes: [
+      orders: [
         {
-          kind: "document",
-          title: "Home",
-          path: "/workspace/docs/index.md",
-          displayPath: "index.md",
-          depth: 0,
-          status: "resolved",
+          source: "mkdocs",
+          nodes: [
+            {
+              kind: "document",
+              title: "Home",
+              path: "/workspace/docs/index.md",
+              displayPath: "index.md",
+              depth: 0,
+              status: "resolved",
+            },
+          ],
         },
       ],
     });

@@ -10,22 +10,14 @@ use crate::{
         AllowedRoots, DocumentOrderDocumentStatus, DocumentOrderNode, DocumentOrderResult,
         DocumentOrderSource,
     },
-    path_policy::{
-        display_safe_path, ensure_path_allowed, path_for_policy, path_to_ui_string,
-        resolve_existing_directory_path,
+    document_order_common::{
+        display_title_from_path, is_external_or_absolute_target, mapping_get, none_result,
+        normalize_document_order_target_path,
     },
+    path_policy::{ensure_path_allowed, path_to_ui_string},
 };
 
 const MKDOCS_CONFIG_NAMES: [&str; 2] = ["mkdocs.yml", "mkdocs.yaml"];
-
-pub(crate) fn load_document_order_from_root(
-    root_directory: &str,
-    roots: &AllowedRoots,
-) -> Result<DocumentOrderResult, String> {
-    let root = resolve_existing_directory_path(Path::new(root_directory))?;
-    ensure_path_allowed(&root, roots)?;
-    Ok(load_mkdocs_order_from_root(&root, roots))
-}
 
 pub(crate) fn load_mkdocs_order_from_root(
     root: &Path,
@@ -79,14 +71,6 @@ pub(crate) fn load_mkdocs_order_from_root(
     }
 }
 
-fn none_result(message: Option<String>) -> DocumentOrderResult {
-    DocumentOrderResult {
-        source: DocumentOrderSource::None,
-        nodes: Vec::new(),
-        message,
-    }
-}
-
 fn find_mkdocs_config(root: &Path) -> Option<PathBuf> {
     MKDOCS_CONFIG_NAMES
         .iter()
@@ -99,10 +83,6 @@ fn docs_dir_for_config(config_dir: &Path, mapping: &Mapping) -> PathBuf {
         .and_then(Value::as_str)
         .map(|value| config_dir.join(value))
         .unwrap_or_else(|| config_dir.join("docs"))
-}
-
-fn mapping_get<'a>(mapping: &'a Mapping, key: &str) -> Option<&'a Value> {
-    mapping.get(&Value::String(key.to_string()))
 }
 
 fn parse_nav_sequence(
@@ -167,7 +147,7 @@ fn nav_document(
         };
     }
 
-    let candidate = normalize_mkdocs_target_path(&docs_dir.join(target));
+    let candidate = normalize_document_order_target_path(&docs_dir.join(target));
     let (path, status) = if ensure_path_allowed(&candidate, roots).is_err() {
         (String::new(), DocumentOrderDocumentStatus::Unsupported)
     } else if candidate.is_file() {
@@ -188,44 +168,6 @@ fn nav_document(
     }
 }
 
-fn normalize_mkdocs_target_path(path: &Path) -> PathBuf {
-    path.canonicalize()
-        .map(|canonical| path_for_policy(&canonical))
-        .unwrap_or_else(|_| {
-            path.parent()
-                .and_then(|parent| parent.canonicalize().ok())
-                .map(|parent| path_for_policy(&parent).join(path.file_name().unwrap_or_default()))
-                .unwrap_or_else(|| path_for_policy(path))
-        })
-}
-
-fn is_external_or_absolute_target(target: &str) -> bool {
-    target.starts_with("http://")
-        || target.starts_with("https://")
-        || target.starts_with("//")
-        || target.starts_with('/')
-        || Path::new(target).is_absolute()
-        || target.contains('\\')
-        || looks_like_windows_drive_path(target)
-        || target.contains("://")
-}
-
-fn looks_like_windows_drive_path(target: &str) -> bool {
-    let bytes = target.as_bytes();
-    bytes.len() >= 3
-        && bytes[0].is_ascii_alphabetic()
-        && bytes[1] == b':'
-        && (bytes[2] == b'/' || bytes[2] == b'\\')
-}
-
-fn display_title_from_path(path: &str) -> String {
-    Path::new(path)
-        .file_stem()
-        .map(|value| value.to_string_lossy().to_string())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| display_safe_path(Path::new(path)))
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
@@ -233,6 +175,7 @@ mod tests {
     use tempfile::tempdir;
 
     use super::*;
+    use crate::path_policy::path_for_policy;
 
     fn roots_for(path: &Path) -> AllowedRoots {
         AllowedRoots(Mutex::new([path_for_policy(path)].into_iter().collect()))

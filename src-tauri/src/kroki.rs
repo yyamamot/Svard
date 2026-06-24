@@ -1,11 +1,11 @@
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use sha2::{Digest, Sha256};
 use std::{fs, io::Read, path::Path, time::Duration};
 use url::Url;
 
 use crate::{
-    prune_cache_dir, remove_oversized_cache_file, touch_cache_file, KrokiConfig, KrokiRequest,
-    KrokiResult,
+    KrokiConfig, KrokiRequest, KrokiResult, prune_cache_dir, remove_oversized_cache_file,
+    touch_cache_file,
 };
 
 pub(crate) const PUBLIC_KROKI_ENDPOINT: &str = "https://kroki.io";
@@ -199,7 +199,7 @@ pub(crate) fn render_diagram_with_cache_dir(
             Err(_) => {
                 return Ok(error_result(
                     "Kroki SVG response is not valid UTF-8.".to_string(),
-                ))
+                ));
             }
         }
     };

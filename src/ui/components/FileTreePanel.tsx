@@ -26,6 +26,7 @@ import {
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import type {
   DirectoryEntry,
+  DocumentOrderCatalog,
   DocumentOrderNode,
   DocumentOrderResult,
   GitChanges,
@@ -33,12 +34,21 @@ import type {
 } from "../../core/types";
 
 const EMPTY_OPEN_DOCUMENT_PATHS: ReadonlySet<string> = new Set();
-type FilesViewMode = "tree" | "documents-path" | "documents-mkdocs";
+type FilesViewMode =
+  | "tree"
+  | "documents-path"
+  | "documents-mkdocs"
+  | "documents-antora";
+type DocumentOrderSectionOptions = {
+  sectionReviewId: string;
+  notInNavReviewId: string;
+  notInNavLabel: string;
+};
 
 interface FileTreePanelProps {
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
-  documentOrder?: DocumentOrderResult;
+  documentOrder?: DocumentOrderCatalog;
   childrenByDirectory: Record<string, DirectoryEntry[]>;
   expandedDirectories: Set<string>;
   loadingDirectories: Set<string>;
@@ -59,7 +69,7 @@ interface FileTreePanelProps {
 export function FileTreePanel({
   rootDirectory,
   rootEntries,
-  documentOrder = { source: "none", nodes: [] },
+  documentOrder = { orders: [] },
   childrenByDirectory,
   expandedDirectories,
   loadingDirectories,
@@ -82,6 +92,8 @@ export function FileTreePanel({
     "all",
   );
   const [viewModeMenuOpen, setViewModeMenuOpen] = useState(false);
+  const [expandedDocumentOrderSections, setExpandedDocumentOrderSections] =
+    useState<Set<string>>(() => new Set());
   const openMenuRef = useRef<HTMLDivElement | null>(null);
   const viewModeMenuRef = useRef<HTMLDivElement | null>(null);
   const fileTreeGitStatusByPath = useMemo(
@@ -131,11 +143,15 @@ export function FileTreePanel({
     openDocumentPaths,
     rootDirectory,
   ]);
+  const documentRowsByPath = useMemo(
+    () => new Map(documentRows.map((row) => [row.entry.path, row])),
+    [documentRows],
+  );
   const visibleDocumentRows = useMemo(() => {
     if (documentsFilter !== "changed") {
       return documentRows;
     }
-    if (viewMode === "documents-mkdocs") {
+    if (isOrderedDocumentsMode(viewMode)) {
       return documentRows.filter((row) => row.isChanged);
     }
     return [...documentRows.filter((row) => row.isChanged)].sort(
@@ -145,11 +161,21 @@ export function FileTreePanel({
     );
   }, [documentRows, documentsFilter, viewMode]);
 
+  const mkdocsOrder = documentOrder.orders.find(
+    (order) => order.source === "mkdocs",
+  );
+  const antoraOrder = documentOrder.orders.find(
+    (order) => order.source === "antora",
+  );
+
   useEffect(() => {
-    if (documentOrder.source !== "mkdocs" && viewMode === "documents-mkdocs") {
+    if (viewMode === "documents-mkdocs" && !mkdocsOrder) {
       setViewMode("documents-path");
     }
-  }, [documentOrder.source, viewMode]);
+    if (viewMode === "documents-antora" && !antoraOrder) {
+      setViewMode("documents-path");
+    }
+  }, [antoraOrder, mkdocsOrder, viewMode]);
 
   useEffect(() => {
     if (!openMenuOpen) {
@@ -213,6 +239,18 @@ export function FileTreePanel({
     setViewModeMenuOpen(false);
   }
 
+  function toggleDocumentOrderSection(sectionKey: string) {
+    setExpandedDocumentOrderSections((current) => {
+      const next = new Set(current);
+      if (next.has(sectionKey)) {
+        next.delete(sectionKey);
+      } else {
+        next.add(sectionKey);
+      }
+      return next;
+    });
+  }
+
   function renderTreeEntries(parentPath: string, depth: number): ReactNode {
     const entries = childrenByDirectory[parentPath] ?? [];
 
@@ -240,9 +278,10 @@ export function FileTreePanel({
           : undefined;
       const canDragCompare =
         !isDirectory && isSupportedDocumentPath(entry.path);
+      const isOpenDocument = !isDirectory && openDocumentPaths.has(entry.path);
       const openLabel = isDirectory
         ? `${entry.name}, ${isExpanded ? "expanded" : "collapsed"}`
-        : entry.name;
+        : `${entry.name}${isOpenDocument ? ", open" : ""}`;
 
       return (
         <div key={entry.path} className="tree-node" data-review-id="tree-node">
@@ -276,6 +315,7 @@ export function FileTreePanel({
               directoryGitStatus ? directoryGitStatus.untrackedCount : undefined
             }
             data-git-status-label={gitStatusBadgeLabel}
+            data-document-open={isOpenDocument ? "true" : undefined}
             title={gitStatus ? `${entry.path} · ${gitStatus.label}` : undefined}
             aria-label={
               gitStatus ? `${entry.name}, ${gitStatus.label}` : undefined
@@ -328,6 +368,9 @@ export function FileTreePanel({
               )}
               {isDirectory ? <FolderOpen size={15} /> : <FileText size={15} />}
               <span className="tree-label">{entry.name}</span>
+              {isOpenDocument ? (
+                <span className="documents-view-open-indicator">open</span>
+              ) : null}
             </button>
             {fileGitStatus ? (
               <button
@@ -389,7 +432,16 @@ export function FileTreePanel({
       );
     }
 
+    const activeOrder = activeDocumentOrder();
     if (documentRows.length === 0) {
+      if (activeOrder && documentsFilter !== "changed") {
+        return (
+          <>
+            {renderDocumentsSourceFilter()}
+            {renderOrderedDocumentEntries(activeOrder.order, activeOrder.options)}
+          </>
+        );
+      }
       return (
         <div className="documents-view-empty" data-review-id="documents-view-empty">
           <strong>No loaded documents</strong>
@@ -412,38 +464,84 @@ export function FileTreePanel({
     return (
       <>
         {renderDocumentsSourceFilter()}
-        {viewMode === "documents-mkdocs" && documentOrder.source === "mkdocs"
-          ? renderMkdocsDocumentEntries()
+        {activeOrder
+          ? renderOrderedDocumentEntries(activeOrder.order, activeOrder.options)
           : visibleDocumentRows.map((row) => renderDocumentRow(row))}
       </>
     );
   }
 
-  function renderMkdocsDocumentEntries(): ReactNode {
+  function activeDocumentOrder():
+    | {
+        order: DocumentOrderResult;
+        options: DocumentOrderSectionOptions;
+      }
+    | null {
+    if (viewMode === "documents-mkdocs" && mkdocsOrder) {
+      return {
+        order: mkdocsOrder,
+        options: {
+          sectionReviewId: "documents-mkdocs-section",
+          notInNavReviewId: "documents-mkdocs-not-in-nav",
+          notInNavLabel: "Not in mkdocs.yml",
+        },
+      };
+    }
+    if (viewMode === "documents-antora" && antoraOrder) {
+      return {
+        order: antoraOrder,
+        options: {
+          sectionReviewId: "documents-antora-section",
+          notInNavReviewId: "documents-antora-not-in-nav",
+          notInNavLabel: "Not in antora.yml nav",
+        },
+      };
+    }
+    return null;
+  }
+
+  function renderOrderedDocumentEntries(
+    order: DocumentOrderResult,
+    options: DocumentOrderSectionOptions,
+  ): ReactNode {
     const visibleRowsByPath = new Map(
       visibleDocumentRows.map((row) => [row.entry.path, row]),
     );
-    const navPaths = collectDocumentOrderPaths(documentOrder.nodes);
+    const navPaths = collectDocumentOrderPaths(order.nodes);
     const orderedNodes = renderDocumentOrderNodes(
-      documentOrder.nodes,
+      order.nodes,
       visibleRowsByPath,
+      order.source,
+      options,
+      [],
     );
     const notInNavRows = visibleDocumentRows.filter(
       (row) => !navPaths.has(row.entry.path),
     );
+    const notInNavSectionKey = documentOrderSectionKey(
+      order.source,
+      ["not-in-nav"],
+      options.notInNavLabel,
+      0,
+    );
+    const notInNavExpanded =
+      expandedDocumentOrderSections.has(notInNavSectionKey);
 
     return (
       <>
         {orderedNodes}
         {notInNavRows.length > 0 ? (
-          <div
-            className="documents-order-section"
-            data-review-id="documents-mkdocs-not-in-nav"
-          >
-            Not in mkdocs.yml
-          </div>
+          renderDocumentOrderSectionHeader({
+            key: notInNavSectionKey,
+            title: options.notInNavLabel,
+            depth: 0,
+            reviewId: options.notInNavReviewId,
+            collapsed: !notInNavExpanded,
+          })
         ) : null}
-        {notInNavRows.map((row) => renderDocumentRow(row))}
+        {notInNavExpanded
+          ? notInNavRows.map((row) => renderDocumentRow(row))
+          : null}
       </>
     );
   }
@@ -451,23 +549,46 @@ export function FileTreePanel({
   function renderDocumentOrderNodes(
     nodes: DocumentOrderNode[],
     visibleRowsByPath: Map<string, (typeof documentRows)[number]>,
+    source: DocumentOrderResult["source"],
+    options: DocumentOrderSectionOptions,
+    ancestry: string[],
   ): ReactNode[] {
     const result: ReactNode[] = [];
     nodes.forEach((node, index) => {
       if (node.kind === "section") {
-        const children = renderDocumentOrderNodes(node.children, visibleRowsByPath);
-        if (children.length > 0) {
-          result.push(
-            <div
-              key={`section-${node.depth}-${index}-${node.title}`}
-              className="documents-order-section"
-              data-review-id="documents-mkdocs-section"
-              style={{ paddingLeft: `${4 + node.depth * 12}px` }}
-            >
-              {node.title}
-            </div>,
-            ...children,
+        const sectionAncestry = [...ancestry, String(index)];
+        const sectionDocument = sectionHeaderDocument(node);
+        const childNodes = sectionDocument
+          ? node.children.slice(1)
+          : node.children;
+        const children = renderDocumentOrderNodes(
+          childNodes,
+          visibleRowsByPath,
+          source,
+          options,
+          sectionAncestry,
+        );
+        if (children.length > 0 || sectionDocument) {
+          const sectionKey = documentOrderSectionKey(
+            source,
+            sectionAncestry,
+            node.title,
+            node.depth,
           );
+          const expanded = expandedDocumentOrderSections.has(sectionKey);
+          result.push(
+            renderDocumentOrderSectionHeader({
+              key: sectionKey,
+              title: node.title,
+              depth: node.depth,
+              reviewId: options.sectionReviewId,
+              collapsed: !expanded,
+              document: sectionDocument,
+            }),
+          );
+          if (expanded) {
+            result.push(...children);
+          }
         }
         return;
       }
@@ -476,6 +597,8 @@ export function FileTreePanel({
         const row = visibleRowsByPath.get(node.path);
         if (row) {
           result.push(renderDocumentRow(row, node.title, node.depth));
+        } else if (documentsFilter !== "changed") {
+          result.push(renderOrderDocumentRow(node, index));
         }
         return;
       }
@@ -488,6 +611,81 @@ export function FileTreePanel({
       }
     });
     return result;
+  }
+
+  function renderDocumentOrderSectionHeader({
+    key,
+    title,
+    depth,
+    reviewId,
+    collapsed,
+    document,
+  }: {
+    key: string;
+    title: string;
+    depth: number;
+    reviewId: string;
+    collapsed: boolean;
+    document?: Extract<DocumentOrderNode, { kind: "document" }>;
+  }): ReactNode {
+    const documentRow =
+      document?.status === "resolved"
+        ? documentRowsByPath.get(document.path)
+        : undefined;
+    const documentPath = documentRow?.entry.path ?? document?.path;
+    const documentOpen = documentPath ? openDocumentPaths.has(documentPath) : false;
+    const documentActive = activePath === documentPath;
+    const documentDisplayPath = documentRow?.relativePath ?? document?.displayPath;
+    const sectionTitle = (
+      <>
+        <span className="documents-view-row-title">
+          <span className="tree-label">{title}</span>
+          {documentOpen ? (
+            <span className="documents-view-open-indicator">open</span>
+          ) : null}
+        </span>
+        {documentDisplayPath ? (
+          <span className="documents-view-row-path">{documentDisplayPath}</span>
+        ) : null}
+      </>
+    );
+    return (
+      <div
+        key={key}
+        className={`documents-order-section ${document ? "documents-order-document-section" : ""} ${documentActive ? "active" : ""}`}
+        data-review-id={reviewId}
+        data-document-order-section-state={collapsed ? "collapsed" : "expanded"}
+        data-document-order-section-document={document ? "true" : undefined}
+        data-path={documentPath}
+        style={{ paddingLeft: `${8 + depth * 12}px` }}
+      >
+        <button
+          type="button"
+          className="documents-order-section-toggle"
+          data-review-id="documents-order-section-toggle"
+          aria-expanded={!collapsed}
+          aria-label={`${collapsed ? "Expand" : "Collapse"} ${title}`}
+          onClick={() => toggleDocumentOrderSection(key)}
+        >
+          {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+        </button>
+        {documentPath ? (
+          <button
+            type="button"
+            className="documents-order-section-main"
+            data-review-id="documents-order-section-open"
+            aria-label={`Open ${title}`}
+            title={`Open ${title}`}
+            onClick={() => onOpenFile(documentPath)}
+          >
+            <FileText size={15} />
+            <span className="documents-view-row-text">{sectionTitle}</span>
+          </button>
+        ) : (
+          <span className="documents-order-section-label">{title}</span>
+        )}
+      </div>
+    );
   }
 
   function renderDocumentRow(
@@ -541,13 +739,13 @@ export function FileTreePanel({
         >
           <FileText size={15} />
           <span className="documents-view-row-text">
-            <span className="tree-label">{titleOverride ?? entry.name}</span>
-            <span className="documents-view-row-path">
-              {row.relativePath}
+            <span className="documents-view-row-title">
+              <span className="tree-label">{titleOverride ?? entry.name}</span>
               {row.isOpen ? (
                 <span className="documents-view-open-indicator">open</span>
               ) : null}
             </span>
+            <span className="documents-view-row-path">{row.relativePath}</span>
           </span>
         </button>
         {row.gitStatus ? (
@@ -566,6 +764,62 @@ export function FileTreePanel({
             {row.gitStatus.shortLabel}
           </button>
         ) : null}
+      </div>
+    );
+  }
+
+  function renderOrderDocumentRow(
+    node: Extract<DocumentOrderNode, { kind: "document" }>,
+    index: number,
+  ): ReactNode {
+    const isOpen = openDocumentPaths.has(node.path);
+    return (
+      <div
+        key={`order-${node.depth}-${index}-${node.path}`}
+        className="tree-row file documents-view-row documents-view-row-order"
+        data-review-id="documents-view-row"
+        data-context-menu-kind="file-tree"
+        data-path={node.path}
+        data-entry-kind="file"
+        data-document-status="resolved"
+        data-document-open={isOpen ? "true" : undefined}
+        title={node.path}
+        aria-label={`${node.title}${isOpen ? ", open" : ""}`}
+        draggable
+        onPointerDown={() => {
+          prepareFileCompareDragData(node.path);
+        }}
+        onDragStart={(event) => {
+          writeFileCompareDragData(event.dataTransfer, node.path);
+        }}
+        onDragEnd={() => scheduleClearFileCompareDragData()}
+      >
+        <button
+          type="button"
+          className="tree-row-main documents-view-row-main"
+          style={{ paddingLeft: `${8 + node.depth * 12}px` }}
+          aria-label={node.title}
+          draggable
+          onPointerDown={() => {
+            prepareFileCompareDragData(node.path);
+          }}
+          onDragStart={(event) => {
+            writeFileCompareDragData(event.dataTransfer, node.path);
+          }}
+          onDragEnd={() => scheduleClearFileCompareDragData()}
+          onClick={() => onOpenFile(node.path)}
+        >
+          <FileText size={15} />
+          <span className="documents-view-row-text">
+            <span className="documents-view-row-title">
+              <span className="tree-label">{node.title}</span>
+              {isOpen ? (
+                <span className="documents-view-open-indicator">open</span>
+              ) : null}
+            </span>
+            <span className="documents-view-row-path">{node.displayPath}</span>
+          </span>
+        </button>
       </div>
     );
   }
@@ -754,11 +1008,27 @@ export function FileTreePanel({
                   aria-checked={viewMode === "documents-mkdocs"}
                   aria-label="Documents only: MkDocs order"
                   title="Documents only: MkDocs order"
-                  disabled={documentOrder.source !== "mkdocs"}
+                  disabled={!mkdocsOrder}
                   onClick={() => pickViewMode("documents-mkdocs")}
                 >
                   <FileText size={15} />
                   <span>Docs: MkDocs</span>
+                </button>
+                <button
+                  type="button"
+                  className={`file-tree-open-menu-item ${
+                    viewMode === "documents-antora" ? "active" : ""
+                  }`}
+                  data-review-id="documents-view-mode-antora"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "documents-antora"}
+                  aria-label="Documents only: Antora order"
+                  title="Documents only: Antora order"
+                  disabled={!antoraOrder}
+                  onClick={() => pickViewMode("documents-antora")}
+                >
+                  <FileText size={15} />
+                  <span>Docs: Antora</span>
                 </button>
               </div>
             )}
@@ -840,6 +1110,33 @@ function changedDocumentStatusRank(status?: GitDiffStatus) {
     default:
       return 99;
   }
+}
+
+function isOrderedDocumentsMode(viewMode: FilesViewMode): boolean {
+  return viewMode === "documents-mkdocs" || viewMode === "documents-antora";
+}
+
+function documentOrderSectionKey(
+  source: DocumentOrderResult["source"],
+  ancestry: string[],
+  title: string,
+  depth: number,
+): string {
+  return `${source}:${ancestry.join(".")}:${depth}:${title}`;
+}
+
+function sectionHeaderDocument(
+  node: Extract<DocumentOrderNode, { kind: "section" }>,
+): Extract<DocumentOrderNode, { kind: "document" }> | undefined {
+  const firstChild = node.children[0];
+  if (
+    firstChild?.kind === "document" &&
+    firstChild.status === "resolved" &&
+    firstChild.title === node.title
+  ) {
+    return firstChild;
+  }
+  return undefined;
 }
 
 function collectDocumentOrderPaths(nodes: DocumentOrderNode[]): Set<string> {

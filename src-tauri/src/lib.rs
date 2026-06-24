@@ -3,15 +3,16 @@ use std::{
     env,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicU64, Ordering},
         Mutex,
+        atomic::{AtomicU64, Ordering},
     },
     time::{SystemTime, UNIX_EPOCH},
 };
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
-use tauri::{window::Color, Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder, window::Color};
 
+mod antora_order;
 mod app_error;
 mod backend_types;
 mod cache_prune;
@@ -19,6 +20,8 @@ mod config;
 mod desktop_open;
 mod document_io;
 mod document_io_include;
+mod document_order;
+mod document_order_common;
 mod git_diff;
 mod kroki;
 mod local_assets;
@@ -38,8 +41,8 @@ use config::*;
 use desktop_open::*;
 use document_io::*;
 pub use git_diff::{
-    git_file_history_for_path_with_cache, GitFileHistory, GitFileHistoryCacheState,
-    GitFileHistoryCacheStatus, GitFileHistoryMetrics, GitFileHistoryStatus,
+    GitFileHistory, GitFileHistoryCacheState, GitFileHistoryCacheStatus, GitFileHistoryMetrics,
+    GitFileHistoryStatus, git_file_history_for_path_with_cache,
 };
 use kroki::*;
 use local_assets::*;

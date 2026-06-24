@@ -1,4 +1,4 @@
-use filetime::{set_file_mtime, FileTime};
+use filetime::{FileTime, set_file_mtime};
 use std::{
     fs,
     path::{Path, PathBuf},

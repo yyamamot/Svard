@@ -472,6 +472,51 @@ describe("FileTreePanel path display", () => {
     expect(onOpenFile).not.toHaveBeenCalled();
   });
 
+  it("marks open documents in the regular File Tree", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "README.md", path: "/workspace/README.md", kind: "file" },
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "README.md", path: "/workspace/README.md", kind: "file" },
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          openDocumentPaths={new Set(["/workspace/README.md"])}
+          activePath="/workspace/README.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    const readmeRow = container.querySelector(
+      '[data-review-id="tree-file"][data-path="/workspace/README.md"]',
+    );
+    expect(readmeRow?.getAttribute("data-document-open")).toBe("true");
+    expect(readmeRow?.textContent).toContain("open");
+    const docsRow = container.querySelector(
+      '[data-review-id="tree-folder-toggle"][data-path="/workspace/docs"]',
+    );
+    expect(docsRow?.getAttribute("data-document-open")).toBeNull();
+    expect(docsRow?.textContent).not.toContain("open");
+  });
+
   it("keeps directory count badges non-clickable", async () => {
     await act(async () => {
       root.render(
@@ -653,36 +698,40 @@ describe("FileTreePanel path display", () => {
           gitStatusByPath={{}}
           gitChanges={null}
           documentOrder={{
-            source: "mkdocs",
-            nodes: [
+            orders: [
               {
-                kind: "document",
-                title: "Home",
-                path: "/workspace/docs/index.md",
-                displayPath: "index.md",
-                depth: 0,
-                status: "resolved",
-              },
-              {
-                kind: "section",
-                title: "Guide",
-                depth: 0,
-                children: [
+                source: "mkdocs",
+                nodes: [
                   {
                     kind: "document",
-                    title: "Last",
-                    path: "/workspace/docs/z-last.md",
-                    displayPath: "z-last.md",
-                    depth: 1,
+                    title: "Home",
+                    path: "/workspace/docs/index.md",
+                    displayPath: "index.md",
+                    depth: 0,
                     status: "resolved",
                   },
                   {
-                    kind: "document",
-                    title: "Missing",
-                    path: "",
-                    displayPath: "missing.md",
-                    depth: 1,
-                    status: "missing",
+                    kind: "section",
+                    title: "Guide",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Last",
+                        path: "/workspace/docs/z-last.md",
+                        displayPath: "z-last.md",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "document",
+                        title: "Missing",
+                        path: "",
+                        displayPath: "missing.md",
+                        depth: 1,
+                        status: "missing",
+                      },
+                    ],
                   },
                 ],
               },
@@ -711,6 +760,18 @@ describe("FileTreePanel path display", () => {
       container.querySelector('[data-review-id="documents-mkdocs-not-in-nav"]')
         ?.textContent,
     ).toContain("Not in mkdocs.yml");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-mkdocs-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-mkdocs-not-in-nav"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
     const rows = [
       ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
     ];
@@ -720,6 +781,623 @@ describe("FileTreePanel path display", () => {
       expect.stringContaining("Missing"),
       expect.stringContaining("extra.md"),
     ]);
+  });
+
+  it("collapses MkDocs order sections and not-in-nav groups", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "extra.md",
+                path: "/workspace/docs/extra.md",
+                kind: "file",
+              },
+              {
+                name: "index.md",
+                path: "/workspace/docs/index.md",
+                kind: "file",
+              },
+              {
+                name: "last.md",
+                path: "/workspace/docs/last.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "mkdocs",
+                nodes: [
+                  {
+                    kind: "document",
+                    title: "Home",
+                    path: "/workspace/docs/index.md",
+                    displayPath: "index.md",
+                    depth: 0,
+                    status: "resolved",
+                  },
+                  {
+                    kind: "section",
+                    title: "Guide",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Last",
+                        path: "/workspace/docs/last.md",
+                        displayPath: "last.md",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "document",
+                        title: "Missing",
+                        path: "",
+                        displayPath: "missing.md",
+                        depth: 1,
+                        status: "missing",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/docs/index.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-mkdocs");
+
+    const guideToggle = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="documents-mkdocs-section"] [data-review-id="documents-order-section-toggle"]',
+    );
+    expect(guideToggle?.getAttribute("aria-expanded")).toBe("false");
+
+    await act(async () => {
+      guideToggle?.click();
+    });
+    expect(guideToggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      container.querySelector('[data-review-id="documents-mkdocs-section"]')
+        ?.getAttribute("data-document-order-section-state"),
+    ).toBe("expanded");
+
+    let rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Home"),
+      expect.stringContaining("Last"),
+      expect.stringContaining("Missing"),
+    ]);
+
+    const notInNavToggle = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="documents-mkdocs-not-in-nav"] [data-review-id="documents-order-section-toggle"]',
+    );
+    expect(notInNavToggle?.getAttribute("aria-expanded")).toBe("false");
+    await act(async () => {
+      notInNavToggle?.click();
+    });
+    rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Home"),
+      expect.stringContaining("Last"),
+      expect.stringContaining("Missing"),
+      expect.stringContaining("extra.md"),
+    ]);
+  });
+
+  it("orders Documents view by Antora nav when selected", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "modules", path: "/workspace/modules", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "modules", path: "/workspace/modules", kind: "directory" },
+            ],
+            "/workspace/modules/ROOT/pages": [
+              {
+                name: "extra.adoc",
+                path: "/workspace/modules/ROOT/pages/extra.adoc",
+                kind: "file",
+              },
+              {
+                name: "index.adoc",
+                path: "/workspace/modules/ROOT/pages/index.adoc",
+                kind: "file",
+              },
+            ],
+            "/workspace/modules/admin/pages": [
+              {
+                name: "users.adoc",
+                path: "/workspace/modules/admin/pages/users.adoc",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "antora",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "Product",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Home",
+                        path: "/workspace/modules/ROOT/pages/index.adoc",
+                        displayPath: "index.adoc",
+                        depth: 0,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "document",
+                        title: "Users",
+                        path: "/workspace/modules/admin/pages/users.adoc",
+                        displayPath: "admin:users.adoc",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "document",
+                        title: "Missing",
+                        path: "",
+                        displayPath: "missing.adoc",
+                        depth: 1,
+                        status: "missing",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/modules/ROOT/pages/index.adoc"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-antora");
+
+    expect(
+      container.querySelector('[data-review-id="documents-antora-section"]')
+        ?.textContent,
+    ).toContain("Product");
+    expect(
+      container.querySelector('[data-review-id="documents-antora-not-in-nav"]')
+        ?.textContent,
+    ).toContain("Not in antora.yml nav");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-antora-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-antora-not-in-nav"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Home"),
+      expect.stringContaining("Users"),
+      expect.stringContaining("Missing"),
+      expect.stringContaining("extra.adoc"),
+    ]);
+  });
+
+  it("collapses Antora order sections with the shared section toggle", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "modules", path: "/workspace/modules", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "modules", path: "/workspace/modules", kind: "directory" },
+            ],
+            "/workspace/modules/ROOT/pages": [
+              {
+                name: "extra.adoc",
+                path: "/workspace/modules/ROOT/pages/extra.adoc",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "antora",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "Product",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Home",
+                        path: "/workspace/modules/ROOT/pages/index.adoc",
+                        displayPath: "index.adoc",
+                        depth: 0,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "document",
+                        title: "Missing",
+                        path: "",
+                        displayPath: "missing.adoc",
+                        depth: 1,
+                        status: "missing",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/modules/ROOT/pages/index.adoc"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-antora");
+
+    const toggle = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="documents-antora-section"] [data-review-id="documents-order-section-toggle"]',
+    );
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+
+    await act(async () => {
+      toggle?.click();
+    });
+
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      container.querySelector('[data-review-id="documents-antora-section"]')
+        ?.getAttribute("data-document-order-section-state"),
+    ).toBe("expanded");
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Home"),
+      expect.stringContaining("Missing"),
+    ]);
+  });
+
+  it("renders Antora parent xref as a collapsible document section without duplicate row", async () => {
+    const onOpenFile = vi.fn();
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "modules", path: "/workspace/modules", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "modules", path: "/workspace/modules", kind: "directory" },
+            ],
+            "/workspace/modules/ROOT/pages": [
+              {
+                name: "extra.adoc",
+                path: "/workspace/modules/ROOT/pages/extra.adoc",
+                kind: "file",
+              },
+              {
+                name: "index.adoc",
+                path: "/workspace/modules/ROOT/pages/index.adoc",
+                kind: "file",
+              },
+              {
+                name: "users.adoc",
+                path: "/workspace/modules/ROOT/pages/users.adoc",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "antora",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "Product",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Product",
+                        path: "/workspace/modules/ROOT/pages/index.adoc",
+                        displayPath: "index.adoc",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "document",
+                        title: "Users",
+                        path: "/workspace/modules/ROOT/pages/users.adoc",
+                        displayPath: "users.adoc",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={
+            new Set(["/workspace/modules/ROOT/pages/index.adoc"])
+          }
+          activePath="/workspace/modules/ROOT/pages/index.adoc"
+          onOpenFile={onOpenFile}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-antora");
+
+    const section = container.querySelector(
+      '[data-review-id="documents-antora-section"]',
+    );
+    expect(section?.textContent).toContain("Product");
+    expect(section?.getAttribute("data-document-order-section-document")).toBe(
+      "true",
+    );
+    expect(section?.className).toContain("active");
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows).toHaveLength(0);
+
+    await act(async () => {
+      section
+        ?.querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-order-section-open"]',
+        )
+        ?.click();
+    });
+    expect(onOpenFile).toHaveBeenCalledWith(
+      "/workspace/modules/ROOT/pages/index.adoc",
+    );
+
+    await act(async () => {
+      section
+        ?.querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+    const expandedRows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(expandedRows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Users"),
+    ]);
+  });
+
+  it("shows Antora order documents before their file tree directories are expanded", async () => {
+    const onOpenFile = vi.fn();
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "modules", path: "/workspace/modules", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "modules", path: "/workspace/modules", kind: "directory" },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "antora",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "Product",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Home",
+                        path: "/workspace/modules/ROOT/pages/index.adoc",
+                        displayPath: "index.adoc",
+                        depth: 0,
+                        status: "resolved",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/modules/ROOT/pages/index.adoc"
+          onOpenFile={onOpenFile}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-antora");
+
+    expect(container.textContent).not.toContain("No loaded documents");
+    expect(
+      container.querySelector('[data-review-id="documents-antora-section"]')
+        ?.textContent,
+    ).toContain("Product");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-antora-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+    const row = container.querySelector('[data-review-id="documents-view-row"]');
+    expect(row?.textContent).toContain("Home");
+
+    await act(async () => {
+      row?.querySelector<HTMLButtonElement>(".documents-view-row-main")?.click();
+    });
+    expect(onOpenFile).toHaveBeenCalledWith(
+      "/workspace/modules/ROOT/pages/index.adoc",
+    );
+  });
+
+  it("marks open ordered documents when their directories are not loaded", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "modules", path: "/workspace/modules", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "modules", path: "/workspace/modules", kind: "directory" },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "antora",
+                nodes: [
+                  {
+                    kind: "document",
+                    title: "Home",
+                    path: "/workspace/modules/ROOT/pages/index.adoc",
+                    displayPath: "index.adoc",
+                    depth: 0,
+                    status: "resolved",
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={
+            new Set(["/workspace/modules/ROOT/pages/index.adoc"])
+          }
+          activePath="/workspace/modules/ROOT/pages/index.adoc"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-antora");
+
+    const row = container.querySelector('[data-review-id="documents-view-row"]');
+    expect(row?.getAttribute("data-document-open")).toBe("true");
+    expect(row?.textContent).toContain("open");
+    expect(
+      row?.querySelector(".documents-view-row-title")?.textContent,
+    ).toContain("open");
+    expect(row?.querySelector(".documents-view-row-path")?.textContent).toBe(
+      "index.adoc",
+    );
   });
 
   it("filters Documents view to changed loaded documents", async () => {

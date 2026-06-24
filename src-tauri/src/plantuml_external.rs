@@ -10,8 +10,8 @@ use std::{
 };
 
 use crate::{
-    prune_cache_dir, remove_oversized_cache_file, touch_cache_file, ExternalPlantUmlRenderInput,
-    ExternalPlantUmlTestInput, PlantUmlRenderMetrics, PlantUmlRenderResult,
+    ExternalPlantUmlRenderInput, ExternalPlantUmlTestInput, PlantUmlRenderMetrics,
+    PlantUmlRenderResult, prune_cache_dir, remove_oversized_cache_file, touch_cache_file,
 };
 
 const MIN_TIMEOUT_MS: u64 = 1_000;

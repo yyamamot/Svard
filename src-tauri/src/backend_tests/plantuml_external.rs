@@ -104,10 +104,12 @@ fn external_plantuml_rejects_oversized_stdout() {
     .expect("render");
 
     assert_eq!(result.status, "error");
-    assert!(result
-        .diagnostics
-        .join("\n")
-        .contains("exceeded the size limit"));
+    assert!(
+        result
+            .diagnostics
+            .join("\n")
+            .contains("exceeded the size limit")
+    );
 }
 
 #[cfg(unix)]
@@ -128,10 +130,12 @@ fn external_plantuml_test_rejects_oversized_stdout() {
 
     assert_eq!(result.status, "error");
     assert!(result.svg.is_none());
-    assert!(result
-        .diagnostics
-        .join("\n")
-        .contains("exceeded the size limit"));
+    assert!(
+        result
+            .diagnostics
+            .join("\n")
+            .contains("exceeded the size limit")
+    );
 }
 
 #[cfg(unix)]
@@ -295,7 +299,12 @@ fn external_plantuml_invalid_dot_path_diagnostic_is_generic() {
             theme: "light".to_string(),
             timeout_ms: 1_000,
             binary_path: Some(binary.to_string_lossy().to_string()),
-            dot_path: Some(temp.path().join("missing-dot").to_string_lossy().to_string()),
+            dot_path: Some(
+                temp.path()
+                    .join("missing-dot")
+                    .to_string_lossy()
+                    .to_string(),
+            ),
         },
         &temp.path().join("cache"),
     )

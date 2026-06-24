@@ -139,6 +139,13 @@ pub struct DirectoryEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct DocumentOrderCatalog {
+    #[serde(default)]
+    pub orders: Vec<DocumentOrderResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct DocumentOrderResult {
     pub source: DocumentOrderSource,
     pub nodes: Vec<DocumentOrderNode>,
@@ -151,6 +158,7 @@ pub struct DocumentOrderResult {
 pub enum DocumentOrderSource {
     None,
     Mkdocs,
+    Antora,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

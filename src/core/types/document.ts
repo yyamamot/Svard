@@ -78,7 +78,7 @@ export interface DirectoryEntry {
   kind: "file" | "directory";
 }
 
-export type DocumentOrderSource = "none" | "mkdocs";
+export type DocumentOrderSource = "mkdocs" | "antora";
 
 export type DocumentOrderNode =
   | {
@@ -100,6 +100,10 @@ export interface DocumentOrderResult {
   source: DocumentOrderSource;
   nodes: DocumentOrderNode[];
   message?: string;
+}
+
+export interface DocumentOrderCatalog {
+  orders: DocumentOrderResult[];
 }
 
 export interface WorkspaceSearchInput {

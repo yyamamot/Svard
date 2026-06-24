@@ -10,7 +10,7 @@ import { isSafeExternalUrlToOpen } from "../ui/lib/path";
 import type {
   AppConfig,
   DirectoryEntry,
-  DocumentOrderResult,
+  DocumentOrderCatalog,
   DirectoryWatchEvent,
   DesktopOpenRequest,
   DocumentPayload,
@@ -156,7 +156,7 @@ export class TauriHostAdapter implements HostAdapter {
     return invokeCommand("list_directory", { path });
   }
 
-  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderResult> {
+  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderCatalog> {
     return invokeCommand("load_document_order", { rootDirectory });
   }
 

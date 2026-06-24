@@ -14,14 +14,18 @@ fn modified_file_returns_head_to_worktree_hunk_without_git_cli_at_read_time() {
     assert_eq!(preview.relative_path.as_deref(), Some("docs/sample.md"));
     assert_eq!(preview.left_label, "HEAD");
     assert_eq!(preview.right_label, "Working Tree");
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .any(|line| line.kind == GitDiffLineKind::Removed && line.text == "original"));
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed"));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .any(|line| line.kind == GitDiffLineKind::Removed && line.text == "original")
+    );
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed")
+    );
 }
 
 #[test]
@@ -88,10 +92,12 @@ fn deleted_file_keeps_head_side_for_preview() {
     let preview = git_diff_preview_for_path(&document.to_string_lossy()).expect("preview");
 
     assert_eq!(preview.status, GitDiffStatus::Deleted);
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .all(|line| line.kind != GitDiffLineKind::Added));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .all(|line| line.kind != GitDiffLineKind::Added)
+    );
 }
 
 #[test]
@@ -103,10 +109,12 @@ fn untracked_file_returns_worktree_side_for_preview() {
     let preview = git_diff_preview_for_path(&document.to_string_lossy()).expect("preview");
 
     assert_eq!(preview.status, GitDiffStatus::Untracked);
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .all(|line| line.kind != GitDiffLineKind::Removed));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .all(|line| line.kind != GitDiffLineKind::Removed)
+    );
 }
 
 #[test]
@@ -119,10 +127,12 @@ fn added_file_is_distinguished_from_untracked_when_in_index() {
     let preview = git_diff_preview_for_path(&document.to_string_lossy()).expect("preview");
 
     assert_eq!(preview.status, GitDiffStatus::Added);
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .all(|line| line.kind != GitDiffLineKind::Removed));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .all(|line| line.kind != GitDiffLineKind::Removed)
+    );
 }
 
 #[test]
@@ -140,10 +150,12 @@ fn staged_modified_file_is_not_reported_clean_when_worktree_matches_head() {
     assert_eq!(summary[0].status, GitDiffStatus::Modified);
     assert_eq!(preview.status, GitDiffStatus::Modified);
     assert_eq!(preview.right_label, "Index");
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .any(|line| line.kind == GitDiffLineKind::Added && line.text == "staged"));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .any(|line| line.kind == GitDiffLineKind::Added && line.text == "staged")
+    );
 }
 
 #[test]
@@ -332,10 +344,11 @@ fn git_changes_treats_similarity_rename_as_deleted_and_added_for_speed() {
     assert!(changes.items.iter().any(|item| {
         item.path == "docs/similar-old.md" && item.status == GitDiffStatus::Deleted
     }));
-    assert!(changes
-        .items
-        .iter()
-        .any(|item| { item.path == "docs/similar-new.md" && item.status == GitDiffStatus::Added }));
+    assert!(
+        changes.items.iter().any(|item| {
+            item.path == "docs/similar-new.md" && item.status == GitDiffStatus::Added
+        })
+    );
     assert!(!changes.items.iter().any(|item| {
         item.path == "docs/similar-new.md" && item.status == GitDiffStatus::Renamed
     }));
@@ -382,10 +395,11 @@ fn git_branch_diff_returns_pr_style_changed_files_and_previews() {
     assert_eq!(diff.base_ref.as_deref(), Some("origin/main"));
     assert_eq!(diff.head_ref.as_deref(), Some("HEAD"));
     assert_eq!(diff.merge_base.as_deref(), Some(base.as_str()));
-    assert!(diff
-        .base_candidates
-        .iter()
-        .any(|item| item == "origin/main"));
+    assert!(
+        diff.base_candidates
+            .iter()
+            .any(|item| item == "origin/main")
+    );
     assert!(diff.items.iter().any(|item| {
         item.path == "docs/sample.md"
             && item.status == GitDiffStatus::Modified
@@ -424,10 +438,12 @@ fn git_branch_diff_returns_pr_style_changed_files_and_previews() {
     assert_eq!(preview.status, GitDiffStatus::Modified);
     assert_eq!(preview.left_label, "origin/main");
     assert_eq!(preview.right_label, "HEAD");
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed"));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed")
+    );
 
     let deleted_preview = git_branch_file_diff_for_path(
         &repo.path().to_string_lossy(),
@@ -459,10 +475,11 @@ fn git_branch_diff_ignores_stale_base_ref_from_another_repo() {
 
     assert_eq!(diff.status, GitBranchDiffStatus::Ok);
     assert_eq!(diff.base_ref.as_deref(), Some("origin/main"));
-    assert!(diff
-        .base_candidates
-        .iter()
-        .all(|item| item != "feature/leaflet"));
+    assert!(
+        diff.base_candidates
+            .iter()
+            .all(|item| item != "feature/leaflet")
+    );
 }
 
 #[test]
@@ -479,10 +496,12 @@ fn file_revision_diff_uses_commit_label_and_worktree_side() {
     assert_eq!(preview.relative_path.as_deref(), Some("docs/sample.md"));
     assert!(revision.starts_with(&preview.left_label));
     assert_eq!(preview.right_label, "Working Tree");
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed"));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed")
+    );
 }
 
 #[test]
@@ -501,10 +520,12 @@ fn file_commit_diff_uses_parent_and_commit_sides() {
     assert_eq!(preview.status, GitDiffStatus::Modified);
     assert!(parent.starts_with(&preview.left_label));
     assert!(revision.starts_with(&preview.right_label));
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed"));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed")
+    );
 }
 
 #[test]
@@ -539,14 +560,18 @@ fn commit_details_returns_changed_files() {
         git_commit_details_for_path(&document.to_string_lossy(), &revision).expect("details");
 
     assert_eq!(details.summary, "update sample");
-    assert!(details
-        .files
-        .iter()
-        .any(|file| file.path == "docs/sample.md" && file.status == GitDiffStatus::Modified));
-    assert!(details
-        .files
-        .iter()
-        .any(|file| file.path == "docs/extra.md" && file.status == GitDiffStatus::Added));
+    assert!(
+        details
+            .files
+            .iter()
+            .any(|file| file.path == "docs/sample.md" && file.status == GitDiffStatus::Modified)
+    );
+    assert!(
+        details
+            .files
+            .iter()
+            .any(|file| file.path == "docs/extra.md" && file.status == GitDiffStatus::Added)
+    );
 }
 
 #[test]
@@ -582,15 +607,19 @@ fn git_refs_list_branches_tags_and_recent_commits() {
     .expect("commits");
 
     assert_eq!(branches.status, GitRefListStatus::Ok);
-    assert!(branches
-        .items
-        .iter()
-        .any(|item| item.name == "docs-preview"));
+    assert!(
+        branches
+            .items
+            .iter()
+            .any(|item| item.name == "docs-preview")
+    );
     assert!(tags.items.iter().any(|item| item.name == "v1.0.0"));
-    assert!(commits
-        .items
-        .iter()
-        .any(|item| item.summary.as_deref() == Some("initial")));
+    assert!(
+        commits
+            .items
+            .iter()
+            .any(|item| item.summary.as_deref() == Some("initial"))
+    );
 }
 
 #[test]
@@ -623,10 +652,12 @@ fn git_refs_commit_pages_continue_without_overlap() {
     assert_eq!(first.items.len(), 20);
     assert_eq!(first.has_more, Some(true));
     assert!(!second.items.is_empty());
-    assert!(first.items.iter().all(|left| second
-        .items
-        .iter()
-        .all(|right| left.revision != right.revision)));
+    assert!(first.items.iter().all(|left| {
+        second
+            .items
+            .iter()
+            .all(|right| left.revision != right.revision)
+    }));
     assert_eq!(
         first.metrics.as_ref().map(|metrics| metrics.walked_commits),
         Some(21)
@@ -657,10 +688,11 @@ fn git_refs_commit_query_searches_beyond_first_page() {
     )
     .expect("search page");
 
-    assert!(refs
-        .items
-        .iter()
-        .any(|item| item.summary.as_deref() == Some("very old searchable commit")));
+    assert!(
+        refs.items
+            .iter()
+            .any(|item| item.summary.as_deref() == Some("very old searchable commit"))
+    );
     assert!(refs.metrics.as_ref().unwrap().walked_commits > 20);
 }
 
@@ -691,18 +723,24 @@ fn git_refs_branch_pages_keep_name_sort() {
 
     assert_eq!(first.items.len(), 20);
     assert_eq!(first.has_more, Some(true));
-    assert!(first
-        .items
-        .windows(2)
-        .all(|pair| pair[0].name <= pair[1].name));
-    assert!(second
-        .items
-        .windows(2)
-        .all(|pair| pair[0].name <= pair[1].name));
-    assert!(first
-        .items
-        .iter()
-        .all(|left| second.items.iter().all(|right| left.name != right.name)));
+    assert!(
+        first
+            .items
+            .windows(2)
+            .all(|pair| pair[0].name <= pair[1].name)
+    );
+    assert!(
+        second
+            .items
+            .windows(2)
+            .all(|pair| pair[0].name <= pair[1].name)
+    );
+    assert!(
+        first
+            .items
+            .iter()
+            .all(|left| second.items.iter().all(|right| left.name != right.name))
+    );
 }
 
 #[test]
@@ -727,8 +765,10 @@ fn git_ref_diff_uses_ref_label_and_worktree_side() {
     assert_eq!(preview.status, GitDiffStatus::Modified);
     assert_eq!(preview.left_label, "branch:main");
     assert_eq!(preview.right_label, "Working Tree");
-    assert!(preview.hunks[0]
-        .lines
-        .iter()
-        .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed"));
+    assert!(
+        preview.hunks[0]
+            .lines
+            .iter()
+            .any(|line| line.kind == GitDiffLineKind::Added && line.text == "changed")
+    );
 }

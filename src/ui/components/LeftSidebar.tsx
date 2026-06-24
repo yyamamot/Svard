@@ -14,7 +14,7 @@ import type {
   AppConfig,
   BookmarkEntry,
   DirectoryEntry,
-  DocumentOrderResult,
+  DocumentOrderCatalog,
   DocumentPayload,
   GitBranchDiff,
   GitBranchDiffEntry,
@@ -47,7 +47,7 @@ interface LeftSidebarProps {
   pinnedTabs: string[];
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
-  documentOrder: DocumentOrderResult;
+  documentOrder: DocumentOrderCatalog;
   gitStatusByPath: Record<string, GitDiffStatus>;
   openFileReloadStates: Record<string, OpenFileReloadState>;
   gitChanges: GitChanges | null;

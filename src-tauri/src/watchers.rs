@@ -4,7 +4,7 @@ use std::{
     collections::BTreeSet,
     ffi::OsString,
     path::{Path, PathBuf},
-    sync::{atomic::Ordering, Arc, Mutex},
+    sync::{Arc, Mutex, atomic::Ordering},
     time::{Duration, Instant},
 };
 use tauri::{Emitter, Manager};

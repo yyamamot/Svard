@@ -1,8 +1,8 @@
 use std::{fs, path::Path};
 
 use crate::{
-    prune_cache_dir, remove_oversized_cache_file, touch_cache_file, PlantUmlSvgCacheReadInput,
-    PlantUmlSvgCacheReadResult, PlantUmlSvgCacheWriteInput, PlantUmlSvgCacheWriteResult,
+    PlantUmlSvgCacheReadInput, PlantUmlSvgCacheReadResult, PlantUmlSvgCacheWriteInput,
+    PlantUmlSvgCacheWriteResult, prune_cache_dir, remove_oversized_cache_file, touch_cache_file,
 };
 
 const MAX_PLANTUML_SVG_CACHE_BYTES: usize = 2 * 1024 * 1024;

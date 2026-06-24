@@ -33,7 +33,7 @@ import type {
   DirectoryEntry,
   DocumentLinkResolution,
   DocumentLinkResolutionInput,
-  DocumentOrderResult,
+  DocumentOrderCatalog,
   DocumentPayload,
   GitDiffPreview,
   LocalImageResolveContext,
@@ -157,18 +157,18 @@ export async function listDirectory(path: string): Promise<DirectoryEntry[]> {
 
 export async function loadDocumentOrder(
   rootDirectory: string,
-): Promise<DocumentOrderResult> {
+): Promise<DocumentOrderCatalog> {
   if (typeof window !== "undefined") {
     const overrides = (
       window as unknown as {
-        __SVARD_DOCUMENT_ORDER__?: Record<string, DocumentOrderResult>;
+        __SVARD_DOCUMENT_ORDER__?: Record<string, DocumentOrderCatalog>;
       }
     ).__SVARD_DOCUMENT_ORDER__;
     if (overrides?.[rootDirectory]) {
       return structuredClone(overrides[rootDirectory]);
     }
   }
-  return { source: "none", nodes: [] };
+  return { orders: [] };
 }
 
 export async function resolveDroppedDocumentPath(

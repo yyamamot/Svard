@@ -28,9 +28,9 @@ struct ObsidianVaultIndex {
 use crate::document_io::is_supported_document_file;
 use crate::local_assets::{has_unsupported_local_image_scheme, percent_decode_path_source};
 use crate::path_policy::{
-    ensure_path_allowed, fallback_allowed_root_for_file, normalize_path, path_location_kind,
-    path_to_ui_string, resolve_existing_directory_path, resolve_existing_file_path,
-    PathLocationKind,
+    PathLocationKind, ensure_path_allowed, fallback_allowed_root_for_file, normalize_path,
+    path_location_kind, path_to_ui_string, resolve_existing_directory_path,
+    resolve_existing_file_path,
 };
 
 const OBSIDIAN_BOUNDED_SCAN_MAX_DIRS: usize = 200;

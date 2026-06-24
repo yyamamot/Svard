@@ -20,10 +20,12 @@ fn file_history_returns_commits_touching_document() {
             .any(|item| item.summary == "update sample"
                 && item.file_status == GitDiffStatus::Modified)
     );
-    assert!(history
-        .items
-        .iter()
-        .any(|item| item.summary == "initial" && item.file_status == GitDiffStatus::Added));
+    assert!(
+        history
+            .items
+            .iter()
+            .any(|item| item.summary == "initial" && item.file_status == GitDiffStatus::Added)
+    );
 }
 
 #[test]
@@ -207,10 +209,12 @@ fn git_commit_graph_returns_repository_and_file_scopes() {
             .map(|commit| commit.summary.as_str()),
         Some("update sample")
     );
-    assert!(repository_graph
-        .items
-        .iter()
-        .any(|item| item.summary == "update sample" && !item.parent_revisions.is_empty()));
+    assert!(
+        repository_graph
+            .items
+            .iter()
+            .any(|item| item.summary == "update sample" && !item.parent_revisions.is_empty())
+    );
     assert_eq!(file_graph.status, GitCommitGraphStatus::Ok);
     assert_eq!(file_graph.scope, GitCommitGraphScope::File);
     assert_eq!(file_graph.relative_path.as_deref(), Some("docs/sample.md"));
@@ -245,10 +249,12 @@ fn git_commit_graph_pages_repository_history_without_overlap() {
 
     assert_eq!(first.items.len(), 3);
     assert!(first.has_more.unwrap_or(false));
-    assert!(first.items.iter().all(|item| !second
-        .items
-        .iter()
-        .any(|next| next.revision == item.revision)));
+    assert!(first.items.iter().all(|item| {
+        !second
+            .items
+            .iter()
+            .any(|next| next.revision == item.revision)
+    }));
 }
 
 #[test]
@@ -281,10 +287,12 @@ fn git_file_history_pages_and_caches_cursor_pages() {
 
     assert_eq!(first.items.len(), 3);
     assert!(first.has_more.unwrap_or(false));
-    assert!(first.items.iter().all(|item| !second
-        .items
-        .iter()
-        .any(|next| next.revision == item.revision)));
+    assert!(first.items.iter().all(|item| {
+        !second
+            .items
+            .iter()
+            .any(|next| next.revision == item.revision)
+    }));
     assert_eq!(
         cached_second
             .metrics

@@ -10,7 +10,7 @@ import type {
   DocumentLinkResolution,
   DocumentLinkResolutionInput,
   DocumentPayload,
-  DocumentOrderResult,
+  DocumentOrderCatalog,
   GitBranchDiff,
   GitChanges,
   GitCommitDetails,
@@ -82,7 +82,7 @@ export class MockHostAdapter implements HostAdapter {
     return this.documents.listDirectory(path);
   }
 
-  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderResult> {
+  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderCatalog> {
     return this.documents.loadDocumentOrder(rootDirectory);
   }
 

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{atomic::AtomicU64, Mutex},
+    sync::{Mutex, atomic::AtomicU64},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

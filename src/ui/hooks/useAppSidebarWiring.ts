@@ -9,7 +9,7 @@ import type {
   AppConfig,
   BookmarkEntry,
   DirectoryEntry,
-  DocumentOrderResult,
+  DocumentOrderCatalog,
   DocumentPayload,
   WorkspaceEnvironment,
 } from "../../core/types";
@@ -129,9 +129,8 @@ export function useAppSidebarWiring({
   onToggleOpenFilesCollapsed,
   onTogglePinned,
 }: UseAppSidebarWiringOptions): { leftSidebarProps: AppLeftSidebarProps } {
-  const [documentOrder, setDocumentOrder] = useState<DocumentOrderResult>({
-    source: "none",
-    nodes: [],
+  const [documentOrder, setDocumentOrder] = useState<DocumentOrderCatalog>({
+    orders: [],
   });
   const openDocumentPaths = useMemo(
     () => new Set(orderedTabs.map((tab) => tab.path)),
@@ -148,7 +147,7 @@ export function useAppSidebarWiring({
   useEffect(() => {
     let cancelled = false;
     if (!rootDirectory) {
-      setDocumentOrder({ source: "none", nodes: [] });
+      setDocumentOrder({ orders: [] });
       return;
     }
     void host
@@ -161,9 +160,7 @@ export function useAppSidebarWiring({
       .catch(() => {
         if (!cancelled) {
           setDocumentOrder({
-            source: "none",
-            nodes: [],
-            message: "Document order could not be loaded.",
+            orders: [],
           });
         }
       });

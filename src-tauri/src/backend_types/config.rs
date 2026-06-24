@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::workspace::{default_workspace_state, WorkspaceState};
+use super::workspace::{WorkspaceState, default_workspace_state};
 
 macro_rules! string_enum {
     (

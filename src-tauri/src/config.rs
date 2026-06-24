@@ -2,8 +2,8 @@ use std::{fs, path::Path};
 
 use crate::app_error::{AppError, AppErrorCode};
 use crate::backend_types::{
-    default_config, AppConfig, AsciiDocTheme, HttpProxyMode, KrokiMode, RemoteProviderConfig,
-    RemoteProviderTestStatus,
+    AppConfig, AsciiDocTheme, HttpProxyMode, KrokiMode, RemoteProviderConfig,
+    RemoteProviderTestStatus, default_config,
 };
 
 pub(crate) fn load_config_from_path(path: &Path) -> Result<AppConfig, AppError> {

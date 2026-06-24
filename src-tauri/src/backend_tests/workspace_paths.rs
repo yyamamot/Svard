@@ -27,15 +27,21 @@ fn workspace_path_resolver_filters_stale_directories_and_adds_ancestors() {
         result.initial_directory.as_deref(),
         Some(path_to_ui_string(&project.canonicalize().unwrap()).as_str())
     );
-    assert!(result
-        .expanded_directories
-        .contains(&path_to_ui_string(&docs.canonicalize().unwrap())));
-    assert!(result
-        .expanded_directories
-        .contains(&path_to_ui_string(&nested.canonicalize().unwrap())));
-    assert!(!result
-        .expanded_directories
-        .contains(&path_to_ui_string(&other.canonicalize().unwrap())));
+    assert!(
+        result
+            .expanded_directories
+            .contains(&path_to_ui_string(&docs.canonicalize().unwrap()))
+    );
+    assert!(
+        result
+            .expanded_directories
+            .contains(&path_to_ui_string(&nested.canonicalize().unwrap()))
+    );
+    assert!(
+        !result
+            .expanded_directories
+            .contains(&path_to_ui_string(&other.canonicalize().unwrap()))
+    );
 }
 
 #[test]
@@ -61,9 +67,11 @@ fn workspace_path_resolver_uses_antora_module_root_for_direct_page_open() {
         result.initial_directory.as_deref(),
         Some(path_to_ui_string(&module.canonicalize().unwrap()).as_str())
     );
-    assert!(result
-        .expanded_directories
-        .contains(&path_to_ui_string(&pages.canonicalize().unwrap())));
+    assert!(
+        result
+            .expanded_directories
+            .contains(&path_to_ui_string(&pages.canonicalize().unwrap()))
+    );
 }
 
 #[cfg(windows)]
@@ -369,13 +377,17 @@ fn obsidian_wikilink_cache_hits_and_can_be_cleared_without_stale_resolution() {
         Some("stale-cache")
     );
 
-    assert!(cache
-        .clear_for_path(&guide, &roots)
-        .expect("clear vault cache from deleted note path"));
+    assert!(
+        cache
+            .clear_for_path(&guide, &roots)
+            .expect("clear vault cache from deleted note path")
+    );
 
-    assert!(!cache
-        .clear_for_path(&document.canonicalize().unwrap(), &roots)
-        .expect("clear vault cache"));
+    assert!(
+        !cache
+            .clear_for_path(&document.canonicalize().unwrap(), &roots)
+            .expect("clear vault cache")
+    );
     let after_clear = resolve_document_link_inner(
         DocumentLinkResolutionInput {
             document_path: document.to_string_lossy().to_string(),
