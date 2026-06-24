@@ -7,6 +7,7 @@ use std::{
 use crate::backend_types::{AllowedRoots, LocalImageResolveContext, LocalImageResult};
 #[cfg(test)]
 use crate::backend_types::{AsciiDocRenderContext, DocumentResourceContext};
+use crate::document_io::build_document_resource_context;
 use crate::path_policy::{
     antora_module_root_for_page, ensure_path_allowed, normalize_path, resolve_existing_file_path,
 };
@@ -60,18 +61,21 @@ pub(crate) fn resolve_local_image_from_path_with_local_context(
     };
 
     ensure_path_allowed(&document_path, roots)?;
-    let image_path = match resolve_local_image_candidates(source, &document_path, context, roots) {
-        Some(candidates) => match candidates
-            .into_iter()
-            .find_map(|candidate| resolve_existing_file_path(&candidate).ok())
+    let trusted_context = trusted_local_image_context(&document_path, roots, context);
+    let image_path =
+        match resolve_local_image_candidates(source, &document_path, Some(&trusted_context), roots)
         {
-            Some(path) => path,
-            None => return Ok(blocked_local_image("Local image is not available.")),
-        },
-        None => return Ok(blocked_local_image("Local image URL is not allowed.")),
-    };
-    let context_allows_root_relative_asset =
-        is_root_relative_local_asset(source) && context_allows_image_path(context, &image_path);
+            Some(candidates) => match candidates
+                .into_iter()
+                .find_map(|candidate| resolve_existing_file_path(&candidate).ok())
+            {
+                Some(path) => path,
+                None => return Ok(blocked_local_image("Local image is not available.")),
+            },
+            None => return Ok(blocked_local_image("Local image URL is not allowed.")),
+        };
+    let context_allows_root_relative_asset = is_root_relative_local_asset(source)
+        && context_allows_image_path(&trusted_context, &image_path);
     if !image_path.is_file()
         || (ensure_path_allowed(&image_path, roots).is_err() && !context_allows_root_relative_asset)
     {
@@ -113,6 +117,32 @@ pub(crate) fn resolve_local_image_from_path_with_local_context(
     })
 }
 
+fn trusted_local_image_context(
+    document_path: &Path,
+    roots: &AllowedRoots,
+    caller_context: Option<&LocalImageResolveContext>,
+) -> LocalImageResolveContext {
+    let resource_context = build_document_resource_context(document_path, Some(roots));
+    let mut trusted_context = LocalImageResolveContext::from(&resource_context);
+
+    let Some(caller_context) = caller_context else {
+        return trusted_context;
+    };
+    if !caller_context_matches_trusted_context(caller_context, &trusted_context) {
+        return trusted_context;
+    }
+
+    trusted_context.attributes = caller_context.attributes.clone();
+    if caller_context
+        .base_dir
+        .as_ref()
+        .is_some_and(|base_dir| context_contains_path(&trusted_context, base_dir))
+    {
+        trusted_context.base_dir = caller_context.base_dir.clone();
+    }
+    trusted_context
+}
+
 pub(crate) fn resolve_local_image_candidates(
     source: &str,
     document_path: &Path,
@@ -151,7 +181,7 @@ pub(crate) fn resolve_context_image_candidates(
         return Vec::new();
     }
     let source = percent_decode_path_source(source.trim());
-    if is_root_relative_local_asset(&source) {
+    if has_root_relative_local_asset_prefix(&source) {
         return Vec::new();
     }
     let source_path = PathBuf::from(source.as_ref());
@@ -198,7 +228,7 @@ pub(crate) fn resolve_local_image_candidate(source: &str, document_path: &Path) 
         return None;
     }
     let source = percent_decode_path_source(source.trim());
-    if is_root_relative_local_asset(&source) {
+    if has_root_relative_local_asset_prefix(&source) {
         return None;
     }
     let source_path = PathBuf::from(source.as_ref());
@@ -217,7 +247,7 @@ pub(crate) fn resolve_antora_module_image_candidate(
         return None;
     }
     let source = percent_decode_path_source(source.trim());
-    if is_root_relative_local_asset(&source) {
+    if has_root_relative_local_asset_prefix(&source) {
         return None;
     }
     let source_path = PathBuf::from(source.as_ref());
@@ -235,10 +265,9 @@ pub(crate) fn resolve_root_relative_image_candidates(
     document_path: &Path,
 ) -> Vec<PathBuf> {
     let source = percent_decode_path_source(source.trim());
-    let Some(relative_source) = root_relative_local_asset_path(&source) else {
+    let Some(relative_path) = root_relative_local_asset_path(&source) else {
         return Vec::new();
     };
-    let relative_path = PathBuf::from(relative_source);
     let mut candidates = Vec::new();
 
     if let Some(context) = context {
@@ -273,13 +302,7 @@ fn allowed_roots_snapshot(roots: &AllowedRoots) -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
-fn context_allows_image_path(
-    context: Option<&LocalImageResolveContext>,
-    image_path: &Path,
-) -> bool {
-    let Some(context) = context else {
-        return false;
-    };
+fn context_allows_image_path(context: &LocalImageResolveContext, image_path: &Path) -> bool {
     let checked_image_path = image_path
         .canonicalize()
         .unwrap_or_else(|_| image_path.to_path_buf());
@@ -295,31 +318,96 @@ fn context_allows_image_path(
         })
 }
 
-fn root_relative_local_asset_path(source: &str) -> Option<&str> {
-    if !is_root_relative_local_asset(source) {
+fn root_relative_local_asset_path(source: &str) -> Option<PathBuf> {
+    let trimmed = source.trim();
+    if !trimmed.starts_with('/') || trimmed.starts_with("//") {
         return None;
     }
-    Some(source.trim_start_matches('/'))
+    let without_slash = trimmed.strip_prefix('/')?;
+    let mut segments = without_slash.split('/');
+    let first = segments.next()?;
+    if !is_safe_root_relative_asset_segment(first)
+        || !ROOT_RELATIVE_LOCAL_ASSET_PREFIXES.contains(&first)
+    {
+        return None;
+    }
+
+    let mut path = PathBuf::from(first);
+    for segment in segments {
+        if !is_safe_root_relative_asset_segment(segment) {
+            return None;
+        }
+        path.push(segment);
+    }
+    Some(path)
 }
 
 pub(crate) fn is_root_relative_local_asset(source: &str) -> bool {
+    root_relative_local_asset_path(source).is_some()
+}
+
+const ROOT_RELATIVE_LOCAL_ASSET_PREFIXES: [&str; 4] = ["images", "assets", "img", "static"];
+
+fn has_root_relative_local_asset_prefix(source: &str) -> bool {
     let trimmed = source.trim();
     if !trimmed.starts_with('/') || trimmed.starts_with("//") {
         return false;
     }
     let without_slash = trimmed.trim_start_matches('/');
-    ROOT_RELATIVE_LOCAL_ASSET_PREFIXES
-        .iter()
-        .any(|prefix| matches_root_relative_asset_prefix(without_slash, prefix))
+    ROOT_RELATIVE_LOCAL_ASSET_PREFIXES.iter().any(|prefix| {
+        without_slash == *prefix
+            || without_slash
+                .strip_prefix(prefix)
+                .is_some_and(|suffix| suffix.starts_with('/') || suffix.starts_with('\\'))
+    })
 }
 
-const ROOT_RELATIVE_LOCAL_ASSET_PREFIXES: [&str; 4] = ["images", "assets", "img", "static"];
+fn is_safe_root_relative_asset_segment(segment: &str) -> bool {
+    !segment.is_empty()
+        && segment != "."
+        && segment != ".."
+        && !segment.contains('\\')
+        && !segment.contains(':')
+}
 
-fn matches_root_relative_asset_prefix(source: &str, prefix: &str) -> bool {
-    source == prefix
-        || source
-            .strip_prefix(prefix)
-            .is_some_and(|suffix| suffix.starts_with('/'))
+fn caller_context_matches_trusted_context(
+    caller_context: &LocalImageResolveContext,
+    trusted_context: &LocalImageResolveContext,
+) -> bool {
+    canonical_path_eq(
+        &caller_context.workspace_root,
+        &trusted_context.workspace_root,
+    ) && canonical_path_eq(&caller_context.document_dir, &trusted_context.document_dir)
+        && caller_context
+            .resource_roots
+            .iter()
+            .all(|root| context_contains_path(trusted_context, root))
+}
+
+fn canonical_path_eq(left: &str, right: &str) -> bool {
+    let Some(left) = canonical_path(left) else {
+        return false;
+    };
+    let Some(right) = canonical_path(right) else {
+        return false;
+    };
+    left == right
+}
+
+fn context_contains_path(context: &LocalImageResolveContext, path: &str) -> bool {
+    let Some(path) = canonical_path(path) else {
+        return false;
+    };
+    context
+        .resource_roots
+        .iter()
+        .chain(std::iter::once(&context.workspace_root))
+        .filter_map(|root| canonical_path(root))
+        .any(|root| root == path)
+}
+
+fn canonical_path(path: &str) -> Option<PathBuf> {
+    PathBuf::from(path).canonicalize().ok()
 }
 
 pub(crate) fn percent_decode_path_source(source: &str) -> std::borrow::Cow<'_, str> {

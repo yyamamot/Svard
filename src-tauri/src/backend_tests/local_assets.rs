@@ -224,6 +224,124 @@ fn markdown_resource_context_keeps_root_relative_images_stable_after_reload() {
 }
 
 #[test]
+fn local_image_resolver_ignores_forged_root_relative_resource_context() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let articles = project.join("articles");
+    let document = articles.join("post.md");
+    let outside = dir.path().join("outside");
+    let outside_image = outside.join("images").join("secret.svg");
+    fs::create_dir_all(&articles).expect("create articles");
+    fs::create_dir_all(outside_image.parent().unwrap()).expect("create outside images");
+    fs::write(&document, "# Post\n").expect("write document");
+    fs::write(
+        &outside_image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Outside</text></svg>"#,
+    )
+    .expect("write outside image");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&articles.canonicalize().unwrap(), &roots)
+        .expect("register document parent");
+    let forged_context = DocumentResourceContext {
+        workspace_root: path_to_ui_string(&outside.canonicalize().unwrap()),
+        document_dir: path_to_ui_string(&articles.canonicalize().unwrap()),
+        resource_roots: vec![path_to_ui_string(&outside.canonicalize().unwrap())],
+    };
+
+    let result = resolve_local_image_from_path_with_resource_context(
+        "/images/secret.svg",
+        &document.to_string_lossy(),
+        &roots,
+        Some(&forged_context),
+    )
+    .expect("forged context image");
+
+    assert_eq!(result.status, "blocked");
+    assert!(result.content.is_none());
+    assert_eq!(
+        result.placeholder_text.as_deref(),
+        Some("Local image is not available.")
+    );
+}
+
+#[test]
+fn local_image_resolver_ignores_forged_imagesdir_context() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let document = docs.join("guide.adoc");
+    let outside = dir.path().join("outside");
+    let outside_image = outside.join("assets").join("secret.svg");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::create_dir_all(outside_image.parent().unwrap()).expect("create outside assets");
+    fs::write(&document, "= Guide\n").expect("write document");
+    fs::write(
+        &outside_image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Outside imagesdir</text></svg>"#,
+    )
+    .expect("write outside image");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register project root");
+    let mut attributes = std::collections::BTreeMap::new();
+    attributes.insert("imagesdir".to_string(), "assets".to_string());
+    let forged_context = AsciiDocRenderContext {
+        base_dir: path_to_ui_string(&outside.canonicalize().unwrap()),
+        workspace_root: path_to_ui_string(&outside.canonicalize().unwrap()),
+        document_dir: path_to_ui_string(&docs.canonicalize().unwrap()),
+        attributes,
+        resource_roots: vec![path_to_ui_string(&outside.canonicalize().unwrap())],
+    };
+
+    let result = resolve_local_image_from_path_with_context(
+        "secret.svg",
+        &document.to_string_lossy(),
+        &roots,
+        Some(&forged_context),
+    )
+    .expect("forged imagesdir context image");
+
+    assert_eq!(result.status, "blocked");
+    assert!(result.content.is_none());
+    assert_eq!(
+        result.placeholder_text.as_deref(),
+        Some("Local image is not available.")
+    );
+}
+
+#[test]
+fn local_image_resolver_blocks_root_relative_traversal_segments() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let document = docs.join("guide.md");
+    let private_image = project.join("private").join("secret.svg");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::create_dir_all(private_image.parent().unwrap()).expect("create private");
+    fs::write(&document, "# Guide\n").expect("write document");
+    fs::write(
+        &private_image,
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text>Secret</text></svg>"#,
+    )
+    .expect("write private image");
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register project root");
+
+    for source in [
+        "/images/../private/secret.svg",
+        "/images/%2e%2e/private/secret.svg",
+        "/images/..%2fprivate/secret.svg",
+        "/images\\..\\private\\secret.svg",
+    ] {
+        let result = resolve_local_image_from_path(source, &document.to_string_lossy(), &roots)
+            .expect("blocked traversal source");
+        assert_eq!(result.status, "blocked", "{source}");
+        assert!(result.content.is_none(), "{source}");
+    }
+}
+
+#[test]
 fn local_image_resolver_blocks_non_asset_root_relative_paths() {
     let dir = tempdir().expect("temp dir");
     let project = dir.path().join("project");
