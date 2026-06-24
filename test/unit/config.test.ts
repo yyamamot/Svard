@@ -170,6 +170,49 @@ describe("config normalization", () => {
     expect(config.kroki.endpointUrl).toBe("http://127.0.0.1:8000");
   });
 
+  it("defaults missing Kroki remote confirmation to enabled", () => {
+    const config = normalizeConfig({
+      ...defaultConfig,
+      kroki: {
+        ...defaultConfig.kroki,
+        mode: "remote",
+        endpointUrl: "http://127.0.0.1:8000",
+        requireRemoteConfirmation: undefined,
+      },
+    } as unknown as typeof defaultConfig);
+
+    expect(config.kroki.requireRemoteConfirmation).toBe(true);
+  });
+
+  it("preserves explicit Kroki remote confirmation opt-out for self-managed endpoints", () => {
+    const config = normalizeConfig({
+      ...defaultConfig,
+      kroki: {
+        ...defaultConfig.kroki,
+        mode: "remote",
+        endpointUrl: "http://127.0.0.1:8000",
+        requireRemoteConfirmation: false,
+      },
+    });
+
+    expect(config.kroki.requireRemoteConfirmation).toBe(false);
+  });
+
+  it("forces Kroki public mode confirmation on", () => {
+    const config = normalizeConfig({
+      ...defaultConfig,
+      kroki: {
+        ...defaultConfig.kroki,
+        mode: "public",
+        endpointUrl: null,
+        requireRemoteConfirmation: false,
+      },
+    });
+
+    expect(config.kroki.endpointUrl).toBe("https://kroki.io");
+    expect(config.kroki.requireRemoteConfirmation).toBe(true);
+  });
+
   it("migrates missing network config to disabled HTTP proxy", () => {
     const config = normalizeConfig({
       ...defaultConfig,

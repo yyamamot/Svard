@@ -47,6 +47,7 @@ type RawAppConfig = Partial<AppConfig> & {
   kroki?: {
     mode?: unknown;
     endpointUrl?: unknown;
+    requireRemoteConfirmation?: unknown;
   };
   diagram?: {
     plantumlExternalFallback?: unknown;
@@ -331,6 +332,13 @@ function normalizeKrokiConfig(
       mode === "public"
         ? publicKrokiEndpoint
         : trimmedStringOrNull(rawConfig.kroki?.endpointUrl),
+    requireRemoteConfirmation:
+      mode === "public"
+        ? true
+        : booleanDefault(
+            rawConfig.kroki?.requireRemoteConfirmation,
+            defaultConfig.kroki.requireRemoteConfirmation,
+          ),
   };
 }
 

@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose, Engine as _};
 use sha2::{Digest, Sha256};
-use std::{fs, path::Path, time::Duration};
+use std::{fs, io::Read, path::Path, time::Duration};
 use url::Url;
 
 use crate::{
@@ -81,7 +81,9 @@ pub(crate) fn render_diagram_with_cache_dir(
         });
     }
 
-    if mode == "public" && input.confirmed_remote_send != Some(true) {
+    if requires_remote_confirmation(mode, &input.config)
+        && input.confirmed_remote_send != Some(true)
+    {
         return Ok(KrokiResult {
             status: "error".to_string(),
             message: Some(format!(
@@ -95,8 +97,12 @@ pub(crate) fn render_diagram_with_cache_dir(
         });
     }
 
-    let endpoint = endpoint_for_config(&input.config)?;
-    validate_kroki_endpoint(&endpoint)?;
+    let endpoint = match endpoint_for_config(&input.config)
+        .and_then(|endpoint| validate_kroki_endpoint(&endpoint).map(|_| endpoint))
+    {
+        Ok(endpoint) => endpoint,
+        Err(message) => return Ok(error_result(message)),
+    };
     let media_type = media_type_for_format(output_format).to_string();
     let cache_file = cache_dir.join(cache_file_name(
         diagram_type,
@@ -134,13 +140,27 @@ pub(crate) fn render_diagram_with_cache_dir(
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_millis(timeout_ms))
         .build()
-        .map_err(|error| format!("failed to build Kroki client: {error}"))?;
+        .map_err(|_| "Failed to initialize Kroki client.".to_string());
+    let client = match client {
+        Ok(client) => client,
+        Err(message) => return Ok(error_result(message)),
+    };
     let response = client
         .post(render_url)
         .header(reqwest::header::CONTENT_TYPE, "text/plain; charset=utf-8")
         .body(input.source)
         .send()
-        .map_err(|error| format!("failed to call Kroki endpoint: {error}"))?;
+        .map_err(|error| {
+            if error.is_timeout() {
+                "Kroki endpoint timed out.".to_string()
+            } else {
+                "Kroki endpoint is unreachable.".to_string()
+            }
+        });
+    let response = match response {
+        Ok(response) => response,
+        Err(message) => return Ok(error_result(message)),
+    };
 
     if !response.status().is_success() {
         return Ok(KrokiResult {
@@ -156,14 +176,32 @@ pub(crate) fn render_diagram_with_cache_dir(
         });
     }
 
-    let response_bytes = response
-        .bytes()
-        .map_err(|error| format!("failed to read Kroki response: {error}"))?;
+    let mut limited_response = response.take((KROKI_MAX_CACHE_ENTRY_BYTES + 1) as u64);
+    let mut response_bytes = Vec::new();
+    if limited_response.read_to_end(&mut response_bytes).is_err() {
+        return Ok(error_result("Failed to read Kroki response.".to_string()));
+    }
+    if response_bytes.len() > KROKI_MAX_CACHE_ENTRY_BYTES {
+        return Ok(KrokiResult {
+            status: "error".to_string(),
+            message: Some("Kroki response exceeds supported size.".to_string()),
+            artifact_url: None,
+            media_type: None,
+            content: None,
+            cache_status: Some("not-written".to_string()),
+        });
+    }
     let content = if output_format == "png" {
         general_purpose::STANDARD.encode(response_bytes)
     } else {
-        String::from_utf8(response_bytes.to_vec())
-            .map_err(|error| format!("failed to decode Kroki SVG response: {error}"))?
+        match String::from_utf8(response_bytes) {
+            Ok(content) => content,
+            Err(_) => {
+                return Ok(error_result(
+                    "Kroki SVG response is not valid UTF-8.".to_string(),
+                ))
+            }
+        }
     };
 
     let should_write_cache =
@@ -188,7 +226,7 @@ pub(crate) fn render_diagram_with_cache_dir(
 
     Ok(KrokiResult {
         status: "rendered".to_string(),
-        message: Some("Rendered by self-managed Kroki endpoint.".to_string()),
+        message: Some("Rendered by Kroki endpoint.".to_string()),
         artifact_url: None,
         media_type: Some(media_type),
         content: Some(content),
@@ -218,6 +256,21 @@ fn endpoint_for_config(config: &KrokiConfig) -> Result<String, String> {
         .clone()
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| "Kroki endpoint URL is required for this mode.".to_string())
+}
+
+fn error_result(message: String) -> KrokiResult {
+    KrokiResult {
+        status: "error".to_string(),
+        message: Some(message),
+        artifact_url: None,
+        media_type: None,
+        content: None,
+        cache_status: Some("not-written".to_string()),
+    }
+}
+
+fn requires_remote_confirmation(mode: &str, config: &KrokiConfig) -> bool {
+    mode == "public" || (mode == "remote" && config.require_remote_confirmation)
 }
 
 pub(crate) fn validate_kroki_mode(mode: &str) -> Result<&str, String> {
@@ -259,8 +312,7 @@ pub(crate) fn validate_kroki_body_limit(max_body_bytes: u64) -> Result<u64, Stri
 }
 
 pub(crate) fn validate_kroki_endpoint(endpoint: &str) -> Result<(), String> {
-    let url =
-        Url::parse(endpoint).map_err(|error| format!("invalid Kroki endpoint URL: {error}"))?;
+    let url = Url::parse(endpoint).map_err(|_| "Invalid Kroki endpoint URL.".to_string())?;
     match url.scheme() {
         "http" | "https" => {}
         _ => return Err("Kroki endpoint URL must use http or https.".to_string()),

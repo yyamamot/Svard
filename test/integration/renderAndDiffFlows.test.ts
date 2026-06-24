@@ -170,6 +170,7 @@ describe("render and diff user-visible integration flows", () => {
         ...config.kroki,
         mode: "remote",
         endpointUrl: "http://127.0.0.1:8000",
+        requireRemoteConfirmation: false,
       },
       confirmedRemoteSend: false,
     });

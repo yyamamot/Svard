@@ -98,7 +98,7 @@ describe("MockHostAdapter", () => {
     expect(diagram.message).toContain("confirmation");
   });
 
-  it("renders remote self-managed Kroki diagrams without per-request confirmation", async () => {
+  it("requires confirmation for remote Kroki by default", async () => {
     const host = new MockHostAdapter();
     const config = await host.loadConfig();
     const diagram = await host.renderDiagram({
@@ -108,6 +108,25 @@ describe("MockHostAdapter", () => {
         ...config.kroki,
         mode: "remote",
         endpointUrl: "http://192.168.1.10:8000",
+      },
+      confirmedRemoteSend: false,
+    });
+
+    expect(diagram.status).toBe("error");
+    expect(diagram.message).toContain("confirmation");
+  });
+
+  it("renders remote self-managed Kroki diagrams without per-request confirmation after opt-out", async () => {
+    const host = new MockHostAdapter();
+    const config = await host.loadConfig();
+    const diagram = await host.renderDiagram({
+      diagramType: "plantuml",
+      source: "@startuml\n@enduml",
+      config: {
+        ...config.kroki,
+        mode: "remote",
+        endpointUrl: "http://192.168.1.10:8000",
+        requireRemoteConfirmation: false,
       },
       confirmedRemoteSend: false,
     });
@@ -126,6 +145,7 @@ describe("MockHostAdapter", () => {
         ...config.kroki,
         mode: "remote",
         endpointUrl: "http://127.0.0.1:8000",
+        requireRemoteConfirmation: false,
       },
     });
 

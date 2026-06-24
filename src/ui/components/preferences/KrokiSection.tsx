@@ -85,9 +85,30 @@ export function KrokiSection({
         <span>Cache policy</span>
         <strong>{config.kroki.cacheEnabled ? "Enabled" : "Disabled"}</strong>
       </div>
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          data-review-id="kroki-remote-confirmation-control"
+          checked={
+            config.kroki.mode === "public" ||
+            config.kroki.requireRemoteConfirmation
+          }
+          disabled={config.kroki.mode === "public"}
+          onChange={(event) =>
+            onChange({
+              ...config,
+              kroki: {
+                ...config.kroki,
+                requireRemoteConfirmation: event.target.checked,
+              },
+            })
+          }
+        />
+        <span>Require confirmation before remote diagram rendering</span>
+      </label>
       <p className="mode-help" data-review-id="kroki-privacy-note">
-        Public kroki.io requires per-request confirmation. Remote self-managed
-        endpoints are used after this preference is configured.
+        Remote sends diagram source to the configured endpoint. Public kroki.io
+        always requires confirmation.
       </p>
       <div className="kroki-diagnostic" data-review-id="kroki-diagnostic">
         <div className="kroki-diagnostic-header">

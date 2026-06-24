@@ -40,10 +40,16 @@ export async function renderDiagram(input: KrokiRequest): Promise<KrokiResult> {
     };
   }
 
-  if (input.config.mode === "public" && !input.confirmedRemoteSend) {
+  if (
+    (input.config.mode === "public" ||
+      (input.config.mode === "remote" &&
+        input.config.requireRemoteConfirmation)) &&
+    !input.confirmedRemoteSend
+  ) {
     return {
       status: "error",
-      message: `${input.config.mode} Kroki rendering requires an explicit per-request confirmation before sending diagram source.`,
+      message:
+        "Kroki rendering requires an explicit per-request confirmation before sending diagram source.",
       cacheStatus: "not-written",
     };
   }

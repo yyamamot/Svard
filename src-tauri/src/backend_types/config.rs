@@ -272,6 +272,7 @@ pub struct KrokiConfig {
     pub timeout_ms: u64,
     pub max_body_bytes: u64,
     pub cache_enabled: bool,
+    #[serde(default = "default_true")]
     pub require_remote_confirmation: bool,
 }
 

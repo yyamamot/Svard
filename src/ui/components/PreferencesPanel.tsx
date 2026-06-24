@@ -332,6 +332,8 @@ export function PreferencesPanel({
             : config.kroki.endpointUrl === publicKrokiEndpoint
               ? null
               : config.kroki.endpointUrl,
+        requireRemoteConfirmation:
+          mode === "public" ? true : config.kroki.requireRemoteConfirmation,
       },
     });
   }
@@ -491,7 +493,7 @@ export function PreferencesPanel({
       config.kroki.mode === "disabled"
         ? "Kroki is not used."
         : config.kroki.mode === "remote"
-          ? "Use a trusted self-managed Kroki endpoint, including LAN or localhost."
+          ? "Use a trusted self-managed Kroki endpoint. Confirmation is controlled below."
           : "Uses https://kroki.io. Sending still requires confirmation.";
 
     switch (activeSection) {

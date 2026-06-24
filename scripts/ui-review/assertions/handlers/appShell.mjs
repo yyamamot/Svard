@@ -82,8 +82,11 @@ export async function buildAppShellAssertions(context) {
               bodyText.includes("Remote / self-managed") &&
               !bodyText.includes("Local / self-managed") &&
               bodyText.includes(
-                "Public kroki.io requires per-request confirmation",
+                "Public kroki.io always requires confirmation",
               ) &&
+              document.querySelector(
+                '[data-review-id="kroki-remote-confirmation-control"]',
+              ) !== null &&
               samples.some(
                 (sample) =>
                   sample.mode === "remote" &&

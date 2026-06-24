@@ -309,6 +309,19 @@ fn config_round_trips_to_json() {
 }
 
 #[test]
+fn config_defaults_missing_kroki_remote_confirmation_to_enabled() {
+    let mut value = serde_json::to_value(default_config()).expect("serialize config");
+    value
+        .get_mut("kroki")
+        .and_then(|kroki| kroki.as_object_mut())
+        .and_then(|kroki| kroki.remove("requireRemoteConfirmation"))
+        .expect("remove confirmation field");
+    let config: AppConfig = serde_json::from_value(value).expect("deserialize config");
+
+    assert!(config.kroki.require_remote_confirmation);
+}
+
+#[test]
 fn config_fixed_value_enums_serialize_as_existing_strings() {
     let mut config = default_config();
     config.theme = ConfigTheme::Dark;
