@@ -39,7 +39,8 @@ type FilesViewMode =
   | "documents-path"
   | "documents-mkdocs"
   | "documents-antora"
-  | "documents-vitepress";
+  | "documents-vitepress"
+  | "documents-docusaurus";
 type DocumentOrderSectionOptions = {
   sectionReviewId: string;
   notInNavReviewId: string;
@@ -171,6 +172,9 @@ export function FileTreePanel({
   const vitepressOrder = documentOrder.orders.find(
     (order) => order.source === "vitepress",
   );
+  const docusaurusOrder = documentOrder.orders.find(
+    (order) => order.source === "docusaurus",
+  );
 
   useEffect(() => {
     if (viewMode === "documents-mkdocs" && !mkdocsOrder) {
@@ -182,7 +186,10 @@ export function FileTreePanel({
     if (viewMode === "documents-vitepress" && !vitepressOrder) {
       setViewMode("documents-path");
     }
-  }, [antoraOrder, mkdocsOrder, vitepressOrder, viewMode]);
+    if (viewMode === "documents-docusaurus" && !docusaurusOrder) {
+      setViewMode("documents-path");
+    }
+  }, [antoraOrder, docusaurusOrder, mkdocsOrder, vitepressOrder, viewMode]);
 
   useEffect(() => {
     if (!openMenuOpen) {
@@ -511,6 +518,16 @@ export function FileTreePanel({
           sectionReviewId: "documents-vitepress-section",
           notInNavReviewId: "documents-vitepress-not-in-nav",
           notInNavLabel: "Not in VitePress sidebar",
+        },
+      };
+    }
+    if (viewMode === "documents-docusaurus" && docusaurusOrder) {
+      return {
+        order: docusaurusOrder,
+        options: {
+          sectionReviewId: "documents-docusaurus-section",
+          notInNavReviewId: "documents-docusaurus-not-in-nav",
+          notInNavLabel: "Not in Docusaurus sidebars",
         },
       };
     }
@@ -1034,22 +1051,6 @@ export function FileTreePanel({
                 <button
                   type="button"
                   className={`file-tree-open-menu-item ${
-                    viewMode === "documents-antora" ? "active" : ""
-                  }`}
-                  data-review-id="documents-view-mode-antora"
-                  role="menuitemradio"
-                  aria-checked={viewMode === "documents-antora"}
-                  aria-label="Documents only: Antora order"
-                  title="Documents only: Antora order"
-                  disabled={!antoraOrder}
-                  onClick={() => pickViewMode("documents-antora")}
-                >
-                  <FileText size={15} />
-                  <span>Docs: Antora</span>
-                </button>
-                <button
-                  type="button"
-                  className={`file-tree-open-menu-item ${
                     viewMode === "documents-vitepress" ? "active" : ""
                   }`}
                   data-review-id="documents-view-mode-vitepress"
@@ -1062,6 +1063,38 @@ export function FileTreePanel({
                 >
                   <FileText size={15} />
                   <span>Docs: VitePress</span>
+                </button>
+                <button
+                  type="button"
+                  className={`file-tree-open-menu-item ${
+                    viewMode === "documents-docusaurus" ? "active" : ""
+                  }`}
+                  data-review-id="documents-view-mode-docusaurus"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "documents-docusaurus"}
+                  aria-label="Documents only: Docusaurus order"
+                  title="Documents only: Docusaurus order"
+                  disabled={!docusaurusOrder}
+                  onClick={() => pickViewMode("documents-docusaurus")}
+                >
+                  <FileText size={15} />
+                  <span>Docs: Docusaurus</span>
+                </button>
+                <button
+                  type="button"
+                  className={`file-tree-open-menu-item ${
+                    viewMode === "documents-antora" ? "active" : ""
+                  }`}
+                  data-review-id="documents-view-mode-antora"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "documents-antora"}
+                  aria-label="Documents only: Antora order"
+                  title="Documents only: Antora order"
+                  disabled={!antoraOrder}
+                  onClick={() => pickViewMode("documents-antora")}
+                >
+                  <FileText size={15} />
+                  <span>Docs: Antora</span>
                 </button>
               </div>
             )}
@@ -1149,7 +1182,8 @@ function isOrderedDocumentsMode(viewMode: FilesViewMode): boolean {
   return (
     viewMode === "documents-mkdocs" ||
     viewMode === "documents-antora" ||
-    viewMode === "documents-vitepress"
+    viewMode === "documents-vitepress" ||
+    viewMode === "documents-docusaurus"
   );
 }
 

@@ -662,6 +662,58 @@ describe("FileTreePanel path display", () => {
     expect(readmeRow?.textContent).toContain("open");
   });
 
+  it("lists Antora last in the Documents view mode menu", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[]}
+          childrenByDirectory={{}}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              { source: "mkdocs", nodes: [] },
+              { source: "vitepress", nodes: [] },
+              { source: "docusaurus", nodes: [] },
+              { source: "antora", nodes: [] },
+            ],
+          }}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-view-toggle"]',
+        )
+        ?.click();
+    });
+
+    const menuItems = [
+      ...container.querySelectorAll<HTMLElement>(".file-tree-open-menu-item"),
+    ].map((item) => item.textContent);
+    expect(menuItems).toEqual([
+      "File tree",
+      "Docs: Path",
+      "Docs: MkDocs",
+      "Docs: VitePress",
+      "Docs: Docusaurus",
+      "Docs: Antora",
+    ]);
+  });
+
   it("orders Documents view by MkDocs nav when selected", async () => {
     await act(async () => {
       root.render(
@@ -1155,6 +1207,146 @@ describe("FileTreePanel path display", () => {
     expect(rows.map((row) => row.textContent)).toEqual([
       expect.stringContaining("Home"),
       expect.stringContaining("Intro"),
+      expect.stringContaining("Missing"),
+      expect.stringContaining("extra.md"),
+    ]);
+    expect(rows[0]?.getAttribute("data-document-open")).toBe("true");
+  });
+
+  it("orders Documents view by Docusaurus sidebars when selected", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "extra.md",
+                path: "/workspace/docs/extra.md",
+                kind: "file",
+              },
+              {
+                name: "intro.md",
+                path: "/workspace/docs/intro.md",
+                kind: "file",
+              },
+            ],
+            "/workspace/docs/tutorial": [
+              {
+                name: "setup.mdx",
+                path: "/workspace/docs/tutorial/setup.mdx",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "docusaurus",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "docs",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Intro",
+                        path: "/workspace/docs/intro.md",
+                        displayPath: "intro",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "section",
+                        title: "Tutorial",
+                        depth: 1,
+                        children: [
+                          {
+                            kind: "document",
+                            title: "Setup",
+                            path: "/workspace/docs/tutorial/setup.mdx",
+                            displayPath: "tutorial/setup",
+                            depth: 2,
+                            status: "resolved",
+                          },
+                          {
+                            kind: "document",
+                            title: "Missing",
+                            path: "",
+                            displayPath: "tutorial/missing",
+                            depth: 2,
+                            status: "missing",
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set(["/workspace/docs/intro.md"])}
+          activePath="/workspace/docs/intro.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-docusaurus");
+
+    expect(
+      container.querySelector('[data-review-id="documents-docusaurus-section"]')
+        ?.textContent,
+    ).toContain("docs");
+    expect(
+      container.querySelector(
+        '[data-review-id="documents-docusaurus-not-in-nav"]',
+      )?.textContent,
+    ).toContain("Not in Docusaurus sidebars");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-docusaurus-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+    await act(async () => {
+      const sectionToggles = container.querySelectorAll<HTMLButtonElement>(
+        '[data-review-id="documents-docusaurus-section"] [data-review-id="documents-order-section-toggle"]',
+      );
+      sectionToggles[1]?.click();
+    });
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-docusaurus-not-in-nav"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Intro"),
+      expect.stringContaining("Setup"),
       expect.stringContaining("Missing"),
       expect.stringContaining("extra.md"),
     ]);

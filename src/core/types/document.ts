@@ -78,7 +78,11 @@ export interface DirectoryEntry {
   kind: "file" | "directory";
 }
 
-export type DocumentOrderSource = "mkdocs" | "antora" | "vitepress";
+export type DocumentOrderSource =
+  | "mkdocs"
+  | "antora"
+  | "vitepress"
+  | "docusaurus";
 
 export type DocumentOrderNode =
   | {
