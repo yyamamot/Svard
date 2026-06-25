@@ -543,7 +543,6 @@
 .document-body :where(img) {
   box-sizing: border-box;
   max-width: min(100%, 960px);
-  max-height: min(70vh, 640px);
   height: auto;
   object-fit: contain;
 }
