@@ -7,6 +7,7 @@ use crate::{
     document_order_common::normalize_document_order_target_path,
     mkdocs_order::load_mkdocs_order_from_root,
     path_policy::{ensure_path_allowed, resolve_existing_directory_path},
+    vitepress_order::load_vitepress_order_from_root,
 };
 
 pub(crate) fn load_document_order_from_root(
@@ -19,6 +20,7 @@ pub(crate) fn load_document_order_from_root(
         orders: [
             load_mkdocs_order_from_root(&root, roots),
             load_antora_order_from_roots(&antora_content_roots(&root, roots), roots),
+            load_vitepress_order_from_root(&root, roots),
         ]
         .into_iter()
         .filter(|order| order.source != DocumentOrderSource::None)
@@ -85,15 +87,22 @@ mod tests {
     }
 
     #[test]
-    fn load_document_order_returns_mkdocs_and_antora_catalog() {
+    fn load_document_order_returns_static_site_order_catalog() {
         let dir = tempdir().expect("tempdir");
         let docs = dir.path().join("docs");
         let root_module = dir.path().join("modules").join("ROOT");
         fs::create_dir_all(&docs).expect("docs");
+        fs::create_dir_all(docs.join(".vitepress")).expect("vitepress config dir");
         fs::create_dir_all(root_module.join("pages")).expect("pages");
         fs::write(docs.join("index.md"), "# Home").expect("mkdocs page");
+        fs::write(docs.join("guide.md"), "# Guide").expect("vitepress page");
         fs::write(root_module.join("pages").join("index.adoc"), "= Home").expect("antora page");
         fs::write(dir.path().join("mkdocs.yml"), "nav:\n  - Home: index.md\n").expect("mkdocs");
+        fs::write(
+            docs.join(".vitepress").join("config.ts"),
+            "export default { themeConfig: { sidebar: [{ text: 'Guide', link: '/guide' }] } }",
+        )
+        .expect("vitepress");
         fs::write(
             root_module.join("nav.adoc"),
             ".Product\n* xref:index.adoc[]\n",
@@ -111,19 +120,19 @@ mod tests {
         )
         .expect("catalog");
 
-        assert_eq!(catalog.orders.len(), 2);
-        assert!(
-            catalog
-                .orders
-                .iter()
-                .any(|order| order.source == DocumentOrderSource::Mkdocs)
-        );
-        assert!(
-            catalog
-                .orders
-                .iter()
-                .any(|order| order.source == DocumentOrderSource::Antora)
-        );
+        assert_eq!(catalog.orders.len(), 3);
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Mkdocs));
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Antora));
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Vitepress));
     }
 
     #[test]

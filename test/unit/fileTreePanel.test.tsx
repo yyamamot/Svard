@@ -1037,6 +1037,130 @@ describe("FileTreePanel path display", () => {
     ]);
   });
 
+  it("orders Documents view by VitePress sidebar when selected", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "extra.md",
+                path: "/workspace/docs/extra.md",
+                kind: "file",
+              },
+              {
+                name: "index.md",
+                path: "/workspace/docs/index.md",
+                kind: "file",
+              },
+            ],
+            "/workspace/docs/guide": [
+              {
+                name: "intro.md",
+                path: "/workspace/docs/guide/intro.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "vitepress",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "Guide",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Home",
+                        path: "/workspace/docs/index.md",
+                        displayPath: "/",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "document",
+                        title: "Intro",
+                        path: "/workspace/docs/guide/intro.md",
+                        displayPath: "/guide/intro",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "document",
+                        title: "Missing",
+                        path: "",
+                        displayPath: "/guide/missing",
+                        depth: 1,
+                        status: "missing",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set(["/workspace/docs/index.md"])}
+          activePath="/workspace/docs/index.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-vitepress");
+
+    expect(
+      container.querySelector('[data-review-id="documents-vitepress-section"]')
+        ?.textContent,
+    ).toContain("Guide");
+    expect(
+      container.querySelector('[data-review-id="documents-vitepress-not-in-nav"]')
+        ?.textContent,
+    ).toContain("Not in VitePress sidebar");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-vitepress-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-vitepress-not-in-nav"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Home"),
+      expect.stringContaining("Intro"),
+      expect.stringContaining("Missing"),
+      expect.stringContaining("extra.md"),
+    ]);
+    expect(rows[0]?.getAttribute("data-document-open")).toBe("true");
+  });
+
   it("collapses Antora order sections with the shared section toggle", async () => {
     await act(async () => {
       root.render(

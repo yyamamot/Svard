@@ -29,15 +29,30 @@ describe("document order pattern probe", () => {
         "nav.adoc",
         ".Guide\n* xref:guide.adoc#install[]\ninclude::partial/nav.adoc[]\n",
       );
+      const vitepress = writeFixture(
+        root,
+        "config.ts",
+        "import { defineConfig } from 'vitepress'\nexport const sidebar = { '/guide/': [{ text: 'Intro', link: '/guide/intro#top' }, { text: 'External', link: 'https://example.invalid/page' }, { text: 'Nested', items: [{ text: 'Topic', link: '/guide/topic/' }] }] }\nexport default defineConfig({ themeConfig: { sidebar, extra: generateSidebar() } })\n",
+      );
 
-      const report = await analyzeDocumentOrderSources([mkdocs, playbook, nav]);
+      const report = await analyzeDocumentOrderSources([
+        mkdocs,
+        playbook,
+        nav,
+        vitepress,
+      ]);
       const serialized = JSON.stringify(report);
 
-      expect(report.sampleCount).toBe(3);
+      expect(report.sampleCount).toBe(4);
       expect(report.patterns.mkdocsInheritConfigured).toBe(1);
       expect(report.patterns.antoraCommaSeparatedStartPaths).toBe(1);
       expect(report.patterns.antoraNavXrefsWithAnchor).toBe(1);
       expect(report.patterns.antoraNavIncludes).toBe(1);
+      expect(report.patterns.vitepressTopLevelSidebarIdentifier).toBe(1);
+      expect(report.patterns.vitepressNestedItems).toBe(1);
+      expect(report.patterns.vitepressExternalLinks).toBe(1);
+      expect(report.patterns.vitepressHashLinks).toBe(1);
+      expect(report.patterns.vitepressTrailingSlashLinks).toBe(1);
       expect(serialized).not.toContain("example.invalid");
       expect(serialized).not.toContain("repository.git");
       expect(serialized).not.toContain(root);

@@ -32,6 +32,7 @@ mod perf_trace;
 mod plantuml_cache;
 mod plantuml_external;
 mod remote_providers;
+mod vitepress_order;
 mod watchers;
 mod workspace_paths;
 

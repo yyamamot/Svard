@@ -159,6 +159,7 @@ pub enum DocumentOrderSource {
     None,
     Mkdocs,
     Antora,
+    Vitepress,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

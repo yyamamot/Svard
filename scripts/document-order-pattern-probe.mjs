@@ -55,6 +55,9 @@ function detectKind(source, content) {
   if (basename === "nav.adoc") {
     return "antora-nav";
   }
+  if (/^config\.(?:ts|mts|js|mjs)$/.test(basename) && /vitepress/.test(content)) {
+    return "vitepress";
+  }
   if (/^\s*nav\s*:/m.test(content) && /^\s*content\s*:/m.test(content)) {
     return "antora-playbook";
   }
@@ -76,6 +79,9 @@ function summarizeContent(kind, content) {
   }
   if (kind === "antora-nav") {
     return summarizeAntoraNav(content);
+  }
+  if (kind === "vitepress") {
+    return summarizeVitePress(content);
   }
   return { unknown: 1 };
 }
@@ -120,10 +126,35 @@ function summarizeAntoraNav(content) {
   return removeZeroCounts({
     antoraNavSectionHeadings: countMatches(content, /^\s*\.[^\s.].*$/gm),
     antoraNavListItems: countMatches(content, /^\s*\*{1,5}\s+/gm),
-    antoraNavXrefs: countMatches(content, /xref:[^\[]+\[/g),
-    antoraNavXrefsWithAnchor: countMatches(content, /xref:[^\[#]+\#[^\[]+\[/g),
+    antoraNavXrefs: countMatches(content, /xref:[^[]+\[/g),
+    antoraNavXrefsWithAnchor: countMatches(content, /xref:[^#\]]+#[^[]+\[/g),
     antoraNavIncludes: countMatches(content, /^\s*include::/gm),
-    antoraNavExternalLinks: countMatches(content, /https?:\/\/[^\[]+\[/g),
+    antoraNavExternalLinks: countMatches(content, /https?:\/\/[^[]+\[/g),
+  });
+}
+
+function summarizeVitePress(content) {
+  return removeZeroCounts({
+    vitepressConfigTs: countMatches(content, /config\.ts(?:\?|$)/g),
+    vitepressConfigMts: countMatches(content, /config\.mts(?:\?|$)/g),
+    vitepressSidebarConfigured: countMatches(content, /sidebar\s*:/g),
+    vitepressThemeConfigSidebar: countMatches(
+      content,
+      /themeConfig\s*:\s*\{[\s\S]*?sidebar\s*:/g,
+    ),
+    vitepressArraySidebar: countMatches(content, /sidebar\s*:\s*\[/g),
+    vitepressObjectSidebar: countMatches(content, /sidebar\s*:\s*\{/g),
+    vitepressTopLevelSidebarIdentifier: countMatches(
+      content,
+      /(?:export\s+)?const\s+sidebar(?:\s*:[^=]+)?\s*=/g,
+    ),
+    vitepressNestedItems: countMatches(content, /items\s*:\s*\[/g),
+    vitepressExternalLinks: countMatches(content, /link\s*:\s*['"]https?:\/\//g),
+    vitepressHashLinks: countMatches(content, /link\s*:\s*['"][^'"]*#/g),
+    vitepressTrailingSlashLinks: countMatches(content, /link\s*:\s*['"][^'"]+\/['"]/g),
+    vitepressFunctionSidebar: countMatches(content, /sidebar\s*:\s*[A-Za-z_$][\w$]*\s*\(/g),
+    vitepressSpreadSidebarItems: countMatches(content, /\.\.\.[A-Za-z_$]/g),
+    vitepressImportedSidebar: countMatches(content, /import\s+[^;\n]*sidebar/gi),
   });
 }
 
