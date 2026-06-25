@@ -8,16 +8,25 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { fileName } from "../lib/path";
 import {
   directoryGitStatusBadgeLabel,
   fileGitStatusBadgeLabel,
 } from "../lib/gitStatusBadgeLabels";
 import { gitStatusDisplay } from "../lib/gitStatusDisplay";
+import { fileName } from "../lib/path";
 import {
   buildGitDirectoryStatusSummary,
   mergeGitStatusWithChanges,
 } from "../lib/gitDirectoryStatusSummary";
+import {
+  buildFileTreeDocumentRows,
+  collectDocumentOrderPaths,
+  documentOrderSectionKey,
+  filterVisibleDocumentRows,
+  sectionHeaderDocument,
+  type DocumentsViewMode,
+  type FileTreeDocumentRow,
+} from "../lib/fileTreeDocuments";
 import {
   prepareFileCompareDragData,
   scheduleClearFileCompareDragData,
@@ -36,12 +45,7 @@ import type {
 const EMPTY_OPEN_DOCUMENT_PATHS: ReadonlySet<string> = new Set();
 const ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES: boolean = false;
 type FilesViewMode =
-  | "tree"
-  | "documents-path"
-  | "documents-mkdocs"
-  | "documents-antora"
-  | "documents-vitepress"
-  | "documents-docusaurus";
+  DocumentsViewMode;
 type DocumentOrderSectionOptions = {
   sectionReviewId: string;
   notInNavReviewId: string;
@@ -107,62 +111,37 @@ export function FileTreePanel({
     () => buildGitDirectoryStatusSummary(fileTreeGitStatusByPath),
     [fileTreeGitStatusByPath],
   );
-  const documentRows = useMemo(() => {
-    const byPath = new Map<string, DirectoryEntry>();
-    for (const entries of Object.values(childrenByDirectory)) {
-      for (const entry of entries) {
-        if (entry.kind === "file" && isSupportedDocumentPath(entry.path)) {
-          byPath.set(entry.path, entry);
-        }
-      }
-    }
-    return [...byPath.values()]
-      .sort((left, right) =>
-        relativeDocumentPath(left.path, rootDirectory).localeCompare(
-          relativeDocumentPath(right.path, rootDirectory),
-        ),
-      )
-      .map((entry) => {
-        const rawGitStatus = fileTreeGitStatusByPath[entry.path];
-        const gitStatus = gitStatusDisplay(rawGitStatus);
-        const gitStatusLabel = gitStatus
-          ? fileGitStatusBadgeLabel(gitStatus, entry.name)
-          : undefined;
-        return {
-          entry,
-          relativePath: relativeDocumentPath(entry.path, rootDirectory),
-          gitStatus,
-          gitStatusLabel,
-          isChanged: Boolean(gitStatus),
-          isActive: activePath === entry.path,
-          isOpen: openDocumentPaths.has(entry.path),
-          sortStatusRank: changedDocumentStatusRank(rawGitStatus),
-        };
-      });
-  }, [
-    activePath,
-    childrenByDirectory,
-    fileTreeGitStatusByPath,
-    openDocumentPaths,
-    rootDirectory,
-  ]);
+  const documentRows = useMemo(
+    () =>
+      buildFileTreeDocumentRows({
+        activePath,
+        childrenByDirectory,
+        gitStatusByPath: fileTreeGitStatusByPath,
+        openDocumentPaths,
+        rootDirectory,
+      }),
+    [
+      activePath,
+      childrenByDirectory,
+      fileTreeGitStatusByPath,
+      openDocumentPaths,
+      rootDirectory,
+    ],
+  );
   const documentRowsByPath = useMemo(
     () => new Map(documentRows.map((row) => [row.entry.path, row])),
     [documentRows],
   );
-  const visibleDocumentRows = useMemo(() => {
-    if (documentsFilter !== "changed") {
-      return documentRows;
-    }
-    if (isOrderedDocumentsMode(viewMode)) {
-      return documentRows.filter((row) => row.isChanged);
-    }
-    return [...documentRows.filter((row) => row.isChanged)].sort(
-      (left, right) =>
-        left.sortStatusRank - right.sortStatusRank ||
-        left.relativePath.localeCompare(right.relativePath),
-    );
-  }, [documentRows, documentsFilter, viewMode]);
+  const visibleDocumentRows = useMemo(
+    () =>
+      filterVisibleDocumentRows(
+        documentRows,
+        documentsFilter,
+        viewMode,
+        ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES,
+      ),
+    [documentRows, documentsFilter, viewMode],
+  );
 
   const mkdocsOrder = documentOrder.orders.find(
     (order) => order.source === "mkdocs",
@@ -597,7 +576,7 @@ export function FileTreePanel({
 
   function renderDocumentOrderNodes(
     nodes: DocumentOrderNode[],
-    visibleRowsByPath: Map<string, (typeof documentRows)[number]>,
+    visibleRowsByPath: Map<string, FileTreeDocumentRow>,
     source: DocumentOrderResult["source"],
     options: DocumentOrderSectionOptions,
     ancestry: string[],
@@ -738,7 +717,7 @@ export function FileTreePanel({
   }
 
   function renderDocumentRow(
-    row: (typeof documentRows)[number],
+    row: FileTreeDocumentRow,
     titleOverride?: string,
     depth = 0,
   ): ReactNode {
@@ -1162,84 +1141,4 @@ export function FileTreePanel({
       )}
     </>
   );
-}
-
-function relativeDocumentPath(path: string, rootDirectory: string): string {
-  if (!rootDirectory) {
-    return path;
-  }
-  const normalizedRoot = rootDirectory.replace(/[/\\]+$/, "");
-  if (path === normalizedRoot) {
-    return fileName(path);
-  }
-  if (path.startsWith(`${normalizedRoot}/`) || path.startsWith(`${normalizedRoot}\\`)) {
-    return path.slice(normalizedRoot.length + 1);
-  }
-  return path;
-}
-
-function changedDocumentStatusRank(status?: GitDiffStatus) {
-  switch (status) {
-    case "deleted":
-      return 0;
-    case "renamed":
-      return 1;
-    case "modified":
-      return 2;
-    case "added":
-      return 3;
-    case "untracked":
-      return 4;
-    case "binary":
-      return 5;
-    default:
-      return 99;
-  }
-}
-
-function isOrderedDocumentsMode(viewMode: FilesViewMode): boolean {
-  return (
-    viewMode === "documents-mkdocs" ||
-    viewMode === "documents-antora" ||
-    (ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES &&
-      (viewMode === "documents-vitepress" ||
-        viewMode === "documents-docusaurus"))
-  );
-}
-
-function documentOrderSectionKey(
-  source: DocumentOrderResult["source"],
-  ancestry: string[],
-  title: string,
-  depth: number,
-): string {
-  return `${source}:${ancestry.join(".")}:${depth}:${title}`;
-}
-
-function sectionHeaderDocument(
-  node: Extract<DocumentOrderNode, { kind: "section" }>,
-): Extract<DocumentOrderNode, { kind: "document" }> | undefined {
-  const firstChild = node.children[0];
-  if (
-    firstChild?.kind === "document" &&
-    firstChild.status === "resolved" &&
-    firstChild.title === node.title
-  ) {
-    return firstChild;
-  }
-  return undefined;
-}
-
-function collectDocumentOrderPaths(nodes: DocumentOrderNode[]): Set<string> {
-  const paths = new Set<string>();
-  for (const node of nodes) {
-    if (node.kind === "section") {
-      for (const path of collectDocumentOrderPaths(node.children)) {
-        paths.add(path);
-      }
-    } else if (node.status === "resolved") {
-      paths.add(node.path);
-    }
-  }
-  return paths;
 }
