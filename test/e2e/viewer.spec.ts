@@ -225,7 +225,7 @@ test("viewer-preferences exposes MVP defaults", async ({ page }) => {
     "Ask before opening http/https links in the system browser.",
   );
   await expect(page.getByTestId("preferences-tab-security")).toContainText(
-    "Self-managed Kroki endpoints are used only after configuration. Public kroki.io sends diagram source only after confirmation.",
+    "Remote Kroki rendering has its own confirmation setting under Kroki. Public kroki.io always requires confirmation.",
   );
   await page
     .getByTestId("preferences-nav-item")

@@ -75,8 +75,8 @@ export function SecuritySection({ config, onChange }: SecuritySectionProps) {
         </span>
       </label>
       <p className="notice">
-        Self-managed Kroki endpoints are used only after configuration. Public
-        kroki.io sends diagram source only after confirmation.
+        Remote Kroki rendering has its own confirmation setting under Kroki.
+        Public kroki.io always requires confirmation.
       </p>
     </section>
   );
