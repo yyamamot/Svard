@@ -34,6 +34,7 @@ import type {
 } from "../../core/types";
 
 const EMPTY_OPEN_DOCUMENT_PATHS: ReadonlySet<string> = new Set();
+const ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES: boolean = false;
 type FilesViewMode =
   | "tree"
   | "documents-path"
@@ -183,10 +184,16 @@ export function FileTreePanel({
     if (viewMode === "documents-antora" && !antoraOrder) {
       setViewMode("documents-path");
     }
-    if (viewMode === "documents-vitepress" && !vitepressOrder) {
+    if (
+      viewMode === "documents-vitepress" &&
+      (!ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES || !vitepressOrder)
+    ) {
       setViewMode("documents-path");
     }
-    if (viewMode === "documents-docusaurus" && !docusaurusOrder) {
+    if (
+      viewMode === "documents-docusaurus" &&
+      (!ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES || !docusaurusOrder)
+    ) {
       setViewMode("documents-path");
     }
   }, [antoraOrder, docusaurusOrder, mkdocsOrder, vitepressOrder, viewMode]);
@@ -511,7 +518,11 @@ export function FileTreePanel({
         },
       };
     }
-    if (viewMode === "documents-vitepress" && vitepressOrder) {
+    if (
+      ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES &&
+      viewMode === "documents-vitepress" &&
+      vitepressOrder
+    ) {
       return {
         order: vitepressOrder,
         options: {
@@ -521,7 +532,11 @@ export function FileTreePanel({
         },
       };
     }
-    if (viewMode === "documents-docusaurus" && docusaurusOrder) {
+    if (
+      ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES &&
+      viewMode === "documents-docusaurus" &&
+      docusaurusOrder
+    ) {
       return {
         order: docusaurusOrder,
         options: {
@@ -1048,38 +1063,42 @@ export function FileTreePanel({
                   <FileText size={15} />
                   <span>Docs: MkDocs</span>
                 </button>
-                <button
-                  type="button"
-                  className={`file-tree-open-menu-item ${
-                    viewMode === "documents-vitepress" ? "active" : ""
-                  }`}
-                  data-review-id="documents-view-mode-vitepress"
-                  role="menuitemradio"
-                  aria-checked={viewMode === "documents-vitepress"}
-                  aria-label="Documents only: VitePress order"
-                  title="Documents only: VitePress order"
-                  disabled={!vitepressOrder}
-                  onClick={() => pickViewMode("documents-vitepress")}
-                >
-                  <FileText size={15} />
-                  <span>Docs: VitePress</span>
-                </button>
-                <button
-                  type="button"
-                  className={`file-tree-open-menu-item ${
-                    viewMode === "documents-docusaurus" ? "active" : ""
-                  }`}
-                  data-review-id="documents-view-mode-docusaurus"
-                  role="menuitemradio"
-                  aria-checked={viewMode === "documents-docusaurus"}
-                  aria-label="Documents only: Docusaurus order"
-                  title="Documents only: Docusaurus order"
-                  disabled={!docusaurusOrder}
-                  onClick={() => pickViewMode("documents-docusaurus")}
-                >
-                  <FileText size={15} />
-                  <span>Docs: Docusaurus</span>
-                </button>
+                {ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`file-tree-open-menu-item ${
+                        viewMode === "documents-vitepress" ? "active" : ""
+                      }`}
+                      data-review-id="documents-view-mode-vitepress"
+                      role="menuitemradio"
+                      aria-checked={viewMode === "documents-vitepress"}
+                      aria-label="Documents only: VitePress order"
+                      title="Documents only: VitePress order"
+                      disabled={!vitepressOrder}
+                      onClick={() => pickViewMode("documents-vitepress")}
+                    >
+                      <FileText size={15} />
+                      <span>Docs: VitePress</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`file-tree-open-menu-item ${
+                        viewMode === "documents-docusaurus" ? "active" : ""
+                      }`}
+                      data-review-id="documents-view-mode-docusaurus"
+                      role="menuitemradio"
+                      aria-checked={viewMode === "documents-docusaurus"}
+                      aria-label="Documents only: Docusaurus order"
+                      title="Documents only: Docusaurus order"
+                      disabled={!docusaurusOrder}
+                      onClick={() => pickViewMode("documents-docusaurus")}
+                    >
+                      <FileText size={15} />
+                      <span>Docs: Docusaurus</span>
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
                   className={`file-tree-open-menu-item ${
@@ -1182,8 +1201,9 @@ function isOrderedDocumentsMode(viewMode: FilesViewMode): boolean {
   return (
     viewMode === "documents-mkdocs" ||
     viewMode === "documents-antora" ||
-    viewMode === "documents-vitepress" ||
-    viewMode === "documents-docusaurus"
+    (ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES &&
+      (viewMode === "documents-vitepress" ||
+        viewMode === "documents-docusaurus"))
   );
 }
 
