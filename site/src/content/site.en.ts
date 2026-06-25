@@ -345,6 +345,13 @@ export const site = {
             href: sitePath("en/docs/features/tabs-open-files/"),
           },
           {
+            slug: "documents-order",
+            title: "Documents order",
+            body: "Use path, MkDocs, or Antora order when browsing supported documents.",
+            state: "Available",
+            href: sitePath("en/docs/features/documents-order/"),
+          },
+          {
             slug: "history-recently-closed",
             title: "History and recently closed",
             body: "Return to documents and tabs without rebuilding context.",
@@ -788,6 +795,78 @@ export const site = {
             "Privacy boundary",
             "Shows a preference view that explains the privacy boundary.",
             "Svard privacy boundary preference view",
+          ),
+        ],
+      },
+      documentsOrder: {
+        title: "Documents order",
+        lead: "Documents order helps the Documents only view follow the structure used by static documentation sites.",
+        whatThisFeatureIs:
+          "Svard can show supported documents by file path, by static MkDocs nav order, or by local Antora navigation order when those sources are detected. This keeps a document set closer to the reading order used by the published docs without running the site generator.",
+        whenToUse:
+          "Use this when a folder contains many Markdown or AsciiDoc files and the file tree order does not match how readers move through the documentation.",
+        workflow: [
+          {
+            title: "Choose a documents order",
+            body: "Open Files, switch to Documents only, then choose Docs: Path, Docs: MkDocs, or Docs: Antora from the view mode menu when available.",
+            screenshot: screenshot(
+              "documents-order.png",
+              "Antora documents order",
+              "Shows Documents only using an Antora-style section order in the Files sidebar.",
+              "Svard Documents only view ordered by Antora navigation",
+            ),
+          },
+          {
+            title: "Keep review filters available",
+            body: "All and Changed stay in the same place. Git badges and open indicators continue to work while rows follow the selected document order.",
+          },
+          {
+            title: "Use lightweight static parsing",
+            body: "MkDocs uses static mkdocs.yml nav and docs_dir. Antora uses local antora.yml nav files and standard antora-playbook.yml content roots as discovery hints.",
+          },
+        ],
+        supportMatrix: {
+          title: "Supported order sources",
+          lead: "Documents order is a lightweight local ordering aid, not a static-site build.",
+          columns: ["Source", "Support", "Notes"],
+          rows: [
+            [
+              "Path",
+              "Supported",
+              "Default order for loaded supported documents in the file tree.",
+            ],
+            [
+              "MkDocs static nav",
+              "Supported",
+              "Reads local mkdocs.yml / mkdocs.yaml docs_dir and nav without running plugins.",
+            ],
+            [
+              "Antora static nav",
+              "Supported",
+              "Reads local antora.yml nav files and standard antora-playbook.yml local content roots.",
+            ],
+            [
+              "Generated or plugin nav",
+              "Unsupported",
+              "MkDocs plugins, Antora extensions, remote fetch, and build-generated navigation are not executed.",
+            ],
+            [
+              "Missing nav entries",
+              "Partial",
+              "Known nav documents outside the loaded file tree can appear as missing rows; extra loaded documents stay in a Not in nav group.",
+            ],
+          ],
+          note: "All sources stay inside the opened local workspace boundary and do not expose source bodies, private absolute paths, or remote endpoint values.",
+        },
+        limitations:
+          "Svard does not execute MkDocs plugins, Antora builds, Antora extensions, remote repository fetches, or generated navigation. Unsupported or dynamic navigation falls back to path order or shows only the local static subset that can be read safely.",
+        related: ["Tabs and Open Files", "Quick Open", "Source Control changes"],
+        screenshots: [
+          screenshot(
+            "documents-order.png",
+            "Antora documents order",
+            "Shows Documents only using an Antora-style section order in the Files sidebar.",
+            "Svard Documents only view ordered by Antora navigation",
           ),
         ],
       },

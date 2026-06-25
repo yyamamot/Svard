@@ -345,6 +345,13 @@ export const site = {
             href: sitePath("ja/docs/features/tabs-open-files/"),
           },
           {
+            slug: "documents-order",
+            title: "文書の並び順",
+            body: "Path / MkDocs / Antora の順序で対応文書を表示します。",
+            state: "公開中",
+            href: sitePath("ja/docs/features/documents-order/"),
+          },
+          {
             slug: "history-recently-closed",
             title: "履歴と閉じたタブ",
             body: "読んでいた文書や閉じたタブに戻ります。",
@@ -784,6 +791,78 @@ export const site = {
             "プライバシー境界",
             "公開成果物に出さない情報の境界を説明する設定画面を示します。",
             "Svard のプライバシー境界を説明する画面",
+          ),
+        ],
+      },
+      documentsOrder: {
+        title: "文書の並び順",
+        lead: "文書の並び順は、Documents only 表示を静的サイトの読書順に近づけるための機能です",
+        whatThisFeatureIs:
+          "Svard は対応文書をファイルパス順、静的な MkDocs nav 順、またはローカル Antora nav 順で表示できます。サイトジェネレーターを実行せず、公開ドキュメントで使われる読書順に近い入口を作ります。",
+        whenToUse:
+          "Markdown / AsciiDoc ファイルが多く、ファイルツリーの並びと読者が読む順序が一致しないフォルダで使います。",
+        workflow: [
+          {
+            title: "文書の順序を選ぶ",
+            body: "Files で Documents only に切り替え、利用可能な場合は表示モードメニューから Docs: Path、Docs: MkDocs、Docs: Antora を選びます。",
+            screenshot: screenshot(
+              "documents-order.png",
+              "Antora 文書の並び順",
+              "Files サイドバーで Documents only を Antora 風のセクション順で表示している状態を示します。",
+              "Svard の Documents only を Antora ナビゲーション順で表示している画面",
+            ),
+          },
+          {
+            title: "レビュー用フィルターは維持する",
+            body: "All / Changed は同じ位置に残ります。行の順序を変えても、Git バッジや open 表示は引き続き使えます。",
+          },
+          {
+            title: "静的に読める範囲だけを使う",
+            body: "MkDocs は静的な mkdocs.yml の nav と docs_dir を使います。Antora はローカルの antora.yml nav と標準 antora-playbook.yml の content root を発見情報として使います。",
+          },
+        ],
+        supportMatrix: {
+          title: "対応する並び順",
+          lead: "文書の並び順は、静的サイトをビルドする機能ではなく、ローカル文書の軽量な並び替え補助です。",
+          columns: ["対象", "対応", "補足"],
+          rows: [
+            [
+              "Path",
+              "対応",
+              "読み込み済みファイルツリー範囲の対応文書を、既定のパス順で表示します。",
+            ],
+            [
+              "MkDocs の静的 nav",
+              "対応",
+              "ローカルの mkdocs.yml / mkdocs.yaml から docs_dir と nav を読みます。プラグインは実行しません。",
+            ],
+            [
+              "Antora の静的 nav",
+              "対応",
+              "ローカルの antora.yml nav と、標準 antora-playbook.yml のローカルコンテンツルートを読みます。",
+            ],
+            [
+              "生成 nav / プラグイン nav",
+              "非対応",
+              "MkDocs プラグイン、Antora extension、リモート取得、ビルド後に生成されるナビゲーションは実行しません。",
+            ],
+            [
+              "nav とファイルツリーの差分",
+              "部分対応",
+              "読み込み範囲外の nav 文書は missing 行、nav に無い読み込み済み文書は Not in nav グループとして扱います。",
+            ],
+          ],
+          note: "どの対象でも、開いたローカル workspace の境界内だけを扱い、ソース本文、プライベートな絶対パス、リモートエンドポイント値は公開表示に出しません。",
+        },
+        limitations:
+          "Svard は MkDocs プラグイン、Antora ビルド、Antora 拡張、リモートリポジトリ取得、生成 nav を実行しません。動的なナビゲーションはパス順に戻すか、安全に読めるローカルの静的な範囲だけを表示します。",
+        related: ["タブと開いているファイル", "クイックオープン", "変更一覧"],
+        screenshots: [
+          screenshot(
+            "documents-order.png",
+            "Antora 文書の並び順",
+            "Files サイドバーで Documents only を Antora 風のセクション順で表示している状態を示します。",
+            "Svard の Documents only を Antora ナビゲーション順で表示している画面",
           ),
         ],
       },

@@ -185,8 +185,9 @@ fn parse_antora_nav_file(
         .file_name()
         .map(|value| value.to_string_lossy().to_string())
         .unwrap_or_else(|| "ROOT".to_string());
-    let mut section_title: Option<String> = None;
-    let mut list_items = Vec::new();
+    let mut blocks = Vec::<(Option<String>, Vec<(usize, String)>)>::new();
+    let mut current_title: Option<String> = None;
+    let mut current_items = Vec::new();
 
     for line in source.lines() {
         let trimmed = line.trim();
@@ -194,33 +195,48 @@ fn parse_antora_nav_file(
             continue;
         }
         if let Some(title) = trimmed.strip_prefix('.') {
+            push_antora_nav_block(&mut blocks, current_title.take(), &mut current_items);
             let title = title.trim();
             if !title.is_empty() {
-                section_title = Some(title.to_string());
+                current_title = Some(title.to_string());
             }
             continue;
         }
         if let Some((depth, content)) = antora_list_item(trimmed) {
-            list_items.push((depth, content.to_string()));
+            current_items.push((depth, content.to_string()));
         }
     }
+    push_antora_nav_block(&mut blocks, current_title, &mut current_items);
 
-    let children = build_antora_nodes(&list_items, 0, module_root, roots);
-    if let Some(title) = section_title {
-        if children.is_empty() {
-            Vec::new()
+    let mut nodes = Vec::new();
+    for (section_title, list_items) in blocks {
+        let children = build_antora_nodes(&list_items, 0, module_root, roots);
+        if let Some(title) = section_title {
+            if !children.is_empty() {
+                nodes.push(DocumentOrderNode::Section {
+                    title,
+                    depth: 0,
+                    children,
+                });
+            }
         } else {
-            vec![DocumentOrderNode::Section {
-                title,
-                depth: 0,
-                children,
-            }]
+            nodes.extend(
+                children
+                    .into_iter()
+                    .map(|node| shift_node_depth(node, &module_name)),
+            );
         }
-    } else {
-        children
-            .into_iter()
-            .map(|node| shift_node_depth(node, &module_name))
-            .collect()
+    }
+    nodes
+}
+
+fn push_antora_nav_block(
+    blocks: &mut Vec<(Option<String>, Vec<(usize, String)>)>,
+    title: Option<String>,
+    items: &mut Vec<(usize, String)>,
+) {
+    if title.is_some() || !items.is_empty() {
+        blocks.push((title, std::mem::take(items)));
     }
 }
 
@@ -387,7 +403,8 @@ fn antora_document(
     depth: usize,
     roots: &AllowedRoots,
 ) -> DocumentOrderNode {
-    if is_external_or_absolute_target(target) {
+    let path_target = target.split_once('#').map_or(target, |(path, _)| path);
+    if is_external_or_absolute_target(path_target) {
         return DocumentOrderNode::Document {
             title: title.unwrap_or_else(|| display_title_from_path(target)),
             path: String::new(),
@@ -396,7 +413,7 @@ fn antora_document(
             status: DocumentOrderDocumentStatus::External,
         };
     }
-    let Some((target_module, page)) = antora_page_target(target, module_root) else {
+    let Some((target_module, page)) = antora_page_target(path_target, module_root) else {
         return DocumentOrderNode::Document {
             title: title.unwrap_or_else(|| display_title_from_path(target)),
             path: String::new(),
@@ -686,6 +703,76 @@ mod tests {
                 status: DocumentOrderDocumentStatus::Resolved,
                 ..
             } if title == "Child"
+        ));
+    }
+
+    #[test]
+    fn preserves_multiple_antora_nav_section_blocks() {
+        let dir = tempdir().expect("tempdir");
+        let root_module = dir.path().join("modules").join("ROOT");
+        fs::create_dir_all(root_module.join("pages")).expect("root pages");
+        fs::write(root_module.join("pages").join("guide.adoc"), "= Guide").expect("guide");
+        fs::write(
+            root_module.join("pages").join("reference.adoc"),
+            "= Reference",
+        )
+        .expect("reference");
+        fs::write(
+            root_module.join("nav.adoc"),
+            ".Guide\n* xref:guide.adoc[]\n.Reference\n* xref:reference.adoc[]\n",
+        )
+        .expect("root nav");
+        fs::write(
+            dir.path().join("antora.yml"),
+            "name: component-a\nnav:\n  - modules/ROOT/nav.adoc\n",
+        )
+        .expect("descriptor");
+
+        let result = load_antora_order_from_content_root(dir.path(), &roots_for(dir.path()));
+
+        assert_eq!(result.source, DocumentOrderSource::Antora);
+        assert_eq!(result.nodes.len(), 2);
+        assert!(matches!(
+            &result.nodes[0],
+            DocumentOrderNode::Section { title, children, .. }
+                if title == "Guide" && children.len() == 1
+        ));
+        assert!(matches!(
+            &result.nodes[1],
+            DocumentOrderNode::Section { title, children, .. }
+                if title == "Reference" && children.len() == 1
+        ));
+    }
+
+    #[test]
+    fn resolves_antora_xref_with_anchor_to_document_path() {
+        let dir = tempdir().expect("tempdir");
+        let root_module = dir.path().join("modules").join("ROOT");
+        fs::create_dir_all(root_module.join("pages")).expect("root pages");
+        fs::write(root_module.join("pages").join("guide.adoc"), "= Guide").expect("guide");
+        fs::write(
+            root_module.join("nav.adoc"),
+            ".Guide\n* xref:guide.adoc#install[]\n",
+        )
+        .expect("root nav");
+        fs::write(
+            dir.path().join("antora.yml"),
+            "name: component-a\nnav:\n  - modules/ROOT/nav.adoc\n",
+        )
+        .expect("descriptor");
+
+        let result = load_antora_order_from_content_root(dir.path(), &roots_for(dir.path()));
+        let DocumentOrderNode::Section { children, .. } = &result.nodes[0] else {
+            panic!("expected guide section");
+        };
+
+        assert!(matches!(
+            &children[0],
+            DocumentOrderNode::Document {
+                path,
+                status: DocumentOrderDocumentStatus::Resolved,
+                ..
+            } if path.ends_with("modules/ROOT/pages/guide.adoc")
         ));
     }
 

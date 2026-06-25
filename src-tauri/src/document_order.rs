@@ -221,6 +221,33 @@ mod tests {
     }
 
     #[test]
+    fn load_document_order_splits_comma_separated_playbook_start_paths() {
+        let dir = tempdir().expect("tempdir");
+        for (relative_path, title) in [
+            ("docs/component-a", "Component A"),
+            ("docs/component-b", "Component B"),
+        ] {
+            let content_root = dir.path().join(relative_path);
+            fs::create_dir_all(&content_root).expect("content root");
+            write_antora_content_root(&content_root, title, "Guide Home");
+        }
+        fs::write(
+            dir.path().join("antora-playbook.yml"),
+            "content:\n  sources:\n    - url: ./\n      start_paths: docs/component-a, docs/component-b\n",
+        )
+        .expect("playbook");
+
+        let catalog = load_document_order_from_root(
+            dir.path().to_str().expect("path"),
+            &roots_for(dir.path()),
+        )
+        .expect("catalog");
+        let order = antora_order(&catalog);
+
+        assert_eq!(order.nodes.len(), 2);
+    }
+
+    #[test]
     fn load_document_order_ignores_remote_outside_and_nonstandard_playbooks() {
         let dir = tempdir().expect("tempdir");
         let outside = tempdir().expect("outside");

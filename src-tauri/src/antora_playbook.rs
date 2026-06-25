@@ -124,18 +124,27 @@ fn is_remote_source_url(url: &str) -> bool {
 fn source_start_paths(start_path: Option<&Value>, start_paths: Option<&Value>) -> Vec<String> {
     let mut paths = Vec::new();
     if let Some(path) = start_path.and_then(Value::as_str) {
-        paths.push(path.to_string());
+        paths.extend(start_path_entries(path));
     }
     if let Some(path) = start_paths.and_then(Value::as_str) {
-        paths.push(path.to_string());
+        paths.extend(start_path_entries(path));
     } else if let Some(sequence) = start_paths.and_then(Value::as_sequence) {
         for item in sequence {
             if let Some(path) = item.as_str() {
-                paths.push(path.to_string());
+                paths.extend(start_path_entries(path));
             }
         }
     }
     paths
+}
+
+fn start_path_entries(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 fn expand_start_path(source_root: &Path, pattern: &str, roots: &AllowedRoots) -> Vec<PathBuf> {

@@ -26,19 +26,9 @@ pub(crate) fn load_mkdocs_order_from_root(
     let Some(config_path) = find_mkdocs_config(root) else {
         return none_result(None);
     };
-    let source = match fs::read_to_string(&config_path) {
-        Ok(source) => source,
-        Err(_) => {
-            return none_result(Some("MkDocs configuration could not be read.".to_string()));
-        }
-    };
-    let parsed: Value = match serde_norway::from_str(&source) {
+    let parsed = match load_mkdocs_config_value(&config_path, roots, 0, &mut Vec::new()) {
         Ok(parsed) => parsed,
-        Err(_) => {
-            return none_result(Some(
-                "MkDocs configuration could not be parsed.".to_string(),
-            ));
-        }
+        Err(message) => return none_result(Some(message)),
     };
     let Some(mapping) = parsed.as_mapping() else {
         return none_result(Some("MkDocs configuration is not a mapping.".to_string()));
@@ -83,6 +73,60 @@ fn docs_dir_for_config(config_dir: &Path, mapping: &Mapping) -> PathBuf {
         .and_then(Value::as_str)
         .map(|value| config_dir.join(value))
         .unwrap_or_else(|| config_dir.join("docs"))
+}
+
+fn load_mkdocs_config_value(
+    config_path: &Path,
+    roots: &AllowedRoots,
+    depth: usize,
+    stack: &mut Vec<PathBuf>,
+) -> Result<Value, String> {
+    if depth > 4 {
+        return Err("MkDocs inherited configuration is too deep.".to_string());
+    }
+    let config_path = normalize_document_order_target_path(config_path);
+    if ensure_path_allowed(&config_path, roots).is_err() || !config_path.is_file() {
+        return Err("MkDocs configuration could not be read.".to_string());
+    }
+    if stack.iter().any(|current| current == &config_path) {
+        return Err("MkDocs inherited configuration contains a cycle.".to_string());
+    }
+    let source = fs::read_to_string(&config_path)
+        .map_err(|_| "MkDocs configuration could not be read.".to_string())?;
+    let parsed: Value = serde_norway::from_str(&source)
+        .map_err(|_| "MkDocs configuration could not be parsed.".to_string())?;
+    let Some(mapping) = parsed.as_mapping() else {
+        return Ok(parsed);
+    };
+    let Some(inherit) = mapping_get(mapping, "INHERIT").and_then(Value::as_str) else {
+        return Ok(parsed);
+    };
+    if is_external_or_absolute_target(inherit) || inherit.contains('\\') {
+        return Err("MkDocs inherited configuration is unsupported.".to_string());
+    }
+    let Some(config_dir) = config_path.parent() else {
+        return Ok(parsed);
+    };
+    let parent_path = normalize_document_order_target_path(&config_dir.join(inherit));
+    stack.push(config_path);
+    let parent = load_mkdocs_config_value(&parent_path, roots, depth + 1, stack)?;
+    stack.pop();
+    Ok(merge_mkdocs_config(parent, parsed))
+}
+
+fn merge_mkdocs_config(parent: Value, child: Value) -> Value {
+    let (Some(parent_mapping), Some(child_mapping)) = (parent.as_mapping(), child.as_mapping())
+    else {
+        return child;
+    };
+    let mut merged = parent_mapping.clone();
+    for (key, value) in child_mapping {
+        if key.as_str() == Some("INHERIT") {
+            continue;
+        }
+        merged.insert(key.clone(), value.clone());
+    }
+    Value::Mapping(merged)
 }
 
 fn parse_nav_sequence(
@@ -233,6 +277,43 @@ mod tests {
         assert_eq!(result.source, DocumentOrderSource::Mkdocs);
         assert!(!serialized.contains("/private/secret.md"));
         assert!(serialized.contains("external"));
+    }
+
+    #[test]
+    fn resolves_local_mkdocs_inherit_for_nav_and_docs_dir() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("site-docs");
+        fs::create_dir_all(&docs).expect("docs");
+        fs::write(docs.join("index.md"), "# Home").expect("index");
+        fs::write(
+            dir.path().join("base.yml"),
+            "docs_dir: site-docs\nnav:\n  - Home: index.md\n",
+        )
+        .expect("base config");
+        fs::write(dir.path().join("mkdocs.yml"), "INHERIT: base.yml\n").expect("config");
+
+        let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
+
+        assert_eq!(result.source, DocumentOrderSource::Mkdocs);
+        assert!(matches!(
+            &result.nodes[0],
+            DocumentOrderNode::Document {
+                status: DocumentOrderDocumentStatus::Resolved,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn rejects_outside_mkdocs_inherit_without_leaking_path() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(dir.path().join("mkdocs.yml"), "INHERIT: ../base.yml\n").expect("config");
+
+        let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
+        let serialized = serde_json::to_string(&result).expect("serialize");
+
+        assert_eq!(result.source, DocumentOrderSource::None);
+        assert!(!serialized.contains("../base.yml"));
     }
 
     #[test]

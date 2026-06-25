@@ -8,6 +8,7 @@
 - Added collapsed AsciiDoc Document Attributes metadata for root document header attributes.
 - Added an opt-in external PlantUML fallback for diagrams that the built-in renderer cannot render.
 - Added support for root-relative local image paths such as `/images/...` in static-site style documents.
+- Added static MkDocs and Antora navigation ordering for Documents only, including standard Antora playbook discovery.
 - Fixed reload rendering so unchanged documents keep their viewer content while local assets are rehydrated.
 - Improved Documents only review by sorting changed documents by status and marking open documents.
 - Improved source block toolbars so long code lines are not obscured until hover or focus.
