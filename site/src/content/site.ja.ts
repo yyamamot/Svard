@@ -804,7 +804,7 @@ export const site = {
         workflow: [
           {
             title: "公開サイトの読書順を選ぶ",
-            body: "Files で Documents only に切り替え、利用可能な場合は表示モードメニューから Docs: Path、Docs: MkDocs、Docs: Antora を選びます。",
+            body: "Files で Documents only に切り替え、利用可能な場合は表示モードメニューから Docs: Loaded、Docs: MkDocs、Docs: Antora を選びます。",
             screenshot: screenshot(
               "documents-order.png",
               "MkDocs / Antora ナビ順で読む",

@@ -808,7 +808,7 @@ export const site = {
         workflow: [
           {
             title: "Choose the published reading path",
-            body: "Open Files, switch to Documents only, then choose Docs: Path, Docs: MkDocs, or Docs: Antora from the view mode menu when available.",
+            body: "Open Files, switch to Documents only, then choose Docs: Loaded, Docs: MkDocs, or Docs: Antora from the view mode menu when available.",
             screenshot: screenshot(
               "documents-order.png",
               "MkDocs / Antora nav order",
@@ -859,7 +859,7 @@ export const site = {
           note: "All sources stay inside the opened local workspace boundary and do not expose source bodies, private absolute paths, or remote endpoint values.",
         },
         limitations:
-          "Svard does not execute MkDocs plugins, Antora builds, Antora extensions, remote repository fetches, or generated navigation. Unsupported or dynamic navigation falls back to path order or shows only the local static subset that can be read safely.",
+          "Svard does not execute MkDocs plugins, Antora builds, Antora extensions, remote repository fetches, or generated navigation. Unsupported or dynamic navigation falls back to loaded files order or shows only the local static subset that can be read safely.",
         related: ["Tabs and Open Files", "Quick Open", "Source Control changes"],
         screenshots: [
           screenshot(

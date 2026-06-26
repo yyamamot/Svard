@@ -306,7 +306,7 @@ describe("FileTreePanel toolbar and view menu", () => {
     ].map((item) => item.textContent);
     expect(menuItems).toEqual([
       "File tree",
-      "Docs: Path",
+      "Docs: Loaded",
       "Docs: MkDocs",
       "Docs: Antora",
     ]);

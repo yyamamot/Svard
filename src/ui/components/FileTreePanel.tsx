@@ -1066,12 +1066,12 @@ export function FileTreePanel({
                   data-review-id="documents-view-mode-path"
                   role="menuitemradio"
                   aria-checked={viewMode === "documents-path"}
-                  aria-label="Documents only: Path"
-                  title="Documents only: Path"
+                  aria-label="Documents only: Loaded"
+                  title="Documents only: Loaded"
                   onClick={() => pickViewMode("documents-path")}
                 >
                   <FileText size={15} />
-                  <span>Docs: Path</span>
+                  <span>Docs: Loaded</span>
                 </button>
                 <button
                   type="button"
