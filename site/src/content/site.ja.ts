@@ -346,8 +346,8 @@ export const site = {
           },
           {
             slug: "documents-order",
-            title: "文書の並び順",
-            body: "Path / MkDocs / Antora の順序で対応文書を表示します。",
+            title: "MkDocs / Antora ナビ順で読む",
+            body: "MkDocs / Antora のナビゲーション順でローカル文書を読めます。",
             state: "公開中",
             href: sitePath("ja/docs/features/documents-order/"),
           },
@@ -795,21 +795,21 @@ export const site = {
         ],
       },
       documentsOrder: {
-        title: "文書の並び順",
-        lead: "文書の並び順は、Documents only 表示を静的サイトの読書順に近づけるための機能です",
+        title: "MkDocs / Antora ナビ順で読む",
+        lead: "MkDocs / Antora で公開されるドキュメントと同じ読書順を、ローカルファイルだけで再現します",
         whatThisFeatureIs:
-          "Svard は対応文書をファイルパス順、静的な MkDocs nav 順、またはローカル Antora nav 順で表示できます。サイトジェネレーターを実行せず、公開ドキュメントで使われる読書順に近い入口を作ります。",
+          "Svard は対応文書をファイルパス順、静的な MkDocs nav 順、またはローカル Antora nav 順で表示できます。文書はローカルファイルとして開いたまま、サイドバーだけを公開ドキュメントで読者がたどる順序に近づけます。",
         whenToUse:
-          "Markdown / AsciiDoc ファイルが多く、ファイルツリーの並びと読者が読む順序が一致しないフォルダで使います。",
+          "Markdown / AsciiDoc ファイルが多く、ファイルツリーの並びと実際に読む順序が一致しないフォルダで使います。",
         workflow: [
           {
-            title: "文書の順序を選ぶ",
+            title: "公開サイトの読書順を選ぶ",
             body: "Files で Documents only に切り替え、利用可能な場合は表示モードメニューから Docs: Path、Docs: MkDocs、Docs: Antora を選びます。",
             screenshot: screenshot(
               "documents-order.png",
-              "静的サイトの文書の並び順",
-              "Files サイドバーで Documents only を静的サイトのセクション順で表示している状態を示します。",
-              "Svard の Documents only を静的サイトのナビゲーション順で表示している画面",
+              "MkDocs / Antora ナビ順で読む",
+              "Files サイドバーで Documents only を静的サイトのナビゲーション順で表示している状態を示します。",
+              "Svard の Documents only が MkDocs または Antora のナビゲーション順に並ぶ画面",
             ),
           },
           {
@@ -817,13 +817,13 @@ export const site = {
             body: "All / Changed は同じ位置に残ります。行の順序を変えても、Git バッジや open 表示は引き続き使えます。",
           },
           {
-            title: "静的に読める範囲だけを使う",
+            title: "ビルドせずに静的ナビゲーションを使う",
             body: "MkDocs は静的な mkdocs.yml の nav と docs_dir、Antora はローカルの antora.yml nav と標準 antora-playbook.yml の content root を使います。",
           },
         ],
         supportMatrix: {
-          title: "対応する並び順",
-          lead: "文書の並び順は、静的サイトをビルドする機能ではなく、ローカル文書の軽量な並び替え補助です。",
+          title: "対応するナビゲーション情報",
+          lead: "Svard は静的なナビゲーション情報を再利用して、ローカル文書の読書順を作ります。静的サイトをビルドする機能ではありません。",
           columns: ["対象", "対応", "補足"],
           rows: [
             [
@@ -860,9 +860,9 @@ export const site = {
         screenshots: [
           screenshot(
             "documents-order.png",
-            "静的サイトの文書の並び順",
-            "Files サイドバーで Documents only を静的サイトのセクション順で表示している状態を示します。",
-            "Svard の Documents only を静的サイトのナビゲーション順で表示している画面",
+            "MkDocs / Antora ナビ順で読む",
+            "Files サイドバーで Documents only を静的サイトのナビゲーション順で表示している状態を示します。",
+            "Svard の Documents only が MkDocs または Antora のナビゲーション順に並ぶ画面",
           ),
         ],
       },

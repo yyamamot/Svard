@@ -1,6 +1,7 @@
 const screenshotScenarioIds = new Set([
   "hero-plantuml",
   "files",
+  "documents-order",
   "file-compare-files",
   "file-compare-context-menu",
   "file-compare-preview",

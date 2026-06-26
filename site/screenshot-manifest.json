@@ -241,6 +241,14 @@
       "description": "Files tree with public-safe Git status badges."
     },
     {
+      "id": "documents-order",
+      "scenario": "documents-order",
+      "output": "documents-order.png",
+      "fixture": "/tmp/svard-site-viewer-fixtures/documents-order/overview.md",
+      "settleMs": 6500,
+      "description": "Documents only following a public-safe MkDocs navigation order."
+    },
+    {
       "id": "rendered-diff",
       "scenario": "rendered-diff",
       "output": "rendered-diff.png",

@@ -61,6 +61,79 @@ export async function runFilesAndNavigationScenarios(
     return true;
   }
 
+  if (scenario === "documents-order") {
+    const directory = fixtureDirectory(fixturePath);
+    const applyDocumentsOrderState = () => {
+      dismissInlineNotice();
+      setRootDirectory(directory);
+      setSidebarLayout((current) => ({
+        ...current,
+        leftSidebarWidth: 420,
+        openFilesCollapsed: true,
+      }));
+      setConfig((current) =>
+        current
+          ? {
+              ...current,
+              sidebarVisible: true,
+              rightSidebarVisible: false,
+              layout: {
+                ...current.layout,
+                leftSidebarWidth: 420,
+                openFilesCollapsed: true,
+              },
+              workspace: {
+                ...current.workspace,
+                sidebarTab: "files",
+              },
+            }
+          : current,
+      );
+    };
+    const chooseMkDocsOrder = () => {
+      applyDocumentsOrderState();
+      const trigger = document.querySelector<HTMLButtonElement>(
+        '[data-review-id="documents-view-toggle"]',
+      );
+      const mkdocsItem = document.querySelector<HTMLButtonElement>(
+        '[data-review-id="documents-view-mode-mkdocs"]',
+      );
+      if (!mkdocsItem && trigger?.getAttribute("aria-expanded") !== "true") {
+        trigger?.click();
+        return;
+      }
+      if (mkdocsItem && !mkdocsItem.disabled) {
+        mkdocsItem.click();
+      }
+    };
+    const expandReviewWorkflow = () => {
+      const section = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-review-id="documents-mkdocs-section"]',
+        ),
+      ).find((candidate) =>
+        candidate.textContent?.includes("Review workflow"),
+      );
+      const toggle = section?.querySelector<HTMLButtonElement>(
+        '[data-review-id="documents-order-section-toggle"]',
+      );
+      if (toggle?.getAttribute("aria-expanded") === "false") {
+        toggle.click();
+      }
+    };
+
+    closeAllTabs();
+    await openDirectory(directory);
+    await openDocument(fixturePath);
+    applyDocumentsOrderState();
+    window.setTimeout(applyDocumentsOrderState, 300);
+    window.setTimeout(chooseMkDocsOrder, 900);
+    window.setTimeout(chooseMkDocsOrder, 1600);
+    window.setTimeout(expandReviewWorkflow, 2400);
+    window.setTimeout(expandReviewWorkflow, 3600);
+    return true;
+  }
+
   if (
     scenario === "first-document-open-folder" ||
     scenario === "first-document-reader"

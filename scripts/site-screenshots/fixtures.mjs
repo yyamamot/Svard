@@ -375,6 +375,74 @@ The review term appears here so workspace search can show a second file.
   return fixturePath;
 }
 
+async function prepareMkDocsDocumentsOrderWorkspace({ artifactRoot }) {
+  const workspaceRoot = path.join(
+    artifactRoot,
+    "fixtures",
+    "documents-order-mkdocs",
+  );
+  const fixturePath = path.join(workspaceRoot, "overview.md");
+
+  await fs.rm(workspaceRoot, { recursive: true, force: true });
+  await ensureDir(workspaceRoot);
+  await fs.writeFile(
+    path.join(workspaceRoot, "mkdocs.yml"),
+    `site_name: Documentation Sample
+docs_dir: .
+nav:
+  - Start: overview.md
+  - Review workflow:
+      - Read local docs: read-local-docs.md
+      - Compare rendered changes: compare-rendered-changes.md
+      - Check diagrams: check-diagrams.md
+  - Operations:
+      - Release checklist: release-checklist.md
+      - Privacy boundary: privacy-boundary.md
+  - Reference: reference.md
+`,
+  );
+  const documents = {
+    "overview.md": `# Documentation Sample
+
+This public-safe sample is used for the Documents order screenshot.
+
+## Start
+
+Svard can keep local files readable while following the same navigation order readers expect from a static documentation site.
+`,
+    "read-local-docs.md": `# Read local docs
+
+Open local Markdown and AsciiDoc files without building a static site.
+`,
+    "compare-rendered-changes.md": `# Compare rendered changes
+
+Review document changes as rendered output before relying on source diffs.
+`,
+    "check-diagrams.md": `# Check diagrams
+
+Inspect diagrams from the same local reading workspace.
+`,
+    "release-checklist.md": `# Release checklist
+
+Use a short checklist to confirm reader-visible documentation changes.
+`,
+    "privacy-boundary.md": `# Privacy boundary
+
+Keep source text, private paths, and endpoints out of public artifacts.
+`,
+    "reference.md": `# Reference
+
+Use this page as a compact local reference entry.
+`,
+  };
+
+  for (const [fileName, content] of Object.entries(documents)) {
+    await fs.writeFile(path.join(workspaceRoot, fileName), content);
+  }
+
+  return fixturePath;
+}
+
 async function prepareReadingDocumentsWorkspace({ artifactRoot }) {
   const workspaceRoot = path.join(
     artifactRoot,
@@ -572,6 +640,9 @@ export async function prepareScreenshotFixture({
     capture.id === "workspace-search-result"
   ) {
     return prepareWorkspaceSearchWorkspace({ artifactRoot });
+  }
+  if (capture.id === "documents-order") {
+    return prepareMkDocsDocumentsOrderWorkspace({ artifactRoot });
   }
   if (
     capture.id === "table-of-contents" ||

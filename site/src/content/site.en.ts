@@ -346,8 +346,8 @@ export const site = {
           },
           {
             slug: "documents-order",
-            title: "Documents order",
-            body: "Use path, MkDocs, or Antora order when browsing supported documents.",
+            title: "MkDocs / Antora nav order",
+            body: "Follow MkDocs or Antora navigation locally without building the site.",
             state: "Available",
             href: sitePath("en/docs/features/documents-order/"),
           },
@@ -799,21 +799,21 @@ export const site = {
         ],
       },
       documentsOrder: {
-        title: "Documents order",
-        lead: "Documents order helps the Documents only view follow the structure used by static documentation sites.",
+        title: "MkDocs / Antora nav order",
+        lead: "Use the same reading path as the published MkDocs or Antora site, directly from local files.",
         whatThisFeatureIs:
-          "Svard can show supported documents by file path, static MkDocs nav order, or local Antora navigation order when those sources are detected. This keeps a document set closer to the reading order used by the published docs without running the site generator.",
+          "Svard can order supported documents by file path, static MkDocs nav, or local Antora navigation when those sources are detected. The document still opens from local files, but the sidebar follows the order readers expect from the published documentation site.",
         whenToUse:
-          "Use this when a folder contains many Markdown or AsciiDoc files and the file tree order does not match how readers move through the documentation.",
+          "Use this when a folder contains many Markdown or AsciiDoc files and the file tree does not match the path a reader would take through the docs.",
         workflow: [
           {
-            title: "Choose a documents order",
+            title: "Choose the published reading path",
             body: "Open Files, switch to Documents only, then choose Docs: Path, Docs: MkDocs, or Docs: Antora from the view mode menu when available.",
             screenshot: screenshot(
               "documents-order.png",
-              "Static-site documents order",
-              "Shows Documents only using a static-site section order in the Files sidebar.",
-              "Svard Documents only view ordered by static-site navigation",
+              "MkDocs / Antora nav order",
+              "Shows Documents only following static-site navigation in the Files sidebar.",
+              "Svard Documents only view following MkDocs or Antora navigation",
             ),
           },
           {
@@ -821,13 +821,13 @@ export const site = {
             body: "All and Changed stay in the same place. Git badges and open indicators continue to work while rows follow the selected document order.",
           },
           {
-            title: "Use lightweight static parsing",
+            title: "Reuse static-site navigation without a build",
             body: "MkDocs uses static mkdocs.yml nav and docs_dir. Antora uses local antora.yml nav files and standard antora-playbook.yml content roots as discovery hints.",
           },
         ],
         supportMatrix: {
-          title: "Supported order sources",
-          lead: "Documents order is a lightweight local ordering aid, not a static-site build.",
+          title: "Supported navigation sources",
+          lead: "Svard reuses static navigation metadata to create a local reading path. It does not build the site.",
           columns: ["Source", "Support", "Notes"],
           rows: [
             [
@@ -864,9 +864,9 @@ export const site = {
         screenshots: [
           screenshot(
             "documents-order.png",
-            "Static-site documents order",
-            "Shows Documents only using a static-site section order in the Files sidebar.",
-            "Svard Documents only view ordered by static-site navigation",
+            "MkDocs / Antora nav order",
+            "Shows Documents only following static-site navigation in the Files sidebar.",
+            "Svard Documents only view following MkDocs or Antora navigation",
           ),
         ],
       },
