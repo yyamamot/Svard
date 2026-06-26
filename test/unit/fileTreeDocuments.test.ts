@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDocumentOrderNavigation,
   buildFileTreeDocumentRows,
   collectDocumentOrderPaths,
   documentOrderSectionKey,
@@ -9,7 +10,7 @@ import {
   relativeDocumentPath,
   sectionHeaderDocument,
 } from "../../src/ui/lib/fileTreeDocuments";
-import type { DocumentOrderNode } from "../../src/core/types";
+import type { DocumentOrderNode, DocumentOrderResult } from "../../src/core/types";
 
 describe("fileTreeDocuments helpers", () => {
   it("builds supported document rows with relative paths and open state", () => {
@@ -148,4 +149,99 @@ describe("fileTreeDocuments helpers", () => {
       "/other/README.md",
     );
   });
+
+  it("builds previous and next targets from resolved loaded documents", () => {
+    const mkdocsOrder = navigationOrderFixture();
+    const navigation = buildDocumentOrderNavigation({
+      activePath: "/workspace/docs/install/linux.md",
+      loadedDocumentPaths: new Set([
+        "/workspace/docs/index.md",
+        "/workspace/docs/install/linux.md",
+        "/workspace/docs/reference.md",
+      ]),
+      order: mkdocsOrder,
+    });
+
+    expect(navigation?.sourceLabel).toBe("MkDocs");
+    expect(navigation?.previous?.path).toBe("/workspace/docs/index.md");
+    expect(navigation?.next?.path).toBe("/workspace/docs/reference.md");
+    expect(navigation?.activeSectionKeys).toEqual(
+      new Set([
+        documentOrderSectionKey("mkdocs", ["0"], "Guide", 0),
+        documentOrderSectionKey("mkdocs", ["0", "0"], "Install", 1),
+      ]),
+    );
+  });
+
+  it("returns null for non stable order sources and documents outside the selected order", () => {
+    const mkdocsOrder = navigationOrderFixture();
+    expect(
+      buildDocumentOrderNavigation({
+        activePath: "/workspace/docs/install/linux.md",
+        loadedDocumentPaths: new Set(["/workspace/docs/install/linux.md"]),
+        order: { ...mkdocsOrder, source: "vitepress" },
+      }),
+    ).toBeNull();
+    expect(
+      buildDocumentOrderNavigation({
+        activePath: "/workspace/docs/not-in-nav.md",
+        loadedDocumentPaths: new Set(["/workspace/docs/not-in-nav.md"]),
+        order: mkdocsOrder,
+      }),
+    ).toBeNull();
+  });
 });
+
+function navigationOrderFixture(): DocumentOrderResult {
+  return {
+    source: "mkdocs",
+    nodes: [
+      {
+        kind: "section",
+        title: "Guide",
+        depth: 0,
+        children: [
+          {
+            kind: "document",
+            title: "Guide",
+            path: "/workspace/docs/index.md",
+            displayPath: "index.md",
+            depth: 0,
+            status: "resolved",
+          },
+          {
+            kind: "section",
+            title: "Install",
+            depth: 1,
+            children: [
+              {
+                kind: "document",
+                title: "Linux",
+                path: "/workspace/docs/install/linux.md",
+                displayPath: "install/linux.md",
+                depth: 2,
+                status: "resolved",
+              },
+              {
+                kind: "document",
+                title: "Missing",
+                path: "",
+                displayPath: "install/missing.md",
+                depth: 2,
+                status: "missing",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "document",
+        title: "Reference",
+        path: "/workspace/docs/reference.md",
+        displayPath: "reference.md",
+        depth: 0,
+        status: "resolved",
+      },
+    ],
+  };
+}

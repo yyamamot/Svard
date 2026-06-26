@@ -25,6 +25,7 @@ import type {
   GitFileHistoryItem,
   GitDiffStatus,
 } from "../../core/types";
+import type { DocumentsViewMode } from "../lib/fileTreeDocuments";
 import type { OpenFileReloadState } from "../types";
 
 interface LeftSidebarProps {
@@ -48,6 +49,8 @@ interface LeftSidebarProps {
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
   documentOrder: DocumentOrderCatalog;
+  filesViewMode: DocumentsViewMode;
+  activeDocumentOrderSectionKeys: ReadonlySet<string>;
   gitStatusByPath: Record<string, GitDiffStatus>;
   openFileReloadStates: Record<string, OpenFileReloadState>;
   gitChanges: GitChanges | null;
@@ -83,6 +86,7 @@ interface LeftSidebarProps {
   onOpenBookmark: (bookmark: BookmarkEntry) => void;
   onOpenFile: (path: string) => void;
   onOpenGitDiff: (path: string) => void;
+  onFilesViewModeChange: (mode: DocumentsViewMode) => void;
   onPickDirectory: () => void;
   onPickDocument: () => void;
   onRefreshTree: () => void;
@@ -145,6 +149,8 @@ export function LeftSidebar({
   rootDirectory,
   rootEntries,
   documentOrder,
+  filesViewMode,
+  activeDocumentOrderSectionKeys,
   gitStatusByPath,
   openFileReloadStates,
   gitChanges,
@@ -177,6 +183,7 @@ export function LeftSidebar({
   onOpenBookmark,
   onOpenFile,
   onOpenGitDiff,
+  onFilesViewModeChange,
   onPickDirectory,
   onPickDocument,
   onRefreshTree,
@@ -263,8 +270,11 @@ export function LeftSidebar({
                 gitStatusByPath={gitStatusByPath}
                 gitChanges={gitChanges}
                 openDocumentPaths={openDocumentPaths}
+                filesViewMode={filesViewMode}
+                activeDocumentOrderSectionKeys={activeDocumentOrderSectionKeys}
                 onOpenFile={onOpenFile}
                 onOpenGitDiff={onOpenGitDiff}
+                onFilesViewModeChange={onFilesViewModeChange}
                 onToggleDirectory={onToggleDirectory}
                 onPickDocument={onPickDocument}
                 onPickDirectory={onPickDirectory}

@@ -774,6 +774,12 @@
   gap: 6px;
 }
 
+.document-order-navigation {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .button,
 .icon-button {
   display: inline-flex;

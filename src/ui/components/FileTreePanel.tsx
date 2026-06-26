@@ -64,8 +64,11 @@ interface FileTreePanelProps {
   gitStatusByPath: Record<string, GitDiffStatus>;
   gitChanges: GitChanges | null;
   openDocumentPaths?: ReadonlySet<string>;
+  filesViewMode?: FilesViewMode;
+  activeDocumentOrderSectionKeys?: ReadonlySet<string>;
   onOpenFile: (path: string) => void;
   onOpenGitDiff: (path: string) => void;
+  onFilesViewModeChange?: (mode: FilesViewMode) => void;
   onToggleDirectory: (path: string) => void;
   onPickDocument: () => void;
   onPickDirectory: () => void;
@@ -85,8 +88,11 @@ export function FileTreePanel({
   gitStatusByPath,
   gitChanges,
   openDocumentPaths = EMPTY_OPEN_DOCUMENT_PATHS,
+  filesViewMode,
+  activeDocumentOrderSectionKeys,
   onOpenFile,
   onOpenGitDiff,
+  onFilesViewModeChange,
   onToggleDirectory,
   onPickDocument,
   onPickDirectory,
@@ -94,15 +100,18 @@ export function FileTreePanel({
   onCollapse,
 }: FileTreePanelProps) {
   const [openMenuOpen, setOpenMenuOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<FilesViewMode>("tree");
+  const [localViewMode, setLocalViewMode] = useState<FilesViewMode>("tree");
   const [documentsFilter, setDocumentsFilter] = useState<"all" | "changed">(
     "all",
   );
   const [viewModeMenuOpen, setViewModeMenuOpen] = useState(false);
   const [expandedDocumentOrderSections, setExpandedDocumentOrderSections] =
     useState<Set<string>>(() => new Set());
+  const lastAutoExpandedContextRef = useRef<string | undefined>(undefined);
   const openMenuRef = useRef<HTMLDivElement | null>(null);
   const viewModeMenuRef = useRef<HTMLDivElement | null>(null);
+  const documentsViewRef = useRef<HTMLDivElement | null>(null);
+  const viewMode = filesViewMode ?? localViewMode;
   const fileTreeGitStatusByPath = useMemo(
     () => mergeGitStatusWithChanges(gitStatusByPath, gitChanges),
     [gitChanges, gitStatusByPath],
@@ -158,24 +167,51 @@ export function FileTreePanel({
 
   useEffect(() => {
     if (viewMode === "documents-mkdocs" && !mkdocsOrder) {
-      setViewMode("documents-path");
+      changeViewMode("documents-path");
     }
     if (viewMode === "documents-antora" && !antoraOrder) {
-      setViewMode("documents-path");
+      changeViewMode("documents-path");
     }
     if (
       viewMode === "documents-vitepress" &&
       (!ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES || !vitepressOrder)
     ) {
-      setViewMode("documents-path");
+      changeViewMode("documents-path");
     }
     if (
       viewMode === "documents-docusaurus" &&
       (!ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES || !docusaurusOrder)
     ) {
-      setViewMode("documents-path");
+      changeViewMode("documents-path");
     }
   }, [antoraOrder, docusaurusOrder, mkdocsOrder, vitepressOrder, viewMode]);
+
+  useEffect(() => {
+    if (
+      !activePath ||
+      !activeDocumentOrderSectionKeys?.size ||
+      lastAutoExpandedContextRef.current ===
+        `${activePath}:${[...activeDocumentOrderSectionKeys].join("|")}`
+    ) {
+      return;
+    }
+    lastAutoExpandedContextRef.current = `${activePath}:${[
+      ...activeDocumentOrderSectionKeys,
+    ].join("|")}`;
+    setExpandedDocumentOrderSections((current) => {
+      const next = new Set(current);
+      for (const key of activeDocumentOrderSectionKeys) {
+        next.add(key);
+      }
+      return next;
+    });
+    window.requestAnimationFrame(() => {
+      const activeElement = documentsViewRef.current?.querySelector<HTMLElement>(
+        '[data-document-order-active="true"]',
+      );
+      activeElement?.scrollIntoView?.({ block: "nearest" });
+    });
+  }, [activeDocumentOrderSectionKeys, activePath]);
 
   useEffect(() => {
     if (!openMenuOpen) {
@@ -235,8 +271,15 @@ export function FileTreePanel({
   }
 
   function pickViewMode(nextMode: FilesViewMode) {
-    setViewMode(nextMode);
+    changeViewMode(nextMode);
     setViewModeMenuOpen(false);
+  }
+
+  function changeViewMode(nextMode: FilesViewMode) {
+    if (filesViewMode === undefined) {
+      setLocalViewMode(nextMode);
+    }
+    onFilesViewModeChange?.(nextMode);
   }
 
   function toggleDocumentOrderSection(sectionKey: string) {
@@ -684,6 +727,7 @@ export function FileTreePanel({
         data-review-id={reviewId}
         data-document-order-section-state={collapsed ? "collapsed" : "expanded"}
         data-document-order-section-document={document ? "true" : undefined}
+        data-document-order-active={documentActive ? "true" : undefined}
         data-path={documentPath}
         style={{ paddingLeft: `${8 + depth * 12}px` }}
       >
@@ -735,6 +779,7 @@ export function FileTreePanel({
         }
         data-git-status-label={row.gitStatusLabel}
         data-document-open={row.isOpen ? "true" : undefined}
+        data-document-order-active={row.isActive ? "true" : undefined}
         title={
           row.gitStatus ? `${entry.path} · ${row.gitStatus.label}` : entry.path
         }
@@ -801,16 +846,18 @@ export function FileTreePanel({
     index: number,
   ): ReactNode {
     const isOpen = openDocumentPaths.has(node.path);
+    const isActive = activePath === node.path;
     return (
       <div
         key={`order-${node.depth}-${index}-${node.path}`}
-        className="tree-row file documents-view-row documents-view-row-order"
+        className={`tree-row file documents-view-row documents-view-row-order ${isActive ? "active" : ""}`}
         data-review-id="documents-view-row"
         data-context-menu-kind="file-tree"
         data-path={node.path}
         data-entry-kind="file"
         data-document-status="resolved"
         data-document-open={isOpen ? "true" : undefined}
+        data-document-order-active={isActive ? "true" : undefined}
         title={node.path}
         aria-label={`${node.title}${isOpen ? ", open" : ""}`}
         draggable
@@ -1135,7 +1182,11 @@ export function FileTreePanel({
           )}
         </div>
       ) : (
-        <div className="documents-view" data-review-id="documents-view">
+        <div
+          ref={documentsViewRef}
+          className="documents-view"
+          data-review-id="documents-view"
+        >
           {renderDocumentEntries()}
         </div>
       )}

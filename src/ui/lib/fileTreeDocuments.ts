@@ -28,6 +28,26 @@ export interface FileTreeDocumentRow {
   sortStatusRank: number;
 }
 
+export type StableDocumentOrderSource = Extract<
+  DocumentOrderResult["source"],
+  "mkdocs" | "antora"
+>;
+
+export interface DocumentOrderNavigationTarget {
+  path: string;
+  title: string;
+  displayPath?: string;
+}
+
+export interface DocumentOrderNavigationState {
+  source: StableDocumentOrderSource;
+  sourceLabel: string;
+  activePath: string;
+  previous: DocumentOrderNavigationTarget | null;
+  next: DocumentOrderNavigationTarget | null;
+  activeSectionKeys: Set<string>;
+}
+
 export function buildFileTreeDocumentRows({
   activePath,
   childrenByDirectory,
@@ -161,6 +181,131 @@ export function collectDocumentOrderPaths(
     }
   }
   return paths;
+}
+
+export function buildDocumentOrderNavigation({
+  activePath,
+  loadedDocumentPaths,
+  order,
+}: {
+  activePath?: string;
+  loadedDocumentPaths: ReadonlySet<string>;
+  order: DocumentOrderResult;
+}): DocumentOrderNavigationState | null {
+  if (
+    !activePath ||
+    (order.source !== "mkdocs" && order.source !== "antora")
+  ) {
+    return null;
+  }
+
+  const activeSectionKeys = new Set<string>();
+  const targets = flattenDocumentOrderTargets({
+    loadedDocumentPaths,
+    nodes: order.nodes,
+    sectionAncestors: [],
+    source: order.source,
+    targetAncestors: [],
+  });
+  const activeIndex = targets.findIndex((target) => target.path === activePath);
+  if (activeIndex === -1) {
+    return null;
+  }
+
+  for (const key of targets[activeIndex]?.sectionKeys ?? []) {
+    activeSectionKeys.add(key);
+  }
+
+  return {
+    source: order.source,
+    sourceLabel: order.source === "mkdocs" ? "MkDocs" : "Antora",
+    activePath,
+    previous: targetToNavigationTarget(targets[activeIndex - 1]),
+    next: targetToNavigationTarget(targets[activeIndex + 1]),
+    activeSectionKeys,
+  };
+}
+
+interface FlattenDocumentOrderTarget {
+  path: string;
+  title: string;
+  displayPath?: string;
+  sectionKeys: string[];
+}
+
+function flattenDocumentOrderTargets({
+  loadedDocumentPaths,
+  nodes,
+  sectionAncestors,
+  source,
+  targetAncestors,
+}: {
+  loadedDocumentPaths: ReadonlySet<string>;
+  nodes: DocumentOrderNode[];
+  sectionAncestors: string[];
+  source: StableDocumentOrderSource;
+  targetAncestors: string[];
+}): FlattenDocumentOrderTarget[] {
+  const targets: FlattenDocumentOrderTarget[] = [];
+
+  nodes.forEach((node, index) => {
+    if (node.kind === "section") {
+      const nextAncestry = [...targetAncestors, String(index)];
+      const sectionKey = documentOrderSectionKey(
+        source,
+        nextAncestry,
+        node.title,
+        node.depth,
+      );
+      const sectionDocument = sectionHeaderDocument(node);
+      if (
+        sectionDocument?.status === "resolved" &&
+        loadedDocumentPaths.has(sectionDocument.path)
+      ) {
+        targets.push({
+          path: sectionDocument.path,
+          title: sectionDocument.title,
+          displayPath: sectionDocument.displayPath,
+          sectionKeys: [...sectionAncestors, sectionKey],
+        });
+      }
+      const childNodes = sectionDocument ? node.children.slice(1) : node.children;
+      targets.push(
+        ...flattenDocumentOrderTargets({
+          loadedDocumentPaths,
+          nodes: childNodes,
+          sectionAncestors: [...sectionAncestors, sectionKey],
+          source,
+          targetAncestors: nextAncestry,
+        }),
+      );
+      return;
+    }
+
+    if (node.status === "resolved" && loadedDocumentPaths.has(node.path)) {
+      targets.push({
+        path: node.path,
+        title: node.title,
+        displayPath: node.displayPath,
+        sectionKeys: sectionAncestors,
+      });
+    }
+  });
+
+  return targets;
+}
+
+function targetToNavigationTarget(
+  target: FlattenDocumentOrderTarget | undefined,
+): DocumentOrderNavigationTarget | null {
+  if (!target) {
+    return null;
+  }
+  return {
+    path: target.path,
+    title: target.title,
+    displayPath: target.displayPath,
+  };
 }
 
 function changedDocumentStatusRank(status?: GitDiffStatus): number {

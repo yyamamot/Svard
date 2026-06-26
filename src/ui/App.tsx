@@ -949,7 +949,7 @@ export function App() {
     setLastMouseGesture,
   });
   const bookmarks = config?.workspace.bookmarks ?? [];
-  const { leftSidebarProps } = useAppSidebarWiring({
+  const { leftSidebarProps, documentOrderNavigation } = useAppSidebarWiring({
     activePath: preferencesOpen ? undefined : documentPayload?.path,
     bookmarks,
     childrenByDirectory,
@@ -1129,6 +1129,7 @@ export function App() {
         rightSidebarAvailable: !preferencesOpen,
         zenModeActive: zenModeApplies,
         hideTabs: zenModeApplies && zenModeConfig.hideTabs,
+        documentOrderNavigation,
         onActivateTab: (tab) => {
           if (tab.kind === "preferences") {
             openPreferencesTab();
@@ -1140,6 +1141,8 @@ export function App() {
         onToggleTabMore: () => {
           setTabMoreOpen((current) => !current);
         },
+        onOpenDocumentOrderTarget: (path) =>
+          void workspaceTabActions.openDocumentWorkspaceTab(path),
         onDispatchCommand: (commandId) => void dispatchCommand(commandId),
       }}
       preferencesPanelProps={

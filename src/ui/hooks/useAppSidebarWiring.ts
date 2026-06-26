@@ -13,6 +13,13 @@ import type {
   DocumentPayload,
   WorkspaceEnvironment,
 } from "../../core/types";
+import {
+  buildDocumentOrderNavigation,
+  buildFileTreeDocumentRows,
+  type DocumentOrderNavigationState,
+  type DocumentsViewMode,
+} from "../lib/fileTreeDocuments";
+import { mergeGitStatusWithChanges } from "../lib/gitDirectoryStatusSummary";
 import type { LeftSidebar } from "../components/LeftSidebar";
 import type { OpenFileReloadState } from "../types";
 import { useGitStatusHints } from "./useGitStatusHints";
@@ -128,10 +135,15 @@ export function useAppSidebarWiring({
   onToggleDirectory,
   onToggleOpenFilesCollapsed,
   onTogglePinned,
-}: UseAppSidebarWiringOptions): { leftSidebarProps: AppLeftSidebarProps } {
+}: UseAppSidebarWiringOptions): {
+  leftSidebarProps: AppLeftSidebarProps;
+  documentOrderNavigation: DocumentOrderNavigationState | null;
+} {
   const [documentOrder, setDocumentOrder] = useState<DocumentOrderCatalog>({
     orders: [],
   });
+  const [filesViewMode, setFilesViewMode] =
+    useState<DocumentsViewMode>("tree");
   const openDocumentPaths = useMemo(
     () => new Set(orderedTabs.map((tab) => tab.path)),
     [orderedTabs],
@@ -143,6 +155,43 @@ export function useAppSidebarWiring({
     tabs,
     workspacePerformanceMode,
   });
+  const fileTreeGitStatusByPath = useMemo(
+    () => mergeGitStatusWithChanges(gitStatusByPath, gitSourceControl.gitChanges),
+    [gitSourceControl.gitChanges, gitStatusByPath],
+  );
+  const documentRows = useMemo(
+    () =>
+      buildFileTreeDocumentRows({
+        activePath,
+        childrenByDirectory,
+        gitStatusByPath: fileTreeGitStatusByPath,
+        openDocumentPaths,
+        rootDirectory,
+      }),
+    [
+      activePath,
+      childrenByDirectory,
+      fileTreeGitStatusByPath,
+      openDocumentPaths,
+      rootDirectory,
+    ],
+  );
+  const documentOrderNavigation = useMemo(() => {
+    const selectedOrder =
+      filesViewMode === "documents-mkdocs"
+        ? documentOrder.orders.find((order) => order.source === "mkdocs")
+        : filesViewMode === "documents-antora"
+          ? documentOrder.orders.find((order) => order.source === "antora")
+          : undefined;
+    if (!selectedOrder) {
+      return null;
+    }
+    return buildDocumentOrderNavigation({
+      activePath,
+      loadedDocumentPaths: new Set(documentRows.map((row) => row.entry.path)),
+      order: selectedOrder,
+    });
+  }, [activePath, documentOrder.orders, documentRows, filesViewMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,6 +236,9 @@ export function useAppSidebarWiring({
     orderedTabs,
     openDocumentPaths,
     documentOrder,
+    filesViewMode,
+    activeDocumentOrderSectionKeys:
+      documentOrderNavigation?.activeSectionKeys ?? new Set(),
     pinnedTabs,
     rootDirectory,
     rootEntries,
@@ -212,6 +264,7 @@ export function useAppSidebarWiring({
     onOpenFile: (path) => void onOpenFile(path),
     onPickDirectory: () => void onPickDirectory(),
     onPickDocument: () => void onPickDocument(),
+    onFilesViewModeChange: setFilesViewMode,
     onRefreshTree: () => void onRefreshTree(),
     onRemoveBookmark: (path) => void onRemoveBookmark(path),
     onReorderBookmarks: (fromIndex, toIndex) =>
@@ -228,5 +281,6 @@ export function useAppSidebarWiring({
 
   return {
     leftSidebarProps,
+    documentOrderNavigation,
   };
 }

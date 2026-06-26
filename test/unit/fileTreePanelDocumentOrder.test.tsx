@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FileTreePanel } from "../../src/ui/components/FileTreePanel";
+import { documentOrderSectionKey } from "../../src/ui/lib/fileTreeDocuments";
 import { chooseFileViewModeIn } from "./helpers/fileTreePanel";
 
 describe("FileTreePanel Antora and experimental document order", () => {
@@ -670,6 +671,118 @@ describe("FileTreePanel Antora and experimental document order", () => {
     expect(row?.querySelector(".documents-view-row-path")?.textContent).toBe(
       "index.adoc",
     );
+  });
+
+  it("auto expands the active ordered section once per active document", async () => {
+    const activeSectionKey = documentOrderSectionKey(
+      "antora",
+      ["0"],
+      "Product",
+      0,
+    );
+
+    async function renderActiveAntoraOrder() {
+      await act(async () => {
+        root.render(
+          <FileTreePanel
+            rootDirectory="/workspace"
+            rootEntries={[]}
+            childrenByDirectory={{
+              "/workspace/modules/ROOT/pages": [
+                {
+                  name: "index.adoc",
+                  path: "/workspace/modules/ROOT/pages/index.adoc",
+                  kind: "file",
+                },
+                {
+                  name: "users.adoc",
+                  path: "/workspace/modules/ROOT/pages/users.adoc",
+                  kind: "file",
+                },
+              ],
+            }}
+            expandedDirectories={new Set()}
+            loadingDirectories={new Set()}
+            directoryErrors={{}}
+            gitStatusByPath={{}}
+            gitChanges={null}
+            documentOrder={{
+              orders: [
+                {
+                  source: "antora",
+                  nodes: [
+                    {
+                      kind: "section",
+                      title: "Product",
+                      depth: 0,
+                      children: [
+                        {
+                          kind: "document",
+                          title: "Home",
+                          path: "/workspace/modules/ROOT/pages/index.adoc",
+                          displayPath: "index.adoc",
+                          depth: 1,
+                          status: "resolved",
+                        },
+                        {
+                          kind: "document",
+                          title: "Users",
+                          path: "/workspace/modules/ROOT/pages/users.adoc",
+                          displayPath: "users.adoc",
+                          depth: 1,
+                          status: "resolved",
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            }}
+            filesViewMode="documents-antora"
+            activeDocumentOrderSectionKeys={new Set([activeSectionKey])}
+            activePath="/workspace/modules/ROOT/pages/users.adoc"
+            onOpenFile={vi.fn()}
+            onOpenGitDiff={vi.fn()}
+            onFilesViewModeChange={vi.fn()}
+            onToggleDirectory={vi.fn()}
+            onPickDocument={vi.fn()}
+            onPickDirectory={vi.fn()}
+            onRefresh={vi.fn()}
+            onCollapse={vi.fn()}
+          />,
+        );
+      });
+    }
+
+    await renderActiveAntoraOrder();
+
+    expect(
+      container.querySelector(
+        '[data-path="/workspace/modules/ROOT/pages/users.adoc"]',
+      ),
+    ).not.toBeNull();
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-antora-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+
+    expect(
+      container.querySelector(
+        '[data-path="/workspace/modules/ROOT/pages/users.adoc"]',
+      ),
+    ).toBeNull();
+
+    await renderActiveAntoraOrder();
+
+    expect(
+      container.querySelector(
+        '[data-path="/workspace/modules/ROOT/pages/users.adoc"]',
+      ),
+    ).toBeNull();
   });
 
 });

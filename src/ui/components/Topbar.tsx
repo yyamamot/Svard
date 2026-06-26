@@ -1,5 +1,7 @@
 import {
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Columns2,
   FileText,
   Focus,
@@ -12,6 +14,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { fileName, isMiddleMouseButton } from "../lib/path";
 import { preferencesTabId } from "../lib/workspaceTabs";
 import type { CommandId } from "../../core/commands";
+import type { DocumentOrderNavigationState } from "../lib/fileTreeDocuments";
 import type { WorkspaceTab } from "../types";
 
 interface TopbarProps {
@@ -27,9 +30,11 @@ interface TopbarProps {
   rightSidebarAvailable?: boolean;
   zenModeActive: boolean;
   hideTabs?: boolean;
+  documentOrderNavigation?: DocumentOrderNavigationState | null;
   onActivateTab: (tab: WorkspaceTab) => void;
   onCloseTab: (tab: WorkspaceTab) => void;
   onToggleTabMore: () => void;
+  onOpenDocumentOrderTarget?: (path: string) => void;
   onDispatchCommand: (commandId: CommandId) => void;
 }
 
@@ -46,9 +51,11 @@ export function Topbar({
   rightSidebarAvailable = true,
   zenModeActive,
   hideTabs = false,
+  documentOrderNavigation = null,
   onActivateTab,
   onCloseTab,
   onToggleTabMore,
+  onOpenDocumentOrderTarget,
   onDispatchCommand,
 }: TopbarProps) {
   function preventMiddleClick(event: ReactMouseEvent) {
@@ -74,6 +81,13 @@ export function Topbar({
 
   function dispatchFromTopbar(commandId: CommandId) {
     onDispatchCommand(commandId);
+  }
+
+  function openDocumentOrderTarget(path: string | undefined) {
+    if (!path) {
+      return;
+    }
+    onOpenDocumentOrderTarget?.(path);
   }
 
   return (
@@ -197,6 +211,47 @@ export function Topbar({
         </div>
       )}
       <div className="toolbar">
+        {documentOrderNavigation ? (
+          <div
+            className="document-order-navigation"
+            aria-label={`${documentOrderNavigation.sourceLabel} document navigation`}
+          >
+            <button
+              type="button"
+              className="icon-button topbar-mode-toggle"
+              data-review-id="document-order-previous"
+              aria-label={`Previous document in ${documentOrderNavigation.sourceLabel} order`}
+              title={`Previous document in ${documentOrderNavigation.sourceLabel} order${
+                documentOrderNavigation.previous
+                  ? `: ${documentOrderNavigation.previous.title}`
+                  : ""
+              }`}
+              disabled={!documentOrderNavigation.previous}
+              onClick={() =>
+                openDocumentOrderTarget(documentOrderNavigation.previous?.path)
+              }
+            >
+              <ChevronLeft size={17} />
+            </button>
+            <button
+              type="button"
+              className="icon-button topbar-mode-toggle"
+              data-review-id="document-order-next"
+              aria-label={`Next document in ${documentOrderNavigation.sourceLabel} order`}
+              title={`Next document in ${documentOrderNavigation.sourceLabel} order${
+                documentOrderNavigation.next
+                  ? `: ${documentOrderNavigation.next.title}`
+                  : ""
+              }`}
+              disabled={!documentOrderNavigation.next}
+              onClick={() =>
+                openDocumentOrderTarget(documentOrderNavigation.next?.path)
+              }
+            >
+              <ChevronRight size={17} />
+            </button>
+          </div>
+        ) : null}
         <button
           type="button"
           className={`icon-button topbar-mode-toggle ${
