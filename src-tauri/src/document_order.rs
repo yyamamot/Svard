@@ -9,6 +9,7 @@ use crate::{
     mkdocs_order::load_mkdocs_order_from_root,
     path_policy::{ensure_path_allowed, resolve_existing_directory_path},
     vitepress_order::load_vitepress_order_from_root,
+    zensical_order::load_zensical_order_from_root,
 };
 
 pub(crate) fn load_document_order_from_root(
@@ -20,6 +21,7 @@ pub(crate) fn load_document_order_from_root(
     Ok(DocumentOrderCatalog {
         orders: [
             load_mkdocs_order_from_root(&root, roots),
+            load_zensical_order_from_root(&root, roots),
             load_antora_order_from_roots(&antora_content_roots(&root, roots), roots),
             load_vitepress_order_from_root(&root, roots),
             load_docusaurus_order_from_root(&root, roots),
@@ -103,6 +105,11 @@ mod tests {
         fs::write(root_module.join("pages").join("index.adoc"), "= Home").expect("antora page");
         fs::write(dir.path().join("mkdocs.yml"), "nav:\n  - Home: index.md\n").expect("mkdocs");
         fs::write(
+            dir.path().join("zensical.toml"),
+            "[project]\nnav = [{ \"Guide\" = \"guide.md\" }]\n",
+        )
+        .expect("zensical");
+        fs::write(
             docs.join(".vitepress").join("config.ts"),
             "export default { themeConfig: { sidebar: [{ text: 'Guide', link: '/guide' }] } }",
         )
@@ -129,11 +136,15 @@ mod tests {
         )
         .expect("catalog");
 
-        assert_eq!(catalog.orders.len(), 4);
+        assert_eq!(catalog.orders.len(), 5);
         assert!(catalog
             .orders
             .iter()
             .any(|order| order.source == DocumentOrderSource::Mkdocs));
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Zensical));
         assert!(catalog
             .orders
             .iter()

@@ -13,6 +13,7 @@ export type DocumentsViewMode =
   | "tree"
   | "documents-path"
   | "documents-mkdocs"
+  | "documents-zensical"
   | "documents-antora"
   | "documents-vitepress"
   | "documents-docusaurus";
@@ -30,7 +31,7 @@ export interface FileTreeDocumentRow {
 
 export type StableDocumentOrderSource = Extract<
   DocumentOrderResult["source"],
-  "mkdocs" | "antora"
+  "mkdocs" | "zensical" | "antora"
 >;
 
 export interface DocumentOrderNavigationTarget {
@@ -137,6 +138,7 @@ export function isOrderedDocumentsMode(
 ): boolean {
   return (
     viewMode === "documents-mkdocs" ||
+    viewMode === "documents-zensical" ||
     viewMode === "documents-antora" ||
     (experimentalStaticSiteOrderSourcesEnabled &&
       (viewMode === "documents-vitepress" ||
@@ -194,7 +196,9 @@ export function buildDocumentOrderNavigation({
 }): DocumentOrderNavigationState | null {
   if (
     !activePath ||
-    (order.source !== "mkdocs" && order.source !== "antora")
+    (order.source !== "mkdocs" &&
+      order.source !== "zensical" &&
+      order.source !== "antora")
   ) {
     return null;
   }
@@ -218,7 +222,12 @@ export function buildDocumentOrderNavigation({
 
   return {
     source: order.source,
-    sourceLabel: order.source === "mkdocs" ? "MkDocs" : "Antora",
+    sourceLabel:
+      order.source === "mkdocs"
+        ? "MkDocs"
+        : order.source === "zensical"
+          ? "Zensical"
+          : "Antora",
     activePath,
     previous: targetToNavigationTarget(targets[activeIndex - 1]),
     next: targetToNavigationTarget(targets[activeIndex + 1]),

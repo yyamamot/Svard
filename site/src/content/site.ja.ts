@@ -346,8 +346,8 @@ export const site = {
           },
           {
             slug: "documents-order",
-            title: "MkDocs / Antora ナビ順で読む",
-            body: "MkDocs / Antora のナビゲーション順でローカル文書を読めます。",
+            title: "MkDocs / Zensical / Antora ナビ順で読む",
+            body: "MkDocs / Zensical / Antora のナビゲーション順でローカル文書を読めます。",
             state: "公開中",
             href: sitePath("ja/docs/features/documents-order/"),
           },
@@ -795,21 +795,21 @@ export const site = {
         ],
       },
       documentsOrder: {
-        title: "MkDocs / Antora ナビ順で読む",
-        lead: "MkDocs / Antora で公開されるドキュメントと同じ読書順を、ローカルファイルだけで再現します",
+        title: "MkDocs / Zensical / Antora ナビ順で読む",
+        lead: "MkDocs / Zensical / Antora で公開されるドキュメントと同じ読書順を、ローカルファイルだけで再現します",
         whatThisFeatureIs:
-          "Svard は対応文書をファイルパス順、静的な MkDocs nav 順、またはローカル Antora nav 順で表示できます。文書はローカルファイルとして開いたまま、サイドバーだけを公開ドキュメントで読者がたどる順序に近づけます。",
+          "Svard は対応文書をファイルパス順、静的な MkDocs nav 順、Zensical nav 順、またはローカル Antora nav 順で表示できます。文書はローカルファイルとして開いたまま、サイドバーだけを公開ドキュメントで読者がたどる順序に近づけます。",
         whenToUse:
           "Markdown / AsciiDoc ファイルが多く、ファイルツリーの並びと実際に読む順序が一致しないフォルダで使います。",
         workflow: [
           {
             title: "公開サイトの読書順を選ぶ",
-            body: "Files で Documents only に切り替え、利用可能な場合は表示モードメニューから Docs: Loaded、Docs: MkDocs、Docs: Antora を選びます。",
+            body: "Files で Documents only に切り替え、利用可能な場合は表示モードメニューから Docs: Loaded、Docs: MkDocs、Docs: Zensical、Docs: Antora を選びます。",
             screenshot: screenshot(
               "documents-order.png",
-              "MkDocs / Antora ナビ順で読む",
+              "MkDocs / Zensical / Antora ナビ順で読む",
               "Files サイドバーで Documents only を静的サイトのナビゲーション順で表示している状態を示します。",
-              "Svard の Documents only が MkDocs または Antora のナビゲーション順に並ぶ画面",
+              "Svard の Documents only が MkDocs、Zensical、または Antora のナビゲーション順に並ぶ画面",
             ),
           },
           {
@@ -818,7 +818,7 @@ export const site = {
           },
           {
             title: "ビルドせずに静的ナビゲーションを使う",
-            body: "MkDocs は静的な mkdocs.yml の nav と docs_dir、Antora はローカルの antora.yml nav と標準 antora-playbook.yml の content root を使います。",
+            body: "MkDocs は静的な mkdocs.yml の nav と docs_dir、Zensical は zensical.toml の project nav と docs_dir、Antora はローカルの antora.yml nav と標準 antora-playbook.yml の content root を使います。",
           },
         ],
         supportMatrix: {
@@ -827,7 +827,7 @@ export const site = {
           columns: ["対象", "対応", "補足"],
           rows: [
             [
-              "Path",
+              "Loaded",
               "対応",
               "読み込み済みファイルツリー範囲の対応文書を、既定のパス順で表示します。",
             ],
@@ -837,6 +837,11 @@ export const site = {
               "ローカルの mkdocs.yml / mkdocs.yaml から docs_dir と nav を読みます。プラグインは実行しません。",
             ],
             [
+              "Zensical の静的 nav",
+              "対応",
+              "ローカルの zensical.toml から project docs_dir と nav を読みます。Zensical は実行しません。",
+            ],
+            [
               "Antora の静的 nav",
               "対応",
               "ローカルの antora.yml nav と、標準 antora-playbook.yml のローカルコンテンツルートを読みます。",
@@ -844,7 +849,7 @@ export const site = {
             [
               "生成 nav / プラグイン nav",
               "非対応",
-              "MkDocs プラグイン、Antora extension、リモート取得、ビルド後に生成されるナビゲーションは実行しません。",
+              "MkDocs プラグイン、Zensical extension、Antora extension、リモート取得、ビルド後に生成されるナビゲーションは実行しません。",
             ],
             [
               "nav とファイルツリーの差分",
@@ -855,14 +860,14 @@ export const site = {
           note: "どの対象でも、開いたローカル workspace の境界内だけを扱い、ソース本文、プライベートな絶対パス、リモートエンドポイント値は公開表示に出しません。",
         },
         limitations:
-          "Svard は MkDocs プラグイン、Antora ビルド、Antora 拡張、リモートリポジトリ取得、生成 nav を実行しません。動的なナビゲーションはパス順に戻すか、安全に読めるローカルの静的な範囲だけを表示します。",
+          "Svard は MkDocs プラグイン、Zensical ビルド、Zensical extension、Antora ビルド、Antora 拡張、リモートリポジトリ取得、生成 nav を実行しません。動的なナビゲーションは Loaded order に戻すか、安全に読めるローカルの静的な範囲だけを表示します。",
         related: ["タブと開いているファイル", "クイックオープン", "変更一覧"],
         screenshots: [
           screenshot(
             "documents-order.png",
-            "MkDocs / Antora ナビ順で読む",
+            "MkDocs / Zensical / Antora ナビ順で読む",
             "Files サイドバーで Documents only を静的サイトのナビゲーション順で表示している状態を示します。",
-            "Svard の Documents only が MkDocs または Antora のナビゲーション順に並ぶ画面",
+            "Svard の Documents only が MkDocs、Zensical、または Antora のナビゲーション順に並ぶ画面",
           ),
         ],
       },

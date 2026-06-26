@@ -99,11 +99,17 @@ describe("fileTreeDocuments helpers", () => {
         (row) => row.entry.name,
       ),
     ).toEqual(["a.md", "b.md"]);
+    expect(
+      filterVisibleDocumentRows(rows, "changed", "documents-zensical", false).map(
+        (row) => row.entry.name,
+      ),
+    ).toEqual(["a.md", "b.md"]);
   });
 
   it("keeps VitePress and Docusaurus order modes behind the local flag", () => {
     expect(isOrderedDocumentsMode("documents-vitepress", false)).toBe(false);
     expect(isOrderedDocumentsMode("documents-docusaurus", false)).toBe(false);
+    expect(isOrderedDocumentsMode("documents-zensical", false)).toBe(true);
     expect(isOrderedDocumentsMode("documents-vitepress", true)).toBe(true);
     expect(isOrderedDocumentsMode("documents-docusaurus", true)).toBe(true);
   });
@@ -189,6 +195,26 @@ describe("fileTreeDocuments helpers", () => {
         order: mkdocsOrder,
       }),
     ).toBeNull();
+  });
+
+  it("builds previous and next targets from Zensical order", () => {
+    const zensicalOrder: DocumentOrderResult = {
+      ...navigationOrderFixture(),
+      source: "zensical",
+    };
+    const navigation = buildDocumentOrderNavigation({
+      activePath: "/workspace/docs/install/linux.md",
+      loadedDocumentPaths: new Set([
+        "/workspace/docs/index.md",
+        "/workspace/docs/install/linux.md",
+        "/workspace/docs/reference.md",
+      ]),
+      order: zensicalOrder,
+    });
+
+    expect(navigation?.sourceLabel).toBe("Zensical");
+    expect(navigation?.previous?.path).toBe("/workspace/docs/index.md");
+    expect(navigation?.next?.path).toBe("/workspace/docs/reference.md");
   });
 });
 

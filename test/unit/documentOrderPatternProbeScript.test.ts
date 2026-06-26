@@ -19,6 +19,11 @@ describe("document order pattern probe", () => {
         "mkdocs.yml",
         "INHERIT: base.yml\ndocs_dir: docs\nnav:\n  - Home: index.md\n  - Guide:\n      - Intro: guide/intro.md\n",
       );
+      const zensical = writeFixture(
+        root,
+        "zensical.toml",
+        "[project]\ndocs_dir = \"docs\"\nnav = [\"index.md\", \"guide/\", \"legacy/page.html\", \"${generated_nav}\", { \"Guide\" = [\"guide/intro.md\", { \"Reference\" = \"reference/api.md\" }] }, { \"External\" = \"https://example.invalid/docs\" }]\n# \"draft/\"\n",
+      );
       const playbook = writeFixture(
         root,
         "antora-playbook.yml",
@@ -47,6 +52,7 @@ describe("document order pattern probe", () => {
 
       const report = await analyzeDocumentOrderSources([
         mkdocs,
+        zensical,
         playbook,
         nav,
         vitepress,
@@ -55,8 +61,18 @@ describe("document order pattern probe", () => {
       ]);
       const serialized = JSON.stringify(report);
 
-      expect(report.sampleCount).toBe(6);
+      expect(report.sampleCount).toBe(7);
       expect(report.patterns.mkdocsInheritConfigured).toBe(1);
+      expect(report.patterns.zensicalNavConfigured).toBe(1);
+      expect(report.patterns.zensicalDocsDirConfigured).toBe(1);
+      expect(report.patterns.zensicalCommentedNavItems).toBe(1);
+      expect(report.patterns.zensicalStringNavItems).toBeGreaterThan(0);
+      expect(report.patterns.zensicalDirectoryTargets).toBe(2);
+      expect(report.patterns.zensicalHtmlTargets).toBe(1);
+      expect(report.patterns.zensicalTitledNavItems).toBe(1);
+      expect(report.patterns.zensicalNestedSections).toBe(1);
+      expect(report.patterns.zensicalExternalLinks).toBe(1);
+      expect(report.patterns.zensicalGeneratedNavigationHints).toBeGreaterThan(0);
       expect(report.patterns.antoraCommaSeparatedStartPaths).toBe(1);
       expect(report.patterns.antoraNavXrefsWithAnchor).toBe(1);
       expect(report.patterns.antoraNavIncludes).toBe(1);

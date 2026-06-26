@@ -46,6 +46,9 @@ function detectKind(source, content) {
   if (basename === "mkdocs.yml" || basename === "mkdocs.yaml") {
     return "mkdocs";
   }
+  if (basename === "zensical.toml") {
+    return "zensical";
+  }
   if (basename === "antora-playbook.yml" || basename === "antora-playbook.yaml") {
     return "antora-playbook";
   }
@@ -81,6 +84,9 @@ function summarizeContent(kind, content) {
   if (kind === "mkdocs") {
     return summarizeMkDocs(content);
   }
+  if (kind === "zensical") {
+    return summarizeZensical(content);
+  }
   if (kind === "antora-playbook") {
     return summarizeAntoraPlaybook(content);
   }
@@ -111,6 +117,30 @@ function summarizeMkDocs(content) {
     mkdocsTitledNavItems: countMatches(content, /^\s*-\s*[^:\n]+:\s*[^[]/gm),
     mkdocsNestedSections: countMatches(content, /^\s*-\s*[^:\n]+:\s*$/gm),
     mkdocsCustomYamlTags: countMatches(content, /![A-Za-z][\w-]*/g),
+  });
+}
+
+function summarizeZensical(content) {
+  return removeZeroCounts({
+    zensicalNavConfigured: countMatches(content, /^\s*nav\s*=/gm),
+    zensicalDocsDirConfigured: countMatches(content, /^\s*docs_dir\s*=/gm),
+    zensicalCommentedNavItems: countMatches(content, /^\s*#\s*"?[^"\n]+(?:\.md|\/)"?\s*,?/gm),
+    zensicalStringNavItems: countMatches(content, /"[^"\n]+\.md"\s*,?/g),
+    zensicalDirectoryTargets: countMatches(content, /"[^"\n]+\/"\s*,?/g),
+    zensicalHtmlTargets: countMatches(content, /"[^"\n]+\.html"\s*,?/g),
+    zensicalTitledNavItems: countMatches(
+      content,
+      /\{\s*"[^"\n]+"\s*=\s*"[^"\n]+\.md"\s*\}/g,
+    ),
+    zensicalNestedSections: countMatches(
+      content,
+      /\{\s*"[^"\n]+"\s*=\s*\[/g,
+    ),
+    zensicalExternalLinks: countMatches(content, /https?:\/\//g),
+    zensicalGeneratedNavigationHints: countMatches(
+      content,
+      /\$\{|mkdocstrings|macro|generated/gi,
+    ),
   });
 }
 

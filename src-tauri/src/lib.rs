@@ -37,6 +37,7 @@ mod static_js;
 mod vitepress_order;
 mod watchers;
 mod workspace_paths;
+mod zensical_order;
 
 pub use app_error::*;
 pub use backend_types::*;

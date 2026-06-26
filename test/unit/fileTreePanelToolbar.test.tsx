@@ -277,6 +277,7 @@ describe("FileTreePanel toolbar and view menu", () => {
           documentOrder={{
             orders: [
               { source: "mkdocs", nodes: [] },
+              { source: "zensical", nodes: [] },
               { source: "vitepress", nodes: [] },
               { source: "docusaurus", nodes: [] },
               { source: "antora", nodes: [] },
@@ -308,6 +309,7 @@ describe("FileTreePanel toolbar and view menu", () => {
       "File tree",
       "Docs: Loaded",
       "Docs: MkDocs",
+      "Docs: Zensical",
       "Docs: Antora",
     ]);
   });

@@ -80,6 +80,7 @@ export interface DirectoryEntry {
 
 export type DocumentOrderSource =
   | "mkdocs"
+  | "zensical"
   | "antora"
   | "vitepress"
   | "docusaurus";

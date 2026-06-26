@@ -346,8 +346,8 @@ export const site = {
           },
           {
             slug: "documents-order",
-            title: "MkDocs / Antora nav order",
-            body: "Follow MkDocs or Antora navigation locally without building the site.",
+            title: "MkDocs / Zensical / Antora nav order",
+            body: "Follow MkDocs, Zensical, or Antora navigation locally without building the site.",
             state: "Available",
             href: sitePath("en/docs/features/documents-order/"),
           },
@@ -799,21 +799,21 @@ export const site = {
         ],
       },
       documentsOrder: {
-        title: "MkDocs / Antora nav order",
-        lead: "Use the same reading path as the published MkDocs or Antora site, directly from local files.",
+        title: "MkDocs / Zensical / Antora nav order",
+        lead: "Use the same reading path as the published MkDocs, Zensical, or Antora site, directly from local files.",
         whatThisFeatureIs:
-          "Svard can order supported documents by file path, static MkDocs nav, or local Antora navigation when those sources are detected. The document still opens from local files, but the sidebar follows the order readers expect from the published documentation site.",
+          "Svard can order supported documents by file path, static MkDocs nav, Zensical nav, or local Antora navigation when those sources are detected. The document still opens from local files, but the sidebar follows the order readers expect from the published documentation site.",
         whenToUse:
           "Use this when a folder contains many Markdown or AsciiDoc files and the file tree does not match the path a reader would take through the docs.",
         workflow: [
           {
             title: "Choose the published reading path",
-            body: "Open Files, switch to Documents only, then choose Docs: Loaded, Docs: MkDocs, or Docs: Antora from the view mode menu when available.",
+            body: "Open Files, switch to Documents only, then choose Docs: Loaded, Docs: MkDocs, Docs: Zensical, or Docs: Antora from the view mode menu when available.",
             screenshot: screenshot(
               "documents-order.png",
-              "MkDocs / Antora nav order",
+              "MkDocs / Zensical / Antora nav order",
               "Shows Documents only following static-site navigation in the Files sidebar.",
-              "Svard Documents only view following MkDocs or Antora navigation",
+              "Svard Documents only view following MkDocs, Zensical, or Antora navigation",
             ),
           },
           {
@@ -822,7 +822,7 @@ export const site = {
           },
           {
             title: "Reuse static-site navigation without a build",
-            body: "MkDocs uses static mkdocs.yml nav and docs_dir. Antora uses local antora.yml nav files and standard antora-playbook.yml content roots as discovery hints.",
+            body: "MkDocs uses static mkdocs.yml nav and docs_dir. Zensical uses zensical.toml project nav and docs_dir. Antora uses local antora.yml nav files and standard antora-playbook.yml content roots as discovery hints.",
           },
         ],
         supportMatrix: {
@@ -831,7 +831,7 @@ export const site = {
           columns: ["Source", "Support", "Notes"],
           rows: [
             [
-              "Path",
+              "Loaded",
               "Supported",
               "Default order for loaded supported documents in the file tree.",
             ],
@@ -841,6 +841,11 @@ export const site = {
               "Reads local mkdocs.yml / mkdocs.yaml docs_dir and nav without running plugins.",
             ],
             [
+              "Zensical static nav",
+              "Supported",
+              "Reads local zensical.toml project docs_dir and nav without running Zensical.",
+            ],
+            [
               "Antora static nav",
               "Supported",
               "Reads local antora.yml nav files and standard antora-playbook.yml local content roots.",
@@ -848,7 +853,7 @@ export const site = {
             [
               "Generated or plugin nav",
               "Unsupported",
-              "MkDocs plugins, Antora extensions, remote fetch, and build-generated navigation are not executed.",
+              "MkDocs plugins, Zensical extensions, Antora extensions, remote fetch, and build-generated navigation are not executed.",
             ],
             [
               "Missing nav entries",
@@ -859,14 +864,14 @@ export const site = {
           note: "All sources stay inside the opened local workspace boundary and do not expose source bodies, private absolute paths, or remote endpoint values.",
         },
         limitations:
-          "Svard does not execute MkDocs plugins, Antora builds, Antora extensions, remote repository fetches, or generated navigation. Unsupported or dynamic navigation falls back to loaded files order or shows only the local static subset that can be read safely.",
+          "Svard does not execute MkDocs plugins, Zensical builds, Zensical extensions, Antora builds, Antora extensions, remote repository fetches, or generated navigation. Unsupported or dynamic navigation falls back to loaded files order or shows only the local static subset that can be read safely.",
         related: ["Tabs and Open Files", "Quick Open", "Source Control changes"],
         screenshots: [
           screenshot(
             "documents-order.png",
-            "MkDocs / Antora nav order",
+            "MkDocs / Zensical / Antora nav order",
             "Shows Documents only following static-site navigation in the Files sidebar.",
-            "Svard Documents only view following MkDocs or Antora navigation",
+            "Svard Documents only view following MkDocs, Zensical, or Antora navigation",
           ),
         ],
       },

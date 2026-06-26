@@ -158,6 +158,7 @@ pub struct DocumentOrderResult {
 pub enum DocumentOrderSource {
     None,
     Mkdocs,
+    Zensical,
     Antora,
     Vitepress,
     Docusaurus,

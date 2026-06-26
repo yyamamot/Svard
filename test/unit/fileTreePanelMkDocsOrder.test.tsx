@@ -148,6 +148,118 @@ describe("FileTreePanel MkDocs document order", () => {
     ]);
   });
 
+  it("orders Documents view by Zensical nav when selected", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "reference.md",
+                path: "/workspace/docs/reference.md",
+                kind: "file",
+              },
+              {
+                name: "index.md",
+                path: "/workspace/docs/index.md",
+                kind: "file",
+              },
+              {
+                name: "extra.md",
+                path: "/workspace/docs/extra.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "zensical",
+                nodes: [
+                  {
+                    kind: "document",
+                    title: "Home",
+                    path: "/workspace/docs/index.md",
+                    displayPath: "index.md",
+                    depth: 0,
+                    status: "resolved",
+                  },
+                  {
+                    kind: "section",
+                    title: "Reference",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "API",
+                        path: "/workspace/docs/reference.md",
+                        displayPath: "reference.md",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/docs/index.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-zensical");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-zensical-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-zensical-not-in-nav"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+
+    expect(
+      container.querySelector('[data-review-id="documents-zensical-section"]')
+        ?.textContent,
+    ).toContain("Reference");
+    expect(
+      container.querySelector('[data-review-id="documents-zensical-not-in-nav"]')
+        ?.textContent,
+    ).toContain("Not in zensical.toml");
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Home"),
+      expect.stringContaining("API"),
+      expect.stringContaining("extra.md"),
+    ]);
+  });
+
 
 
   it("collapses MkDocs order sections and not-in-nav groups", async () => {

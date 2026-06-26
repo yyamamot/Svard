@@ -155,6 +155,9 @@ export function FileTreePanel({
   const mkdocsOrder = documentOrder.orders.find(
     (order) => order.source === "mkdocs",
   );
+  const zensicalOrder = documentOrder.orders.find(
+    (order) => order.source === "zensical",
+  );
   const antoraOrder = documentOrder.orders.find(
     (order) => order.source === "antora",
   );
@@ -167,6 +170,9 @@ export function FileTreePanel({
 
   useEffect(() => {
     if (viewMode === "documents-mkdocs" && !mkdocsOrder) {
+      changeViewMode("documents-path");
+    }
+    if (viewMode === "documents-zensical" && !zensicalOrder) {
       changeViewMode("documents-path");
     }
     if (viewMode === "documents-antora" && !antoraOrder) {
@@ -184,7 +190,14 @@ export function FileTreePanel({
     ) {
       changeViewMode("documents-path");
     }
-  }, [antoraOrder, docusaurusOrder, mkdocsOrder, vitepressOrder, viewMode]);
+  }, [
+    antoraOrder,
+    docusaurusOrder,
+    mkdocsOrder,
+    vitepressOrder,
+    viewMode,
+    zensicalOrder,
+  ]);
 
   useEffect(() => {
     if (
@@ -537,6 +550,16 @@ export function FileTreePanel({
           sectionReviewId: "documents-antora-section",
           notInNavReviewId: "documents-antora-not-in-nav",
           notInNavLabel: "Not in antora.yml nav",
+        },
+      };
+    }
+    if (viewMode === "documents-zensical" && zensicalOrder) {
+      return {
+        order: zensicalOrder,
+        options: {
+          sectionReviewId: "documents-zensical-section",
+          notInNavReviewId: "documents-zensical-not-in-nav",
+          notInNavLabel: "Not in zensical.toml",
         },
       };
     }
@@ -1088,6 +1111,22 @@ export function FileTreePanel({
                 >
                   <FileText size={15} />
                   <span>Docs: MkDocs</span>
+                </button>
+                <button
+                  type="button"
+                  className={`file-tree-open-menu-item ${
+                    viewMode === "documents-zensical" ? "active" : ""
+                  }`}
+                  data-review-id="documents-view-mode-zensical"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "documents-zensical"}
+                  aria-label="Documents only: Zensical order"
+                  title="Documents only: Zensical order"
+                  disabled={!zensicalOrder}
+                  onClick={() => pickViewMode("documents-zensical")}
+                >
+                  <FileText size={15} />
+                  <span>Docs: Zensical</span>
                 </button>
                 {ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES ? (
                   <>

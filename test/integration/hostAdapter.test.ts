@@ -98,6 +98,10 @@ describe("MockHostAdapter", () => {
               },
             ],
           },
+          {
+            source: "zensical",
+            nodes: [],
+          },
         ],
       },
     };
@@ -119,6 +123,10 @@ describe("MockHostAdapter", () => {
               status: "resolved",
             },
           ],
+        },
+        {
+          source: "zensical",
+          nodes: [],
         },
       ],
     });

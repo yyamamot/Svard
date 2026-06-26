@@ -180,9 +180,11 @@ export function useAppSidebarWiring({
     const selectedOrder =
       filesViewMode === "documents-mkdocs"
         ? documentOrder.orders.find((order) => order.source === "mkdocs")
-        : filesViewMode === "documents-antora"
-          ? documentOrder.orders.find((order) => order.source === "antora")
-          : undefined;
+        : filesViewMode === "documents-zensical"
+          ? documentOrder.orders.find((order) => order.source === "zensical")
+          : filesViewMode === "documents-antora"
+            ? documentOrder.orders.find((order) => order.source === "antora")
+            : undefined;
     if (!selectedOrder) {
       return null;
     }
