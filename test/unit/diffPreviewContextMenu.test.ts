@@ -6,6 +6,7 @@ import {
   diffPreviewDocumentPath,
   openDiffLinkElement,
 } from "../../src/ui/components/gitDiffPreview/contextMenu";
+import type { DiagramPreviewState } from "../../src/ui/types";
 
 const basePreview: DocumentDiffPreview = {
   repositoryRoot: "/workspace",
@@ -57,6 +58,51 @@ function menuLabelsFor(
   return items.map((item) => item.label);
 }
 
+function menuItemsFor(
+  html: string,
+  options: {
+    side?: "left" | "right";
+    surface?: "rendered" | "source" | "table";
+    preview?: DocumentDiffPreview;
+    selector?: string;
+    onOpenDiagramPreview?: (preview: DiagramPreviewState) => void;
+  } = {},
+) {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  document.body.append(container);
+  const target = options.selector
+    ? (container.querySelector<HTMLElement>(options.selector) ?? container)
+    : container;
+  const onOpenDiagramPreview: (preview: DiagramPreviewState) => void =
+    options.onOpenDiagramPreview ?? vi.fn();
+  const items = diffPreviewContextMenuItems({
+    container,
+    event: { clientX: 0, clientY: 0 },
+    target,
+    side: options.side ?? "right",
+    surface: options.surface ?? "rendered",
+    preview: options.preview ?? basePreview,
+    copyText: vi.fn(),
+    openDocument: vi.fn(),
+    openPathInEditor: vi.fn(),
+    resolveDocumentLink: vi.fn().mockResolvedValue({
+      status: "resolved",
+      path: "/workspace/docs/target.md",
+      hash: null,
+    }),
+    confirmExternalLink: vi.fn().mockResolvedValue(true),
+    openExternalUrl: vi.fn(),
+    onOpenDiagramPreview,
+    showInlineNotice: vi.fn(),
+  });
+  return {
+    cleanup: () => container.remove(),
+    items,
+    onOpenDiagramPreview,
+  };
+}
+
 describe("diff preview context menu", () => {
   it("uses rendered source block actions from the viewer menu", () => {
     expect(
@@ -103,6 +149,90 @@ describe("diff preview context menu", () => {
         { selector: "img" },
       ),
     ).toEqual(["Open Preview", "Copy Image Reference", "Copy Path"]);
+  });
+
+  it("opens a before/after diagram comparison for matched rendered diagram blocks", () => {
+    const onOpenDiagramPreview = vi.fn();
+    const { cleanup, items } = menuItemsFor(
+      `<div class="git-rendered-diff-body">
+        <article class="git-rendered-block left-side" data-sync-index="2">
+          <div data-review-id="mermaid-render">
+            <div data-review-id="diagram-inline-image" class="diagram-inline-image" data-source-reference="/workspace/docs/guide.md:4">
+              <svg viewBox="0 0 100 50"><text>Before diagram</text></svg>
+            </div>
+          </div>
+        </article>
+        <article class="git-rendered-block right-side" data-sync-index="2">
+          <div data-review-id="mermaid-render">
+            <div data-review-id="diagram-inline-image" class="diagram-inline-image" data-source-reference="/workspace/docs/guide.md:8">
+              <svg viewBox="0 0 100 50"><text>After diagram</text></svg>
+            </div>
+          </div>
+        </article>
+      </div>`,
+      {
+        selector: ".right-side svg",
+        onOpenDiagramPreview,
+      },
+    );
+
+    const openPreview = items.find((item) => item.label === "Open Preview");
+    cleanup();
+    openPreview?.onSelect();
+
+    expect(onOpenDiagramPreview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "diagram-comparison",
+        before: expect.objectContaining({
+          title: "HEAD",
+          svg: expect.stringContaining("Before diagram"),
+          sourceReference: "/workspace/docs/guide.md:4",
+        }),
+        after: expect.objectContaining({
+          title: "Working Tree",
+          svg: expect.stringContaining("After diagram"),
+          sourceReference: "/workspace/docs/guide.md:8",
+        }),
+      }),
+    );
+  });
+
+  it("does not create a comparison pair from Kroki-rendered diagrams", () => {
+    const onOpenDiagramPreview = vi.fn();
+    const { cleanup, items } = menuItemsFor(
+      `<div class="git-rendered-diff-body">
+        <article class="git-rendered-block left-side" data-sync-index="2">
+          <div data-review-id="kroki-render">
+            <div data-review-id="diagram-inline-image" class="diagram-inline-image">
+              <svg viewBox="0 0 100 50"><text>Before diagram</text></svg>
+            </div>
+          </div>
+        </article>
+        <article class="git-rendered-block right-side" data-sync-index="2">
+          <div data-review-id="kroki-render">
+            <div data-review-id="diagram-inline-image" class="diagram-inline-image">
+              <svg viewBox="0 0 100 50"><text>After diagram</text></svg>
+            </div>
+          </div>
+        </article>
+      </div>`,
+      {
+        selector: ".right-side svg",
+        onOpenDiagramPreview,
+      },
+    );
+
+    items.find((item) => item.label === "Open Preview")?.onSelect?.();
+    cleanup();
+
+    expect(onOpenDiagramPreview).toHaveBeenCalledWith(
+      expect.not.objectContaining({ kind: "diagram-comparison" }),
+    );
+    expect(onOpenDiagramPreview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        svg: expect.stringContaining("After diagram"),
+      }),
+    );
   });
 
   it("shows document path actions only for concrete diff sides", () => {

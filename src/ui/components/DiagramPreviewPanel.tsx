@@ -38,11 +38,35 @@ export function DiagramPreviewPanel({
   preview,
   onClose,
 }: DiagramPreviewPanelProps) {
+  const isComparisonPreview = preview.kind === "diagram-comparison";
   const isRasterPreview = preview.kind === "image-raster";
   const isSelectableSvgPreview = preview.kind === "image-svg";
   const safeSvg = useMemo(
-    () => (isRasterPreview ? emptySafeHtml : sanitizePreviewSvg(preview.svg)),
-    [isRasterPreview, preview],
+    () =>
+      isRasterPreview || isComparisonPreview
+        ? emptySafeHtml
+        : sanitizePreviewSvg(preview.svg),
+    [isComparisonPreview, isRasterPreview, preview],
+  );
+  const safeComparison = useMemo(
+    () =>
+      isComparisonPreview
+        ? {
+            before: preview.before
+              ? {
+                  ...preview.before,
+                  safeSvg: sanitizePreviewSvg(preview.before.svg),
+                }
+              : undefined,
+            after: preview.after
+              ? {
+                  ...preview.after,
+                  safeSvg: sanitizePreviewSvg(preview.after.svg),
+                }
+              : undefined,
+          }
+        : null,
+    [isComparisonPreview, preview],
   );
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -58,7 +82,7 @@ export function DiagramPreviewPanel({
     setOffset({ x: 0, y: 0 });
     setPanState(null);
     setExpanded(true);
-  }, [isRasterPreview, preview, safeSvg]);
+  }, [isComparisonPreview, isRasterPreview, preview, safeComparison, safeSvg]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -87,10 +111,9 @@ export function DiagramPreviewPanel({
 
   const zoomLabel = useMemo(() => `${Math.round(zoom * 100)}%`, [zoom]);
   const previewSize = useMemo(() => {
-    const naturalWidth =
-      preview.width && preview.width > 0 ? preview.width : 960;
-    const naturalHeight =
-      preview.height && preview.height > 0 ? preview.height : 640;
+    const naturalSize = diagramPreviewNaturalSize(preview);
+    const naturalWidth = naturalSize.width;
+    const naturalHeight = naturalSize.height;
     const maxWidth = expanded
       ? Math.max(320, viewportSize.width - 88)
       : Math.max(320, Math.min(viewportSize.width * 0.84, 980));
@@ -106,7 +129,7 @@ export function DiagramPreviewPanel({
       width: Math.max(1, Math.round(naturalWidth * fitScale * zoom)),
       height: Math.max(1, Math.round(naturalHeight * fitScale * zoom)),
     };
-  }, [expanded, preview.height, preview.width, viewportSize, zoom]);
+  }, [expanded, preview, viewportSize, zoom]);
 
   const updateZoom = useCallback((nextZoom: number) => {
     setZoom(Math.min(4, Math.max(0.25, nextZoom)));
@@ -178,12 +201,18 @@ export function DiagramPreviewPanel({
         data-review-id="diagram-preview-panel"
         role="dialog"
         aria-modal="true"
-        aria-label={isRasterPreview ? "Image preview" : "Diagram preview"}
+        aria-label={
+          isRasterPreview
+            ? "Image preview"
+            : isComparisonPreview
+              ? "Diagram comparison"
+              : "Diagram preview"
+        }
       >
         <header className="diagram-preview-toolbar">
           <div className="diagram-preview-title">
             <span>{preview.title}</span>
-            {preview.sourceReference && (
+            {!isComparisonPreview && preview.sourceReference && (
               <small>{preview.sourceReference}</small>
             )}
           </div>
@@ -252,14 +281,16 @@ export function DiagramPreviewPanel({
           <div
             className={`diagram-preview-content ${
               isSelectableSvgPreview ? "selectable-svg" : ""
-            }`}
+            } ${isComparisonPreview ? "comparison" : ""}`}
             style={{
               width: `${previewSize.width}px`,
               height: `${previewSize.height}px`,
               transform: `translate(${offset.x}px, ${offset.y}px)`,
             }}
           >
-            {isRasterPreview ? (
+            {isComparisonPreview ? (
+              <DiagramPreviewComparisonContent comparison={safeComparison} />
+            ) : isRasterPreview ? (
               <img
                 alt={preview.title}
                 src={preview.imageSrc}
@@ -280,6 +311,99 @@ export function DiagramPreviewPanel({
         </div>
       </section>
     </div>
+  );
+}
+
+function diagramPreviewNaturalSize(preview: DiagramPreviewState): ViewportSize {
+  if (preview.kind === "diagram-comparison") {
+    const before = preview.before;
+    const after = preview.after;
+    const beforeWidth = before?.width && before.width > 0 ? before.width : 960;
+    const afterWidth = after?.width && after.width > 0 ? after.width : 960;
+    const beforeHeight =
+      before?.height && before.height > 0 ? before.height : 640;
+    const afterHeight = after?.height && after.height > 0 ? after.height : 640;
+    return {
+      width: beforeWidth + afterWidth + 28,
+      height: Math.max(beforeHeight, afterHeight, 360),
+    };
+  }
+  return {
+    width: preview.width && preview.width > 0 ? preview.width : 960,
+    height: preview.height && preview.height > 0 ? preview.height : 640,
+  };
+}
+
+function DiagramPreviewComparisonContent({
+  comparison,
+}: {
+  comparison: {
+    before?: {
+      title: string;
+      safeSvg: SafeHtml;
+    };
+    after?: {
+      title: string;
+      safeSvg: SafeHtml;
+    };
+  } | null;
+}) {
+  return (
+    <div
+      className="diagram-preview-comparison"
+      data-review-id="diagram-preview-comparison"
+    >
+      <DiagramPreviewComparisonSide
+        label="Before"
+        side={comparison?.before}
+        missingLabel="No before diagram"
+      />
+      <DiagramPreviewComparisonSide
+        label="After"
+        side={comparison?.after}
+        missingLabel="No after diagram"
+      />
+    </div>
+  );
+}
+
+function DiagramPreviewComparisonSide({
+  label,
+  missingLabel,
+  side,
+}: {
+  label: "Before" | "After";
+  missingLabel: string;
+  side?: {
+    title: string;
+    safeSvg: SafeHtml;
+  };
+}) {
+  return (
+    <section
+      className="diagram-preview-comparison-side"
+      data-review-id="diagram-preview-comparison-side"
+      data-diagram-comparison-side={label.toLowerCase()}
+    >
+      <header>
+        <strong>{label}</strong>
+        {side && <span>{side.title}</span>}
+      </header>
+      {side ? (
+        <div
+          className="diagram-preview-svg-frame"
+          data-review-id={`diagram-preview-comparison-${label.toLowerCase()}`}
+          dangerouslySetInnerHTML={dangerouslySetSafeHtml(side.safeSvg)}
+        />
+      ) : (
+        <div
+          className="diagram-preview-comparison-placeholder"
+          data-review-id={`diagram-preview-comparison-${label.toLowerCase()}-missing`}
+        >
+          {missingLabel}
+        </div>
+      )}
+    </section>
   );
 }
 

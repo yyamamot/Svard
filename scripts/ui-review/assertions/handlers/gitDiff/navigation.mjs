@@ -263,6 +263,18 @@ export async function buildGitDiffNavigationAssertions(context) {
           !bodyText.includes("User -> Viewer: Review") &&
           !bodyText.includes("digraph G")
         : true,
+    hasDiffDiagramBeforeAfterPreview:
+      scenario === "viewer-diff-diagram-before-after-preview"
+        ? (await page
+            .locator('[data-review-id="diagram-preview-comparison"]')
+            .count()) === 1 &&
+          (await page
+            .locator('[data-review-id="diagram-preview-comparison-before"]')
+            .count()) === 1 &&
+          (await page
+            .locator('[data-review-id="diagram-preview-comparison-after"]')
+            .count()) === 1
+        : true,
     hasDiffDiagramPreviewEscapeStack:
       scenario === "viewer-diff-diagram-preview-escape-stack"
         ? (await page

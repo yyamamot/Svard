@@ -57,6 +57,9 @@ export function createArticleContextMenuHandler({
 }) {
   return function handleArticleContextMenu(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement;
+    if (target.closest('[data-review-id="git-diff-preview-panel"]')) {
+      return;
+    }
     const linkTarget =
       target.closest<HTMLAnchorElement>("a[href]") ??
       linkAtPoint(articleRef.current, event.clientX, event.clientY);

@@ -12,6 +12,7 @@ import {
 import { documentSelectionAtPoint } from "../../hooks/documentLinks/shared";
 import { addTableItems } from "../../hooks/documentLinks/tableActions";
 import {
+  buildDiffDiagramComparisonPreview,
   openDiffDiagramPreview,
   openDiffImagePreview,
   openDiffLinkElement,
@@ -82,9 +83,10 @@ export function createDiffPreviewContextMenuHandler({
       items,
       target.closest<HTMLElement>("[data-review-id]")?.dataset.reviewId,
     );
+    event.preventDefault();
+    event.stopPropagation();
     if (!opened) {
-      event.preventDefault();
-      event.stopPropagation();
+      return;
     }
   };
 }
@@ -135,6 +137,7 @@ export function diffPreviewContextMenuItems({
 
   if (surface === "rendered") {
     addRenderedSurfaceItems(items, {
+      preview,
       target,
       table,
       documentPath,
@@ -167,6 +170,7 @@ export function diffPreviewContextMenuItems({
 function addRenderedSurfaceItems(
   items: ContextMenuItem[],
   {
+    preview,
     target,
     table,
     documentPath,
@@ -180,6 +184,7 @@ function addRenderedSurfaceItems(
     onOpenDiagramPreview,
     showInlineNotice,
   }: Omit<DiffPreviewContextMenuOptions, "preview" | "openContextMenu"> & {
+    preview: DiffPreviewContextMenuOptions["preview"];
     target: HTMLElement;
     table: HTMLTableElement | null;
     documentPath: string | null;
@@ -188,12 +193,24 @@ function addRenderedSurfaceItems(
 ) {
   addDiagramItems(items, target, {
     copyText,
-    openDiagramPreview: (svg, sourceReference) =>
+    prepareDiagramPreview: (svg) =>
+      buildDiffDiagramComparisonPreview({
+        svg,
+        documentPath,
+        target,
+        beforeTitle: preview.leftLabel,
+        afterTitle: preview.rightLabel,
+      }),
+    openDiagramPreview: (svg, sourceReference, preparedPreview) =>
       openDiffDiagramPreview({
         svg,
         sourceReference,
         documentPath,
         onOpenDiagramPreview,
+        target,
+        beforeTitle: preview.leftLabel,
+        afterTitle: preview.rightLabel,
+        preparedPreview,
       }),
     saveDiagramSvg: (svg) =>
       saveDiffDiagramSvg({

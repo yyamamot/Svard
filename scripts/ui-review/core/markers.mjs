@@ -400,6 +400,16 @@ export function markerCompletenessForScenario(scenario, geometry) {
         "diagram-preview-canvas",
         "diagram-preview-close",
       );
+    } else if (scenario === "viewer-diff-diagram-before-after-preview") {
+      scenarioMarkers.push(
+        "git-diff-full-preview-view",
+        "git-full-preview-diff",
+        "diagram-inline-image",
+        "diagram-preview-panel",
+        "diagram-preview-comparison",
+        "diagram-preview-comparison-before",
+        "diagram-preview-comparison-after",
+      );
     } else if (scenario === "viewer-diff-math-rendering") {
       scenarioMarkers.push(
         "git-diff-full-preview-view",

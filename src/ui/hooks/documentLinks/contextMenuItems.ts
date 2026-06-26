@@ -17,7 +17,7 @@ import type {
 } from "../../../core/types";
 import { sectionSourceForHeading } from "../../lib/sectionCopy";
 import { isExternalUrl, splitPathAndHash } from "../../lib/path";
-import type { ContextMenuItem } from "../../types";
+import type { ContextMenuItem, DiagramPreviewState } from "../../types";
 import { isSupportedDocumentHref, menuIcon } from "./shared";
 import { addTableItems } from "./tableActions";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
@@ -47,7 +47,12 @@ export function addDiagramItems(
     openDiagramPreview: (
       svg: SVGElement,
       sourceReference: string | undefined,
+      preparedPreview?: DiagramPreviewState,
     ) => void;
+    prepareDiagramPreview?: (
+      svg: SVGElement,
+      sourceReference: string | undefined,
+    ) => DiagramPreviewState | undefined;
     saveDiagramSvg: (svg: SVGElement) => Promise<void>;
   },
 ) {
@@ -55,12 +60,20 @@ export function addDiagramItems(
   const svg = diagram?.querySelector("svg");
   const diagramReference = diagram?.getAttribute("data-source-reference");
   if (svg) {
+    const preparedPreview = actions.prepareDiagramPreview?.(
+      svg,
+      diagramReference ?? undefined,
+    );
     items.push({
       id: "open-diagram-preview",
       label: "Open Preview",
       icon: menuIcon(Maximize2),
       onSelect: () =>
-        actions.openDiagramPreview(svg, diagramReference ?? undefined),
+        actions.openDiagramPreview(
+          svg,
+          diagramReference ?? undefined,
+          preparedPreview,
+        ),
     });
     items.push({
       id: "save-diagram-svg",

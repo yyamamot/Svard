@@ -145,6 +145,24 @@ export type DiagramPreviewState =
       sourceReference?: string;
     }
   | {
+      kind: "diagram-comparison";
+      title: string;
+      before?: {
+        title: string;
+        svg: string;
+        width?: number;
+        height?: number;
+        sourceReference?: string;
+      };
+      after?: {
+        title: string;
+        svg: string;
+        width?: number;
+        height?: number;
+        sourceReference?: string;
+      };
+    }
+  | {
       kind: "image-raster";
       title: string;
       imageSrc: string;

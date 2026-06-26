@@ -77,12 +77,40 @@ export function openDiffDiagramPreview({
   sourceReference,
   documentPath,
   onOpenDiagramPreview,
+  target,
+  beforeTitle = "Before",
+  afterTitle = "After",
+  preparedPreview,
 }: {
   svg: SVGElement;
   sourceReference: string | undefined;
   documentPath: string | null;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
+  target?: HTMLElement;
+  beforeTitle?: string;
+  afterTitle?: string;
+  preparedPreview?: DiagramPreviewState;
 }) {
+  if (preparedPreview) {
+    onOpenDiagramPreview(preparedPreview);
+    return;
+  }
+  const comparison = diffDiagramComparisonForTarget({
+    afterTitle,
+    beforeTitle,
+    currentSvg: svg,
+    target,
+  });
+  if (comparison) {
+    onOpenDiagramPreview({
+      kind: "diagram-comparison",
+      title: documentPath
+        ? `${documentPath.split(/[\\/]/u).at(-1)} diagram comparison`
+        : "Diagram comparison",
+      ...comparison,
+    });
+    return;
+  }
   const clone = svg.cloneNode(true) as SVGElement;
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   onOpenDiagramPreview({
@@ -90,8 +118,163 @@ export function openDiffDiagramPreview({
       ? `${documentPath.split(/[\\/]/u).at(-1)} diagram`
       : "Diagram",
     svg: new XMLSerializer().serializeToString(clone),
+    ...diagramSvgSize(clone),
     sourceReference,
   });
+}
+
+function diffDiagramComparisonForTarget({
+  afterTitle,
+  beforeTitle,
+  currentSvg,
+  target,
+}: {
+  afterTitle: string;
+  beforeTitle: string;
+  currentSvg: SVGElement;
+  target?: HTMLElement;
+}):
+  | {
+      before?: {
+        title: string;
+        svg: string;
+        width?: number;
+        height?: number;
+        sourceReference?: string;
+      };
+      after?: {
+        title: string;
+        svg: string;
+        width?: number;
+        height?: number;
+        sourceReference?: string;
+      };
+    }
+  | null {
+  if (!isLocalDiffDiagramSvg(currentSvg)) {
+    return null;
+  }
+  const currentBlock =
+    currentSvg.closest<HTMLElement>(".git-rendered-block[data-sync-index]") ??
+    target?.closest<HTMLElement>(".git-rendered-block[data-sync-index]");
+  const syncIndex = currentBlock?.dataset.syncIndex;
+  const renderedDiff = currentBlock?.closest<HTMLElement>(
+    ".git-rendered-diff-body",
+  );
+  if (!syncIndex || !renderedDiff) {
+    return null;
+  }
+  const escapedIndex = cssEscape(syncIndex);
+  const beforeBlock = renderedDiff.querySelector<HTMLElement>(
+    `.git-rendered-block.left-side[data-sync-index="${escapedIndex}"]`,
+  );
+  const afterBlock = renderedDiff.querySelector<HTMLElement>(
+    `.git-rendered-block.right-side[data-sync-index="${escapedIndex}"]`,
+  );
+  const before = beforeBlock
+    ? localDiagramPreviewSide(beforeBlock, beforeTitle)
+    : undefined;
+  const after = afterBlock
+    ? localDiagramPreviewSide(afterBlock, afterTitle)
+    : undefined;
+  if (!before && !after) {
+    return null;
+  }
+  return { before, after };
+}
+
+export function buildDiffDiagramComparisonPreview({
+  afterTitle = "After",
+  beforeTitle = "Before",
+  documentPath,
+  svg,
+  target,
+}: {
+  afterTitle?: string;
+  beforeTitle?: string;
+  documentPath: string | null;
+  svg: SVGElement;
+  target?: HTMLElement;
+}): DiagramPreviewState | undefined {
+  const comparison = diffDiagramComparisonForTarget({
+    afterTitle,
+    beforeTitle,
+    currentSvg: svg,
+    target,
+  });
+  if (!comparison) {
+    return undefined;
+  }
+  return {
+    kind: "diagram-comparison",
+    title: documentPath
+      ? `${documentPath.split(/[\\/]/u).at(-1)} diagram comparison`
+      : "Diagram comparison",
+    ...comparison,
+  };
+}
+
+function localDiagramPreviewSide(
+  block: HTMLElement,
+  title: string,
+):
+  | {
+      title: string;
+      svg: string;
+      width?: number;
+      height?: number;
+      sourceReference?: string;
+    }
+  | undefined {
+  const svg = Array.from(block.querySelectorAll<SVGElement>("svg")).find(
+    isLocalDiffDiagramSvg,
+  );
+  if (!svg) {
+    return undefined;
+  }
+  const sourceReference =
+    svg.closest<HTMLElement>(".diagram-inline-image")?.dataset
+      .sourceReference ?? undefined;
+  return {
+    title,
+    svg: serializeDiagramSvg(svg),
+    ...diagramSvgSize(svg),
+    sourceReference,
+  };
+}
+
+function isLocalDiffDiagramSvg(svg: SVGElement): boolean {
+  return Boolean(
+    svg.closest('[data-review-id="diagram-inline-image"]') &&
+      !svg.closest('[data-review-id="kroki-render"]'),
+  );
+}
+
+function serializeDiagramSvg(svg: SVGElement): string {
+  const clone = svg.cloneNode(true) as SVGElement;
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  return new XMLSerializer().serializeToString(clone);
+}
+
+function diagramSvgSize(svg: SVGElement) {
+  const width = Number.parseFloat(svg.getAttribute("width") ?? "");
+  const height = Number.parseFloat(svg.getAttribute("height") ?? "");
+  if (width > 0 && height > 0) {
+    return { width, height };
+  }
+  const viewBox = svg.getAttribute("viewBox")?.trim().split(/\s+/);
+  if (viewBox?.length === 4) {
+    const viewBoxWidth = Number.parseFloat(viewBox[2]);
+    const viewBoxHeight = Number.parseFloat(viewBox[3]);
+    if (viewBoxWidth > 0 && viewBoxHeight > 0) {
+      return { width: viewBoxWidth, height: viewBoxHeight };
+    }
+  }
+  return undefined;
+}
+
+function cssEscape(value: string): string {
+  return value.replace(/["\\]/gu, "\\$&");
 }
 
 export function openDiffImagePreview({

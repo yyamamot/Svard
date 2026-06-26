@@ -102,6 +102,80 @@ describe("DiagramPreviewPanel", () => {
     expect(container.querySelector("script")).toBeNull();
   });
 
+  it("renders before and after SVGs in comparison mode", async () => {
+    await act(async () => {
+      root.render(
+        <DiagramPreviewPanel
+          preview={{
+            kind: "diagram-comparison",
+            title: "Diagram comparison",
+            before: {
+              title: "HEAD",
+              svg: '<svg viewBox="0 0 100 50"><text>Before state</text></svg>',
+              width: 100,
+              height: 50,
+            },
+            after: {
+              title: "Working Tree",
+              svg: '<svg viewBox="0 0 100 50"><text>After state</text></svg>',
+              width: 100,
+              height: 50,
+            },
+          }}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+
+    expect(
+      container.querySelector('[data-review-id="diagram-preview-comparison"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[data-review-id="diagram-preview-comparison-before"]',
+      )?.textContent,
+    ).toContain("Before state");
+    expect(
+      container.querySelector(
+        '[data-review-id="diagram-preview-comparison-after"]',
+      )?.textContent,
+    ).toContain("After state");
+    expect(container.textContent).toContain("HEAD");
+    expect(container.textContent).toContain("Working Tree");
+  });
+
+  it("sanitizes comparison SVGs before insertion", async () => {
+    await act(async () => {
+      root.render(
+        <DiagramPreviewPanel
+          preview={{
+            kind: "diagram-comparison",
+            title: "Diagram comparison",
+            before: {
+              title: "Before",
+              svg: '<svg viewBox="0 0 100 50" onclick="alert(1)"><image href="https://example.test/pixel.png" /><foreignObject><script>alert(1)</script></foreignObject><text>Before</text></svg>',
+            },
+            after: {
+              title: "After",
+              svg: '<svg viewBox="0 0 100 50"><text>After</text></svg>',
+            },
+          }}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+
+    const before = container.querySelector<HTMLElement>(
+      '[data-review-id="diagram-preview-comparison-before"]',
+    );
+
+    expect(before?.querySelector("svg")?.textContent).toContain("Before");
+    expect(container.querySelector("[onclick]")).toBeNull();
+    expect(container.querySelector("foreignObject")).toBeNull();
+    expect(container.querySelector("script")).toBeNull();
+    expect(before?.querySelector("image")?.getAttribute("href")).toBeNull();
+  });
+
   it("renders local SVG image previews as selectable sanitized inline SVG", async () => {
     await act(async () => {
       root.render(

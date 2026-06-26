@@ -51,7 +51,10 @@ export async function applyGitDiffRichPreviewScenario(context) {
         .locator('[data-review-id="image-svg-preview-content"] svg')
         .waitFor();
     }
-  } else if (scenario === "viewer-diff-diagram-rendered-preview") {
+  } else if (
+    scenario === "viewer-diff-diagram-rendered-preview" ||
+    scenario === "viewer-diff-diagram-before-after-preview"
+  ) {
     await page.locator("text=git-rendered-diagram.adoc").click();
     await page
       .locator('[data-review-id="document-body"]')
@@ -67,21 +70,38 @@ export async function applyGitDiffRichPreviewScenario(context) {
       .locator('[data-review-id="mermaid-render"]')
       .first()
       .waitFor();
-    await page
-      .locator(
-        '[data-review-id="git-full-preview-diff"] [data-review-id="diagram-inline-image"]',
-      )
-      .first()
-      .click({ button: "right" });
-    const openPreviewItem = page.getByRole("menuitem", {
-      name: "Open Preview",
-    });
-    await openPreviewItem.waitFor();
-    await openPreviewItem.click({ force: true });
-    await page.locator('[data-review-id="diagram-preview-panel"]').waitFor();
-    await page
-      .locator('[data-review-id="diagram-preview-canvas"] svg')
-      .waitFor();
+    if (
+      scenario === "viewer-diff-diagram-rendered-preview" ||
+      scenario === "viewer-diff-diagram-before-after-preview"
+    ) {
+      await page
+        .locator(
+          '[data-review-id="git-full-preview-diff"] [data-review-id="diagram-inline-image"]',
+        )
+        .first()
+        .click({ button: "right" });
+      const openPreviewItem = page.getByRole("menuitem", {
+        name: "Open Preview",
+      });
+      await openPreviewItem.waitFor();
+      await openPreviewItem.click({ force: true });
+      await page.locator('[data-review-id="diagram-preview-panel"]').waitFor();
+      if (scenario === "viewer-diff-diagram-before-after-preview") {
+        await page
+          .locator('[data-review-id="diagram-preview-comparison"]')
+          .waitFor();
+        await page
+          .locator('[data-review-id="diagram-preview-comparison-before"] svg')
+          .waitFor();
+        await page
+          .locator('[data-review-id="diagram-preview-comparison-after"] svg')
+          .waitFor();
+      } else {
+        await page
+          .locator('[data-review-id="diagram-preview-canvas"] svg')
+          .waitFor();
+      }
+    }
   } else if (scenario === "viewer-diff-diagram-preview-escape-stack") {
     await page.locator("text=git-rendered-diagram.adoc").click();
     await page
