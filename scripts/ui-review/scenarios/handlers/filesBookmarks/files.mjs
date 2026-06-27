@@ -82,12 +82,19 @@ export async function applyFilesScenario(context) {
   } else if (scenario === "viewer-files-documents-source-control") {
     await page.locator('[data-review-id="file-tree"]').waitFor();
     await page.getByText("git-modified.md").click();
-    await page.getByRole("heading", { name: /Git Diff Modified Fixture/ }).waitFor();
+    await page
+      .getByRole("heading", { name: /Git Diff Modified Fixture/ })
+      .waitFor();
     await page.locator('[data-review-id="documents-view-toggle"]').click();
     await page.locator('[data-review-id="documents-view-mode-menu"]').waitFor();
     await page.locator('[data-review-id="documents-view-mode-path"]').click();
+    await page
+      .locator('[data-review-id="documents-mode-suggestion"]')
+      .waitFor();
     const modifiedRow = page
-      .locator('[data-review-id="documents-view-row"][data-git-status="modified"]')
+      .locator(
+        '[data-review-id="documents-view-row"][data-git-status="modified"]',
+      )
       .filter({ hasText: "git-modified.md" });
     await modifiedRow.waitFor();
     const diffButton = modifiedRow.locator(
@@ -132,13 +139,22 @@ export async function applyFilesScenario(context) {
       const button = row?.querySelector(
         '[data-review-id="git-status-diff-button"]',
       );
+      const suggestion = document.querySelector(
+        '[data-review-id="documents-mode-suggestion"]',
+      );
       window.__SVARD_DOCUMENTS_SOURCE_CONTROL_CHECK__ = {
         panelOpened:
-          document.querySelector('[data-review-id="git-diff-preview-panel"]') !==
-          null,
+          document.querySelector(
+            '[data-review-id="git-diff-preview-panel"]',
+          ) !== null,
         badgeLabel:
           button instanceof HTMLElement
-            ? button.getAttribute("aria-label") ?? button.getAttribute("title")
+            ? (button.getAttribute("aria-label") ??
+              button.getAttribute("title"))
+            : null,
+        suggestionLabel:
+          suggestion instanceof HTMLElement
+            ? suggestion.textContent?.trim()
             : null,
       };
     });
@@ -150,7 +166,9 @@ export async function applyFilesScenario(context) {
   ) {
     await page.locator('[data-review-id="file-tree"]').waitFor();
     await page.getByText("git-modified.md").click();
-    await page.getByRole("heading", { name: /Git Diff Modified Fixture/ }).waitFor();
+    await page
+      .getByRole("heading", { name: /Git Diff Modified Fixture/ })
+      .waitFor();
     await page.locator('[data-review-id="documents-view-toggle"]').click();
     await page.locator('[data-review-id="documents-view-mode-menu"]').waitFor();
     await page.locator('[data-review-id="documents-view-mode-path"]').click();
@@ -164,7 +182,8 @@ export async function applyFilesScenario(context) {
       .waitFor();
     await page.evaluate(() => {
       window.__SVARD_DOCUMENTS_SOURCE_CONTROL_PRIVACY_CHECK__ = {
-        bodyHasPrivatePath: document.body.textContent?.includes("/Users/") ?? false,
+        bodyHasPrivatePath:
+          document.body.textContent?.includes("/Users/") ?? false,
         bodyHasDiffHunk:
           document.body.textContent?.includes("@@") ||
           document.body.textContent?.includes("diff --git"),

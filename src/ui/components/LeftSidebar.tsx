@@ -26,6 +26,7 @@ import type {
   GitDiffStatus,
 } from "../../core/types";
 import type { DocumentsViewMode } from "../lib/fileTreeDocuments";
+import type { SuggestedDocumentsMode } from "./fileTreePanel/types";
 import type { OpenFileReloadState } from "../types";
 
 interface LeftSidebarProps {
@@ -50,6 +51,7 @@ interface LeftSidebarProps {
   rootEntries: DirectoryEntry[];
   documentOrder: DocumentOrderCatalog;
   filesViewMode: DocumentsViewMode;
+  suggestedDocumentsMode?: SuggestedDocumentsMode;
   activeDocumentOrderSectionKeys: ReadonlySet<string>;
   gitStatusByPath: Record<string, GitDiffStatus>;
   openFileReloadStates: Record<string, OpenFileReloadState>;
@@ -150,6 +152,7 @@ export function LeftSidebar({
   rootEntries,
   documentOrder,
   filesViewMode,
+  suggestedDocumentsMode,
   activeDocumentOrderSectionKeys,
   gitStatusByPath,
   openFileReloadStates,
@@ -272,6 +275,7 @@ export function LeftSidebar({
                 orderedTabs={orderedTabs}
                 openDocumentPaths={openDocumentPaths}
                 filesViewMode={filesViewMode}
+                suggestedDocumentsMode={suggestedDocumentsMode}
                 activeDocumentOrderSectionKeys={activeDocumentOrderSectionKeys}
                 onOpenFile={onOpenFile}
                 onOpenGitDiff={onOpenGitDiff}

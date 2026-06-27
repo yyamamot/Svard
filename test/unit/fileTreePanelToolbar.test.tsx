@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FileTreePanel } from "../../src/ui/components/FileTreePanel";
+import { chooseFileViewModeIn } from "./helpers/fileTreePanel";
 describe("FileTreePanel toolbar and view menu", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -49,7 +50,6 @@ describe("FileTreePanel toolbar and view menu", () => {
     expect(rootLabel?.textContent).not.toContain("C:\\Users");
   });
 
-
   it("keeps the root label and pane actions in a single toolbar header", async () => {
     await act(async () => {
       root.render(
@@ -82,7 +82,6 @@ describe("FileTreePanel toolbar and view menu", () => {
     expect(rootLabel?.tagName).toBe("DIV");
     expect(rootLabel?.textContent).toContain("workspace");
   });
-
 
   it("opens document and directory pickers from the grouped open menu", async () => {
     const onPickDocument = vi.fn();
@@ -157,7 +156,6 @@ describe("FileTreePanel toolbar and view menu", () => {
     expect(onPickDirectory).toHaveBeenCalledTimes(1);
   });
 
-
   it("closes the grouped open menu with Escape and outside pointer", async () => {
     await act(async () => {
       root.render(
@@ -216,7 +214,6 @@ describe("FileTreePanel toolbar and view menu", () => {
     ).toBeNull();
   });
 
-
   it("keeps refresh and collapse callbacks as direct toolbar actions", async () => {
     const onRefresh = vi.fn();
     const onCollapse = vi.fn();
@@ -261,6 +258,131 @@ describe("FileTreePanel toolbar and view menu", () => {
     expect(onCollapse).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a MkDocs suggestion badge and switches to MkDocs order", async () => {
+    const onFilesViewModeChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[]}
+          childrenByDirectory={{}}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{ orders: [{ source: "mkdocs", nodes: [] }] }}
+          suggestedDocumentsMode={{
+            mode: "documents-mkdocs",
+            label: "Docs: MkDocs detected",
+          }}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onFilesViewModeChange={onFilesViewModeChange}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    const suggestion = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="documents-mode-suggestion"]',
+    );
+    expect(suggestion?.textContent).toBe("Docs: MkDocs detected");
+    expect(suggestion?.getAttribute("title")).toBe("Docs: MkDocs detected");
+
+    await act(async () => {
+      suggestion?.click();
+    });
+
+    expect(onFilesViewModeChange).toHaveBeenCalledWith("documents-mkdocs");
+  });
+
+  it("shows Zensical and Antora suggestion labels", async () => {
+    const renderSuggestion = async (
+      mode: "documents-zensical" | "documents-antora",
+      label: string,
+      source: "zensical" | "antora",
+    ) => {
+      await act(async () => {
+        root.render(
+          <FileTreePanel
+            rootDirectory="/workspace"
+            rootEntries={[]}
+            childrenByDirectory={{}}
+            expandedDirectories={new Set()}
+            loadingDirectories={new Set()}
+            directoryErrors={{}}
+            gitStatusByPath={{}}
+            gitChanges={null}
+            documentOrder={{ orders: [{ source, nodes: [] }] }}
+            suggestedDocumentsMode={{ mode, label }}
+            onOpenFile={vi.fn()}
+            onOpenGitDiff={vi.fn()}
+            onToggleDirectory={vi.fn()}
+            onPickDocument={vi.fn()}
+            onPickDirectory={vi.fn()}
+            onRefresh={vi.fn()}
+            onCollapse={vi.fn()}
+          />,
+        );
+      });
+      expect(
+        container.querySelector('[data-review-id="documents-mode-suggestion"]')
+          ?.textContent,
+      ).toBe(label);
+    };
+
+    await renderSuggestion(
+      "documents-zensical",
+      "Docs: Zensical detected",
+      "zensical",
+    );
+    await renderSuggestion(
+      "documents-antora",
+      "Docs: Antora detected",
+      "antora",
+    );
+  });
+
+  it("hides the suggestion badge when that Docs mode is already selected", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[]}
+          childrenByDirectory={{}}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{ orders: [{ source: "mkdocs", nodes: [] }] }}
+          suggestedDocumentsMode={{
+            mode: "documents-mkdocs",
+            label: "Docs: MkDocs detected",
+          }}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewModeIn(container, "documents-view-mode-mkdocs");
+
+    expect(
+      container.querySelector('[data-review-id="documents-mode-suggestion"]'),
+    ).toBeNull();
+  });
 
   it("lists Antora last in the Documents view mode menu", async () => {
     await act(async () => {
@@ -313,5 +435,4 @@ describe("FileTreePanel toolbar and view menu", () => {
       "Docs: Antora",
     ]);
   });
-
 });

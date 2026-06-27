@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { fileName } from "../../lib/path";
-import type { FilesViewMode } from "./types";
+import type { FilesViewMode, SuggestedDocumentsMode } from "./types";
 
 interface FileTreeToolbarProps {
   rootDirectory: string;
@@ -18,6 +18,7 @@ interface FileTreeToolbarProps {
   hasVitepressOrder: boolean;
   hasDocusaurusOrder: boolean;
   showExperimentalStaticSiteOrderSources: boolean;
+  suggestedDocumentsMode?: SuggestedDocumentsMode;
   onPickDocument: () => void;
   onPickDirectory: () => void;
   onRefresh: () => void;
@@ -34,6 +35,7 @@ export function FileTreeToolbar({
   hasVitepressOrder,
   hasDocusaurusOrder,
   showExperimentalStaticSiteOrderSources,
+  suggestedDocumentsMode,
   onPickDocument,
   onPickDirectory,
   onRefresh,
@@ -59,6 +61,10 @@ export function FileTreeToolbar({
     onViewModeChange(nextMode);
     setViewModeMenuOpen(false);
   }
+  const visibleSuggestedDocumentsMode =
+    suggestedDocumentsMode && suggestedDocumentsMode.mode !== viewMode
+      ? suggestedDocumentsMode
+      : undefined;
 
   return (
     <div className="file-toolbar" data-review-id="file-toolbar">
@@ -221,6 +227,17 @@ export function FileTreeToolbar({
             </div>
           )}
         </div>
+        {visibleSuggestedDocumentsMode ? (
+          <button
+            type="button"
+            className="documents-mode-suggestion"
+            data-review-id="documents-mode-suggestion"
+            title={visibleSuggestedDocumentsMode.label}
+            onClick={() => pickViewMode(visibleSuggestedDocumentsMode.mode)}
+          >
+            {visibleSuggestedDocumentsMode.label}
+          </button>
+        ) : null}
         <button
           type="button"
           className="icon-button"

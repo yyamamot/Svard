@@ -15,3 +15,11 @@ export type ActiveDocumentOrder = {
   order: DocumentOrderResult;
   options: DocumentOrderSectionOptions;
 } | null;
+
+export type SuggestedDocumentsMode = {
+  mode: Extract<
+    FilesViewMode,
+    "documents-mkdocs" | "documents-zensical" | "documents-antora"
+  >;
+  label: string;
+};

@@ -32,6 +32,28 @@
   background: #ffffff;
 }
 
+.documents-mode-suggestion {
+  min-width: 0;
+  max-width: 164px;
+  min-height: 30px;
+  border: 1px solid #b9d6d0;
+  border-radius: 6px;
+  padding: 4px 8px;
+  overflow: hidden;
+  color: #174239;
+  background: #eef8f5;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documents-mode-suggestion:hover,
+.documents-mode-suggestion:focus-visible {
+  border-color: #74afa3;
+  background: #dff0ec;
+}
+
 .file-tree-open-menu-wrap {
   position: relative;
   display: inline-flex;
@@ -643,6 +665,19 @@
   border-color: #33434c;
   color: #dce8e5;
   background: #151f24;
+}
+
+.theme-dark .documents-mode-suggestion {
+  border-color: #3e766c;
+  color: #d8f0eb;
+  background: #15352f;
+}
+
+.theme-dark .documents-mode-suggestion:hover,
+.theme-dark .documents-mode-suggestion:focus-visible {
+  border-color: #5da99b;
+  color: #eef7f4;
+  background: #1f4039;
 }
 
 .theme-dark .file-toolbar .icon-button:hover,

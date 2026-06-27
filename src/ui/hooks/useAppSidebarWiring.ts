@@ -21,6 +21,7 @@ import {
 } from "../lib/fileTreeDocuments";
 import { mergeGitStatusWithChanges } from "../lib/gitDirectoryStatusSummary";
 import type { LeftSidebar } from "../components/LeftSidebar";
+import type { SuggestedDocumentsMode } from "../components/fileTreePanel/types";
 import type { OpenFileReloadState } from "../types";
 import { useGitStatusHints } from "./useGitStatusHints";
 import { buildLeftSidebarSourceControlProps } from "./useLeftSidebarSourceControlProps";
@@ -30,6 +31,12 @@ type SourceControlPropsInput = Omit<
   Parameters<typeof buildLeftSidebarSourceControlProps>[0],
   "config"
 >;
+
+interface SuggestedDocumentsModeInput {
+  documentOrder: DocumentOrderCatalog;
+  filesViewMode: DocumentsViewMode;
+  rootDirectory: string;
+}
 
 interface UseAppSidebarWiringOptions {
   activePath?: string;
@@ -73,15 +80,43 @@ interface UseAppSidebarWiringOptions {
   onPickDocument: () => void | Promise<void>;
   onRefreshTree: () => void | Promise<void>;
   onRemoveBookmark: (path: string) => void | Promise<void>;
-  onReorderBookmarks: (fromIndex: number, toIndex: number) => void | Promise<void>;
+  onReorderBookmarks: (
+    fromIndex: number,
+    toIndex: number,
+  ) => void | Promise<void>;
   onReorderOpenTabs: AppLeftSidebarProps["onReorderOpenTabs"];
   onResetOpenFilesSplitHeight: AppLeftSidebarProps["onResetOpenFilesSplitHeight"];
   onResetSidebarWidth: AppLeftSidebarProps["onResetSidebarWidth"];
-  onSelectSidebarTab: (tab: AppConfig["workspace"]["sidebarTab"]) => void | Promise<void>;
+  onSelectSidebarTab: (
+    tab: AppConfig["workspace"]["sidebarTab"],
+  ) => void | Promise<void>;
   onSetOpenFilesFilter: AppLeftSidebarProps["onSetOpenFilesFilter"];
   onToggleDirectory: (path: string) => void | Promise<void>;
   onToggleOpenFilesCollapsed: AppLeftSidebarProps["onToggleOpenFilesCollapsed"];
   onTogglePinned: AppLeftSidebarProps["onTogglePinned"];
+}
+
+export function suggestedDocumentsModeForCatalog({
+  documentOrder,
+  filesViewMode,
+  rootDirectory,
+}: SuggestedDocumentsModeInput): SuggestedDocumentsMode | undefined {
+  if (!rootDirectory) {
+    return undefined;
+  }
+  const suggestions: SuggestedDocumentsMode[] = [
+    { mode: "documents-mkdocs", label: "Docs: MkDocs detected" },
+    { mode: "documents-zensical", label: "Docs: Zensical detected" },
+    { mode: "documents-antora", label: "Docs: Antora detected" },
+  ];
+  const detectedSuggestion = suggestions.find((suggestion) =>
+    documentOrder.orders.some(
+      (order) => order.source === suggestion.mode.replace("documents-", ""),
+    ),
+  );
+  return detectedSuggestion?.mode === filesViewMode
+    ? undefined
+    : detectedSuggestion;
 }
 
 export function useAppSidebarWiring({
@@ -142,8 +177,7 @@ export function useAppSidebarWiring({
   const [documentOrder, setDocumentOrder] = useState<DocumentOrderCatalog>({
     orders: [],
   });
-  const [filesViewMode, setFilesViewMode] =
-    useState<DocumentsViewMode>("tree");
+  const [filesViewMode, setFilesViewMode] = useState<DocumentsViewMode>("tree");
   const openDocumentPaths = useMemo(
     () => new Set(orderedTabs.map((tab) => tab.path)),
     [orderedTabs],
@@ -156,7 +190,8 @@ export function useAppSidebarWiring({
     workspacePerformanceMode,
   });
   const fileTreeGitStatusByPath = useMemo(
-    () => mergeGitStatusWithChanges(gitStatusByPath, gitSourceControl.gitChanges),
+    () =>
+      mergeGitStatusWithChanges(gitStatusByPath, gitSourceControl.gitChanges),
     [gitSourceControl.gitChanges, gitStatusByPath],
   );
   const documentRows = useMemo(
@@ -194,6 +229,15 @@ export function useAppSidebarWiring({
       order: selectedOrder,
     });
   }, [activePath, documentOrder.orders, documentRows, filesViewMode]);
+  const suggestedDocumentsMode = useMemo(
+    () =>
+      suggestedDocumentsModeForCatalog({
+        documentOrder,
+        filesViewMode,
+        rootDirectory,
+      }),
+    [documentOrder, filesViewMode, rootDirectory],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -239,6 +283,7 @@ export function useAppSidebarWiring({
     openDocumentPaths,
     documentOrder,
     filesViewMode,
+    suggestedDocumentsMode,
     activeDocumentOrderSectionKeys:
       documentOrderNavigation?.activeSectionKeys ?? new Set(),
     pinnedTabs,

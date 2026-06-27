@@ -15,6 +15,7 @@ import type {
   ActiveDocumentOrder,
   DocumentsFilter,
   FilesViewMode,
+  SuggestedDocumentsMode,
 } from "./fileTreePanel/types";
 import type {
   DirectoryEntry,
@@ -42,6 +43,7 @@ interface FileTreePanelProps {
   orderedTabs?: DocumentPayload[];
   openDocumentPaths?: ReadonlySet<string>;
   filesViewMode?: FilesViewMode;
+  suggestedDocumentsMode?: SuggestedDocumentsMode;
   activeDocumentOrderSectionKeys?: ReadonlySet<string>;
   onOpenFile: (path: string) => void;
   onOpenGitDiff: (path: string) => void;
@@ -67,6 +69,7 @@ export function FileTreePanel({
   orderedTabs = [],
   openDocumentPaths = EMPTY_OPEN_DOCUMENT_PATHS,
   filesViewMode,
+  suggestedDocumentsMode,
   activeDocumentOrderSectionKeys,
   onOpenFile,
   onOpenGitDiff,
@@ -264,6 +267,7 @@ export function FileTreePanel({
         showExperimentalStaticSiteOrderSources={
           ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES
         }
+        suggestedDocumentsMode={suggestedDocumentsMode}
         onPickDocument={onPickDocument}
         onPickDirectory={onPickDirectory}
         onRefresh={onRefresh}

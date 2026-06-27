@@ -107,7 +107,8 @@ export async function buildFilesAssertions(context) {
             return (
               result?.panelOpened === true &&
               result?.badgeLabel ===
-                "Modified in Git. Open rendered diff for git-modified.md"
+                "Modified in Git. Open rendered diff for git-modified.md" &&
+              result?.suggestionLabel === "Docs: MkDocs detected"
             );
           })) &&
           (await page
@@ -119,11 +120,9 @@ export async function buildFilesAssertions(context) {
         ? (await page
             .locator('[data-review-id="documents-source-filter"]')
             .count()) === 1 &&
-          (
-            (await page
-              .locator('[data-review-id="documents-source-filter-changed"]')
-              .getAttribute("aria-pressed")) ?? ""
-          ) === "true" &&
+          ((await page
+            .locator('[data-review-id="documents-source-filter-changed"]')
+            .getAttribute("aria-pressed")) ?? "") === "true" &&
           (await page
             .locator('[data-review-id="documents-view-row"]')
             .count()) > 0 &&
@@ -136,7 +135,8 @@ export async function buildFilesAssertions(context) {
     hasDocumentsSourceControlPrivacy:
       scenario === "viewer-files-documents-source-control-privacy"
         ? await page.evaluate(() => {
-            const result = window.__SVARD_DOCUMENTS_SOURCE_CONTROL_PRIVACY_CHECK__;
+            const result =
+              window.__SVARD_DOCUMENTS_SOURCE_CONTROL_PRIVACY_CHECK__;
             return (
               result?.bodyHasPrivatePath === false &&
               result?.bodyHasDiffHunk === false &&

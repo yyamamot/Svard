@@ -168,6 +168,25 @@ export async function loadDocumentOrder(
       return structuredClone(overrides[rootDirectory]);
     }
   }
+  if (rootDirectory === "/workspace") {
+    return {
+      orders: [
+        {
+          source: "mkdocs",
+          nodes: [
+            {
+              kind: "document",
+              title: "Git Diff Modified Fixture",
+              path: "/workspace/docs/git-modified.md",
+              displayPath: "docs/git-modified.md",
+              depth: 0,
+              status: "resolved",
+            },
+          ],
+        },
+      ],
+    };
+  }
   return { orders: [] };
 }
 
@@ -481,14 +500,25 @@ function resolveMockLocalImagePathWithContext(
   }
   if (isRootRelativeMockAsset(source) && context?.workspaceRoot) {
     const relativeSource = source.replace(/^\/+/u, "");
-    for (const root of [context.workspaceRoot, ...(context.resourceRoots ?? [])]) {
+    for (const root of [
+      context.workspaceRoot,
+      ...(context.resourceRoots ?? []),
+    ]) {
       const rootRelative = normalizeMockPath(`${root}/${relativeSource}`);
-      if (fixtureDocuments[rootRelative] || isKnownMockImagePath(rootRelative)) {
+      if (
+        fixtureDocuments[rootRelative] ||
+        isKnownMockImagePath(rootRelative)
+      ) {
         return rootRelative;
       }
     }
   }
-  if (context && "baseDir" in context && context.baseDir && !source.startsWith("/")) {
+  if (
+    context &&
+    "baseDir" in context &&
+    context.baseDir &&
+    !source.startsWith("/")
+  ) {
     const baseRelative = normalizeMockPath(`${context.baseDir}/${source}`);
     if (fixtureDocuments[baseRelative]) {
       return baseRelative;
