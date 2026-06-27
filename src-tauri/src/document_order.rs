@@ -88,6 +88,10 @@ mod tests {
         AllowedRoots(Mutex::new([path_for_policy(path)].into_iter().collect()))
     }
 
+    fn normalized_test_path(path: &str) -> String {
+        path.replace('\\', "/")
+    }
+
     fn write_antora_content_root(root: &Path, title: &str, page_title: &str) {
         let module = root.join("modules").join("module-a");
         fs::create_dir_all(module.join("pages")).expect("pages");
@@ -247,7 +251,7 @@ mod tests {
         let selected_context = default_catalog
             .antora_contexts
             .iter()
-            .find(|context| context.content_root == "docs/component-b")
+            .find(|context| normalized_test_path(&context.content_root) == "docs/component-b")
             .expect("component b context")
             .clone();
         let selected_catalog = load_document_order_from_root_with_options(

@@ -74,7 +74,9 @@ async function collectPathCases() {
   const displayHelper = await readText("src/core/pathDisplay.ts");
   const pathTests = await readText("test/unit/path.test.ts");
   const workspaceBootTests = await readText("test/unit/workspaceBoot.test.ts");
-  const documentHtmlTests = await readText("test/unit/documentHtml.test.ts");
+  const documentLinkTests = await readText(
+    "test/unit/documentHtmlImagesLinks.test.ts",
+  );
   const asciidocIncludeTests = await readText(
     "test/unit/asciidocInclude.test.ts",
   );
@@ -131,13 +133,13 @@ async function collectPathCases() {
       "path",
       pathTests.includes("C:\\\\Users\\\\me\\\\project") &&
         workspaceBootTests.includes("host.resolveWorkspacePaths") &&
-        documentHtmlTests.includes("resolveDocumentLink") &&
+        documentLinkTests.includes("resolveDocumentLink") &&
         asciidocIncludeTests.includes("Windows path include files"),
       {
         files: [
           "test/unit/path.test.ts",
           "test/unit/workspaceBoot.test.ts",
-          "test/unit/documentHtml.test.ts",
+          "test/unit/documentHtmlImagesLinks.test.ts",
           "test/unit/asciidocInclude.test.ts",
         ],
       },

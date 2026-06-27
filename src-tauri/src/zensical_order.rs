@@ -230,6 +230,10 @@ mod tests {
         AllowedRoots(Mutex::new([path_for_policy(path)].into_iter().collect()))
     }
 
+    fn normalized_serialized_paths(value: &str) -> String {
+        value.replace("\\\\", "/").replace('\\', "/")
+    }
+
     #[test]
     fn parses_zensical_nav_with_default_docs_dir() {
         let dir = tempdir().expect("tempdir");
@@ -272,12 +276,13 @@ nav = [
 
         let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
         let serialized = serde_json::to_string(&result).expect("serialize");
+        let normalized = normalized_serialized_paths(&serialized);
 
         assert_eq!(result.source, DocumentOrderSource::Zensical);
         assert!(serialized.contains("\"title\":\"index\""));
         assert!(serialized.contains("\"title\":\"Guide\""));
-        assert!(serialized.contains("reference/api.md"));
-        assert!(serialized.contains("tutorial/index.md"));
+        assert!(normalized.contains("reference/api.md"));
+        assert!(normalized.contains("tutorial/index.md"));
         assert!(serialized.contains("\"status\":\"missing\""));
         assert!(serialized.contains("\"title\":\"HTML\""));
         assert!(serialized.contains("\"status\":\"unsupported\""));
@@ -302,9 +307,10 @@ nav = [{ "Home" = "home.md" }]
 
         let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
         let serialized = serde_json::to_string(&result).expect("serialize");
+        let normalized = normalized_serialized_paths(&serialized);
 
         assert_eq!(result.source, DocumentOrderSource::Zensical);
-        assert!(serialized.contains("content/home.md"));
+        assert!(normalized.contains("content/home.md"));
     }
 
     #[test]

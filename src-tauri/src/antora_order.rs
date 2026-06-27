@@ -561,6 +561,10 @@ mod tests {
         AllowedRoots(Mutex::new([path_for_policy(path)].into_iter().collect()))
     }
 
+    fn normalized_test_path(path: &str) -> String {
+        path.replace('\\', "/")
+    }
+
     #[test]
     fn parses_antora_registered_nav_files() {
         let dir = tempdir().expect("tempdir");
@@ -619,7 +623,8 @@ mod tests {
                         depth: 1,
                         status: DocumentOrderDocumentStatus::Resolved,
                         ..
-                    } if title == "Product Home" && path.ends_with("modules/ROOT/pages/index.adoc")
+                    } if title == "Product Home"
+                        && normalized_test_path(path).ends_with("modules/ROOT/pages/index.adoc")
                 ));
                 assert!(matches!(
                     &home_children[1],
@@ -801,7 +806,7 @@ mod tests {
                 path,
                 status: DocumentOrderDocumentStatus::Resolved,
                 ..
-            } if path.ends_with("modules/ROOT/pages/guide.adoc")
+            } if normalized_test_path(path).ends_with("modules/ROOT/pages/guide.adoc")
         ));
     }
 
