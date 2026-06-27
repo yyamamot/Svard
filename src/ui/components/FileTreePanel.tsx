@@ -560,7 +560,7 @@ export function FileTreePanel({
       return (
         <div className="documents-view-empty" data-review-id="documents-view-empty">
           <strong>No open documents</strong>
-          <span>Open a document to build this tree.</span>
+          <span>Open documents to build a temporary reading tree.</span>
         </div>
       );
     }
@@ -1215,7 +1215,7 @@ export function FileTreePanel({
                   role="menuitemradio"
                   aria-checked={viewMode === "documents-path"}
                   aria-label="Documents only: Loaded"
-                  title="Documents only: Loaded"
+                  title="Show open documents as a temporary reading tree"
                   onClick={() => pickViewMode("documents-path")}
                 >
                   <FileText size={15} />

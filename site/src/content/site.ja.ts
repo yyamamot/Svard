@@ -346,8 +346,8 @@ export const site = {
           },
           {
             slug: "documents-order",
-            title: "MkDocs / Zensical / Antora ナビ順で読む",
-            body: "MkDocs / Zensical / Antora のナビゲーション順でローカル文書を読めます。",
+            title: "MkDocs / Antora の読書順",
+            body: "プロジェクトのナビ順、または開いた文書だけの一時的な読書ツリーで読めます。",
             state: "公開中",
             href: sitePath("ja/docs/features/documents-order/"),
           },
@@ -795,22 +795,26 @@ export const site = {
         ],
       },
       documentsOrder: {
-        title: "MkDocs / Zensical / Antora ナビ順で読む",
-        lead: "MkDocs / Zensical / Antora で公開されるドキュメントと同じ読書順を、ローカルファイルだけで再現します",
+        title: "MkDocs / Antora の読書順",
+        lead: "公開ドキュメントで読者がたどる順序、または自分で開いた文書だけの一時的な読書順で読めます",
         whatThisFeatureIs:
-          "Svard は対応文書をファイルパス順、静的な MkDocs nav 順、Zensical nav 順、またはローカル Antora nav 順で表示できます。文書はローカルファイルとして開いたまま、サイドバーだけを公開ドキュメントで読者がたどる順序に近づけます。",
+          "Svard は対応文書を、現在開いている文書ツリー、静的な MkDocs nav 順、Zensical nav 順、またはローカル Antora nav 順で表示できます。プロジェクト nav は公開サイトの読書順を使い、Docs: Loaded は必要な文書だけを開いて一時的な自分用アウトラインを作れます。",
         whenToUse:
-          "Markdown / AsciiDoc ファイルが多く、ファイルツリーの並びと実際に読む順序が一致しないフォルダで使います。",
+          "Markdown / AsciiDoc ファイルが多く、公開ドキュメントの順序で読みたい場合や、レビュー対象だけを開いて小さな読書導線を作りたい場合に使います。",
         workflow: [
           {
-            title: "公開サイトの読書順を選ぶ",
-            body: "Files で Documents only に切り替え、利用可能な場合は表示モードメニューから Docs: Loaded、Docs: MkDocs、Docs: Zensical、Docs: Antora を選びます。",
+            title: "読書ワークフローを選ぶ",
+            body: "Files で Documents only に切り替え、Docs: Loaded で開いた文書だけの一時ツリーを使うか、利用可能な場合は Docs: MkDocs、Docs: Zensical、Docs: Antora でプロジェクト定義のナビ順を使います。",
             screenshot: screenshot(
               "documents-order.png",
-              "MkDocs / Zensical / Antora ナビ順で読む",
+              "MkDocs / Antora の読書順",
               "Files サイドバーで Documents only を静的サイトのナビゲーション順で表示している状態を示します。",
               "Svard の Documents only が MkDocs、Zensical、または Antora のナビゲーション順に並ぶ画面",
             ),
+          },
+          {
+            title: "一時的な読書ツリーを作る",
+            body: "必要な文書だけを開き、Docs: Loaded で workspace 相対の小さなツリーとして保持します。プロジェクト nav には無いレビュー導線を作るときに使えます。",
           },
           {
             title: "レビュー用フィルターは維持する",
@@ -829,7 +833,7 @@ export const site = {
             [
               "Loaded",
               "対応",
-              "選択中フォルダ内で現在開いている対応文書を、ローカルのディレクトリツリーとして表示します。",
+              "選択中フォルダ内で現在開いている対応文書を、一時的な読書ツリーとして表示します。",
             ],
             [
               "MkDocs の静的 nav",
@@ -860,12 +864,12 @@ export const site = {
           note: "どの対象でも、開いたローカル workspace の境界内だけを扱い、ソース本文、プライベートな絶対パス、リモートエンドポイント値は公開表示に出しません。",
         },
         limitations:
-          "Svard は MkDocs プラグイン、Zensical ビルド、Zensical extension、Antora ビルド、Antora 拡張、リモートリポジトリ取得、生成 nav を実行しません。動的なナビゲーションは Loaded order に戻すか、安全に読めるローカルの静的な範囲だけを表示します。",
+          "Svard は MkDocs プラグイン、Zensical ビルド、Zensical extension、Antora ビルド、Antora 拡張、リモートリポジトリ取得、生成 nav を実行しません。動的なナビゲーションは Docs: Loaded の一時ツリーに戻すか、安全に読めるローカルの静的な範囲だけを表示します。",
         related: ["タブと開いているファイル", "クイックオープン", "変更一覧"],
         screenshots: [
           screenshot(
             "documents-order.png",
-            "MkDocs / Zensical / Antora ナビ順で読む",
+            "MkDocs / Antora の読書順",
             "Files サイドバーで Documents only を静的サイトのナビゲーション順で表示している状態を示します。",
             "Svard の Documents only が MkDocs、Zensical、または Antora のナビゲーション順に並ぶ画面",
           ),

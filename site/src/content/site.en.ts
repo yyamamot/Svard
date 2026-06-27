@@ -346,8 +346,8 @@ export const site = {
           },
           {
             slug: "documents-order",
-            title: "MkDocs / Zensical / Antora nav order",
-            body: "Follow MkDocs, Zensical, or Antora navigation locally without building the site.",
+            title: "MkDocs / Antora reading paths",
+            body: "Follow project navigation, or build a temporary reading tree from the documents you open.",
             state: "Available",
             href: sitePath("en/docs/features/documents-order/"),
           },
@@ -799,22 +799,26 @@ export const site = {
         ],
       },
       documentsOrder: {
-        title: "MkDocs / Zensical / Antora nav order",
-        lead: "Use the same reading path as the published MkDocs, Zensical, or Antora site, directly from local files.",
+        title: "MkDocs / Antora reading paths",
+        lead: "Read local documents in the order readers expect, or build your own temporary path from the documents you open.",
         whatThisFeatureIs:
-          "Svard can order supported documents by file path, static MkDocs nav, Zensical nav, or local Antora navigation when those sources are detected. The document still opens from local files, but the sidebar follows the order readers expect from the published documentation site.",
+          "Svard can order supported documents by the current open-document tree, static MkDocs nav, Zensical nav, or local Antora navigation when those sources are detected. Project nav gives you the published reading path; Docs: Loaded lets you create a temporary reading outline by opening only the documents you need.",
         whenToUse:
-          "Use this when a folder contains many Markdown or AsciiDoc files and the file tree does not match the path a reader would take through the docs.",
+          "Use this when a folder contains many Markdown or AsciiDoc files and you want either the published docs order or a smaller custom path for the reading session.",
         workflow: [
           {
-            title: "Choose the published reading path",
-            body: "Open Files, switch to Documents only, then choose Docs: Loaded, Docs: MkDocs, Docs: Zensical, or Docs: Antora from the view mode menu when available.",
+            title: "Choose a reading workflow",
+            body: "Open Files, switch to Documents only, then choose Docs: Loaded for your temporary open-document tree, or Docs: MkDocs, Docs: Zensical, or Docs: Antora for project-defined navigation when available.",
             screenshot: screenshot(
               "documents-order.png",
-              "MkDocs / Zensical / Antora nav order",
+              "MkDocs / Antora reading paths",
               "Shows Documents only following static-site navigation in the Files sidebar.",
               "Svard Documents only view following MkDocs, Zensical, or Antora navigation",
             ),
+          },
+          {
+            title: "Build a temporary reading tree",
+            body: "Open only the documents you need, then use Docs: Loaded to keep that set as a compact workspace-relative tree. It is useful for ad hoc review paths that do not exist in the project nav.",
           },
           {
             title: "Keep review filters available",
@@ -833,7 +837,7 @@ export const site = {
             [
               "Loaded",
               "Supported",
-              "Shows currently open supported documents in the selected folder as a local directory tree.",
+              "Shows currently open supported documents in the selected folder as a temporary reading tree.",
             ],
             [
               "MkDocs static nav",
@@ -864,12 +868,12 @@ export const site = {
           note: "All sources stay inside the opened local workspace boundary and do not expose source bodies, private absolute paths, or remote endpoint values.",
         },
         limitations:
-          "Svard does not execute MkDocs plugins, Zensical builds, Zensical extensions, Antora builds, Antora extensions, remote repository fetches, or generated navigation. Unsupported or dynamic navigation falls back to loaded files order or shows only the local static subset that can be read safely.",
+          "Svard does not execute MkDocs plugins, Zensical builds, Zensical extensions, Antora builds, Antora extensions, remote repository fetches, or generated navigation. Unsupported or dynamic navigation falls back to the Docs: Loaded temporary tree or shows only the local static subset that can be read safely.",
         related: ["Tabs and Open Files", "Quick Open", "Source Control changes"],
         screenshots: [
           screenshot(
             "documents-order.png",
-            "MkDocs / Zensical / Antora nav order",
+            "MkDocs / Antora reading paths",
             "Shows Documents only following static-site navigation in the Files sidebar.",
             "Svard Documents only view following MkDocs, Zensical, or Antora navigation",
           ),
