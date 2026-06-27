@@ -3,6 +3,7 @@ import { AppMainShell } from "./components/AppMainShell";
 import { useActiveHeadingTracking } from "./hooks/useActiveHeadingTracking";
 import { useBookmarksState } from "./hooks/useBookmarksState";
 import { useAppCommandWiring } from "./hooks/useAppCommandWiring";
+import { useAppDocumentInspectorState } from "./hooks/useAppDocumentInspectorState";
 import { useAppRightSidebarWiring } from "./hooks/useAppRightSidebarWiring";
 import { useAppShellViewState } from "./hooks/useAppShellViewState";
 import { useAppSidebarWiring } from "./hooks/useAppSidebarWiring";
@@ -27,10 +28,13 @@ import {
   type ActivateTabForHistory,
   useNavigationHistory,
 } from "./hooks/useNavigationHistory";
+import { useOpenFileReloadStates } from "./hooks/useOpenFileReloadStates";
 import { useOpenFileActions } from "./hooks/useOpenFileActions";
 import { useQuickOpenCandidates } from "./hooks/useQuickOpenCandidates";
 import { useQuickOpenActions } from "./hooks/useQuickOpenActions";
 import { useQuickOpenShellState } from "./hooks/useQuickOpenShellState";
+import { useRecentWorkspaceActions } from "./hooks/useRecentWorkspaceActions";
+import { useSearchQueryForPath } from "./hooks/useSearchQueryForPath";
 import { useSearchState } from "./hooks/useSearchState";
 import { useShellContextMenu } from "./hooks/useShellContextMenu";
 import { useSidebarLayout } from "./hooks/useSidebarLayout";
@@ -49,18 +53,6 @@ import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { useZenModeActions } from "./hooks/useZenModeActions";
 import { MAIN_WINDOW_SESSION_ID, normalizeConfig } from "./lib/config";
 import type { ContentCursorCommandHandler } from "./lib/contentCursor";
-import {
-  buildDiagramInspectorItems,
-  type DiagramRenderSnapshot,
-} from "./lib/diagramInspector";
-import { revealDiagramInViewer } from "./lib/diagramReveal";
-import {
-  buildLinkInspectorModel,
-  collectResolvedDocumentLinksFromHtml,
-  pruneDocumentLinksForOpenDocuments,
-  type DocumentLinksByPath,
-} from "./lib/documentLinkInspector";
-import { buildIncludeInspectorItems } from "./lib/includeInspector";
 import { mergeWindowConfigForSave } from "./lib/windowConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
@@ -68,7 +60,6 @@ import type {
   DiagramPreviewState,
   MouseGestureAutomation,
   NavigationLocation,
-  OpenFileReloadState,
   RecentlyVisitedLocation,
   RightSidebarTab,
   SearchHitSummary,
@@ -83,9 +74,7 @@ import type {
   WorkspaceEnvironment,
 } from "../core/types";
 import { shouldInvalidatePostDiffGitMarkersForGitRefreshReason } from "./lib/postDiffGitMarkerRefresh";
-
 const host = createHostAdapter();
-
 export function App() {
   const viewerRef = useRef<HTMLElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
@@ -110,11 +99,6 @@ export function App() {
   >([]);
   const [renderResult, setRenderResult] = useState<RenderResult | null>(null);
   const [documentRenderRevision, setDocumentRenderRevision] = useState(0);
-  const [diagramRenderSnapshot, setDiagramRenderSnapshot] =
-    useState<DiagramRenderSnapshot | null>(null);
-  const [selectedDiagramId, setSelectedDiagramId] = useState<string | null>(
-    null,
-  );
   const [documentHtml, setDocumentHtml] = useState(emptySafeHtml);
   const [confirmedRemoteDiagramKeys, setConfirmedRemoteDiagramKeys] = useState<
     ReadonlySet<string>
@@ -161,15 +145,10 @@ export function App() {
     externalLinkConfirmation,
     resolveExternalLinkConfirmation,
   } = useExternalLinkConfirmation(config);
-  const [openFileReloadStates, setOpenFileReloadStates] = useState<
-    Record<string, OpenFileReloadState>
-  >({});
   const [linkHoverDestination, setLinkHoverDestination] = useState<
     string | null
   >(null);
   const [linkPreview, setLinkPreview] = useState<LinkPreviewState | null>(null);
-  const [documentLinksByPath, setDocumentLinksByPath] =
-    useState<DocumentLinksByPath>({});
   const copyTextRef = useRef<(label: string, value: string) => void>(() => {});
   const {
     lastClosedTabs,
@@ -182,75 +161,21 @@ export function App() {
     activePath: documentPayload?.path,
     config,
   });
+  const { openFileReloadStates, setOpenFileReloadStates } =
+    useOpenFileReloadStates(tabs);
   const preferencesOpen =
     preferencesTabOpen && activeWorkspaceTabKind === "preferences";
   const activeDocumentPayload = preferencesOpen ? null : documentPayload;
-  const diagramInspectorItems = useMemo(
-    () =>
-      buildDiagramInspectorItems({
-        document: activeDocumentPayload,
-        renderResult: preferencesOpen ? null : renderResult,
-        renderSnapshot: preferencesOpen ? null : diagramRenderSnapshot,
-      }),
-    [
-      activeDocumentPayload,
-      diagramRenderSnapshot,
-      preferencesOpen,
-      renderResult,
-    ],
-  );
-  const includeInspectorItems = useMemo(
-    () => buildIncludeInspectorItems(activeDocumentPayload),
-    [activeDocumentPayload],
-  );
   const openDocumentPaths = useMemo(
     () => new Set(orderedTabs.map((tab) => tab.path)),
     [orderedTabs],
   );
-  useEffect(() => {
-    setDocumentLinksByPath((current) =>
-      pruneDocumentLinksForOpenDocuments(current, openDocumentPaths),
-    );
-  }, [openDocumentPaths]);
-  useEffect(() => {
-    if (!activeDocumentPayload || preferencesOpen) {
-      return;
-    }
-    const links = collectResolvedDocumentLinksFromHtml({
-      document: { path: activeDocumentPayload.path },
-      html: documentHtml,
-    });
-    setDocumentLinksByPath((current) => ({
-      ...current,
-      [activeDocumentPayload.path]: {
-        path: activeDocumentPayload.path,
-        links,
-        updatedAt: Date.now(),
-      },
-    }));
-  }, [activeDocumentPayload?.path, documentHtml, preferencesOpen]);
-  useEffect(() => {
-    if (
-      selectedDiagramId &&
-      !diagramInspectorItems.some((item) => item.id === selectedDiagramId)
-    ) {
-      setSelectedDiagramId(null);
-    }
-  }, [diagramInspectorItems, selectedDiagramId]);
   const [windowSessionId, setWindowSessionId] = useState(
     MAIN_WINDOW_SESSION_ID,
   );
   useEffect(() => {
     setLinkPreview(null);
   }, [documentPayload?.path]);
-
-  function selectDiagramFromInspector(id: string) {
-    setSelectedDiagramId(id);
-    requestAnimationFrame(() => {
-      revealDiagramInViewer(articleRef.current, id);
-    });
-  }
-
   const {
     activeWorkspaceTabId,
     overflowWorkspaceTabs,
@@ -293,25 +218,7 @@ export function App() {
     setFileComparePickerOpen,
     showInlineNotice,
   });
-  useEffect(() => {
-    const openPaths = new Set(tabs.map((tab) => tab.path));
-    setOpenFileReloadStates((current) =>
-      Object.fromEntries(
-        Object.entries(current).filter(([path]) => openPaths.has(path)),
-      ),
-    );
-  }, [tabs]);
-
-  function searchQueryForPath(path: string, fallbackQuery = "") {
-    const tabQuery = tabQueries[path];
-    if (tabQuery?.trim()) {
-      return tabQuery;
-    }
-    if (fallbackQuery.trim()) {
-      return fallbackQuery;
-    }
-    return config?.workspace.pinnedSearch ?? "";
-  }
+  const searchQueryForPath = useSearchQueryForPath({ config, tabQueries });
   const [openFilesFilter, setOpenFilesFilter] = useState("");
   const [lastMouseGesture, setLastMouseGesture] =
     useState<MouseGestureAutomation | null>(null);
@@ -395,21 +302,23 @@ export function App() {
     onWorkspaceFileChange: (event) =>
       refreshSourceControlFromFileTreeRef.current(event),
   });
-  const linkInspectorModel = useMemo(
-    () =>
-      buildLinkInspectorModel({
-        activePath: activeDocumentPayload?.path,
-        documentLinksByPath,
-        openDocumentPaths,
-        rootDirectory,
-      }),
-    [
-      activeDocumentPayload?.path,
-      documentLinksByPath,
-      openDocumentPaths,
-      rootDirectory,
-    ],
-  );
+  const {
+    diagramInspectorItems,
+    includeInspectorItems,
+    linkInspectorModel,
+    selectedDiagramId,
+    selectDiagramFromInspector,
+    setDiagramRenderSnapshot,
+    setSelectedDiagramId,
+  } = useAppDocumentInspectorState({
+    activeDocumentPayload,
+    articleRef,
+    documentHtml,
+    openDocumentPaths,
+    preferencesOpen,
+    renderResult,
+    rootDirectory,
+  });
   const {
     leftSidebarContentRef,
     openFilesPaneRef,
@@ -470,14 +379,11 @@ export function App() {
     setTabs,
     setWorkspaceEnvironment,
   });
-
   useWorkspacePerformanceNotice({
     showInlineNotice,
     workspaceEnvironment,
   });
-
   useMarkdownWorkerWarmupProbe(workspaceBootComplete);
-
   useDocumentRender({
     confirmedRemoteDiagramKeys,
     config,
@@ -490,7 +396,6 @@ export function App() {
     setDiagramRenderSnapshot,
     setRenderResult,
   });
-
   const { navigateHistory, openRecentlyVisitedLocation, recordNavigation } =
     useNavigationHistory({
       activeHeadingId,
@@ -510,7 +415,6 @@ export function App() {
       setPendingSmartScrollAnchor,
       viewerRef,
     });
-
   const {
     openDirectory,
     openDocument,
@@ -551,7 +455,6 @@ export function App() {
     tabs,
     viewerRef,
   });
-
   const {
     getGitDiffPreview,
     loadDiffDocumentContext,
@@ -560,7 +463,6 @@ export function App() {
     resolveDiffDocumentLink,
     resolveDiffLocalImage,
   } = useDiffPreviewHostCallbacks(host);
-
   const {
     activePostDiffGitMarkers,
     closeDocumentDiffPreview,
@@ -580,7 +482,6 @@ export function App() {
     renderDiffDiagram,
     setDocumentDiffPreview,
   });
-
   const sourceControl = useSourceControlActions({
     config,
     copyText: (label, value) => copyTextRef.current(label, value),
@@ -601,7 +502,6 @@ export function App() {
   });
   refreshSourceControlFromFileTreeRef.current = (event) =>
     handleWorkspaceFileChangeRefresh(event, sourceControl.refreshGitChanges);
-
   const matchCount = searchHits.length;
   const {
     activateSearchHit,
@@ -644,7 +544,6 @@ export function App() {
     splitRatio,
     viewerRef,
   });
-
   const documentLinks = useDocumentLinks({
     activeHeadingId,
     articleRef,
@@ -727,13 +626,11 @@ export function App() {
   });
   closeTabRef.current = openFileActions.closeTab;
   activateTabForHistoryRef.current = openFileActions.activateTab;
-
   function openPreferencesTab() {
     setPreferencesTabOpen(true);
     setActiveWorkspaceTabKind("preferences");
     setTabMoreOpen(false);
   }
-
   const workspaceTabActions = useWorkspaceTabActions({
     activateRelativeTab: openFileActions.activateRelativeTab,
     activateTab: openFileActions.activateTab,
@@ -747,7 +644,6 @@ export function App() {
     setPreferencesTabOpen,
     setTabMoreOpen,
   });
-
   const contentCursor = useContentCursorActions({
     articleRef,
     viewerRef,
@@ -755,7 +651,6 @@ export function App() {
     diffContentCursorCommandRef,
     diffContentCursorClearRef,
   });
-
   const {
     activeTitle,
     appShellStyle,
@@ -810,7 +705,6 @@ export function App() {
     setZenModeActive,
     showLightweightActionFeedback,
   });
-
   const { dispatchCommand, isCommandEnabled } = useAppCommandWiring({
     activeDocumentPayload,
     config,
@@ -943,7 +837,6 @@ export function App() {
     renderResult,
     toggleActivePinnedTab: openFileActions.toggleActivePinnedTab,
   });
-
   const { rightSidebarProps } = useAppRightSidebarWiring({
     activeHeadingId,
     activateSearchHit,
@@ -1077,7 +970,6 @@ export function App() {
     openRecentlyVisitedLocation,
     restoreClosedTabAt: openFileActions.restoreClosedTabAt,
   });
-
   useSiteScreenshotScenario({
     closeAllTabs: workspaceTabActions.closeAllWorkspaceTabs,
     dismissInlineNotice,
@@ -1099,14 +991,14 @@ export function App() {
     showGitDiff: sourceControl.showGitDiff,
     updateSearchQuery,
   });
-
   useActiveHeadingTracking({
     articleRef,
     renderResult,
     setActiveHeadingId,
     viewerRef,
   });
-
+  const { clearRecentDocuments, clearRecentDirectories } =
+    useRecentWorkspaceActions(persistWorkspace);
   async function saveConfig(nextConfig: AppConfig) {
     const normalizedConfig = normalizeConfig(nextConfig);
     setConfig(normalizedConfig);
@@ -1121,21 +1013,10 @@ export function App() {
       }),
     );
   }
-
-  const theme = config?.theme ?? "light";
-
-  function clearRecentDocuments() {
-    void persistWorkspace({ recentDocuments: [] });
-  }
-
-  function clearRecentDirectories() {
-    void persistWorkspace({ recentDirectories: [] });
-  }
-
   return (
     <AppMainShell
       appShellStyle={appShellStyle}
-      className={`app-shell theme-${theme} ${effectiveSidebarVisible ? "" : "left-collapsed"} ${effectiveRightSidebarVisible ? "" : "right-collapsed"} ${zenModeApplies ? "zen-mode-active" : ""} ${sidebarResizeState ? "is-resizing-sidebar" : ""} ${openFilesSplitResizeState ? "is-resizing-sidebar-split" : ""} ${splitResizeState ? "is-resizing-viewer-split" : ""}`}
+      className={`app-shell theme-${config?.theme ?? "light"} ${effectiveSidebarVisible ? "" : "left-collapsed"} ${effectiveRightSidebarVisible ? "" : "right-collapsed"} ${zenModeApplies ? "zen-mode-active" : ""} ${sidebarResizeState ? "is-resizing-sidebar" : ""} ${openFilesSplitResizeState ? "is-resizing-sidebar-split" : ""} ${splitResizeState ? "is-resizing-viewer-split" : ""}`}
       effectiveRightSidebarVisible={effectiveRightSidebarVisible}
       effectiveSidebarVisible={effectiveSidebarVisible}
       linkHoverDestination={linkHoverDestination}
