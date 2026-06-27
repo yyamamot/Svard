@@ -8,6 +8,7 @@ pub(crate) use std::process::Command;
 pub(crate) use std::sync::Mutex;
 pub(crate) use tempfile::tempdir;
 
+mod antora_static_attributes;
 mod config;
 mod desktop_open;
 mod document_io;

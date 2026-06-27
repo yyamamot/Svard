@@ -90,6 +90,7 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("Cross-platform Local Assets") ||
       bodyText.includes("Project Context Assets") ||
       bodyText.includes("Antora Module Local Assets") ||
+      bodyText.includes("Antora Static Attribute Context") ||
       ((scenario === "viewer-start-page" ||
         scenario === "viewer-close-last-tab" ||
         scenario === "viewer-close-all-tabs" ||

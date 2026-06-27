@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -25,6 +26,59 @@ pub(crate) fn discover_antora_playbook_content_roots(
         .collect()
 }
 
+pub(crate) fn antora_static_asciidoc_attributes_for_document(
+    document_path: &Path,
+    workspace_root: &Path,
+    roots: Option<&AllowedRoots>,
+) -> BTreeMap<String, String> {
+    let Some(roots) = roots else {
+        return BTreeMap::new();
+    };
+    let document_path = normalize_document_order_target_path(document_path);
+    let workspace_root = normalize_document_order_target_path(workspace_root);
+    for root in antora_attribute_workspace_roots(&document_path, &workspace_root, roots) {
+        for name in ANTORA_PLAYBOOK_NAMES {
+            let playbook_path = root.join(name);
+            let Some(playbook) = read_playbook(&playbook_path, roots) else {
+                continue;
+            };
+            for content_root in playbook
+                .content_roots
+                .iter()
+                .filter(|content_root| is_antora_module_page(&document_path, content_root))
+            {
+                let mut attributes = playbook.attributes.clone();
+                attributes.extend(read_component_attributes(content_root));
+                return attributes;
+            }
+        }
+    }
+    let Some(content_root) = antora_content_root_for_document(&document_path, roots) else {
+        return BTreeMap::new();
+    };
+    read_component_attributes(&content_root)
+}
+
+struct AntoraPlaybookContext {
+    content_roots: Vec<PathBuf>,
+    attributes: BTreeMap<String, String>,
+}
+
+fn read_playbook(playbook_path: &Path, roots: &AllowedRoots) -> Option<AntoraPlaybookContext> {
+    let workspace_root = playbook_path.parent()?;
+    if !playbook_path.is_file() {
+        return None;
+    }
+    let source = fs::read_to_string(playbook_path).ok()?;
+    let parsed: Value = serde_norway::from_str(&source).ok()?;
+    let mapping = parsed.as_mapping()?;
+    let attributes = static_asciidoc_attributes(mapping);
+    Some(AntoraPlaybookContext {
+        content_roots: playbook_content_roots(mapping, workspace_root, roots),
+        attributes,
+    })
+}
+
 fn discover_content_roots_from_playbook(
     playbook_path: &Path,
     workspace_root: &Path,
@@ -44,13 +98,20 @@ fn discover_content_roots_from_playbook(
     let Some(mapping) = parsed.as_mapping() else {
         return Vec::new();
     };
+    playbook_content_roots(mapping, workspace_root, roots)
+}
+
+fn playbook_content_roots(
+    mapping: &serde_norway::Mapping,
+    workspace_root: &Path,
+    roots: &AllowedRoots,
+) -> Vec<PathBuf> {
     let Some(content) = mapping_get(mapping, "content").and_then(Value::as_mapping) else {
         return Vec::new();
     };
     let Some(sources) = mapping_get(content, "sources") else {
         return Vec::new();
     };
-
     if let Some(sequence) = sources.as_sequence() {
         return sequence
             .iter()
@@ -212,5 +273,104 @@ fn antora_content_root(candidate: &Path, roots: &AllowedRoots) -> Option<PathBuf
         Some(candidate)
     } else {
         None
+    }
+}
+
+fn antora_attribute_workspace_roots(
+    document_path: &Path,
+    workspace_root: &Path,
+    roots: &AllowedRoots,
+) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    push_unique(&mut candidates, workspace_root);
+    if let Ok(guard) = roots.0.lock() {
+        for root in guard.iter() {
+            if document_path.starts_with(root) || workspace_root.starts_with(root) {
+                push_unique(&mut candidates, root);
+            }
+        }
+    }
+    candidates
+}
+
+fn antora_content_root_for_document(document_path: &Path, roots: &AllowedRoots) -> Option<PathBuf> {
+    let mut current = document_path.parent()?;
+    loop {
+        if let Some(content_root) = antora_content_root(current, roots) {
+            if is_antora_module_page(document_path, &content_root) {
+                return Some(content_root);
+            }
+        }
+        current = current.parent()?;
+    }
+}
+
+fn is_antora_module_page(document_path: &Path, content_root: &Path) -> bool {
+    let Ok(relative) = document_path.strip_prefix(content_root) else {
+        return false;
+    };
+    let segments = relative
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect::<Vec<_>>();
+    segments.len() >= 4 && segments[0] == "modules" && segments[2] == "pages"
+}
+
+fn read_component_attributes(content_root: &Path) -> BTreeMap<String, String> {
+    let source = match fs::read_to_string(content_root.join("antora.yml")) {
+        Ok(source) => source,
+        Err(_) => return BTreeMap::new(),
+    };
+    let parsed: Value = match serde_norway::from_str(&source) {
+        Ok(parsed) => parsed,
+        Err(_) => return BTreeMap::new(),
+    };
+    parsed
+        .as_mapping()
+        .map(static_asciidoc_attributes)
+        .unwrap_or_default()
+}
+
+fn static_asciidoc_attributes(mapping: &serde_norway::Mapping) -> BTreeMap<String, String> {
+    let Some(asciidoc) = mapping_get(mapping, "asciidoc").and_then(Value::as_mapping) else {
+        return BTreeMap::new();
+    };
+    let Some(attributes) = mapping_get(asciidoc, "attributes").and_then(Value::as_mapping) else {
+        return BTreeMap::new();
+    };
+    attributes
+        .iter()
+        .filter_map(|(key, value)| {
+            let name = key.as_str()?.trim();
+            if !is_static_attribute_name(name) {
+                return None;
+            }
+            static_attribute_value(value).map(|value| (name.to_string(), value))
+        })
+        .collect()
+}
+
+fn is_static_attribute_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('!')
+        && !name.ends_with('!')
+        && !name
+            .chars()
+            .any(|ch| ch == ':' || ch.is_control() || ch.is_whitespace())
+}
+
+fn static_attribute_value(value: &Value) -> Option<String> {
+    match value {
+        Value::String(value) => Some(value.clone()),
+        Value::Number(value) => Some(value.to_string()),
+        Value::Bool(true) => Some(String::new()),
+        _ => None,
+    }
+}
+
+fn push_unique(paths: &mut Vec<PathBuf>, path: &Path) {
+    let path = normalize_document_order_target_path(path);
+    if !paths.iter().any(|existing| existing == &path) {
+        paths.push(path);
     }
 }

@@ -125,6 +125,17 @@ export async function buildAsciiDocAssertions({
           !bodyText.includes("Local image is not available") &&
           !bodyText.includes("Unsupported or unsafe include target")
         : true,
+    hasAsciiDocAntoraStaticAttributes:
+      scenario === "viewer-asciidoc-antora-static-attributes"
+        ? bodyText.includes("Antora Static Attribute Context") &&
+          bodyText.includes("Static Attribute Partial") &&
+          bodyText.includes("Document Product uses component value and 42") &&
+          bodyText.includes("Static Image") &&
+          (await page.locator('img[src^="data:image/svg+xml"]').count()) >= 1 &&
+          !bodyText.includes("Include file not found or not allowed") &&
+          !bodyText.includes("Unsupported or unsafe include target") &&
+          !bodyText.includes("Component Product uses")
+        : true,
     hasAsciiDocStandardTheme:
       scenario === "viewer-asciidoc-standard-theme"
         ? bodyText.includes("AsciiDoc Standard Theme Sample") &&

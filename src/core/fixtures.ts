@@ -436,11 +436,21 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       path: "/workspace/modules/module-a/pages/index.adoc",
       kind: "file",
     },
+    {
+      name: "static-attributes.adoc",
+      path: "/workspace/modules/module-a/pages/static-attributes.adoc",
+      kind: "file",
+    },
   ],
   "/workspace/modules/module-a/partials": [
     {
       name: "header.adoc",
       path: "/workspace/modules/module-a/partials/header.adoc",
+      kind: "file",
+    },
+    {
+      name: "static-intro.adoc",
+      path: "/workspace/modules/module-a/partials/static-intro.adoc",
       kind: "file",
     },
   ],
@@ -1589,11 +1599,26 @@ include::../partials/header.adoc[]
 
 image:diagram.drawio.svg[Primary secondary diagram]
 `,
+  "/workspace/modules/module-a/pages/static-attributes.adoc": `= Antora Static Attribute Context
+:product-name: Document Product
+
+ifdef::static-preview[]
+include::{partialsdir}/static-intro.adoc[]
+endif::[]
+
+== Static Image
+
+image::{imagesdir}/diagram.drawio.svg[Static attribute image]
+`,
   "/workspace/modules/module-a/partials/header.adoc": `:imagesdir: ../images
 
 == Module Header
 
 This partial defines an imagesdir that points to the module image folder.
+`,
+  "/workspace/modules/module-a/partials/static-intro.adoc": `== Static Attribute Partial
+
+{product-name} uses {component-only} and {playbook-only}.
 `,
   "/workspace/modules/module-a/images/diagram.drawio.svg": `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="720" viewBox="0 0 1600 720" role="img" aria-label="Antora module image fixture">
   <rect width="1600" height="720" fill="#f7fafb"/>
@@ -2914,7 +2939,7 @@ export function fixtureIncludeFilesForPath(path: string) {
   }
 
   function collect(currentPath: string, source: string) {
-    const attributes = new Map<string, string>();
+    const attributes = fixtureInitialAsciiDocAttributesForPath(currentPath);
     for (const line of source.split("\n")) {
       applyAttribute(line.trim(), attributes);
     }
@@ -3219,10 +3244,23 @@ export function fixtureIncludeGraphForPath(
     }
   }
 
-  const attributes = new Map<string, string>();
+  const attributes = fixtureInitialAsciiDocAttributesForPath(path);
   for (const line of rootSource.split("\n")) {
     applyAttribute(line.trim(), attributes);
   }
   collect(path, rootSource, "root", attributes);
   return graph;
+}
+
+export function fixtureInitialAsciiDocAttributesForPath(path: string) {
+  const attributes = new Map<string, string>();
+  if (path === "/workspace/modules/module-a/pages/static-attributes.adoc") {
+    attributes.set("partialsdir", "../partials");
+    attributes.set("imagesdir", "../images");
+    attributes.set("product-name", "Component Product");
+    attributes.set("component-only", "component value");
+    attributes.set("playbook-only", "42");
+    attributes.set("static-preview", "");
+  }
+  return attributes;
 }

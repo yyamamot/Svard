@@ -91,7 +91,9 @@ export async function applyAsciiDocScenario(context) {
         name: "Conditional Include Compatibility Sample",
       })
       .waitFor();
-    await page.getByRole("heading", { name: "Feature Preview Branch" }).waitFor();
+    await page
+      .getByRole("heading", { name: "Feature Preview Branch" })
+      .waitFor();
     await page.getByRole("heading", { name: "Modern Mode Branch" }).waitFor();
     await page
       .getByRole("heading", { name: "Production Target Branch" })
@@ -159,6 +161,19 @@ export async function applyAsciiDocScenario(context) {
     await page
       .getByRole("heading", { name: "Primary / Secondary Diagram" })
       .waitFor();
+    await page.locator('img[src^="data:image/svg+xml"]').waitFor();
+  } else if (scenario === "viewer-asciidoc-antora-static-attributes") {
+    await page.locator("text=modules").click();
+    await page.locator("text=module-a").click();
+    await page.locator("text=pages").click();
+    await page.locator("text=static-attributes.adoc").click();
+    await page
+      .getByRole("heading", { name: "Antora Static Attribute Context" })
+      .waitFor();
+    await page
+      .getByRole("heading", { name: "Static Attribute Partial" })
+      .waitFor();
+    await page.getByRole("heading", { name: "Static Image" }).waitFor();
     await page.locator('img[src^="data:image/svg+xml"]').waitFor();
   } else if (scenario === "viewer-asciidoc-comprehensive-visual") {
     await page.locator("text=asciidoc-comprehensive-visual.adoc").click();

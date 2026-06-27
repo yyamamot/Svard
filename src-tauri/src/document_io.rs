@@ -1,9 +1,10 @@
 use std::{
-    collections::{BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     fs,
     path::{Path, PathBuf},
 };
 
+use crate::antora_playbook::antora_static_asciidoc_attributes_for_document;
 use crate::app_error::AppError;
 use crate::backend_types::AllowedRoots;
 use crate::backend_types::{
@@ -12,7 +13,7 @@ use crate::backend_types::{
     WorkspaceSearchResultItem,
 };
 use crate::document_io_include::{
-    asciidoc_attributes, collect_asciidoc_include_files_and_graph_with_base,
+    asciidoc_attributes, collect_asciidoc_include_files_and_graph_with_attributes,
 };
 use crate::document_order::load_document_order_from_root;
 use crate::path_policy::{
@@ -83,7 +84,12 @@ pub(crate) fn open_document_from_canonical_path_with_roots(
     let resource_context = build_document_resource_context(&document_path, roots);
     let asciidoc_context = if format == "asciidoc" {
         let context_started_at = perf_trace::start();
-        let context = build_asciidoc_render_context(&source, &resource_context);
+        let context = build_asciidoc_render_context_for_document(
+            &document_path,
+            &source,
+            &resource_context,
+            roots,
+        );
         perf_trace::log(
             "open_document.build_asciidoc_render_context",
             &[
@@ -104,12 +110,14 @@ pub(crate) fn open_document_from_canonical_path_with_roots(
     };
     let (include_files, include_graph) = if let Some(context) = &asciidoc_context {
         let include_started_at = perf_trace::start();
-        let (include_files, include_graph) = collect_asciidoc_include_files_and_graph_with_base(
-            &document_path,
-            &source,
-            roots,
-            &PathBuf::from(&context.base_dir),
-        );
+        let (include_files, include_graph) =
+            collect_asciidoc_include_files_and_graph_with_attributes(
+                &document_path,
+                &source,
+                roots,
+                &PathBuf::from(&context.base_dir),
+                context.attributes.clone(),
+            );
         perf_trace::log(
             "open_document.collect_asciidoc_include_files",
             &[
@@ -190,15 +198,37 @@ pub(crate) fn build_document_resource_context(
     }
 }
 
+#[cfg(test)]
 pub(crate) fn build_asciidoc_render_context(
     source: &str,
     resource_context: &DocumentResourceContext,
 ) -> AsciiDocRenderContext {
+    build_asciidoc_render_context_with_attributes(source, resource_context, BTreeMap::new())
+}
+
+pub(crate) fn build_asciidoc_render_context_for_document(
+    document_path: &Path,
+    source: &str,
+    resource_context: &DocumentResourceContext,
+    roots: Option<&AllowedRoots>,
+) -> AsciiDocRenderContext {
+    let workspace_root = PathBuf::from(&resource_context.workspace_root);
+    let antora_attributes =
+        antora_static_asciidoc_attributes_for_document(document_path, &workspace_root, roots);
+    build_asciidoc_render_context_with_attributes(source, resource_context, antora_attributes)
+}
+
+fn build_asciidoc_render_context_with_attributes(
+    source: &str,
+    resource_context: &DocumentResourceContext,
+    mut attributes: BTreeMap<String, String>,
+) -> AsciiDocRenderContext {
+    attributes.extend(asciidoc_attributes(source));
     AsciiDocRenderContext {
         base_dir: resource_context.workspace_root.clone(),
         workspace_root: resource_context.workspace_root.clone(),
         document_dir: resource_context.document_dir.clone(),
-        attributes: asciidoc_attributes(source),
+        attributes,
         resource_roots: resource_context.resource_roots.clone(),
     }
 }

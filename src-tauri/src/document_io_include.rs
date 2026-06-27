@@ -18,16 +18,17 @@ const MAX_INCLUDE_FILE_BYTES: u64 = 1_048_576;
 const MAX_INCLUDE_FILES: usize = 64;
 const MAX_INCLUDE_TOTAL_BYTES: u64 = 4 * 1_048_576;
 
-pub(crate) fn collect_asciidoc_include_files_and_graph_with_base(
+pub(crate) fn collect_asciidoc_include_files_and_graph_with_attributes(
     document_path: &Path,
     source: &str,
     roots: Option<&AllowedRoots>,
     base_root: &Path,
+    initial_attributes: BTreeMap<String, String>,
 ) -> (Vec<AsciiDocIncludeFile>, AsciiDocIncludeGraph) {
     let mut visited = BTreeSet::new();
     let mut files = Vec::new();
     let mut total_bytes = 0;
-    let mut attributes = asciidoc_attributes(source);
+    let mut attributes = initial_attributes;
     let mut graph = IncludeGraphBuilder::new(document_path);
     let mut stack = vec![path_to_ui_string(document_path)];
     collect_asciidoc_include_files_inner(

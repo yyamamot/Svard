@@ -10,6 +10,7 @@ import {
   fixtureEntriesByDirectory,
   fixtureIncludeGraphForPath,
   fixtureIncludeFilesForPath,
+  fixtureInitialAsciiDocAttributesForPath,
   fixturePath,
 } from "../../core/fixtures";
 import { pathBasename } from "../../core/pathDisplay";
@@ -460,7 +461,9 @@ function mockAsciiDocContext(
     /^(.+\/modules\/[^/]+)\/pages\/[^/]+$/u,
   );
   const baseDir = modulePages ? modulePages[1] : "/workspace";
-  const attributes: Record<string, string> = {};
+  const attributes = Object.fromEntries(
+    fixtureInitialAsciiDocAttributesForPath(documentPath),
+  );
   for (const line of source.split("\n")) {
     const match = /^:([^:!][^:]*):\s*(.*)$/u.exec(line.trim());
     if (match) {
