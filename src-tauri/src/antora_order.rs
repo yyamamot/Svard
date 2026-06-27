@@ -456,8 +456,9 @@ fn antora_document(
 fn antora_page_display_title(path: &Path) -> Option<String> {
     let file = fs::File::open(path).ok()?;
     let mut reader = file.take(64 * 1024);
-    let mut source = String::new();
-    reader.read_to_string(&mut source).ok()?;
+    let mut bytes = Vec::new();
+    reader.read_to_end(&mut bytes).ok()?;
+    let source = String::from_utf8_lossy(&bytes);
     let mut document_title = None;
     for line in source.lines().take(120) {
         let trimmed = line.trim();
@@ -703,6 +704,34 @@ mod tests {
                 status: DocumentOrderDocumentStatus::Resolved,
                 ..
             } if title == "Child"
+        ));
+    }
+
+    #[test]
+    fn reads_antora_page_title_when_scan_limit_splits_utf8() {
+        let dir = tempdir().expect("tempdir");
+        let root_module = dir.path().join("modules").join("ROOT");
+        fs::create_dir_all(root_module.join("pages")).expect("root pages");
+        let mut source = ":docname: Bounded Title\n\n= Fallback Title\n\n".to_string();
+        source.push_str(&"a".repeat((64 * 1024) - source.len() - 1));
+        source.push('判');
+        fs::write(root_module.join("pages").join("index.adoc"), source).expect("index");
+        fs::write(root_module.join("nav.adoc"), "* xref:index.adoc[]\n").expect("nav");
+        fs::write(
+            dir.path().join("antora.yml"),
+            "name: product\nversion: true\nnav:\n  - modules/ROOT/nav.adoc\n",
+        )
+        .expect("descriptor");
+
+        let result = load_antora_order_from_content_root(dir.path(), &roots_for(dir.path()));
+
+        assert!(matches!(
+            &result.nodes[0],
+            DocumentOrderNode::Document {
+                title,
+                status: DocumentOrderDocumentStatus::Resolved,
+                ..
+            } if title == "Bounded Title"
         ));
     }
 
