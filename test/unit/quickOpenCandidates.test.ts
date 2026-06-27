@@ -190,6 +190,23 @@ describe("quick open candidates", () => {
     );
   });
 
+  it("includes Reveal Current Document in Docs Order in command palette", () => {
+    const candidates = buildQuickOpenCandidates({
+      ...baseOptions,
+      quickOpenQuery: ">reveal",
+      commandEnabled: (commandId) => commandId === "documents.revealCurrent",
+    });
+
+    expect(candidates).toContainEqual(
+      expect.objectContaining({
+        type: "command",
+        id: "documents.revealCurrent",
+        label: "Reveal Current Document in Docs Order",
+        enabled: true,
+      }),
+    );
+  });
+
   it("includes New Window, Duplicate Window, and Switch to Recent Tab commands with enabled state", () => {
     const candidates = buildQuickOpenCandidates({
       ...baseOptions,

@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   DocumentOrderNode,
   DocumentOrderResult,
@@ -18,9 +18,11 @@ import {
   type OpenDocumentTreeModel,
   type OpenDocumentTreeNode,
 } from "../../lib/fileTreeDocuments";
+import { registerDocumentsPanelCommandBridge } from "../../lib/documentsPanelCommandBridge";
 import type {
   ActiveDocumentOrder,
   DocumentOrderSectionOptions,
+  DocumentsPanelCommands,
   DocumentsFilter,
   FilesViewMode,
 } from "./types";
@@ -41,6 +43,9 @@ interface DocumentsViewProps {
   onDocumentsFilterChange: (filter: DocumentsFilter) => void;
   onOpenFile: (path: string) => void;
   onOpenGitDiff: (path: string) => void;
+  onRegisterDocumentsPanelCommands?: (
+    commands: DocumentsPanelCommands | null,
+  ) => void;
 }
 
 export function DocumentsView({
@@ -59,31 +64,21 @@ export function DocumentsView({
   onDocumentsFilterChange,
   onOpenFile,
   onOpenGitDiff,
+  onRegisterDocumentsPanelCommands,
 }: DocumentsViewProps) {
   const [expandedDocumentOrderSections, setExpandedDocumentOrderSections] =
     useState<Set<string>>(() => new Set());
   const lastAutoExpandedContextRef = useRef<string | undefined>(undefined);
   const documentsViewRef = useRef<HTMLDivElement | null>(null);
+  const autoExpandContext = useMemo(
+    () =>
+      activePath && autoExpandSectionKeys.size
+        ? `${viewMode}:${activePath}:${[...autoExpandSectionKeys].join("|")}`
+        : undefined,
+    [activePath, autoExpandSectionKeys, viewMode],
+  );
 
-  useEffect(() => {
-    if (
-      !activePath ||
-      !autoExpandSectionKeys.size ||
-      lastAutoExpandedContextRef.current ===
-        `${viewMode}:${activePath}:${[...autoExpandSectionKeys].join("|")}`
-    ) {
-      return;
-    }
-    lastAutoExpandedContextRef.current = `${viewMode}:${activePath}:${[
-      ...autoExpandSectionKeys,
-    ].join("|")}`;
-    setExpandedDocumentOrderSections((current) => {
-      const next = new Set(current);
-      for (const key of autoExpandSectionKeys) {
-        next.add(key);
-      }
-      return next;
-    });
+  const scrollActiveDocumentIntoView = useCallback(() => {
     window.requestAnimationFrame(() => {
       const activeElement =
         documentsViewRef.current?.querySelector<HTMLElement>(
@@ -91,7 +86,63 @@ export function DocumentsView({
         );
       activeElement?.scrollIntoView?.({ block: "nearest" });
     });
-  }, [activePath, autoExpandSectionKeys, viewMode]);
+  }, []);
+
+  const expandAndScrollCurrentDocument = useCallback(() => {
+    if (!autoExpandContext || !autoExpandSectionKeys.size) {
+      return false;
+    }
+    lastAutoExpandedContextRef.current = autoExpandContext;
+    setExpandedDocumentOrderSections((current) => {
+      const next = new Set(current);
+      for (const key of autoExpandSectionKeys) {
+        next.add(key);
+      }
+      return next;
+    });
+    scrollActiveDocumentIntoView();
+    return true;
+  }, [autoExpandContext, autoExpandSectionKeys, scrollActiveDocumentIntoView]);
+
+  const revealCurrentDocument = useCallback(
+    () => (activeDocumentOrder ? expandAndScrollCurrentDocument() : false),
+    [activeDocumentOrder, expandAndScrollCurrentDocument],
+  );
+
+  const collapseAllDocumentSections = useCallback(() => {
+    setExpandedDocumentOrderSections(new Set());
+  }, []);
+
+  useEffect(() => {
+    if (
+      !autoExpandContext ||
+      lastAutoExpandedContextRef.current === autoExpandContext
+    ) {
+      return;
+    }
+    expandAndScrollCurrentDocument();
+  }, [autoExpandContext, expandAndScrollCurrentDocument]);
+
+  useEffect(() => {
+    const commands: DocumentsPanelCommands = {
+      collapseAllDocumentSections,
+      revealCurrentDocument,
+      canRevealCurrentDocument: () =>
+        Boolean(activeDocumentOrder && autoExpandContext),
+    };
+    onRegisterDocumentsPanelCommands?.(commands);
+    registerDocumentsPanelCommandBridge(commands);
+    return () => {
+      onRegisterDocumentsPanelCommands?.(null);
+      registerDocumentsPanelCommandBridge(null);
+    };
+  }, [
+    activeDocumentOrder,
+    autoExpandContext,
+    collapseAllDocumentSections,
+    onRegisterDocumentsPanelCommands,
+    revealCurrentDocument,
+  ]);
 
   function toggleDocumentOrderSection(sectionKey: string) {
     setExpandedDocumentOrderSections((current) => {

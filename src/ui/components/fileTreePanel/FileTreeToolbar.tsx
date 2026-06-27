@@ -19,6 +19,7 @@ interface FileTreeToolbarProps {
   hasDocusaurusOrder: boolean;
   showExperimentalStaticSiteOrderSources: boolean;
   suggestedDocumentsMode?: SuggestedDocumentsMode;
+  collapseLabel: string;
   onPickDocument: () => void;
   onPickDirectory: () => void;
   onRefresh: () => void;
@@ -36,6 +37,7 @@ export function FileTreeToolbar({
   hasDocusaurusOrder,
   showExperimentalStaticSiteOrderSources,
   suggestedDocumentsMode,
+  collapseLabel,
   onPickDocument,
   onPickDirectory,
   onRefresh,
@@ -252,8 +254,8 @@ export function FileTreeToolbar({
           type="button"
           className="icon-button"
           data-review-id="tree-collapse-all"
-          aria-label="Collapse all folders"
-          title="Collapse all folders"
+          aria-label={collapseLabel}
+          title={collapseLabel}
           onClick={onCollapse}
         >
           <ChevronsUp size={15} />

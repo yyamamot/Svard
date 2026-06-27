@@ -31,6 +31,7 @@ export const commandIds = [
   "navigation.forward",
   "bookmark.toggleActive",
   "bookmark.addCurrentFolder",
+  "documents.revealCurrent",
   "sidebar.showFiles",
   "sidebar.showBookmarks",
   "sidebar.toggleLeft",
@@ -129,6 +130,11 @@ export const commandDefinitions: CommandDefinition[] = [
     id: "bookmark.addCurrentFolder",
     title: "Add Current Folder Bookmark",
     context: "global",
+  },
+  {
+    id: "documents.revealCurrent",
+    title: "Reveal Current Document in Docs Order",
+    context: "navigation",
   },
   { id: "sidebar.showFiles", title: "Show Files", context: "global" },
   {

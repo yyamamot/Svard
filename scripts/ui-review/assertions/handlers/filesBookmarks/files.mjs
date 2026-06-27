@@ -99,6 +99,21 @@ export async function buildFilesAssertions(context) {
             );
           })) && bodyText.includes("copy-actions.adoc")
         : true,
+    hasDocumentsView:
+      scenario === "viewer-files-documents-view"
+        ? bodyText.includes("Git Diff Modified Fixture") &&
+          (await page.evaluate(() => {
+            const result = window.__SVARD_DOCUMENTS_VIEW_CHECK__;
+            return (
+              result?.collapseAriaLabel === "Collapse all document sections" &&
+              result?.collapseTitle === "Collapse all document sections" &&
+              result?.activeRowText?.includes("Git Diff Modified Fixture") &&
+              result?.revealCommandTitle ===
+                "Reveal Current Document in Docs Order" &&
+              result?.revealCommandEnabled === false
+            );
+          }))
+        : true,
     hasDocumentsSourceControl:
       scenario === "viewer-files-documents-source-control"
         ? bodyText.includes("git-modified.md") &&

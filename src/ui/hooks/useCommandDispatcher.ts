@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { RefObject } from "react";
 import {
   commandDefinitions,
@@ -13,6 +13,11 @@ import {
   resolveKeybinding,
 } from "../../core/keybindings";
 import type { AppConfig, DocumentPayload, GitRefKind } from "../../core/types";
+import {
+  canRevealCurrentDocumentInDocsOrder,
+  getDocumentsPanelCommands,
+  subscribeDocumentsPanelCommandBridge,
+} from "../lib/documentsPanelCommandBridge";
 import { fileName, isEditableTarget } from "../lib/path";
 import type {
   MouseGestureAutomation,
@@ -176,6 +181,11 @@ export function useCommandDispatcher({
   const [lastCommand, setLastCommand] = useState<CommandId | null>(null);
   const [lastMouseNavigation, setLastMouseNavigation] =
     useState<MouseNavigationAutomation | null>(null);
+  const canRevealCurrentDocument = useSyncExternalStore(
+    subscribeDocumentsPanelCommandBridge,
+    canRevealCurrentDocumentInDocsOrder,
+    canRevealCurrentDocumentInDocsOrder,
+  );
 
   function getFocusedContext(
     target: EventTarget | null = document.activeElement,
@@ -235,6 +245,9 @@ export function useCommandDispatcher({
     }
     if (commandId === "bookmark.addCurrentFolder") {
       return Boolean(config?.workspace.lastDirectory);
+    }
+    if (commandId === "documents.revealCurrent") {
+      return canRevealCurrentDocument;
     }
     if (commandId === "viewer.reload" || commandId === "viewer.reloadForce") {
       return Boolean(documentPayload);
@@ -443,6 +456,11 @@ export function useCommandDispatcher({
         break;
       case "bookmark.addCurrentFolder":
         await onAddCurrentFolderBookmark();
+        break;
+      case "documents.revealCurrent":
+        if (getDocumentsPanelCommands()?.revealCurrentDocument()) {
+          showLightweightActionFeedback("Revealed current document");
+        }
         break;
       case "sidebar.showFiles":
         await onSetSidebarTab("files");

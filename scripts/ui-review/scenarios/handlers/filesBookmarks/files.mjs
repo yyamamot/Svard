@@ -79,6 +79,47 @@ export async function applyFilesScenario(context) {
     await page.locator("text=copy-actions.adoc").waitFor();
     await trigger.click();
     await page.locator('[data-review-id="file-tree-open-menu"]').waitFor();
+  } else if (scenario === "viewer-files-documents-view") {
+    await page.locator('[data-review-id="file-tree"]').waitFor();
+    await page.getByText("git-modified.md").click();
+    await page
+      .getByRole("heading", { name: /Git Diff Modified Fixture/ })
+      .waitFor();
+    await page.locator('[data-review-id="documents-view-toggle"]').click();
+    await page.locator('[data-review-id="documents-view-mode-menu"]').waitFor();
+    await page.locator('[data-review-id="documents-view-mode-mkdocs"]').click();
+    await page.locator('[data-review-id="documents-view"]').waitFor();
+    await page
+      .locator('[data-review-id="documents-view-row"]')
+      .filter({ hasText: "Git Diff Modified Fixture" })
+      .waitFor();
+    await page.evaluate(() => {
+      const collapseButton = document.querySelector(
+        '[data-review-id="tree-collapse-all"]',
+      );
+      const activeRow = document.querySelector(
+        '[data-review-id="documents-view-row"][data-document-order-active="true"]',
+      );
+      const command = window.__SVARD_COMMANDS__
+        ?.listCommands()
+        .find((candidate) => candidate.id === "documents.revealCurrent");
+      window.__SVARD_DOCUMENTS_VIEW_CHECK__ = {
+        collapseAriaLabel:
+          collapseButton instanceof HTMLElement
+            ? collapseButton.getAttribute("aria-label")
+            : null,
+        collapseTitle:
+          collapseButton instanceof HTMLElement
+            ? collapseButton.getAttribute("title")
+            : null,
+        activeRowText:
+          activeRow instanceof HTMLElement ? activeRow.textContent?.trim() : "",
+        revealCommandTitle: command?.title ?? null,
+        revealCommandEnabled:
+          window.__SVARD_COMMANDS__?.getCommandState("documents.revealCurrent")
+            .enabled ?? null,
+      };
+    });
   } else if (scenario === "viewer-files-documents-source-control") {
     await page.locator('[data-review-id="file-tree"]').waitFor();
     await page.getByText("git-modified.md").click();

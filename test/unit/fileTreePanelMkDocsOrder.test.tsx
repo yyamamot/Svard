@@ -3,6 +3,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FileTreePanel } from "../../src/ui/components/FileTreePanel";
+import { documentOrderSectionKey } from "../../src/ui/lib/fileTreeDocuments";
+import {
+  getDocumentsPanelCommands,
+  registerDocumentsPanelCommandBridge,
+} from "../../src/ui/lib/documentsPanelCommandBridge";
 import { chooseFileViewModeIn } from "./helpers/fileTreePanel";
 
 describe("FileTreePanel MkDocs document order", () => {
@@ -20,6 +25,7 @@ describe("FileTreePanel MkDocs document order", () => {
 
   afterEach(() => {
     act(() => root.unmount());
+    registerDocumentsPanelCommandBridge(null);
     container.remove();
   });
 
@@ -247,8 +253,9 @@ describe("FileTreePanel MkDocs document order", () => {
         ?.textContent,
     ).toContain("Reference");
     expect(
-      container.querySelector('[data-review-id="documents-zensical-not-in-nav"]')
-        ?.textContent,
+      container.querySelector(
+        '[data-review-id="documents-zensical-not-in-nav"]',
+      )?.textContent,
     ).toContain("Not in zensical.toml");
     const rows = [
       ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
@@ -259,8 +266,6 @@ describe("FileTreePanel MkDocs document order", () => {
       expect.stringContaining("extra.md"),
     ]);
   });
-
-
 
   it("collapses MkDocs order sections and not-in-nav groups", async () => {
     await act(async () => {
@@ -362,7 +367,8 @@ describe("FileTreePanel MkDocs document order", () => {
     });
     expect(guideToggle?.getAttribute("aria-expanded")).toBe("true");
     expect(
-      container.querySelector('[data-review-id="documents-mkdocs-section"]')
+      container
+        .querySelector('[data-review-id="documents-mkdocs-section"]')
         ?.getAttribute("data-document-order-section-state"),
     ).toBe("expanded");
 
@@ -393,5 +399,216 @@ describe("FileTreePanel MkDocs document order", () => {
     ]);
   });
 
+  it("auto-expands and reveals the active MkDocs document section", async () => {
+    const guideSectionKey = documentOrderSectionKey(
+      "mkdocs",
+      ["1"],
+      "Guide",
+      0,
+    );
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      window.setTimeout(() => callback(0), 0);
+      return 1;
+    }) as typeof window.requestAnimationFrame;
 
+    try {
+      await act(async () => {
+        root.render(
+          <FileTreePanel
+            rootDirectory="/workspace"
+            rootEntries={[
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ]}
+            childrenByDirectory={{
+              "/workspace": [
+                { name: "docs", path: "/workspace/docs", kind: "directory" },
+              ],
+              "/workspace/docs": [
+                {
+                  name: "index.md",
+                  path: "/workspace/docs/index.md",
+                  kind: "file",
+                },
+                {
+                  name: "last.md",
+                  path: "/workspace/docs/last.md",
+                  kind: "file",
+                },
+              ],
+            }}
+            expandedDirectories={new Set(["/workspace/docs"])}
+            loadingDirectories={new Set()}
+            directoryErrors={{}}
+            gitStatusByPath={{}}
+            gitChanges={null}
+            documentOrder={{
+              orders: [
+                {
+                  source: "mkdocs",
+                  nodes: [
+                    {
+                      kind: "document",
+                      title: "Home",
+                      path: "/workspace/docs/index.md",
+                      displayPath: "index.md",
+                      depth: 0,
+                      status: "resolved",
+                    },
+                    {
+                      kind: "section",
+                      title: "Guide",
+                      depth: 0,
+                      children: [
+                        {
+                          kind: "document",
+                          title: "Last",
+                          path: "/workspace/docs/last.md",
+                          displayPath: "last.md",
+                          depth: 1,
+                          status: "resolved",
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            }}
+            openDocumentPaths={new Set(["/workspace/docs/last.md"])}
+            activePath="/workspace/docs/last.md"
+            filesViewMode="documents-mkdocs"
+            activeDocumentOrderSectionKeys={new Set([guideSectionKey])}
+            onOpenFile={vi.fn()}
+            onOpenGitDiff={vi.fn()}
+            onToggleDirectory={vi.fn()}
+            onPickDocument={vi.fn()}
+            onPickDirectory={vi.fn()}
+            onRefresh={vi.fn()}
+            onCollapse={vi.fn()}
+          />,
+        );
+      });
+      await act(async () => {
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+      });
+
+      const guideToggle = container.querySelector<HTMLButtonElement>(
+        '[data-review-id="documents-mkdocs-section"] [data-review-id="documents-order-section-toggle"]',
+      );
+      expect(guideToggle?.getAttribute("aria-expanded")).toBe("true");
+      expect(
+        container.querySelector(
+          '[data-review-id="documents-view-row"][data-document-order-active="true"]',
+        )?.textContent,
+      ).toContain("Last");
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+
+      await act(async () => {
+        guideToggle?.click();
+      });
+      expect(guideToggle?.getAttribute("aria-expanded")).toBe("false");
+
+      await act(async () => {
+        expect(getDocumentsPanelCommands()?.revealCurrentDocument()).toBe(true);
+      });
+      expect(guideToggle?.getAttribute("aria-expanded")).toBe("true");
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      window.requestAnimationFrame = originalRequestAnimationFrame;
+    }
+  });
+
+  it("uses the toolbar collapse action for document sections in Docs order mode", async () => {
+    const onCollapse = vi.fn();
+    const guideSectionKey = documentOrderSectionKey(
+      "mkdocs",
+      ["0"],
+      "Guide",
+      0,
+    );
+
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "last.md",
+                path: "/workspace/docs/last.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "mkdocs",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "Guide",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "Last",
+                        path: "/workspace/docs/last.md",
+                        displayPath: "last.md",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/docs/last.md"
+          filesViewMode="documents-mkdocs"
+          activeDocumentOrderSectionKeys={new Set([guideSectionKey])}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={onCollapse}
+        />,
+      );
+    });
+
+    const collapse = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="tree-collapse-all"]',
+    );
+    const guideToggle = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="documents-mkdocs-section"] [data-review-id="documents-order-section-toggle"]',
+    );
+    expect(collapse?.getAttribute("aria-label")).toBe(
+      "Collapse all document sections",
+    );
+    expect(guideToggle?.getAttribute("aria-expanded")).toBe("true");
+
+    await act(async () => {
+      collapse?.click();
+    });
+
+    expect(onCollapse).not.toHaveBeenCalled();
+    expect(guideToggle?.getAttribute("aria-expanded")).toBe("false");
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildGitDirectoryStatusSummary,
   mergeGitStatusWithChanges,
@@ -14,6 +14,7 @@ import { FileTreeToolbar } from "./fileTreePanel/FileTreeToolbar";
 import type {
   ActiveDocumentOrder,
   DocumentsFilter,
+  DocumentsPanelCommands,
   FilesViewMode,
   SuggestedDocumentsMode,
 } from "./fileTreePanel/types";
@@ -83,6 +84,7 @@ export function FileTreePanel({
   const [localViewMode, setLocalViewMode] = useState<FilesViewMode>("tree");
   const [documentsFilter, setDocumentsFilter] =
     useState<DocumentsFilter>("all");
+  const documentsPanelCommandsRef = useRef<DocumentsPanelCommands | null>(null);
   const viewMode = filesViewMode ?? localViewMode;
   const fileTreeGitStatusByPath = useMemo(
     () => mergeGitStatusWithChanges(gitStatusByPath, gitChanges),
@@ -192,6 +194,21 @@ export function FileTreePanel({
     onFilesViewModeChange?.(nextMode);
   }
 
+  const registerDocumentsPanelCommands = useCallback(
+    (commands: DocumentsPanelCommands | null) => {
+      documentsPanelCommandsRef.current = commands;
+    },
+    [],
+  );
+
+  function collapseCurrentView() {
+    if (viewMode === "tree") {
+      onCollapse();
+      return;
+    }
+    documentsPanelCommandsRef.current?.collapseAllDocumentSections();
+  }
+
   function activeDocumentOrder(): ActiveDocumentOrder {
     if (viewMode === "documents-mkdocs" && mkdocsOrder) {
       return {
@@ -271,7 +288,12 @@ export function FileTreePanel({
         onPickDocument={onPickDocument}
         onPickDirectory={onPickDirectory}
         onRefresh={onRefresh}
-        onCollapse={onCollapse}
+        collapseLabel={
+          viewMode === "tree"
+            ? "Collapse all folders"
+            : "Collapse all document sections"
+        }
+        onCollapse={collapseCurrentView}
         onViewModeChange={changeViewMode}
       />
       {viewMode === "tree" ? (
@@ -319,6 +341,7 @@ export function FileTreePanel({
           onDocumentsFilterChange={setDocumentsFilter}
           onOpenFile={onOpenFile}
           onOpenGitDiff={onOpenGitDiff}
+          onRegisterDocumentsPanelCommands={registerDocumentsPanelCommands}
         />
       )}
     </>

@@ -23,3 +23,9 @@ export type SuggestedDocumentsMode = {
   >;
   label: string;
 };
+
+export interface DocumentsPanelCommands {
+  collapseAllDocumentSections(): void;
+  revealCurrentDocument(): boolean;
+  canRevealCurrentDocument(): boolean;
+}
