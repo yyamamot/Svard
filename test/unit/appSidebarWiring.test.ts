@@ -21,7 +21,7 @@ describe("useAppSidebarWiring document mode suggestion", () => {
       }),
     ).toEqual({
       mode: "documents-mkdocs",
-      label: "Docs: MkDocs detected",
+      label: "Docs: MkDocs",
     });
   });
 

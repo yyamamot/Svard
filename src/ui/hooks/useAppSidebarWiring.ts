@@ -132,9 +132,9 @@ export function suggestedDocumentsModeForCatalog({
     };
   }
   const suggestions: SuggestedDocumentsMode[] = [
-    { mode: "documents-mkdocs", label: "Docs: MkDocs detected" },
-    { mode: "documents-zensical", label: "Docs: Zensical detected" },
-    { mode: "documents-antora", label: "Docs: Antora detected" },
+    { mode: "documents-mkdocs", label: "Docs: MkDocs" },
+    { mode: "documents-zensical", label: "Docs: Zensical" },
+    { mode: "documents-antora", label: "Docs: Antora" },
   ];
   const detectedSuggestion = suggestions.find((suggestion) =>
     documentOrder.orders.some(

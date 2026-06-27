@@ -275,7 +275,7 @@ describe("FileTreePanel toolbar and view menu", () => {
           documentOrder={{ orders: [{ source: "mkdocs", nodes: [] }] }}
           suggestedDocumentsMode={{
             mode: "documents-mkdocs",
-            label: "Docs: MkDocs detected",
+            label: "Docs: MkDocs",
           }}
           onOpenFile={vi.fn()}
           onOpenGitDiff={vi.fn()}
@@ -292,8 +292,8 @@ describe("FileTreePanel toolbar and view menu", () => {
     const suggestion = container.querySelector<HTMLButtonElement>(
       '[data-review-id="documents-mode-suggestion"]',
     );
-    expect(suggestion?.textContent).toBe("Docs: MkDocs detected");
-    expect(suggestion?.getAttribute("title")).toBe("Docs: MkDocs detected");
+    expect(suggestion?.textContent).toBe("Docs: MkDocs");
+    expect(suggestion?.getAttribute("title")).toBe("Docs: MkDocs");
 
     await act(async () => {
       suggestion?.click();
@@ -339,12 +339,12 @@ describe("FileTreePanel toolbar and view menu", () => {
 
     await renderSuggestion(
       "documents-zensical",
-      "Docs: Zensical detected",
+      "Docs: Zensical",
       "zensical",
     );
     await renderSuggestion(
       "documents-antora",
-      "Docs: Antora detected",
+      "Docs: Antora",
       "antora",
     );
   });
@@ -490,7 +490,7 @@ describe("FileTreePanel toolbar and view menu", () => {
           documentOrder={{ orders: [{ source: "mkdocs", nodes: [] }] }}
           suggestedDocumentsMode={{
             mode: "documents-mkdocs",
-            label: "Docs: MkDocs detected",
+            label: "Docs: MkDocs",
           }}
           onOpenFile={vi.fn()}
           onOpenGitDiff={vi.fn()}
