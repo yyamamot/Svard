@@ -20,12 +20,14 @@ import {
 } from "../lib/gitDirectoryStatusSummary";
 import {
   buildFileTreeDocumentRows,
+  buildOpenDocumentTree,
   collectDocumentOrderPaths,
   documentOrderSectionKey,
   filterVisibleDocumentRows,
   sectionHeaderDocument,
   type DocumentsViewMode,
   type FileTreeDocumentRow,
+  type OpenDocumentTreeNode,
 } from "../lib/fileTreeDocuments";
 import {
   prepareFileCompareDragData,
@@ -35,6 +37,7 @@ import {
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import type {
   DirectoryEntry,
+  DocumentPayload,
   DocumentOrderCatalog,
   DocumentOrderNode,
   DocumentOrderResult,
@@ -43,6 +46,7 @@ import type {
 } from "../../core/types";
 
 const EMPTY_OPEN_DOCUMENT_PATHS: ReadonlySet<string> = new Set();
+const EMPTY_DOCUMENT_SECTION_KEYS: ReadonlySet<string> = new Set();
 const ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES: boolean = false;
 type FilesViewMode =
   DocumentsViewMode;
@@ -63,6 +67,7 @@ interface FileTreePanelProps {
   activePath?: string;
   gitStatusByPath: Record<string, GitDiffStatus>;
   gitChanges: GitChanges | null;
+  orderedTabs?: DocumentPayload[];
   openDocumentPaths?: ReadonlySet<string>;
   filesViewMode?: FilesViewMode;
   activeDocumentOrderSectionKeys?: ReadonlySet<string>;
@@ -87,6 +92,7 @@ export function FileTreePanel({
   activePath,
   gitStatusByPath,
   gitChanges,
+  orderedTabs = [],
   openDocumentPaths = EMPTY_OPEN_DOCUMENT_PATHS,
   filesViewMode,
   activeDocumentOrderSectionKeys,
@@ -151,6 +157,20 @@ export function FileTreePanel({
       ),
     [documentRows, documentsFilter, viewMode],
   );
+  const openDocumentTree = useMemo(
+    () =>
+      buildOpenDocumentTree({
+        activePath,
+        gitStatusByPath: fileTreeGitStatusByPath,
+        orderedTabs,
+        rootDirectory,
+      }),
+    [activePath, fileTreeGitStatusByPath, orderedTabs, rootDirectory],
+  );
+  const autoExpandSectionKeys =
+    viewMode === "documents-path"
+      ? openDocumentTree.activeSectionKeys
+      : (activeDocumentOrderSectionKeys ?? EMPTY_DOCUMENT_SECTION_KEYS);
 
   const mkdocsOrder = documentOrder.orders.find(
     (order) => order.source === "mkdocs",
@@ -202,18 +222,18 @@ export function FileTreePanel({
   useEffect(() => {
     if (
       !activePath ||
-      !activeDocumentOrderSectionKeys?.size ||
+      !autoExpandSectionKeys.size ||
       lastAutoExpandedContextRef.current ===
-        `${activePath}:${[...activeDocumentOrderSectionKeys].join("|")}`
+        `${viewMode}:${activePath}:${[...autoExpandSectionKeys].join("|")}`
     ) {
       return;
     }
-    lastAutoExpandedContextRef.current = `${activePath}:${[
-      ...activeDocumentOrderSectionKeys,
+    lastAutoExpandedContextRef.current = `${viewMode}:${activePath}:${[
+      ...autoExpandSectionKeys,
     ].join("|")}`;
     setExpandedDocumentOrderSections((current) => {
       const next = new Set(current);
-      for (const key of activeDocumentOrderSectionKeys) {
+      for (const key of autoExpandSectionKeys) {
         next.add(key);
       }
       return next;
@@ -224,7 +244,11 @@ export function FileTreePanel({
       );
       activeElement?.scrollIntoView?.({ block: "nearest" });
     });
-  }, [activeDocumentOrderSectionKeys, activePath]);
+  }, [
+    activePath,
+    autoExpandSectionKeys,
+    viewMode,
+  ]);
 
   useEffect(() => {
     if (!openMenuOpen) {
@@ -488,6 +512,10 @@ export function FileTreePanel({
       );
     }
 
+    if (viewMode === "documents-path") {
+      return renderOpenDocumentTreeEntries();
+    }
+
     const activeOrder = activeDocumentOrder();
     if (documentRows.length === 0) {
       if (activeOrder && documentsFilter !== "changed") {
@@ -511,7 +539,7 @@ export function FileTreePanel({
         <>
           {renderDocumentsSourceFilter()}
           <div className="documents-view-empty" data-review-id="documents-view-empty">
-            No changed loaded documents
+            No changed open documents
           </div>
         </>
       );
@@ -523,6 +551,35 @@ export function FileTreePanel({
         {activeOrder
           ? renderOrderedDocumentEntries(activeOrder.order, activeOrder.options)
           : visibleDocumentRows.map((row) => renderDocumentRow(row))}
+      </>
+    );
+  }
+
+  function renderOpenDocumentTreeEntries(): ReactNode {
+    if (openDocumentTree.documentCount === 0) {
+      return (
+        <div className="documents-view-empty" data-review-id="documents-view-empty">
+          <strong>No open documents</strong>
+          <span>Open a document to build this tree.</span>
+        </div>
+      );
+    }
+
+    if (documentsFilter === "changed" && openDocumentTree.changedCount === 0) {
+      return (
+        <>
+          {renderDocumentsSourceFilter()}
+          <div className="documents-view-empty" data-review-id="documents-view-empty">
+            No changed open documents
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {renderDocumentsSourceFilter()}
+        {renderOpenDocumentTreeNodes(openDocumentTree.nodes, 0)}
       </>
     );
   }
@@ -707,6 +764,73 @@ export function FileTreePanel({
     return result;
   }
 
+  function renderOpenDocumentTreeNodes(
+    nodes: OpenDocumentTreeNode[],
+    depth: number,
+  ): ReactNode[] {
+    const result: ReactNode[] = [];
+    nodes.forEach((node) => {
+      if (node.kind === "document") {
+        if (documentsFilter === "changed" && !node.row.isChanged) {
+          return;
+        }
+        result.push(renderDocumentRow(node.row, undefined, depth, false));
+        return;
+      }
+
+      if (documentsFilter === "changed" && !node.hasChanged) {
+        return;
+      }
+      const expanded = expandedDocumentOrderSections.has(node.key);
+      result.push(
+        renderOpenDocumentTreeDirectory({
+          key: node.key,
+          title: node.name,
+          depth,
+          collapsed: !expanded,
+        }),
+      );
+      if (expanded) {
+        result.push(...renderOpenDocumentTreeNodes(node.children, depth + 1));
+      }
+    });
+    return result;
+  }
+
+  function renderOpenDocumentTreeDirectory({
+    key,
+    title,
+    depth,
+    collapsed,
+  }: {
+    key: string;
+    title: string;
+    depth: number;
+    collapsed: boolean;
+  }): ReactNode {
+    return (
+      <div
+        key={key}
+        className="documents-order-section documents-loaded-section"
+        data-review-id="documents-loaded-section"
+        data-document-order-section-state={collapsed ? "collapsed" : "expanded"}
+        style={{ paddingLeft: `${8 + depth * 12}px` }}
+      >
+        <button
+          type="button"
+          className="documents-order-section-toggle"
+          data-review-id="documents-order-section-toggle"
+          aria-expanded={!collapsed}
+          aria-label={`${collapsed ? "Expand" : "Collapse"} ${title}`}
+          onClick={() => toggleDocumentOrderSection(key)}
+        >
+          {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+        </button>
+        <span className="documents-order-section-label">{title}</span>
+      </div>
+    );
+  }
+
   function renderDocumentOrderSectionHeader({
     key,
     title,
@@ -787,6 +911,7 @@ export function FileTreePanel({
     row: FileTreeDocumentRow,
     titleOverride?: string,
     depth = 0,
+    showOpenIndicator = true,
   ): ReactNode {
     const entry = row.entry;
     return (
@@ -837,7 +962,7 @@ export function FileTreePanel({
           <span className="documents-view-row-text">
             <span className="documents-view-row-title">
               <span className="tree-label">{titleOverride ?? entry.name}</span>
-              {row.isOpen ? (
+              {showOpenIndicator && row.isOpen ? (
                 <span className="documents-view-open-indicator">open</span>
               ) : null}
             </span>

@@ -81,6 +81,8 @@ export async function applyFilesScenario(context) {
     await page.locator('[data-review-id="file-tree-open-menu"]').waitFor();
   } else if (scenario === "viewer-files-documents-source-control") {
     await page.locator('[data-review-id="file-tree"]').waitFor();
+    await page.getByText("git-modified.md").click();
+    await page.getByRole("heading", { name: /Git Diff Modified Fixture/ }).waitFor();
     await page.locator('[data-review-id="documents-view-toggle"]').click();
     await page.locator('[data-review-id="documents-view-mode-menu"]').waitFor();
     await page.locator('[data-review-id="documents-view-mode-path"]').click();
@@ -147,6 +149,8 @@ export async function applyFilesScenario(context) {
     scenario === "viewer-files-documents-source-control-privacy"
   ) {
     await page.locator('[data-review-id="file-tree"]').waitFor();
+    await page.getByText("git-modified.md").click();
+    await page.getByRole("heading", { name: /Git Diff Modified Fixture/ }).waitFor();
     await page.locator('[data-review-id="documents-view-toggle"]').click();
     await page.locator('[data-review-id="documents-view-mode-menu"]').waitFor();
     await page.locator('[data-review-id="documents-view-mode-path"]').click();

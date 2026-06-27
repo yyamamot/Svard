@@ -833,7 +833,7 @@ export const site = {
             [
               "Loaded",
               "Supported",
-              "Default order for loaded supported documents in the file tree.",
+              "Shows currently open supported documents in the selected folder as a local directory tree.",
             ],
             [
               "MkDocs static nav",
@@ -858,7 +858,7 @@ export const site = {
             [
               "Missing nav entries",
               "Partial",
-              "Known nav documents outside the loaded file tree can appear as missing rows; extra loaded documents stay in a Not in nav group.",
+              "Known nav documents outside the loaded file tree can appear as missing rows; extra loaded tree documents stay in a Not in nav group.",
             ],
           ],
           note: "All sources stay inside the opened local workspace boundary and do not expose source bodies, private absolute paths, or remote endpoint values.",

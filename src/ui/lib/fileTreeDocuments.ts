@@ -1,6 +1,7 @@
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import type {
   DirectoryEntry,
+  DocumentPayload,
   DocumentOrderNode,
   DocumentOrderResult,
   GitDiffStatus,
@@ -27,6 +28,27 @@ export interface FileTreeDocumentRow {
   isActive: boolean;
   isOpen: boolean;
   sortStatusRank: number;
+}
+
+export type OpenDocumentTreeNode =
+  | {
+      kind: "directory";
+      name: string;
+      key: string;
+      children: OpenDocumentTreeNode[];
+      hasActive: boolean;
+      hasChanged: boolean;
+    }
+  | {
+      kind: "document";
+      row: FileTreeDocumentRow;
+    };
+
+export interface OpenDocumentTreeModel {
+  nodes: OpenDocumentTreeNode[];
+  documentCount: number;
+  changedCount: number;
+  activeSectionKeys: Set<string>;
 }
 
 export type StableDocumentOrderSource = Extract<
@@ -94,6 +116,169 @@ export function buildFileTreeDocumentRows({
         sortStatusRank: changedDocumentStatusRank(rawGitStatus),
       };
     });
+}
+
+export function buildOpenDocumentTree({
+  activePath,
+  gitStatusByPath,
+  orderedTabs,
+  rootDirectory,
+}: {
+  activePath?: string;
+  gitStatusByPath: Record<string, GitDiffStatus>;
+  orderedTabs: readonly DocumentPayload[];
+  rootDirectory: string;
+}): OpenDocumentTreeModel {
+  const rows = buildOpenDocumentRows({
+    activePath,
+    gitStatusByPath,
+    orderedTabs,
+    rootDirectory,
+  });
+  const rootNodes: OpenDocumentTreeNode[] = [];
+  const directoryByKey = new Map<string, Extract<OpenDocumentTreeNode, { kind: "directory" }>>();
+  const activeSectionKeys = new Set<string>();
+
+  for (const row of rows) {
+    const segments = row.relativePath.split(/[\\/]+/).filter(Boolean);
+    segments.pop();
+    let children = rootNodes;
+    let keyPrefix = "loaded";
+    const ancestorKeys: string[] = [];
+
+    for (const segment of segments) {
+      const key = `${keyPrefix}/${segment}`;
+      let directory = directoryByKey.get(key);
+      if (!directory) {
+        directory = {
+          kind: "directory",
+          name: segment,
+          key,
+          children: [],
+          hasActive: false,
+          hasChanged: false,
+        };
+        directoryByKey.set(key, directory);
+        children.push(directory);
+      }
+      ancestorKeys.push(key);
+      children = directory.children;
+      keyPrefix = key;
+    }
+
+    if (row.isActive) {
+      for (const key of ancestorKeys) {
+        activeSectionKeys.add(key);
+      }
+    }
+    children.push({ kind: "document", row });
+  }
+
+  markOpenDocumentDirectoryState(rootNodes);
+
+  return {
+    nodes: rootNodes,
+    documentCount: rows.length,
+    changedCount: rows.filter((row) => row.isChanged).length,
+    activeSectionKeys,
+  };
+}
+
+function buildOpenDocumentRows({
+  activePath,
+  gitStatusByPath,
+  orderedTabs,
+  rootDirectory,
+}: {
+  activePath?: string;
+  gitStatusByPath: Record<string, GitDiffStatus>;
+  orderedTabs: readonly DocumentPayload[];
+  rootDirectory: string;
+}): FileTreeDocumentRow[] {
+  const seen = new Set<string>();
+  const rows: FileTreeDocumentRow[] = [];
+
+  for (const tab of orderedTabs) {
+    if (
+      seen.has(tab.path) ||
+      !isSupportedDocumentPath(tab.path) ||
+      !isPathInsideRoot(tab.path, rootDirectory)
+    ) {
+      continue;
+    }
+    seen.add(tab.path);
+    const rawGitStatus = gitStatusByPath[tab.path];
+    const gitStatus = gitStatusDisplay(rawGitStatus);
+    const name = fileName(tab.path);
+    rows.push({
+      entry: {
+        kind: "file",
+        name,
+        path: tab.path,
+      },
+      relativePath: relativeDocumentPath(tab.path, rootDirectory),
+      gitStatus,
+      gitStatusLabel: gitStatus
+        ? fileGitStatusBadgeLabel(gitStatus, name)
+        : undefined,
+      isChanged: Boolean(gitStatus),
+      isActive: activePath === tab.path,
+      isOpen: true,
+      sortStatusRank: changedDocumentStatusRank(rawGitStatus),
+    });
+  }
+
+  return rows.sort((left, right) =>
+    left.relativePath.localeCompare(right.relativePath),
+  );
+}
+
+function isPathInsideRoot(path: string, rootDirectory: string): boolean {
+  if (!rootDirectory) {
+    return false;
+  }
+  const normalizedRoot = rootDirectory.replace(/[/\\]+$/, "");
+  return (
+    path === normalizedRoot ||
+    path.startsWith(`${normalizedRoot}/`) ||
+    path.startsWith(`${normalizedRoot}\\`)
+  );
+}
+
+function markOpenDocumentDirectoryState(nodes: OpenDocumentTreeNode[]): {
+  hasActive: boolean;
+  hasChanged: boolean;
+} {
+  let hasActive = false;
+  let hasChanged = false;
+  nodes.sort(compareOpenDocumentTreeNodes);
+
+  for (const node of nodes) {
+    if (node.kind === "document") {
+      hasActive ||= node.row.isActive;
+      hasChanged ||= node.row.isChanged;
+      continue;
+    }
+    const childState = markOpenDocumentDirectoryState(node.children);
+    node.hasActive = childState.hasActive;
+    node.hasChanged = childState.hasChanged;
+    hasActive ||= childState.hasActive;
+    hasChanged ||= childState.hasChanged;
+  }
+
+  return { hasActive, hasChanged };
+}
+
+function compareOpenDocumentTreeNodes(
+  left: OpenDocumentTreeNode,
+  right: OpenDocumentTreeNode,
+): number {
+  if (left.kind !== right.kind) {
+    return left.kind === "directory" ? -1 : 1;
+  }
+  const leftName = left.kind === "directory" ? left.name : left.row.entry.name;
+  const rightName = right.kind === "directory" ? right.name : right.row.entry.name;
+  return leftName.localeCompare(rightName);
 }
 
 export function filterVisibleDocumentRows(

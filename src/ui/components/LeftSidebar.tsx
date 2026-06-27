@@ -269,6 +269,7 @@ export function LeftSidebar({
                 activePath={activePath}
                 gitStatusByPath={gitStatusByPath}
                 gitChanges={gitChanges}
+                orderedTabs={orderedTabs}
                 openDocumentPaths={openDocumentPaths}
                 filesViewMode={filesViewMode}
                 activeDocumentOrderSectionKeys={activeDocumentOrderSectionKeys}

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDocumentOrderNavigation,
   buildFileTreeDocumentRows,
+  buildOpenDocumentTree,
   collectDocumentOrderPaths,
   documentOrderSectionKey,
   filterVisibleDocumentRows,
@@ -45,6 +46,58 @@ describe("fileTreeDocuments helpers", () => {
       isChanged: true,
       isOpen: true,
       gitStatusLabel: "Modified in Git. Open rendered diff for guide.adoc",
+    });
+  });
+
+  it("builds an open document tree from open tabs only", () => {
+    const tree = buildOpenDocumentTree({
+      activePath: "/workspace/docs/guide.adoc",
+      gitStatusByPath: {
+        "/workspace/docs/guide.adoc": "modified",
+      },
+      orderedTabs: [
+        {
+          path: "/workspace/README.md",
+          basePath: "/workspace",
+          format: "markdown",
+          source: "",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          path: "/workspace/docs/guide.adoc",
+          basePath: "/workspace/docs",
+          format: "asciidoc",
+          source: "",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          path: "/workspace/notes.txt",
+          basePath: "/workspace",
+          format: "markdown",
+          source: "",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          path: "/Users/yusuke/tools/rdma/rdma-part-1.md",
+          basePath: "/Users/yusuke/tools/rdma",
+          format: "markdown",
+          source: "",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      rootDirectory: "/workspace",
+    });
+
+    expect(tree.documentCount).toBe(2);
+    expect(tree.changedCount).toBe(1);
+    expect([...tree.activeSectionKeys]).toEqual(["loaded/docs"]);
+    expect(tree.nodes.map((node) => node.kind)).toEqual(["directory", "document"]);
+    const docs = tree.nodes[0];
+    expect(docs).toMatchObject({
+      kind: "directory",
+      name: "docs",
+      hasActive: true,
+      hasChanged: true,
     });
   });
 

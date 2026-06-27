@@ -64,7 +64,28 @@ describe("FileTreePanel Documents only view", () => {
           directoryErrors={{}}
           gitStatusByPath={{}}
           gitChanges={null}
-          openDocumentPaths={new Set(["/workspace/README.md"])}
+          orderedTabs={[
+            {
+              path: "/workspace/README.md",
+              basePath: "/workspace",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/Users/yusuke/tools/rdma/rdma-part-1.md",
+              basePath: "/Users/yusuke/tools/rdma",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={
+            new Set([
+              "/workspace/README.md",
+              "/Users/yusuke/tools/rdma/rdma-part-1.md",
+            ])
+          }
           onOpenFile={vi.fn()}
           onOpenGitDiff={vi.fn()}
           onToggleDirectory={vi.fn()}
@@ -102,13 +123,11 @@ describe("FileTreePanel Documents only view", () => {
         .querySelector('[data-review-id="documents-view-toggle"]')
         ?.classList.contains("active"),
     ).toBe(true);
-    expect(rows).toHaveLength(2);
-    expect(rows.map((row) => row.textContent)).toEqual([
-      expect.stringContaining("guide.adoc"),
-      expect.stringContaining("README.md"),
-    ]);
+    expect(rows).toHaveLength(1);
     expect(container.textContent).toContain("README.md");
-    expect(container.textContent).toContain("docs/guide.adoc");
+    expect(container.textContent).not.toContain("docs/guide.adoc");
+    expect(container.textContent).not.toContain("rdma-part-1.md");
+    expect(container.textContent).not.toContain("Users");
     expect(container.textContent).not.toContain("notes.txt");
     expect(
       container.querySelector('[data-review-id="documents-source-filter"]'),
@@ -120,7 +139,85 @@ describe("FileTreePanel Documents only view", () => {
     ).toBe("true");
     const readmeRow = rows.find((row) => row.textContent?.includes("README.md"));
     expect(readmeRow?.getAttribute("data-document-open")).toBe("true");
-    expect(readmeRow?.textContent).toContain("open");
+    expect(readmeRow?.textContent).not.toContain("open");
+  });
+
+
+  it("collapses and expands open document directory groups", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+              {
+                name: "unopened.md",
+                path: "/workspace/unopened.md",
+                kind: "file",
+              },
+            ],
+            "/workspace/docs": [
+              {
+                name: "guide.md",
+                path: "/workspace/docs/guide.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          activePath="/workspace/docs/guide.md"
+          gitStatusByPath={{}}
+          gitChanges={null}
+          orderedTabs={[
+            {
+              path: "/workspace/docs/guide.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={new Set(["/workspace/docs/guide.md"])}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-path");
+
+    const section = container.querySelector(
+      '[data-review-id="documents-loaded-section"]',
+    );
+    expect(section?.getAttribute("data-document-order-section-state")).toBe(
+      "expanded",
+    );
+    expect(container.textContent).toContain("guide.md");
+    expect(container.textContent).not.toContain("unopened.md");
+
+    await act(async () => {
+      section
+        ?.querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+
+    expect(section?.getAttribute("data-document-order-section-state")).toBe(
+      "collapsed",
+    );
+    expect(container.textContent).not.toContain("guide.md");
   });
 
 
@@ -187,6 +284,69 @@ describe("FileTreePanel Documents only view", () => {
             "/workspace/docs/clean.md": "clean",
           }}
           gitChanges={null}
+          orderedTabs={[
+            {
+              path: "/workspace/docs/modified.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/workspace/docs/added.adoc",
+              basePath: "/workspace/docs",
+              format: "asciidoc",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/workspace/docs/deleted.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/workspace/docs/renamed.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/workspace/docs/binary.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/workspace/docs/untracked.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/workspace/docs/clean.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={
+            new Set([
+              "/workspace/docs/modified.md",
+              "/workspace/docs/added.adoc",
+              "/workspace/docs/deleted.md",
+              "/workspace/docs/renamed.md",
+              "/workspace/docs/binary.md",
+              "/workspace/docs/untracked.md",
+              "/workspace/docs/clean.md",
+            ])
+          }
+          activePath="/workspace/docs/modified.md"
           onOpenFile={vi.fn()}
           onOpenGitDiff={vi.fn()}
           onToggleDirectory={vi.fn()}
@@ -216,12 +376,12 @@ describe("FileTreePanel Documents only view", () => {
     ];
     expect(rows).toHaveLength(6);
     expect(rows.map((row) => row.textContent)).toEqual([
-      expect.stringContaining("deleted.md"),
-      expect.stringContaining("renamed.md"),
-      expect.stringContaining("modified.md"),
       expect.stringContaining("added.adoc"),
-      expect.stringContaining("untracked.md"),
       expect.stringContaining("binary.md"),
+      expect.stringContaining("deleted.md"),
+      expect.stringContaining("modified.md"),
+      expect.stringContaining("renamed.md"),
+      expect.stringContaining("untracked.md"),
     ]);
     expect(container.textContent).toContain("modified.md");
     expect(container.textContent).toContain("added.adoc");
@@ -281,6 +441,26 @@ describe("FileTreePanel Documents only view", () => {
               },
             ],
           }}
+          orderedTabs={[
+            {
+              path: "/workspace/docs/cached.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/workspace/docs/plain.md",
+              basePath: "/workspace/docs",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={
+            new Set(["/workspace/docs/cached.md", "/workspace/docs/plain.md"])
+          }
+          activePath="/workspace/docs/cached.md"
           onOpenFile={vi.fn()}
           onOpenGitDiff={vi.fn()}
           onToggleDirectory={vi.fn()}
@@ -342,6 +522,16 @@ describe("FileTreePanel Documents only view", () => {
             "/workspace/README.md": "modified",
           }}
           gitChanges={null}
+          orderedTabs={[
+            {
+              path: "/workspace/README.md",
+              basePath: "/workspace",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={new Set(["/workspace/README.md"])}
           onOpenFile={onOpenFile}
           onOpenGitDiff={onOpenGitDiff}
           onToggleDirectory={vi.fn()}
@@ -394,6 +584,16 @@ describe("FileTreePanel Documents only view", () => {
           directoryErrors={{}}
           gitStatusByPath={{}}
           gitChanges={null}
+          orderedTabs={[
+            {
+              path: "/workspace/README.md",
+              basePath: "/workspace",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={new Set(["/workspace/README.md"])}
           onOpenFile={vi.fn()}
           onOpenGitDiff={vi.fn()}
           onToggleDirectory={vi.fn()}
@@ -417,7 +617,7 @@ describe("FileTreePanel Documents only view", () => {
     expect(
       container.querySelector('[data-review-id="documents-view-empty"]')
         ?.textContent,
-    ).toContain("No changed loaded documents");
+    ).toContain("No changed open documents");
   });
 
 
@@ -446,6 +646,16 @@ describe("FileTreePanel Documents only view", () => {
           activePath="/workspace/README.md"
           gitStatusByPath={{}}
           gitChanges={null}
+          orderedTabs={[
+            {
+              path: "/workspace/README.md",
+              basePath: "/workspace",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={new Set(["/workspace/README.md"])}
           onOpenFile={onOpenFile}
           onOpenGitDiff={vi.fn()}
           onToggleDirectory={vi.fn()}
@@ -504,6 +714,6 @@ describe("FileTreePanel Documents only view", () => {
     expect(
       container.querySelector('[data-review-id="documents-view-empty"]')
         ?.textContent,
-    ).toContain("No loaded documents");
+    ).toContain("No open documents");
   });
 });
