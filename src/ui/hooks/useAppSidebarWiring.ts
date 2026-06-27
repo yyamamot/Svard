@@ -36,10 +36,12 @@ interface SuggestedDocumentsModeInput {
   documentOrder: DocumentOrderCatalog;
   filesViewMode: DocumentsViewMode;
   rootDirectory: string;
+  selectedAntoraContextId?: string | null;
 }
 
 interface UseAppSidebarWiringOptions {
   activePath?: string;
+  antoraContextSelectorOpenSignal: number;
   bookmarks: BookmarkEntry[];
   childrenByDirectory: Record<string, DirectoryEntry[]>;
   config: AppConfig | null;
@@ -63,12 +65,15 @@ interface UseAppSidebarWiringOptions {
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
   sidebarResizeState: AppLeftSidebarProps["sidebarResizeState"];
+  selectedAntoraContextId: string | null;
   tabs: DocumentPayload[];
   workspacePerformanceMode: WorkspaceEnvironment["performanceMode"];
   onActivatePreferences: AppLeftSidebarProps["onActivatePreferences"];
   onActivateTab: AppLeftSidebarProps["onActivateTab"];
   onAddActiveBookmark: () => void | Promise<void>;
   onAddRootBookmark: () => void | Promise<void>;
+  onAntoraContextsChange: (count: number) => void | Promise<void>;
+  onSelectAntoraContext: (contextId: string) => void | Promise<void>;
   onBeginOpenFilesSplitResize: AppLeftSidebarProps["onBeginOpenFilesSplitResize"];
   onBeginSidebarResize: AppLeftSidebarProps["onBeginSidebarResize"];
   onClosePreferences: AppLeftSidebarProps["onClosePreferences"];
@@ -100,9 +105,31 @@ export function suggestedDocumentsModeForCatalog({
   documentOrder,
   filesViewMode,
   rootDirectory,
+  selectedAntoraContextId,
 }: SuggestedDocumentsModeInput): SuggestedDocumentsMode | undefined {
   if (!rootDirectory) {
     return undefined;
+  }
+  const antoraContexts = documentOrder.antoraContexts ?? [];
+  if (
+    antoraContexts.length > 1 &&
+    documentOrder.orders.some((order) => order.source === "antora")
+  ) {
+    const selectedContext =
+      antoraContexts.find(
+        (context) => context.contextId === selectedAntoraContextId,
+      ) ??
+      documentOrder.selectedAntoraContext ??
+      antoraContexts[0];
+    return {
+      mode: "documents-antora",
+      label:
+        filesViewMode === "documents-antora"
+          ? "Antora: selected"
+          : `Antora: ${antoraContexts.length} playbooks`,
+      antoraContexts,
+      selectedAntoraContextId: selectedContext.contextId,
+    };
   }
   const suggestions: SuggestedDocumentsMode[] = [
     { mode: "documents-mkdocs", label: "Docs: MkDocs detected" },
@@ -121,6 +148,7 @@ export function suggestedDocumentsModeForCatalog({
 
 export function useAppSidebarWiring({
   activePath,
+  antoraContextSelectorOpenSignal,
   bookmarks,
   childrenByDirectory,
   config,
@@ -144,12 +172,15 @@ export function useAppSidebarWiring({
   rootDirectory,
   rootEntries,
   sidebarResizeState,
+  selectedAntoraContextId,
   tabs,
   workspacePerformanceMode,
   onActivatePreferences,
   onActivateTab,
   onAddActiveBookmark,
   onAddRootBookmark,
+  onAntoraContextsChange,
+  onSelectAntoraContext,
   onBeginOpenFilesSplitResize,
   onBeginSidebarResize,
   onClosePreferences,
@@ -235,8 +266,9 @@ export function useAppSidebarWiring({
         documentOrder,
         filesViewMode,
         rootDirectory,
+        selectedAntoraContextId,
       }),
-    [documentOrder, filesViewMode, rootDirectory],
+    [documentOrder, filesViewMode, rootDirectory, selectedAntoraContextId],
   );
 
   useEffect(() => {
@@ -246,7 +278,9 @@ export function useAppSidebarWiring({
       return;
     }
     void host
-      .loadDocumentOrder(rootDirectory)
+      .loadDocumentOrder(rootDirectory, {
+        antoraContextId: selectedAntoraContextId,
+      })
       .then((result) => {
         if (!cancelled) {
           setDocumentOrder(result);
@@ -262,7 +296,11 @@ export function useAppSidebarWiring({
     return () => {
       cancelled = true;
     };
-  }, [host, rootDirectory]);
+  }, [host, rootDirectory, selectedAntoraContextId]);
+
+  useEffect(() => {
+    void onAntoraContextsChange(documentOrder.antoraContexts?.length ?? 0);
+  }, [documentOrder.antoraContexts, onAntoraContextsChange]);
 
   const leftSidebarProps: AppLeftSidebarProps = {
     activePath,
@@ -284,6 +322,7 @@ export function useAppSidebarWiring({
     documentOrder,
     filesViewMode,
     suggestedDocumentsMode,
+    antoraContextSelectorOpenSignal,
     activeDocumentOrderSectionKeys:
       documentOrderNavigation?.activeSectionKeys ?? new Set(),
     pinnedTabs,
@@ -302,6 +341,7 @@ export function useAppSidebarWiring({
     onActivatePreferences,
     onAddActiveBookmark: () => void onAddActiveBookmark(),
     onAddRootBookmark: () => void onAddRootBookmark(),
+    onSelectAntoraContext: (contextId) => void onSelectAntoraContext(contextId),
     onBeginOpenFilesSplitResize,
     onBeginSidebarResize,
     onCloseTab,

@@ -31,6 +31,7 @@ import type { OpenFileReloadState } from "../types";
 
 interface LeftSidebarProps {
   activePath?: string;
+  antoraContextSelectorOpenSignal: number;
   preferencesTabOpen: boolean;
   preferencesActive: boolean;
   bookmarks: BookmarkEntry[];
@@ -75,6 +76,7 @@ interface LeftSidebarProps {
   onActivatePreferences: () => void;
   onAddActiveBookmark: () => void;
   onAddRootBookmark: () => void;
+  onSelectAntoraContext: (contextId: string) => void;
   onLoadMoreGitCommitGraph: () => void;
   onLoadMoreGitFileHistory: () => void;
   onBeginOpenFilesSplitResize: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -132,6 +134,7 @@ interface LeftSidebarProps {
 
 export function LeftSidebar({
   activePath,
+  antoraContextSelectorOpenSignal,
   preferencesTabOpen,
   preferencesActive,
   bookmarks,
@@ -176,6 +179,7 @@ export function LeftSidebar({
   onActivatePreferences,
   onAddActiveBookmark,
   onAddRootBookmark,
+  onSelectAntoraContext,
   onLoadMoreGitCommitGraph,
   onLoadMoreGitFileHistory,
   onBeginOpenFilesSplitResize,
@@ -276,10 +280,14 @@ export function LeftSidebar({
                 openDocumentPaths={openDocumentPaths}
                 filesViewMode={filesViewMode}
                 suggestedDocumentsMode={suggestedDocumentsMode}
+                antoraContextSelectorOpenSignal={
+                  antoraContextSelectorOpenSignal
+                }
                 activeDocumentOrderSectionKeys={activeDocumentOrderSectionKeys}
                 onOpenFile={onOpenFile}
                 onOpenGitDiff={onOpenGitDiff}
                 onFilesViewModeChange={onFilesViewModeChange}
+                onSelectAntoraContext={onSelectAntoraContext}
                 onToggleDirectory={onToggleDirectory}
                 onPickDocument={onPickDocument}
                 onPickDirectory={onPickDirectory}

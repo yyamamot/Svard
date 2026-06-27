@@ -34,7 +34,7 @@
 
 .documents-mode-suggestion {
   min-width: 0;
-  max-width: 164px;
+  max-width: 128px;
   min-height: 30px;
   border: 1px solid #b9d6d0;
   border-radius: 6px;
@@ -46,6 +46,11 @@
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.documents-mode-suggestion-menu {
+  min-width: 260px;
+  max-width: min(360px, calc(100vw - 32px));
 }
 
 .documents-mode-suggestion:hover,

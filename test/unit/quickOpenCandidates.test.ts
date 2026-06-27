@@ -207,6 +207,24 @@ describe("quick open candidates", () => {
     );
   });
 
+  it("includes Select Antora Playbook Context in command palette", () => {
+    const candidates = buildQuickOpenCandidates({
+      ...baseOptions,
+      quickOpenQuery: ">antora",
+      commandEnabled: (commandId) =>
+        commandId === "documents.selectAntoraContext",
+    });
+
+    expect(candidates).toContainEqual(
+      expect.objectContaining({
+        type: "command",
+        id: "documents.selectAntoraContext",
+        label: "Select Antora Playbook Context",
+        enabled: true,
+      }),
+    );
+  });
+
   it("includes New Window, Duplicate Window, and Switch to Recent Tab commands with enabled state", () => {
     const candidates = buildQuickOpenCandidates({
       ...baseOptions,

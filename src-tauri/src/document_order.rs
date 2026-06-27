@@ -2,8 +2,13 @@ use std::path::Path;
 
 use crate::{
     antora_order::load_antora_order_from_roots,
-    antora_playbook::discover_antora_playbook_content_roots,
-    backend_types::{AllowedRoots, DocumentOrderCatalog, DocumentOrderSource},
+    antora_playbook::{
+        discover_antora_playbook_content_roots, discover_antora_playbook_context_summaries,
+        selected_antora_content_roots,
+    },
+    backend_types::{
+        AllowedRoots, DocumentOrderCatalog, DocumentOrderLoadOptions, DocumentOrderSource,
+    },
     document_order_common::normalize_document_order_target_path,
     docusaurus_order::load_docusaurus_order_from_root,
     mkdocs_order::load_mkdocs_order_from_root,
@@ -12,23 +17,43 @@ use crate::{
     zensical_order::load_zensical_order_from_root,
 };
 
+#[cfg(test)]
 pub(crate) fn load_document_order_from_root(
     root_directory: &str,
     roots: &AllowedRoots,
 ) -> Result<DocumentOrderCatalog, String> {
+    load_document_order_from_root_with_options(root_directory, roots, None)
+}
+
+pub(crate) fn load_document_order_from_root_with_options(
+    root_directory: &str,
+    roots: &AllowedRoots,
+    options: Option<&DocumentOrderLoadOptions>,
+) -> Result<DocumentOrderCatalog, String> {
     let root = resolve_existing_directory_path(Path::new(root_directory))?;
     ensure_path_allowed(&root, roots)?;
+    let selected_antora_context_id =
+        options.and_then(|options| options.antora_context_id.as_deref());
+    let (antora_contexts, selected_antora_context) =
+        discover_antora_playbook_context_summaries(&root, roots, selected_antora_context_id);
+    let antora_roots = if antora_contexts.is_empty() {
+        antora_content_roots(&root, roots)
+    } else {
+        selected_antora_content_roots(&root, roots, selected_antora_context_id)
+    };
     Ok(DocumentOrderCatalog {
         orders: [
             load_mkdocs_order_from_root(&root, roots),
             load_zensical_order_from_root(&root, roots),
-            load_antora_order_from_roots(&antora_content_roots(&root, roots), roots),
+            load_antora_order_from_roots(&antora_roots, roots),
             load_vitepress_order_from_root(&root, roots),
             load_docusaurus_order_from_root(&root, roots),
         ]
         .into_iter()
         .filter(|order| order.source != DocumentOrderSource::None)
         .collect(),
+        antora_contexts,
+        selected_antora_context,
     })
 }
 
@@ -137,26 +162,36 @@ mod tests {
         .expect("catalog");
 
         assert_eq!(catalog.orders.len(), 5);
-        assert!(catalog
-            .orders
-            .iter()
-            .any(|order| order.source == DocumentOrderSource::Mkdocs));
-        assert!(catalog
-            .orders
-            .iter()
-            .any(|order| order.source == DocumentOrderSource::Zensical));
-        assert!(catalog
-            .orders
-            .iter()
-            .any(|order| order.source == DocumentOrderSource::Antora));
-        assert!(catalog
-            .orders
-            .iter()
-            .any(|order| order.source == DocumentOrderSource::Vitepress));
-        assert!(catalog
-            .orders
-            .iter()
-            .any(|order| order.source == DocumentOrderSource::Docusaurus));
+        assert!(
+            catalog
+                .orders
+                .iter()
+                .any(|order| order.source == DocumentOrderSource::Mkdocs)
+        );
+        assert!(
+            catalog
+                .orders
+                .iter()
+                .any(|order| order.source == DocumentOrderSource::Zensical)
+        );
+        assert!(
+            catalog
+                .orders
+                .iter()
+                .any(|order| order.source == DocumentOrderSource::Antora)
+        );
+        assert!(
+            catalog
+                .orders
+                .iter()
+                .any(|order| order.source == DocumentOrderSource::Vitepress)
+        );
+        assert!(
+            catalog
+                .orders
+                .iter()
+                .any(|order| order.source == DocumentOrderSource::Docusaurus)
+        );
     }
 
     #[test]
@@ -185,6 +220,64 @@ mod tests {
     }
 
     #[test]
+    fn load_document_order_uses_selected_antora_playbook_context_only() {
+        let dir = tempdir().expect("tempdir");
+        for (relative_path, title, page_title) in [
+            ("docs/component-a", "Component A", "Page A"),
+            ("docs/component-b", "Component B", "Page B"),
+        ] {
+            let content_root = dir.path().join(relative_path);
+            fs::create_dir_all(&content_root).expect("content root");
+            write_antora_content_root(&content_root, title, page_title);
+        }
+        fs::write(
+            dir.path().join("antora-playbook.yml"),
+            "content:\n  sources:\n    - url: ./docs/component-a\n",
+        )
+        .expect("yml playbook");
+        fs::write(
+            dir.path().join("antora-playbook.yaml"),
+            "content:\n  sources:\n    - url: ./docs/component-b\n",
+        )
+        .expect("yaml playbook");
+        let roots = roots_for(dir.path());
+        let default_catalog =
+            load_document_order_from_root(dir.path().to_str().expect("path"), &roots)
+                .expect("default catalog");
+        let selected_context = default_catalog
+            .antora_contexts
+            .iter()
+            .find(|context| context.content_root == "docs/component-b")
+            .expect("component b context")
+            .clone();
+        let selected_catalog = load_document_order_from_root_with_options(
+            dir.path().to_str().expect("path"),
+            &roots,
+            Some(&DocumentOrderLoadOptions {
+                antora_context_id: Some(selected_context.context_id.clone()),
+            }),
+        )
+        .expect("selected catalog");
+        let default_serialized =
+            serde_json::to_string(antora_order(&default_catalog)).expect("serialize default");
+        let selected_serialized =
+            serde_json::to_string(antora_order(&selected_catalog)).expect("serialize selected");
+
+        assert_eq!(default_catalog.antora_contexts.len(), 2);
+        assert_eq!(
+            selected_catalog
+                .selected_antora_context
+                .as_ref()
+                .map(|context| context.context_id.as_str()),
+            Some(selected_context.context_id.as_str())
+        );
+        assert!(default_serialized.contains("Page A"));
+        assert!(!default_serialized.contains("Page B"));
+        assert!(selected_serialized.contains("Page B"));
+        assert!(!selected_serialized.contains("Page A"));
+    }
+
+    #[test]
     fn load_document_order_expands_local_playbook_start_paths_in_order() {
         let dir = tempdir().expect("tempdir");
         for (relative_path, title) in [
@@ -209,6 +302,8 @@ mod tests {
         .expect("catalog");
         let order = antora_order(&catalog);
 
+        assert_eq!(catalog.antora_contexts.len(), 1);
+        assert_eq!(catalog.antora_contexts[0].content_root, "3 content roots");
         assert_eq!(order.nodes.len(), 3);
         let titles = order
             .nodes

@@ -97,6 +97,71 @@ asciidoc:
 }
 
 #[test]
+fn open_document_uses_selected_antora_playbook_context_attributes() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let content_root = project.join("docs-site");
+    let pages = content_root.join("modules/ROOT/pages");
+    fs::create_dir_all(&pages).expect("create pages");
+    fs::write(
+        project.join("antora-playbook.yml"),
+        "content:\n  sources:\n    - url: ./docs-site\nasciidoc:\n  attributes:\n    context-name: yml\n",
+    )
+    .expect("write yml playbook");
+    fs::write(
+        project.join("antora-playbook.yaml"),
+        "content:\n  sources:\n    - url: ./docs-site\nasciidoc:\n  attributes:\n    context-name: yaml\n",
+    )
+    .expect("write yaml playbook");
+    fs::write(content_root.join("antora.yml"), "name: docs\n").expect("write descriptor");
+    let document = pages.join("index.adoc");
+    fs::write(&document, "= Antora Context\n\n{context-name}\n").expect("write document");
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register root");
+    let catalog = crate::document_order::load_document_order_from_root(
+        project.to_str().expect("project path"),
+        &roots,
+    )
+    .expect("catalog");
+    let selected_context = catalog
+        .antora_contexts
+        .iter()
+        .find(|context| context.playbook_path.as_deref() == Some("antora-playbook.yaml"))
+        .expect("yaml context");
+
+    let default_payload = open_document_from_canonical_path_with_roots(
+        &document.canonicalize().unwrap(),
+        Some(&roots),
+    )
+    .expect("open default document");
+    let selected_payload = open_document_from_canonical_path_with_roots_and_options(
+        &document.canonicalize().unwrap(),
+        Some(&roots),
+        Some(&OpenDocumentOptions {
+            antora_context_id: Some(selected_context.context_id.clone()),
+        }),
+    )
+    .expect("open selected document");
+
+    assert_eq!(
+        default_payload
+            .asciidoc_context
+            .as_ref()
+            .and_then(|context| context.attributes.get("context-name"))
+            .map(String::as_str),
+        Some("yml")
+    );
+    assert_eq!(
+        selected_payload
+            .asciidoc_context
+            .as_ref()
+            .and_then(|context| context.attributes.get("context-name"))
+            .map(String::as_str),
+        Some("yaml")
+    );
+}
+
+#[test]
 fn open_document_applies_component_attributes_without_playbook_for_antora_page() {
     let dir = tempdir().expect("temp dir");
     let content_root = dir.path().join("content");
@@ -170,9 +235,11 @@ asciidoc:
     )
     .expect("open document");
 
-    assert!(!payload
-        .asciidoc_context
-        .expect("asciidoc context")
-        .attributes
-        .contains_key("component-flag"));
+    assert!(
+        !payload
+            .asciidoc_context
+            .expect("asciidoc context")
+            .attributes
+            .contains_key("component-flag")
+    );
 }

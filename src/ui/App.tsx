@@ -7,10 +7,10 @@ import { useAppDocumentInspectorState } from "./hooks/useAppDocumentInspectorSta
 import { useAppRightSidebarWiring } from "./hooks/useAppRightSidebarWiring";
 import { useAppShellViewState } from "./hooks/useAppShellViewState";
 import { useAppSidebarWiring } from "./hooks/useAppSidebarWiring";
-import { useAppWindowActions } from "./hooks/useAppWindowActions";
+import { useAppWindowAndDocumentLinks } from "./hooks/useAppWindowAndDocumentLinks";
+import * as antoraContext from "./hooks/useAntoraContextSelection";
 import { useContentCursorActions } from "./hooks/useContentCursorActions";
 import { useDocumentLifecycle } from "./hooks/useDocumentLifecycle";
-import { useDocumentLinks } from "./hooks/useDocumentLinks";
 import { useDocumentRender } from "./hooks/useDocumentRender";
 import { useDiffPreviewHostCallbacks } from "./hooks/useDiffPreviewHostCallbacks";
 import { useExternalLinkConfirmation } from "./hooks/useExternalLinkConfirmation";
@@ -119,6 +119,7 @@ export function App() {
   const [tabMoreOpen, setTabMoreOpen] = useState(false);
   const [preferencesTabOpen, setPreferencesTabOpen] = useState(false);
   const [zenModeActive, setZenModeActive] = useState(false);
+  const antoraContextSelection = antoraContext.useAntoraContextSelectionState();
   const [activeWorkspaceTabKind, setActiveWorkspaceTabKind] = useState<
     "document" | "preferences"
   >("document");
@@ -430,6 +431,7 @@ export function App() {
     focusedPaneId,
     focusPane,
     host,
+    selectedAntoraContextId: antoraContextSelection.selectedContextId,
     persistWorkspace,
     recordNavigation,
     searchQueryForPath,
@@ -454,6 +456,11 @@ export function App() {
     onCompareDesktopOpenRequest: compareDocumentPaths,
     tabs,
     viewerRef,
+  });
+  antoraContext.useReloadActiveDocumentOnAntoraContextChange({
+    documentPayload,
+    openDocument,
+    selectedAntoraContextId: antoraContextSelection.selectedContextId,
   });
   const {
     getGitDiffPreview,
@@ -526,55 +533,41 @@ export function App() {
     setTabQueries,
     showLightweightActionFeedback,
   });
-  const windowActions = useAppWindowActions({
+  const { documentLinks, windowActions } = useAppWindowAndDocumentLinks({
     activeHeadingId,
+    articleRef,
     closeTabRef,
     config,
+    confirmExternalLink,
+    confirmKrokiRender,
     documentPayload,
     expandedDirectories,
     focusedPaneId,
     host,
+    openContextMenu,
+    openDocument,
+    openPathInEditor,
+    openPreferencesTab,
     orderedTabs,
     paneSnapshots,
     pinnedTabs,
+    recordNavigation,
+    renderResult,
     rootDirectory,
+    setActiveHeadingId,
+    setDiagramPreview,
+    setLinkHoverDestination,
+    setLinkPreview,
+    setRightSidebarTab,
+    setSelectedDiagramId,
     sidebarLayout,
+    sourceControl,
+    showInlineNotice,
     showLightweightActionFeedback,
     splitEnabled,
     splitRatio,
+    tryKrokiFallback,
     viewerRef,
-  });
-  const documentLinks = useDocumentLinks({
-    activeHeadingId,
-    articleRef,
-    config,
-    documentPayload,
-    loadDocumentForPreview: (path) => host.openDocument(path),
-    openDocument,
-    openDocumentInNewWindow: windowActions.openDocumentInNewWindow,
-    openPathInEditor,
-    resolveDocumentLink: (href, documentPath) =>
-      host.resolveDocumentLink({ href, documentPath }),
-    onShowGitDiff: sourceControl.showGitDiff,
-    onConfirmKrokiRender: confirmKrokiRender,
-    onLinkHoverDestinationChange: setLinkHoverDestination,
-    onLinkPreviewChange: setLinkPreview,
-    onOpenDiagramPreview: setDiagramPreview,
-    onOpenPreferences: openPreferencesTab,
-    onSelectDiagram: (id) => {
-      setSelectedDiagramId(id);
-      setRightSidebarTab("diagrams");
-    },
-    onCompareGitRef: sourceControl.compareWithGitRef,
-    onTryKrokiFallback: tryKrokiFallback,
-    confirmExternalLink,
-    openContextMenu,
-    openExternalUrl: (url) => host.openExternalUrl(url),
-    recordNavigation,
-    renderResult,
-    setActiveHeadingId,
-    showInlineNotice,
-    showLightweightActionFeedback,
   });
   copyTextRef.current = documentLinks.copyText;
   const bookmarkActions = useBookmarksState({
@@ -719,6 +712,7 @@ export function App() {
     tabs,
     zenModeActive,
     orderedTabs,
+    canSelectAntoraContext: antoraContextSelection.canSelectContext,
     zenModeEscapeBlocked: zenModeBlockingOverlay,
     onActivateRelativeTab: workspaceTabActions.activateRelativeDocumentTab,
     onActivateTabByIndex: workspaceTabActions.activateDocumentTabByIndex,
@@ -760,6 +754,10 @@ export function App() {
     onTogglePinned: openFileActions.toggleActivePinnedTab,
     onNavigateHistory: navigateHistory,
     onRestoreClosedTab: workspaceTabActions.restoreClosedDocumentTab,
+    onSelectAntoraContextCommand: () => {
+      void sourceControl.setSidebarTab("files");
+      antoraContextSelection.openSelector();
+    },
     onActivateDocumentWorkspaceTab:
       workspaceTabActions.activateDocumentWorkspaceTab,
     searchInputRef,
@@ -918,6 +916,7 @@ export function App() {
     rootDirectory,
     rootEntries,
     sidebarResizeState,
+    ...antoraContextSelection.sidebarProps,
     tabs,
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
     onActivateTab: workspaceTabActions.activateDocumentWorkspaceTab,

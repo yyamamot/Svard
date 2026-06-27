@@ -11,6 +11,7 @@ import type {
   DocumentLinkResolutionInput,
   DocumentPayload,
   DocumentOrderCatalog,
+  DocumentOrderLoadOptions,
   GitBranchDiff,
   GitChanges,
   GitCommitDetails,
@@ -35,6 +36,7 @@ import type {
   PlantUmlSvgCacheReadResult,
   PlantUmlSvgCacheWriteInput,
   PlantUmlSvgCacheWriteResult,
+  OpenDocumentOptions,
   ProviderTokenStatus,
   RemoteProviderTestStatus,
   ViewerWindowOpenRequest,
@@ -74,16 +76,22 @@ export class MockHostAdapter implements HostAdapter {
     return this.documents.authorizeDirectory(path);
   }
 
-  openDocument(path: string): Promise<DocumentPayload> {
-    return this.documents.openDocument(path);
+  openDocument(
+    path: string,
+    options?: OpenDocumentOptions,
+  ): Promise<DocumentPayload> {
+    return this.documents.openDocument(path, options);
   }
 
   listDirectory(path: string) {
     return this.documents.listDirectory(path);
   }
 
-  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderCatalog> {
-    return this.documents.loadDocumentOrder(rootDirectory);
+  loadDocumentOrder(
+    rootDirectory: string,
+    options?: DocumentOrderLoadOptions,
+  ): Promise<DocumentOrderCatalog> {
+    return this.documents.loadDocumentOrder(rootDirectory, options);
   }
 
   searchWorkspace(input: WorkspaceSearchInput): Promise<WorkspaceSearchResult> {
@@ -152,7 +160,9 @@ export class MockHostAdapter implements HostAdapter {
   resolveLocalImage(
     source: string,
     documentPath: string,
-    context?: DocumentPayload["asciidocContext"] | DocumentPayload["resourceContext"],
+    context?:
+      | DocumentPayload["asciidocContext"]
+      | DocumentPayload["resourceContext"],
   ): Promise<LocalImageResult> {
     return this.documents.resolveLocalImage(source, documentPath, context);
   }

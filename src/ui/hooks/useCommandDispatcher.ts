@@ -56,6 +56,7 @@ export interface UseCommandDispatcherOptions {
   tabs: DocumentPayload[];
   zenModeActive: boolean;
   canSwitchToRecentTab: boolean;
+  canSelectAntoraContext?: boolean;
   zenModeEscapeBlocked: boolean;
   onActivateRelativeTab: (delta: number) => void;
   onActivateTabByIndex: (index: number) => void;
@@ -101,6 +102,7 @@ export interface UseCommandDispatcherOptions {
   onNavigateHistory: (direction: "back" | "forward") => Promise<void>;
   onRestoreClosedTab: () => void;
   onSwitchToRecentTab: () => void;
+  onSelectAntoraContextCommand?: () => void | Promise<void>;
   searchInputRef: RefObject<HTMLInputElement | null>;
   openFilesFilterInputRef: RefObject<HTMLInputElement | null>;
   viewerRef: RefObject<HTMLElement | null>;
@@ -125,6 +127,7 @@ export function useCommandDispatcher({
   tabs,
   zenModeActive,
   canSwitchToRecentTab,
+  canSelectAntoraContext = false,
   zenModeEscapeBlocked,
   onActivateRelativeTab,
   onActivateTabByIndex,
@@ -167,6 +170,7 @@ export function useCommandDispatcher({
   onNavigateHistory,
   onRestoreClosedTab,
   onSwitchToRecentTab,
+  onSelectAntoraContextCommand = () => undefined,
   searchInputRef,
   openFilesFilterInputRef,
   viewerRef,
@@ -248,6 +252,9 @@ export function useCommandDispatcher({
     }
     if (commandId === "documents.revealCurrent") {
       return canRevealCurrentDocument;
+    }
+    if (commandId === "documents.selectAntoraContext") {
+      return canSelectAntoraContext;
     }
     if (commandId === "viewer.reload" || commandId === "viewer.reloadForce") {
       return Boolean(documentPayload);
@@ -461,6 +468,9 @@ export function useCommandDispatcher({
         if (getDocumentsPanelCommands()?.revealCurrentDocument()) {
           showLightweightActionFeedback("Revealed current document");
         }
+        break;
+      case "documents.selectAntoraContext":
+        await onSelectAntoraContextCommand();
         break;
       case "sidebar.showFiles":
         await onSetSidebarTab("files");

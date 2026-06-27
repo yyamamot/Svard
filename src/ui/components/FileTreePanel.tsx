@@ -45,10 +45,12 @@ interface FileTreePanelProps {
   openDocumentPaths?: ReadonlySet<string>;
   filesViewMode?: FilesViewMode;
   suggestedDocumentsMode?: SuggestedDocumentsMode;
+  antoraContextSelectorOpenSignal?: number;
   activeDocumentOrderSectionKeys?: ReadonlySet<string>;
   onOpenFile: (path: string) => void;
   onOpenGitDiff: (path: string) => void;
   onFilesViewModeChange?: (mode: FilesViewMode) => void;
+  onSelectAntoraContext?: (contextId: string) => void;
   onToggleDirectory: (path: string) => void;
   onPickDocument: () => void;
   onPickDirectory: () => void;
@@ -71,10 +73,12 @@ export function FileTreePanel({
   openDocumentPaths = EMPTY_OPEN_DOCUMENT_PATHS,
   filesViewMode,
   suggestedDocumentsMode,
+  antoraContextSelectorOpenSignal = 0,
   activeDocumentOrderSectionKeys,
   onOpenFile,
   onOpenGitDiff,
   onFilesViewModeChange,
+  onSelectAntoraContext,
   onToggleDirectory,
   onPickDocument,
   onPickDirectory,
@@ -285,6 +289,7 @@ export function FileTreePanel({
           ENABLE_EXPERIMENTAL_STATIC_SITE_ORDER_SOURCES
         }
         suggestedDocumentsMode={suggestedDocumentsMode}
+        antoraContextSelectorOpenSignal={antoraContextSelectorOpenSignal}
         onPickDocument={onPickDocument}
         onPickDirectory={onPickDirectory}
         onRefresh={onRefresh}
@@ -295,6 +300,7 @@ export function FileTreePanel({
         }
         onCollapse={collapseCurrentView}
         onViewModeChange={changeViewMode}
+        onSelectAntoraContext={onSelectAntoraContext}
       />
       {viewMode === "tree" ? (
         <div className="file-tree" data-review-id="file-tree">

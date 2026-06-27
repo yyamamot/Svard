@@ -27,7 +27,15 @@ describe("documents reveal current command", () => {
     delete window.__SVARD_COMMANDS__;
   });
 
-  function Harness({ onFeedback }: { onFeedback: (message: string) => void }) {
+  function Harness({
+    canSelectAntoraContext = false,
+    onFeedback,
+    onSelectAntoraContextCommand = vi.fn(),
+  }: {
+    canSelectAntoraContext?: boolean;
+    onFeedback: (message: string) => void;
+    onSelectAntoraContextCommand?: () => void;
+  }) {
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     const openFilesFilterInputRef = useRef<HTMLInputElement | null>(null);
     const viewerRef = useRef<HTMLElement | null>(null);
@@ -45,6 +53,7 @@ describe("documents reveal current command", () => {
       tabs: [],
       zenModeActive: false,
       canSwitchToRecentTab: false,
+      canSelectAntoraContext,
       zenModeEscapeBlocked: false,
       onActivateRelativeTab: vi.fn(),
       onActivateTabByIndex: vi.fn(),
@@ -87,6 +96,7 @@ describe("documents reveal current command", () => {
       onNavigateHistory: vi.fn(),
       onRestoreClosedTab: vi.fn(),
       onSwitchToRecentTab: vi.fn(),
+      onSelectAntoraContextCommand,
       searchInputRef,
       openFilesFilterInputRef,
       viewerRef,
@@ -136,5 +146,45 @@ describe("documents reveal current command", () => {
     });
     expect(onReveal).toHaveBeenCalledTimes(1);
     expect(onFeedback).toHaveBeenCalledWith("Revealed current document");
+  });
+
+  it("enables and dispatches Antora context selection only when multiple contexts exist", async () => {
+    const onSelectAntoraContextCommand = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <Harness
+          onFeedback={vi.fn()}
+          onSelectAntoraContextCommand={onSelectAntoraContextCommand}
+        />,
+      );
+    });
+    expect(
+      window.__SVARD_COMMANDS__?.getCommandState(
+        "documents.selectAntoraContext",
+      ).enabled,
+    ).toBe(false);
+
+    await act(async () => {
+      root.render(
+        <Harness
+          canSelectAntoraContext
+          onFeedback={vi.fn()}
+          onSelectAntoraContextCommand={onSelectAntoraContextCommand}
+        />,
+      );
+    });
+    expect(
+      window.__SVARD_COMMANDS__?.getCommandState(
+        "documents.selectAntoraContext",
+      ).enabled,
+    ).toBe(true);
+    await expect(
+      window.__SVARD_COMMANDS__?.dispatch("documents.selectAntoraContext"),
+    ).resolves.toEqual({
+      status: "handled",
+      commandId: "documents.selectAntoraContext",
+    });
+    expect(onSelectAntoraContextCommand).toHaveBeenCalledTimes(1);
   });
 });

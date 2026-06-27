@@ -35,10 +35,12 @@ import type {
   DocumentLinkResolution,
   DocumentLinkResolutionInput,
   DocumentOrderCatalog,
+  DocumentOrderLoadOptions,
   DocumentPayload,
   GitDiffPreview,
   LocalImageResolveContext,
   LocalImageResult,
+  OpenDocumentOptions,
   WorkspacePathResolution,
   WorkspacePathResolutionInput,
   WorkspaceEnvironment,
@@ -89,7 +91,10 @@ export async function pickDirectory(): Promise<string | null> {
   return "/workspace/docs";
 }
 
-export async function openDocument(path: string): Promise<DocumentPayload> {
+export async function openDocument(
+  path: string,
+  _options?: OpenDocumentOptions,
+): Promise<DocumentPayload> {
   if (typeof window !== "undefined") {
     const target = window as unknown as {
       __SVARD_OPEN_DOCUMENT_ERRORS__?: Record<string, string>;
@@ -158,6 +163,7 @@ export async function listDirectory(path: string): Promise<DirectoryEntry[]> {
 
 export async function loadDocumentOrder(
   rootDirectory: string,
+  _options?: DocumentOrderLoadOptions,
 ): Promise<DocumentOrderCatalog> {
   if (typeof window !== "undefined") {
     const overrides = (

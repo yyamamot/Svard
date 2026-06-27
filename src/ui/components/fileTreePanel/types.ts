@@ -1,4 +1,7 @@
-import type { DocumentOrderResult } from "../../../core/types";
+import type {
+  AntoraPlaybookContextSummary,
+  DocumentOrderResult,
+} from "../../../core/types";
 import type { DocumentsViewMode } from "../../lib/fileTreeDocuments";
 
 export type FilesViewMode = DocumentsViewMode;
@@ -22,6 +25,8 @@ export type SuggestedDocumentsMode = {
     "documents-mkdocs" | "documents-zensical" | "documents-antora"
   >;
   label: string;
+  antoraContexts?: AntoraPlaybookContextSummary[];
+  selectedAntoraContextId?: string | null;
 };
 
 export interface DocumentsPanelCommands {

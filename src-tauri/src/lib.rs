@@ -19,11 +19,11 @@ mod backend_types;
 mod cache_prune;
 mod config;
 mod desktop_open;
-mod docusaurus_order;
 mod document_io;
 mod document_io_include;
 mod document_order;
 mod document_order_common;
+mod docusaurus_order;
 mod git_diff;
 mod kroki;
 mod local_assets;
@@ -103,6 +103,7 @@ struct PendingViewerWindowOpenRequests(Mutex<BTreeMap<String, ViewerWindowOpenRe
 #[tauri::command]
 fn open_document(
     path: String,
+    options: Option<OpenDocumentOptions>,
     roots: tauri::State<AllowedRoots>,
 ) -> Result<DocumentPayload, AppError> {
     let total_started_at = perf_trace::start();
@@ -134,8 +135,12 @@ fn open_document(
         ],
     );
     let open_started_at = perf_trace::start();
-    let payload = open_document_from_canonical_path_with_roots(&document_path, Some(&roots))
-        .map_err(AppError::from)?;
+    let payload = open_document_from_canonical_path_with_roots_and_options(
+        &document_path,
+        Some(&roots),
+        options.as_ref(),
+    )
+    .map_err(AppError::from)?;
     perf_trace::log(
         "open_document.payload",
         &[

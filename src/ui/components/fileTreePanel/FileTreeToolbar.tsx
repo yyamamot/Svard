@@ -19,12 +19,14 @@ interface FileTreeToolbarProps {
   hasDocusaurusOrder: boolean;
   showExperimentalStaticSiteOrderSources: boolean;
   suggestedDocumentsMode?: SuggestedDocumentsMode;
+  antoraContextSelectorOpenSignal?: number;
   collapseLabel: string;
   onPickDocument: () => void;
   onPickDirectory: () => void;
   onRefresh: () => void;
   onCollapse: () => void;
   onViewModeChange: (mode: FilesViewMode) => void;
+  onSelectAntoraContext?: (contextId: string) => void;
 }
 
 export function FileTreeToolbar({
@@ -37,21 +39,28 @@ export function FileTreeToolbar({
   hasDocusaurusOrder,
   showExperimentalStaticSiteOrderSources,
   suggestedDocumentsMode,
+  antoraContextSelectorOpenSignal = 0,
   collapseLabel,
   onPickDocument,
   onPickDirectory,
   onRefresh,
   onCollapse,
   onViewModeChange,
+  onSelectAntoraContext,
 }: FileTreeToolbarProps) {
   const [openMenuOpen, setOpenMenuOpen] = useState(false);
   const [viewModeMenuOpen, setViewModeMenuOpen] = useState(false);
+  const [suggestionMenuOpen, setSuggestionMenuOpen] = useState(false);
   const openMenuRef = useRef<HTMLDivElement | null>(null);
   const viewModeMenuRef = useRef<HTMLDivElement | null>(null);
+  const suggestionMenuRef = useRef<HTMLDivElement | null>(null);
 
   useDismissableMenu(openMenuOpen, openMenuRef, () => setOpenMenuOpen(false));
   useDismissableMenu(viewModeMenuOpen, viewModeMenuRef, () =>
     setViewModeMenuOpen(false),
+  );
+  useDismissableMenu(suggestionMenuOpen, suggestionMenuRef, () =>
+    setSuggestionMenuOpen(false),
   );
 
   function pickFromOpenMenu(callback: () => void) {
@@ -62,11 +71,40 @@ export function FileTreeToolbar({
   function pickViewMode(nextMode: FilesViewMode) {
     onViewModeChange(nextMode);
     setViewModeMenuOpen(false);
+    setSuggestionMenuOpen(false);
   }
   const visibleSuggestedDocumentsMode =
-    suggestedDocumentsMode && suggestedDocumentsMode.mode !== viewMode
+    suggestedDocumentsMode &&
+    (suggestedDocumentsMode.mode !== viewMode ||
+      (suggestedDocumentsMode.antoraContexts?.length ?? 0) > 1)
       ? suggestedDocumentsMode
       : undefined;
+  const antoraSuggestionContexts =
+    visibleSuggestedDocumentsMode?.mode === "documents-antora"
+      ? (visibleSuggestedDocumentsMode.antoraContexts ?? [])
+      : [];
+  const hasAntoraContextChoices = antoraSuggestionContexts.length > 1;
+
+  function pickSuggestedDocumentsMode() {
+    if (hasAntoraContextChoices) {
+      setSuggestionMenuOpen((value) => !value);
+      return;
+    }
+    if (visibleSuggestedDocumentsMode) {
+      pickViewMode(visibleSuggestedDocumentsMode.mode);
+    }
+  }
+
+  function pickAntoraContext(contextId: string) {
+    onSelectAntoraContext?.(contextId);
+    pickViewMode("documents-antora");
+  }
+
+  useEffect(() => {
+    if (antoraContextSelectorOpenSignal > 0 && hasAntoraContextChoices) {
+      setSuggestionMenuOpen(true);
+    }
+  }, [antoraContextSelectorOpenSignal, hasAntoraContextChoices]);
 
   return (
     <div className="file-toolbar" data-review-id="file-toolbar">
@@ -230,15 +268,53 @@ export function FileTreeToolbar({
           )}
         </div>
         {visibleSuggestedDocumentsMode ? (
-          <button
-            type="button"
-            className="documents-mode-suggestion"
-            data-review-id="documents-mode-suggestion"
-            title={visibleSuggestedDocumentsMode.label}
-            onClick={() => pickViewMode(visibleSuggestedDocumentsMode.mode)}
-          >
-            {visibleSuggestedDocumentsMode.label}
-          </button>
+          <div className="file-tree-open-menu-wrap" ref={suggestionMenuRef}>
+            <button
+              type="button"
+              className="documents-mode-suggestion"
+              data-review-id="documents-mode-suggestion"
+              title={visibleSuggestedDocumentsMode.label}
+              aria-haspopup={hasAntoraContextChoices ? "menu" : undefined}
+              aria-expanded={
+                hasAntoraContextChoices ? suggestionMenuOpen : undefined
+              }
+              onClick={pickSuggestedDocumentsMode}
+            >
+              {visibleSuggestedDocumentsMode.label}
+            </button>
+            {suggestionMenuOpen && hasAntoraContextChoices ? (
+              <div
+                className="file-tree-open-menu documents-mode-suggestion-menu"
+                data-review-id="antora-context-selector"
+                role="menu"
+                aria-label="Antora playbook context"
+              >
+                {antoraSuggestionContexts.map((context) => (
+                  <button
+                    type="button"
+                    key={context.contextId}
+                    className={`file-tree-open-menu-item ${
+                      context.contextId ===
+                      visibleSuggestedDocumentsMode.selectedAntoraContextId
+                        ? "active"
+                        : ""
+                    }`}
+                    data-review-id="antora-context-option"
+                    role="menuitemradio"
+                    title={context.label}
+                    aria-checked={
+                      context.contextId ===
+                      visibleSuggestedDocumentsMode.selectedAntoraContextId
+                    }
+                    onClick={() => pickAntoraContext(context.contextId)}
+                  >
+                    <FileText size={15} />
+                    <span>{context.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ) : null}
         <button
           type="button"

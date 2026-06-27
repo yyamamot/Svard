@@ -62,6 +62,24 @@ export interface AsciiDocRenderContext {
   resourceRoots: string[];
 }
 
+export type AntoraContextSourceKind = "standard-playbook" | "component-only";
+
+export interface AntoraPlaybookContextSummary {
+  contextId: string;
+  playbookPath?: string | null;
+  contentRoot: string;
+  sourceKind: AntoraContextSourceKind;
+  label: string;
+}
+
+export interface AntoraContextSelection {
+  contextId?: string | null;
+}
+
+export interface OpenDocumentOptions {
+  antoraContextId?: string | null;
+}
+
 export interface DocumentResourceContext {
   workspaceRoot: string;
   documentDir: string;
@@ -109,6 +127,12 @@ export interface DocumentOrderResult {
 
 export interface DocumentOrderCatalog {
   orders: DocumentOrderResult[];
+  antoraContexts?: AntoraPlaybookContextSummary[];
+  selectedAntoraContext?: AntoraPlaybookContextSummary | null;
+}
+
+export interface DocumentOrderLoadOptions {
+  antoraContextId?: string | null;
 }
 
 export interface WorkspaceSearchInput {

@@ -32,6 +32,7 @@ export const commandIds = [
   "bookmark.toggleActive",
   "bookmark.addCurrentFolder",
   "documents.revealCurrent",
+  "documents.selectAntoraContext",
   "sidebar.showFiles",
   "sidebar.showBookmarks",
   "sidebar.toggleLeft",
@@ -134,6 +135,11 @@ export const commandDefinitions: CommandDefinition[] = [
   {
     id: "documents.revealCurrent",
     title: "Reveal Current Document in Docs Order",
+    context: "navigation",
+  },
+  {
+    id: "documents.selectAntoraContext",
+    title: "Select Antora Playbook Context",
     context: "navigation",
   },
   { id: "sidebar.showFiles", title: "Show Files", context: "global" },

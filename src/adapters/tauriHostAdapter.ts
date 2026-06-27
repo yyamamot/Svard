@@ -11,6 +11,7 @@ import type {
   AppConfig,
   DirectoryEntry,
   DocumentOrderCatalog,
+  DocumentOrderLoadOptions,
   DirectoryWatchEvent,
   DesktopOpenRequest,
   DocumentPayload,
@@ -40,6 +41,7 @@ import type {
   PlantUmlSvgCacheReadResult,
   PlantUmlSvgCacheWriteInput,
   PlantUmlSvgCacheWriteResult,
+  OpenDocumentOptions,
   ProviderTokenStatus,
   RemoteProviderTestStatus,
   ViewerWindowOpenRequest,
@@ -148,16 +150,22 @@ export class TauriHostAdapter implements HostAdapter {
     return typeof selected === "string" ? selected : null;
   }
 
-  openDocument(path: string): Promise<DocumentPayload> {
-    return invokeCommand("open_document", { path });
+  openDocument(
+    path: string,
+    options?: OpenDocumentOptions,
+  ): Promise<DocumentPayload> {
+    return invokeCommand("open_document", { path, options });
   }
 
   listDirectory(path: string): Promise<DirectoryEntry[]> {
     return invokeCommand("list_directory", { path });
   }
 
-  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderCatalog> {
-    return invokeCommand("load_document_order", { rootDirectory });
+  loadDocumentOrder(
+    rootDirectory: string,
+    options?: DocumentOrderLoadOptions,
+  ): Promise<DocumentOrderCatalog> {
+    return invokeCommand("load_document_order", { rootDirectory, options });
   }
 
   searchWorkspace(input: WorkspaceSearchInput): Promise<WorkspaceSearchResult> {
@@ -434,7 +442,9 @@ export class TauriHostAdapter implements HostAdapter {
   resolveLocalImage(
     source: string,
     documentPath: string,
-    context?: DocumentPayload["asciidocContext"] | DocumentPayload["resourceContext"],
+    context?:
+      | DocumentPayload["asciidocContext"]
+      | DocumentPayload["resourceContext"],
   ): Promise<LocalImageResult> {
     return invoke("resolve_local_image", {
       path: source,

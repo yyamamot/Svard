@@ -349,6 +349,132 @@ describe("FileTreePanel toolbar and view menu", () => {
     );
   });
 
+  it("opens an Antora context selector when multiple playbooks are suggested", async () => {
+    const onFilesViewModeChange = vi.fn();
+    const onSelectAntoraContext = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[]}
+          childrenByDirectory={{}}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{ orders: [{ source: "antora", nodes: [] }] }}
+          suggestedDocumentsMode={{
+            mode: "documents-antora",
+            label: "Antora: 2 playbooks",
+            selectedAntoraContextId: "standard-playbook:one:docs-a",
+            antoraContexts: [
+              {
+                contextId: "standard-playbook:one:docs-a",
+                playbookPath: "antora-playbook.yml",
+                contentRoot: "docs-a",
+                sourceKind: "standard-playbook",
+                label: "antora-playbook.yml (docs-a)",
+              },
+              {
+                contextId: "standard-playbook:two:docs-b",
+                playbookPath: "antora-playbook.yaml",
+                contentRoot: "docs-b",
+                sourceKind: "standard-playbook",
+                label: "antora-playbook.yaml (docs-b)",
+              },
+            ],
+          }}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onFilesViewModeChange={onFilesViewModeChange}
+          onSelectAntoraContext={onSelectAntoraContext}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-mode-suggestion"]',
+        )
+        ?.click();
+    });
+    const options = [
+      ...container.querySelectorAll<HTMLButtonElement>(
+        '[data-review-id="antora-context-option"]',
+      ),
+    ];
+    expect(options.map((option) => option.textContent)).toEqual([
+      "antora-playbook.yml (docs-a)",
+      "antora-playbook.yaml (docs-b)",
+    ]);
+
+    await act(async () => {
+      options[1]?.click();
+    });
+
+    expect(onSelectAntoraContext).toHaveBeenCalledWith(
+      "standard-playbook:two:docs-b",
+    );
+    expect(onFilesViewModeChange).toHaveBeenCalledWith("documents-antora");
+  });
+
+  it("opens the Antora context selector from the command signal", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[]}
+          childrenByDirectory={{}}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{ orders: [{ source: "antora", nodes: [] }] }}
+          antoraContextSelectorOpenSignal={1}
+          suggestedDocumentsMode={{
+            mode: "documents-antora",
+            label: "Antora: 2 playbooks",
+            selectedAntoraContextId: "one",
+            antoraContexts: [
+              {
+                contextId: "one",
+                contentRoot: "docs-a",
+                sourceKind: "standard-playbook",
+                label: "antora-playbook.yml (docs-a)",
+              },
+              {
+                contextId: "two",
+                contentRoot: "docs-b",
+                sourceKind: "standard-playbook",
+                label: "antora-playbook.yaml (docs-b)",
+              },
+            ],
+          }}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    expect(
+      container.querySelector('[data-review-id="antora-context-selector"]'),
+    ).not.toBeNull();
+  });
+
   it("hides the suggestion badge when that Docs mode is already selected", async () => {
     await act(async () => {
       root.render(

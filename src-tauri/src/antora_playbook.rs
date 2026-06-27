@@ -7,11 +7,11 @@ use std::{
 use serde_norway::Value;
 
 use crate::{
-    backend_types::AllowedRoots,
+    backend_types::{AllowedRoots, AntoraContextSourceKind, AntoraPlaybookContextSummary},
     document_order_common::{
         is_external_or_absolute_target, mapping_get, normalize_document_order_target_path,
     },
-    path_policy::ensure_path_allowed,
+    path_policy::{ensure_path_allowed, path_to_ui_string},
 };
 
 const ANTORA_PLAYBOOK_NAMES: [&str; 2] = ["antora-playbook.yml", "antora-playbook.yaml"];
@@ -20,16 +20,75 @@ pub(crate) fn discover_antora_playbook_content_roots(
     root: &Path,
     roots: &AllowedRoots,
 ) -> Vec<PathBuf> {
-    ANTORA_PLAYBOOK_NAMES
-        .iter()
-        .flat_map(|name| discover_content_roots_from_playbook(&root.join(name), root, roots))
+    discover_antora_playbook_contexts(root, roots)
+        .into_iter()
+        .flat_map(|context| context.content_roots)
         .collect()
+}
+
+pub(crate) fn discover_antora_playbook_context_summaries(
+    root: &Path,
+    roots: &AllowedRoots,
+    selected_context_id: Option<&str>,
+) -> (
+    Vec<AntoraPlaybookContextSummary>,
+    Option<AntoraPlaybookContextSummary>,
+) {
+    let contexts = discover_antora_playbook_contexts(root, roots);
+    let selected_context = select_antora_context(&contexts, selected_context_id)
+        .map(|context| context.summary.clone());
+    (
+        contexts
+            .iter()
+            .map(|context| context.summary.clone())
+            .collect(),
+        selected_context,
+    )
+}
+
+pub(crate) fn selected_antora_content_roots(
+    root: &Path,
+    roots: &AllowedRoots,
+    selected_context_id: Option<&str>,
+) -> Vec<PathBuf> {
+    let contexts = discover_antora_playbook_contexts(root, roots);
+    select_antora_context(&contexts, selected_context_id)
+        .map(|context| context.content_roots.clone())
+        .unwrap_or_default()
+}
+
+pub(crate) fn discover_antora_playbook_contexts(
+    root: &Path,
+    roots: &AllowedRoots,
+) -> Vec<AntoraPlaybookContext> {
+    let root = normalize_document_order_target_path(root);
+    let mut contexts: Vec<AntoraPlaybookContext> = ANTORA_PLAYBOOK_NAMES
+        .iter()
+        .enumerate()
+        .flat_map(|(playbook_index, name)| {
+            contexts_from_playbook(&root.join(name), &root, roots, playbook_index)
+        })
+        .collect();
+    if root.join("antora.yml").is_file() {
+        push_unique_context(
+            &mut contexts,
+            AntoraPlaybookContext::component_only(root.clone(), &root),
+        );
+    }
+    contexts.sort_by(|left, right| {
+        left.priority
+            .cmp(&right.priority)
+            .then_with(|| left.summary.label.cmp(&right.summary.label))
+            .then_with(|| left.summary.context_id.cmp(&right.summary.context_id))
+    });
+    contexts
 }
 
 pub(crate) fn antora_static_asciidoc_attributes_for_document(
     document_path: &Path,
     workspace_root: &Path,
     roots: Option<&AllowedRoots>,
+    selected_context_id: Option<&str>,
 ) -> BTreeMap<String, String> {
     let Some(roots) = roots else {
         return BTreeMap::new();
@@ -37,17 +96,22 @@ pub(crate) fn antora_static_asciidoc_attributes_for_document(
     let document_path = normalize_document_order_target_path(document_path);
     let workspace_root = normalize_document_order_target_path(workspace_root);
     for root in antora_attribute_workspace_roots(&document_path, &workspace_root, roots) {
-        for name in ANTORA_PLAYBOOK_NAMES {
-            let playbook_path = root.join(name);
-            let Some(playbook) = read_playbook(&playbook_path, roots) else {
-                continue;
-            };
-            for content_root in playbook
-                .content_roots
-                .iter()
-                .filter(|content_root| is_antora_module_page(&document_path, content_root))
-            {
-                let mut attributes = playbook.attributes.clone();
+        let contexts = discover_antora_playbook_contexts(&root, roots);
+        let matching_contexts = contexts
+            .iter()
+            .filter(|context| context.content_root_for_document(&document_path).is_some())
+            .collect::<Vec<_>>();
+        if let Some(context) = selected_context_id
+            .and_then(|selected_context_id| {
+                matching_contexts
+                    .iter()
+                    .copied()
+                    .find(|context| context.summary.context_id == selected_context_id)
+            })
+            .or_else(|| matching_contexts.first().copied())
+        {
+            if let Some(content_root) = context.content_root_for_document(&document_path) {
+                let mut attributes = context.attributes.clone();
                 attributes.extend(read_component_attributes(content_root));
                 return attributes;
             }
@@ -59,12 +123,192 @@ pub(crate) fn antora_static_asciidoc_attributes_for_document(
     read_component_attributes(&content_root)
 }
 
-struct AntoraPlaybookContext {
+#[derive(Clone)]
+pub(crate) struct AntoraPlaybookContext {
+    pub(crate) summary: AntoraPlaybookContextSummary,
+    pub(crate) content_roots: Vec<PathBuf>,
+    pub(crate) attributes: BTreeMap<String, String>,
+    priority: (usize, usize),
+}
+
+impl AntoraPlaybookContext {
+    fn from_playbook(
+        playbook_path: PathBuf,
+        content_roots: Vec<PathBuf>,
+        workspace_root: &Path,
+        attributes: BTreeMap<String, String>,
+        playbook_index: usize,
+    ) -> Self {
+        let context_id = context_id(
+            Some(&playbook_path),
+            &content_roots,
+            workspace_root,
+            AntoraContextSourceKind::StandardPlaybook,
+        );
+        let label = context_label(Some(&playbook_path), &content_roots, workspace_root);
+        Self {
+            summary: AntoraPlaybookContextSummary {
+                context_id,
+                playbook_path: Some(display_relative_path(&playbook_path, workspace_root)),
+                content_root: content_roots_label(&content_roots, workspace_root),
+                source_kind: AntoraContextSourceKind::StandardPlaybook,
+                label,
+            },
+            content_roots,
+            attributes,
+            priority: (playbook_path.components().count(), playbook_index),
+        }
+    }
+
+    fn component_only(content_root: PathBuf, workspace_root: &Path) -> Self {
+        let context_id = context_id(
+            None,
+            std::slice::from_ref(&content_root),
+            workspace_root,
+            AntoraContextSourceKind::ComponentOnly,
+        );
+        Self {
+            summary: AntoraPlaybookContextSummary {
+                context_id,
+                playbook_path: None,
+                content_root: display_relative_path(&content_root, workspace_root),
+                source_kind: AntoraContextSourceKind::ComponentOnly,
+                label: format!(
+                    "Component: {}",
+                    display_relative_path(&content_root, workspace_root)
+                ),
+            },
+            content_roots: vec![content_root],
+            attributes: BTreeMap::new(),
+            priority: (usize::MAX, usize::MAX),
+        }
+    }
+
+    fn content_root_for_document(&self, document_path: &Path) -> Option<&PathBuf> {
+        self.content_roots
+            .iter()
+            .find(|content_root| is_antora_module_page(document_path, content_root))
+    }
+}
+
+pub(crate) fn select_antora_context<'a>(
+    contexts: &'a [AntoraPlaybookContext],
+    selected_context_id: Option<&str>,
+) -> Option<&'a AntoraPlaybookContext> {
+    if let Some(selected_context_id) = selected_context_id {
+        if let Some(context) = contexts
+            .iter()
+            .find(|context| context.summary.context_id == selected_context_id)
+        {
+            return Some(context);
+        }
+    }
+    contexts.first()
+}
+
+fn contexts_from_playbook(
+    playbook_path: &Path,
+    workspace_root: &Path,
+    roots: &AllowedRoots,
+    playbook_index: usize,
+) -> Vec<AntoraPlaybookContext> {
+    let Some(playbook) = read_playbook(playbook_path, roots) else {
+        return Vec::new();
+    };
+    if playbook.content_roots.is_empty() {
+        return Vec::new();
+    }
+    vec![AntoraPlaybookContext::from_playbook(
+        playbook_path.to_path_buf(),
+        playbook.content_roots,
+        workspace_root,
+        playbook.attributes,
+        playbook_index,
+    )]
+}
+
+fn push_unique_context(contexts: &mut Vec<AntoraPlaybookContext>, context: AntoraPlaybookContext) {
+    if !contexts
+        .iter()
+        .any(|current| current.summary.context_id == context.summary.context_id)
+    {
+        contexts.push(context);
+    }
+}
+
+fn context_id(
+    playbook_path: Option<&Path>,
+    content_roots: &[PathBuf],
+    workspace_root: &Path,
+    source_kind: AntoraContextSourceKind,
+) -> String {
+    let source = match source_kind {
+        AntoraContextSourceKind::StandardPlaybook => "standard-playbook",
+        AntoraContextSourceKind::ComponentOnly => "component-only",
+    };
+    let playbook = playbook_path
+        .map(|path| display_relative_path(path, workspace_root))
+        .unwrap_or_else(|| "component".to_string());
+    let roots = content_roots_label(content_roots, workspace_root);
+    format!("{source}:{}:{}", slug_path(&playbook), slug_path(&roots))
+}
+
+fn context_label(
+    playbook_path: Option<&Path>,
+    content_roots: &[PathBuf],
+    workspace_root: &Path,
+) -> String {
+    let playbook = playbook_path
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str())
+        .unwrap_or("antora-playbook");
+    format!(
+        "{} ({})",
+        playbook,
+        content_roots_label(content_roots, workspace_root)
+    )
+}
+
+fn content_roots_label(content_roots: &[PathBuf], workspace_root: &Path) -> String {
+    if content_roots.len() == 1 {
+        return display_relative_path(&content_roots[0], workspace_root);
+    }
+    format!("{} content roots", content_roots.len())
+}
+
+fn display_relative_path(path: &Path, workspace_root: &Path) -> String {
+    path.strip_prefix(workspace_root)
+        .ok()
+        .filter(|relative| !relative.as_os_str().is_empty())
+        .map(path_to_ui_string)
+        .unwrap_or_else(|| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+                .unwrap_or_else(|| "antora-context".to_string())
+        })
+}
+
+fn slug_path(path: &str) -> String {
+    path.chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string()
+}
+
+struct ParsedAntoraPlaybook {
     content_roots: Vec<PathBuf>,
     attributes: BTreeMap<String, String>,
 }
 
-fn read_playbook(playbook_path: &Path, roots: &AllowedRoots) -> Option<AntoraPlaybookContext> {
+fn read_playbook(playbook_path: &Path, roots: &AllowedRoots) -> Option<ParsedAntoraPlaybook> {
     let workspace_root = playbook_path.parent()?;
     if !playbook_path.is_file() {
         return None;
@@ -73,32 +317,10 @@ fn read_playbook(playbook_path: &Path, roots: &AllowedRoots) -> Option<AntoraPla
     let parsed: Value = serde_norway::from_str(&source).ok()?;
     let mapping = parsed.as_mapping()?;
     let attributes = static_asciidoc_attributes(mapping);
-    Some(AntoraPlaybookContext {
+    Some(ParsedAntoraPlaybook {
         content_roots: playbook_content_roots(mapping, workspace_root, roots),
         attributes,
     })
-}
-
-fn discover_content_roots_from_playbook(
-    playbook_path: &Path,
-    workspace_root: &Path,
-    roots: &AllowedRoots,
-) -> Vec<PathBuf> {
-    if !playbook_path.is_file() {
-        return Vec::new();
-    }
-    let source = match fs::read_to_string(playbook_path) {
-        Ok(source) => source,
-        Err(_) => return Vec::new(),
-    };
-    let parsed: Value = match serde_norway::from_str(&source) {
-        Ok(parsed) => parsed,
-        Err(_) => return Vec::new(),
-    };
-    let Some(mapping) = parsed.as_mapping() else {
-        return Vec::new();
-    };
-    playbook_content_roots(mapping, workspace_root, roots)
 }
 
 fn playbook_content_roots(

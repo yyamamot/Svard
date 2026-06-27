@@ -6,16 +6,15 @@ use std::{
 
 use crate::antora_playbook::antora_static_asciidoc_attributes_for_document;
 use crate::app_error::AppError;
-use crate::backend_types::AllowedRoots;
 use crate::backend_types::{
-    AsciiDocRenderContext, DirectoryEntry, DocumentOrderCatalog, DocumentPayload,
-    DocumentResourceContext, EntryKind, WorkspaceSearchInput, WorkspaceSearchResult,
-    WorkspaceSearchResultItem,
+    AllowedRoots, AsciiDocRenderContext, DirectoryEntry, DocumentOrderCatalog,
+    DocumentOrderLoadOptions, DocumentPayload, DocumentResourceContext, EntryKind,
+    OpenDocumentOptions, WorkspaceSearchInput, WorkspaceSearchResult, WorkspaceSearchResultItem,
 };
 use crate::document_io_include::{
     asciidoc_attributes, collect_asciidoc_include_files_and_graph_with_attributes,
 };
-use crate::document_order::load_document_order_from_root;
+use crate::document_order::load_document_order_from_root_with_options;
 use crate::path_policy::{
     antora_module_root_for_page, display_safe_path, ensure_path_allowed,
     fallback_allowed_root_for_file, path_for_policy, path_to_ui_string,
@@ -44,9 +43,18 @@ pub(crate) fn open_document_from_path(path: &str) -> Result<DocumentPayload, Str
     open_document_from_canonical_path_with_roots(&document_path, None)
 }
 
+#[cfg(test)]
 pub(crate) fn open_document_from_canonical_path_with_roots(
     document_path: &Path,
     roots: Option<&AllowedRoots>,
+) -> Result<DocumentPayload, String> {
+    open_document_from_canonical_path_with_roots_and_options(document_path, roots, None)
+}
+
+pub(crate) fn open_document_from_canonical_path_with_roots_and_options(
+    document_path: &Path,
+    roots: Option<&AllowedRoots>,
+    options: Option<&OpenDocumentOptions>,
 ) -> Result<DocumentPayload, String> {
     let document_path_string = path_to_ui_string(document_path);
 
@@ -89,6 +97,7 @@ pub(crate) fn open_document_from_canonical_path_with_roots(
             &source,
             &resource_context,
             roots,
+            options.and_then(|options| options.antora_context_id.as_deref()),
         );
         perf_trace::log(
             "open_document.build_asciidoc_render_context",
@@ -211,10 +220,15 @@ pub(crate) fn build_asciidoc_render_context_for_document(
     source: &str,
     resource_context: &DocumentResourceContext,
     roots: Option<&AllowedRoots>,
+    selected_antora_context_id: Option<&str>,
 ) -> AsciiDocRenderContext {
     let workspace_root = PathBuf::from(&resource_context.workspace_root);
-    let antora_attributes =
-        antora_static_asciidoc_attributes_for_document(document_path, &workspace_root, roots);
+    let antora_attributes = antora_static_asciidoc_attributes_for_document(
+        document_path,
+        &workspace_root,
+        roots,
+        selected_antora_context_id,
+    );
     build_asciidoc_render_context_with_attributes(source, resource_context, antora_attributes)
 }
 
@@ -326,9 +340,11 @@ pub(crate) fn list_directory(
 #[tauri::command]
 pub(crate) fn load_document_order(
     root_directory: String,
+    options: Option<DocumentOrderLoadOptions>,
     roots: tauri::State<AllowedRoots>,
 ) -> Result<DocumentOrderCatalog, AppError> {
-    load_document_order_from_root(&root_directory, &roots).map_err(AppError::from)
+    load_document_order_from_root_with_options(&root_directory, &roots, options.as_ref())
+        .map_err(AppError::from)
 }
 
 #[cfg(test)]

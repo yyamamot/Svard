@@ -84,6 +84,31 @@ pub struct AsciiDocRenderContext {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AntoraContextSourceKind {
+    StandardPlaybook,
+    ComponentOnly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AntoraPlaybookContextSummary {
+    pub context_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playbook_path: Option<String>,
+    pub content_root: String,
+    pub source_kind: AntoraContextSourceKind,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenDocumentOptions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub antora_context_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentResourceContext {
     pub workspace_root: String,
@@ -142,6 +167,17 @@ pub struct DirectoryEntry {
 pub struct DocumentOrderCatalog {
     #[serde(default)]
     pub orders: Vec<DocumentOrderResult>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub antora_contexts: Vec<AntoraPlaybookContextSummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_antora_context: Option<AntoraPlaybookContextSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentOrderLoadOptions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub antora_context_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

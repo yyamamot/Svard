@@ -44,6 +44,7 @@ interface UseDocumentLifecycleOptions {
   documentPayload: DocumentPayload | null;
   focusedPaneId: PaneId;
   host: HostAdapter;
+  selectedAntoraContextId?: string | null;
   persistWorkspace: (partial: Partial<AppConfig["workspace"]>) => Promise<void>;
   recordNavigation: (location: { path: string; label?: string }) => void;
   searchQueryForPath: (path: string, fallbackQuery?: string) => string;
@@ -89,6 +90,7 @@ export function useDocumentLifecycle({
   documentPayload,
   focusedPaneId,
   host,
+  selectedAntoraContextId = null,
   persistWorkspace,
   recordNavigation,
   searchQueryForPath,
@@ -324,7 +326,9 @@ export function useDocumentLifecycle({
         captureReloadAnchor(path);
       }
       const hostStartedAt = perfNow();
-      const nextDocument = await host.openDocument(path);
+      const nextDocument = await host.openDocument(path, {
+        antoraContextId: selectedAntoraContextId,
+      });
       tracePerf("openDocument.host.openDocument", {
         basename,
         format: nextDocument.format,

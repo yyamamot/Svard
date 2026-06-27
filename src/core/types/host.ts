@@ -11,11 +11,13 @@ import type {
 } from "./config";
 import type {
   DirectoryEntry,
+  DocumentOrderLoadOptions,
   DocumentOrderCatalog,
   DocumentLinkResolution,
   DocumentLinkResolutionInput,
   DocumentPayload,
   LocalImageResolveContext,
+  OpenDocumentOptions,
   WorkspacePathResolution,
   WorkspacePathResolutionInput,
   WorkspaceSearchInput,
@@ -100,9 +102,15 @@ export interface HostAdapter {
   pickDirectory(): Promise<string | null>;
   resolveDroppedDocumentPath(path: string): Promise<string>;
   authorizeDirectory(path: string): Promise<void>;
-  openDocument(path: string): Promise<DocumentPayload>;
+  openDocument(
+    path: string,
+    options?: OpenDocumentOptions,
+  ): Promise<DocumentPayload>;
   listDirectory(path: string): Promise<DirectoryEntry[]>;
-  loadDocumentOrder(rootDirectory: string): Promise<DocumentOrderCatalog>;
+  loadDocumentOrder(
+    rootDirectory: string,
+    options?: DocumentOrderLoadOptions,
+  ): Promise<DocumentOrderCatalog>;
   searchWorkspace(input: WorkspaceSearchInput): Promise<WorkspaceSearchResult>;
   loadConfig(): Promise<AppConfig>;
   saveConfig(config: AppConfig): Promise<void>;
