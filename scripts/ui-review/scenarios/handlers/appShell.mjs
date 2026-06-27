@@ -638,6 +638,14 @@ export async function applyAppShellScenario(context) {
     await page.locator('[data-review-id="right-sidebar-tab-contents"]').click();
     await page.locator('[data-review-id="toc"]').waitFor();
     await page.locator('[data-review-id="right-sidebar-tab-search"]').click();
+  } else if (scenario === "viewer-contents-link-map") {
+    await page.locator('[data-review-id="right-sidebar-tabs"]').waitFor();
+    await page.locator('[data-review-id="right-sidebar-tab-contents"]').click();
+    await page.locator('[data-review-id="toc"]').waitFor();
+    await page.locator('[data-review-id="link-inspector-section"]').waitFor();
+    await page.locator('[data-review-id="link-inspector-toggle"]').click();
+    await page.locator('[data-review-id="link-inspector-outgoing"]').waitFor();
+    await page.locator('[data-review-id="link-inspector-backlinks"]').waitFor();
   } else if (scenario === "viewer-keybindings-native") {
     await page.keyboard.press("Control+F");
     await page

@@ -344,6 +344,29 @@
   background: #1f2a32;
 }
 
+.theme-dark .link-inspector-group-title {
+  color: #9aa9af;
+}
+
+.theme-dark .link-inspector-row:hover,
+.theme-dark .link-inspector-row:focus-visible {
+  background: #171d22;
+}
+
+.theme-dark .link-inspector-label {
+  color: #d5e0e4;
+}
+
+.theme-dark .link-inspector-meta,
+.theme-dark .link-inspector-empty {
+  color: #b7c6cd;
+}
+
+.theme-dark .link-inspector-count {
+  color: #aebdc3;
+  background: #182126;
+}
+
 .theme-dark .include-inspector-row:hover {
   background: #171d22;
 }

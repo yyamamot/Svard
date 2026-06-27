@@ -54,6 +54,12 @@ import {
   type DiagramRenderSnapshot,
 } from "./lib/diagramInspector";
 import { revealDiagramInViewer } from "./lib/diagramReveal";
+import {
+  buildLinkInspectorModel,
+  collectResolvedDocumentLinksFromHtml,
+  pruneDocumentLinksForOpenDocuments,
+  type DocumentLinksByPath,
+} from "./lib/documentLinkInspector";
 import { buildIncludeInspectorItems } from "./lib/includeInspector";
 import { mergeWindowConfigForSave } from "./lib/windowConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
@@ -162,6 +168,8 @@ export function App() {
     string | null
   >(null);
   const [linkPreview, setLinkPreview] = useState<LinkPreviewState | null>(null);
+  const [documentLinksByPath, setDocumentLinksByPath] =
+    useState<DocumentLinksByPath>({});
   const copyTextRef = useRef<(label: string, value: string) => void>(() => {});
   const {
     lastClosedTabs,
@@ -195,6 +203,32 @@ export function App() {
     () => buildIncludeInspectorItems(activeDocumentPayload),
     [activeDocumentPayload],
   );
+  const openDocumentPaths = useMemo(
+    () => new Set(orderedTabs.map((tab) => tab.path)),
+    [orderedTabs],
+  );
+  useEffect(() => {
+    setDocumentLinksByPath((current) =>
+      pruneDocumentLinksForOpenDocuments(current, openDocumentPaths),
+    );
+  }, [openDocumentPaths]);
+  useEffect(() => {
+    if (!activeDocumentPayload || preferencesOpen) {
+      return;
+    }
+    const links = collectResolvedDocumentLinksFromHtml({
+      document: { path: activeDocumentPayload.path },
+      html: documentHtml,
+    });
+    setDocumentLinksByPath((current) => ({
+      ...current,
+      [activeDocumentPayload.path]: {
+        path: activeDocumentPayload.path,
+        links,
+        updatedAt: Date.now(),
+      },
+    }));
+  }, [activeDocumentPayload?.path, documentHtml, preferencesOpen]);
   useEffect(() => {
     if (
       selectedDiagramId &&
@@ -361,6 +395,21 @@ export function App() {
     onWorkspaceFileChange: (event) =>
       refreshSourceControlFromFileTreeRef.current(event),
   });
+  const linkInspectorModel = useMemo(
+    () =>
+      buildLinkInspectorModel({
+        activePath: activeDocumentPayload?.path,
+        documentLinksByPath,
+        openDocumentPaths,
+        rootDirectory,
+      }),
+    [
+      activeDocumentPayload?.path,
+      documentLinksByPath,
+      openDocumentPaths,
+      rootDirectory,
+    ],
+  );
   const {
     leftSidebarContentRef,
     openFilesPaneRef,
@@ -903,6 +952,7 @@ export function App() {
     config,
     diagramInspectorItems,
     documentPayload: activeDocumentPayload,
+    linkInspectorModel,
     includeInspectorItems,
     dispatchCommand,
     handleSearchInputKeyDown,
@@ -910,6 +960,7 @@ export function App() {
     handleWorkspaceSearchEnterKey,
     matchCount,
     navigateToHeading: documentLinks.navigateToHeading,
+    openLinkedDocument: workspaceTabActions.openDocumentWorkspaceTab,
     openIncludeDocument: workspaceTabActions.openDocumentWorkspaceTab,
     pinQuery,
     renderResult,

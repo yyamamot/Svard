@@ -6,6 +6,7 @@ import type {
 import type { AppConfig, RenderResult } from "../../core/types";
 import type { RightSidebar } from "../components/RightSidebar";
 import type { DiagramInspectorItem } from "../lib/diagramInspector";
+import type { DocumentLinkInspectorModel } from "../lib/documentLinkInspector";
 import type { IncludeInspectorItem } from "../lib/includeInspector";
 import type {
   DiagramPreviewState,
@@ -25,6 +26,7 @@ interface UseAppRightSidebarWiringOptions {
   config: AppConfig | null;
   diagramInspectorItems: DiagramInspectorItem[];
   documentPayload: AppRightSidebarProps["documentPayload"];
+  linkInspectorModel: DocumentLinkInspectorModel;
   includeInspectorItems: IncludeInspectorItem[];
   dispatchCommand: AppRightSidebarProps["onDispatchCommand"];
   handleSearchInputKeyDown: (
@@ -36,6 +38,7 @@ interface UseAppRightSidebarWiringOptions {
   ) => boolean;
   matchCount: number;
   navigateToHeading: (headingId: string) => void;
+  openLinkedDocument: (path: string) => void | Promise<void>;
   openIncludeDocument: (path: string) => void | Promise<void>;
   pinQuery: () => void | Promise<void>;
   renderResult: RenderResult | null;
@@ -67,6 +70,7 @@ export function useAppRightSidebarWiring({
   config,
   diagramInspectorItems,
   documentPayload,
+  linkInspectorModel,
   includeInspectorItems,
   dispatchCommand,
   handleSearchInputKeyDown,
@@ -74,6 +78,7 @@ export function useAppRightSidebarWiring({
   handleWorkspaceSearchEnterKey,
   matchCount,
   navigateToHeading,
+  openLinkedDocument,
   openIncludeDocument,
   pinQuery,
   renderResult,
@@ -128,6 +133,7 @@ export function useAppRightSidebarWiring({
     activeHeadingId,
     diagramInspectorItems,
     documentPayload,
+    linkInspectorModel,
     includeInspectorItems,
     matchCount,
     pinnedSearch: config?.workspace.pinnedSearch ?? null,
@@ -156,6 +162,7 @@ export function useAppRightSidebarWiring({
       navigateToHeading(headingId);
     },
     onOpenDiagramPreview,
+    onOpenLinkedDocument: (path) => void openLinkedDocument(path),
     onOpenInclude: (path) => void openIncludeDocument(path),
     onPinQuery: () => void pinQuery(),
     onSelectDiagram: (id) => {

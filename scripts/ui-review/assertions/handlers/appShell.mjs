@@ -805,6 +805,50 @@ export async function buildAppShellAssertions(context) {
             );
           }))
         : true,
+    hasContentsLinkMap:
+      scenario === "viewer-contents-link-map"
+        ? (await page
+            .locator('[data-review-id="link-inspector-section"]')
+            .count()) === 1 &&
+          (await page
+            .locator('[data-review-id="link-inspector-outgoing"]')
+            .count()) === 1 &&
+          (await page
+            .locator('[data-review-id="link-inspector-backlinks"]')
+            .count()) === 1 &&
+          (await page.evaluate(() => {
+            const toc = document.querySelector('[data-review-id="toc"]');
+            const links = document.querySelector(
+              '[data-review-id="link-inspector-section"]',
+            );
+            const includes = document.querySelector(
+              '[data-review-id="include-inspector-toggle"]',
+            );
+            if (
+              !(toc instanceof HTMLElement) ||
+              !(links instanceof HTMLElement)
+            ) {
+              return false;
+            }
+            const tocBeforeLinks = Boolean(
+              toc.compareDocumentPosition(links) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+            );
+            if (!(includes instanceof HTMLElement)) {
+              return tocBeforeLinks;
+            }
+            return (
+              tocBeforeLinks &&
+              Boolean(
+                links.compareDocumentPosition(includes) &
+                  Node.DOCUMENT_POSITION_FOLLOWING,
+              )
+            );
+          })) &&
+          bodyText.includes("No document links") &&
+          bodyText.includes("No loaded documents link here") &&
+          !bodyText.includes("private source body")
+        : true,
     hasKeybindingsNative:
       scenario === "viewer-keybindings-native"
         ? (await page

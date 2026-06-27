@@ -13,6 +13,7 @@ function renderSearchSidebar(
     activeHeadingId: null,
     diagramInspectorItems: [],
     documentPayload: null,
+    linkInspectorModel: { outgoing: [], backlinks: [] },
     includeInspectorItems: [],
     matchCount: 0,
     pinnedSearch: null,
@@ -34,6 +35,7 @@ function renderSearchSidebar(
     onNavigateSourceLine: vi.fn(),
     onNavigateHeading: vi.fn(),
     onOpenDiagramPreview: vi.fn(),
+    onOpenLinkedDocument: vi.fn(),
     onOpenInclude: vi.fn(),
     onPinQuery: vi.fn(),
     onSelectDiagram: vi.fn(),
@@ -270,6 +272,175 @@ describe("RightSidebar contents include section", () => {
       resourceRoots: ["/workspace"],
     },
   };
+
+  it("orders Contents, Links, and Includes in the Contents tab", () => {
+    const { harness } = renderSearchSidebar({
+      rightSidebarTab: "contents",
+      documentPayload: asciidocDocument,
+      renderResult: {
+        html: "",
+        headings: [{ id: "overview", level: 1, text: "Overview" }],
+        sourceBlocks: [],
+        diagnostics: [],
+        diagramSlots: [],
+        mermaidDiagrams: [],
+        plantUmlDiagrams: [],
+        graphvizDiagrams: [],
+        krokiDiagrams: [],
+      },
+      linkInspectorModel: {
+        outgoing: [
+          {
+            id: "link:next",
+            path: "/workspace/docs/next.adoc",
+            label: "next.adoc",
+            displayPath: "docs/next.adoc",
+            hash: null,
+            count: 1,
+          },
+        ],
+        backlinks: [],
+      },
+      includeInspectorItems: [
+        {
+          id: "include-1",
+          label: "partial.adoc",
+          displayPath: "partials/partial.adoc",
+          status: "active",
+          path: "/workspace/docs/partials/partial.adoc",
+          sourcePath: "/workspace/docs/current.adoc",
+          sourceLine: 3,
+          sourceReference: "/workspace/docs/current.adoc:3",
+          depth: 0,
+        },
+      ],
+    });
+
+    const toc = harness.byReviewId("toc");
+    const links = harness.byReviewId("link-inspector-section");
+    const includes = harness.byReviewId("include-inspector-toggle");
+
+    expect(
+      toc.compareDocumentPosition(links) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      links.compareDocumentPosition(includes) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    harness.cleanup();
+  });
+
+  it("opens outgoing links and backlinks from loaded documents", () => {
+    const onOpenLinkedDocument = vi.fn();
+    const { harness } = renderSearchSidebar({
+      rightSidebarTab: "contents",
+      documentPayload: asciidocDocument,
+      onOpenLinkedDocument,
+      linkInspectorModel: {
+        outgoing: [
+          {
+            id: "link:next",
+            path: "/workspace/docs/next.adoc",
+            label: "next.adoc",
+            displayPath: "docs/next.adoc",
+            hash: null,
+            count: 2,
+          },
+        ],
+        backlinks: [
+          {
+            id: "backlink:source",
+            path: "/workspace/docs/source.adoc",
+            sourcePath: "/workspace/docs/source.adoc",
+            label: "source.adoc",
+            displayPath: "docs/source.adoc#current",
+            hash: "current",
+            count: 1,
+          },
+        ],
+      },
+    });
+
+    expect(
+      harness.container.querySelector('[data-review-id="link-inspector-item"]'),
+    ).toBeNull();
+    expect(
+      harness.byReviewId("link-inspector-toggle").getAttribute("aria-expanded"),
+    ).toBe("false");
+
+    act(() => {
+      harness.byReviewId<HTMLButtonElement>("link-inspector-toggle").click();
+    });
+
+    expect(
+      harness.byReviewId("link-inspector-toggle").getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(harness.byReviewId("link-inspector-outgoing").textContent).toContain(
+      "next.adoc",
+    );
+    expect(harness.byReviewId("link-inspector-outgoing").textContent).toContain(
+      "×2",
+    );
+    expect(
+      harness.byReviewId("link-inspector-backlinks").textContent,
+    ).toContain("source.adoc");
+
+    const rows = harness.container.querySelectorAll<HTMLButtonElement>(
+      '[data-review-id="link-inspector-item"]',
+    );
+    act(() => {
+      rows[0]?.click();
+    });
+    act(() => {
+      rows[1]?.click();
+    });
+
+    expect(onOpenLinkedDocument).toHaveBeenNthCalledWith(
+      1,
+      "/workspace/docs/next.adoc",
+    );
+    expect(onOpenLinkedDocument).toHaveBeenNthCalledWith(
+      2,
+      "/workspace/docs/source.adoc",
+    );
+    expect(harness.container.textContent).not.toContain("private source body");
+    harness.cleanup();
+  });
+
+  it("shows link empty states without requiring AsciiDoc includes", () => {
+    const { harness } = renderSearchSidebar({
+      rightSidebarTab: "contents",
+      documentPayload: {
+        ...asciidocDocument,
+        format: "markdown",
+        path: "/workspace/docs/current.md",
+      },
+    });
+
+    expect(
+      harness.byReviewId("link-inspector-toggle").getAttribute("aria-expanded"),
+    ).toBe("false");
+    expect(
+      harness.byReviewId("link-inspector-section").textContent,
+    ).not.toContain("No document links");
+
+    act(() => {
+      harness.byReviewId<HTMLButtonElement>("link-inspector-toggle").click();
+    });
+
+    expect(harness.byReviewId("link-inspector-section").textContent).toContain(
+      "No document links",
+    );
+    expect(harness.byReviewId("link-inspector-section").textContent).toContain(
+      "No loaded documents link here",
+    );
+    expect(
+      harness.container.querySelector(
+        '[data-review-id="include-inspector-toggle"]',
+      ),
+    ).toBeNull();
+    harness.cleanup();
+  });
 
   it("hides Includes for Markdown documents", () => {
     const { harness } = renderSearchSidebar({

@@ -2,10 +2,12 @@ import { ChevronDown, ChevronUp, Pin, Search, X } from "lucide-react";
 import type { KeyboardEvent, RefObject } from "react";
 import { DiagramInspectorPanel } from "./DiagramInspectorPanel";
 import { IncludeInspectorSection } from "./IncludeInspectorSection";
+import { LinkInspectorSection } from "./LinkInspectorSection";
 import { Toc } from "./Toc";
 import type { CommandId } from "../../core/commands";
 import type { DocumentPayload, RenderResult } from "../../core/types";
 import type { DiagramInspectorItem } from "../lib/diagramInspector";
+import type { DocumentLinkInspectorModel } from "../lib/documentLinkInspector";
 import type { IncludeInspectorItem } from "../lib/includeInspector";
 import type {
   DiagramPreviewState,
@@ -19,6 +21,7 @@ interface RightSidebarProps {
   activeHeadingId: string | null;
   diagramInspectorItems: DiagramInspectorItem[];
   documentPayload: DocumentPayload | null;
+  linkInspectorModel: DocumentLinkInspectorModel;
   includeInspectorItems: IncludeInspectorItem[];
   matchCount: number;
   pinnedSearch: string | null;
@@ -40,6 +43,7 @@ interface RightSidebarProps {
   onNavigateSourceLine: (line: number) => void;
   onNavigateHeading: (headingId: string) => void;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
+  onOpenLinkedDocument: (path: string) => void | Promise<void>;
   onOpenInclude: (path: string) => void | Promise<void>;
   onPinQuery: () => void;
   onSelectDiagram: (id: string) => void;
@@ -58,6 +62,7 @@ export function RightSidebar({
   activeHeadingId,
   diagramInspectorItems,
   documentPayload,
+  linkInspectorModel,
   includeInspectorItems,
   matchCount,
   pinnedSearch,
@@ -79,6 +84,7 @@ export function RightSidebar({
   onNavigateSourceLine,
   onNavigateHeading,
   onOpenDiagramPreview,
+  onOpenLinkedDocument,
   onOpenInclude,
   onPinQuery,
   onSelectDiagram,
@@ -154,6 +160,10 @@ export function RightSidebar({
               activeHeadingId={activeHeadingId}
               headings={renderResult?.headings ?? []}
               onNavigate={onNavigateHeading}
+            />
+            <LinkInspectorSection
+              model={linkInspectorModel}
+              onOpenDocument={onOpenLinkedDocument}
             />
             <IncludeInspectorSection
               document={documentPayload}
