@@ -34,6 +34,7 @@ declare global {
 interface UseWorkspaceSearchInput {
   query: string;
   rootDirectory: string | null | undefined;
+  workspaceSearchOrderedPaths?: string[];
   config: AppConfig | null;
   activeDocumentPayload: DocumentPayload | null;
   documentPayload: DocumentPayload | null;
@@ -50,6 +51,7 @@ interface UseWorkspaceSearchInput {
 export function useWorkspaceSearch({
   query,
   rootDirectory,
+  workspaceSearchOrderedPaths,
   config,
   activeDocumentPayload,
   documentPayload,
@@ -142,6 +144,7 @@ export function useWorkspaceSearch({
       defaultWorkspaceSearchLimits.maxFiles,
       defaultWorkspaceSearchLimits.maxMatches,
       defaultWorkspaceSearchLimits.maxBytesPerFile,
+      ...(workspaceSearchOrderedPaths ?? []),
     ].join("\u0000");
     if (
       workspaceSearchCacheRef.current?.signature === signature &&
@@ -175,12 +178,17 @@ export function useWorkspaceSearch({
       const hostStartedAt = performance.now();
       let inFlight = workspaceSearchInFlightRef.current;
       if (inFlight?.signature !== signature) {
+        const orderedPathInput =
+          workspaceSearchOrderedPaths && workspaceSearchOrderedPaths.length > 0
+            ? { orderedPaths: workspaceSearchOrderedPaths }
+            : {};
         inFlight = {
           signature,
           promise: host.searchWorkspace({
             rootPath,
             query: trimmedQuery,
             ...defaultWorkspaceSearchLimits,
+            ...orderedPathInput,
           }),
         };
         workspaceSearchInFlightRef.current = inFlight;
@@ -231,7 +239,13 @@ export function useWorkspaceSearch({
       });
       updateWorkspaceSearchTiming({ status: "error" });
     }
-  }, [host, updateWorkspaceSearchTiming, workspaceQuery, workspaceSearchRoot]);
+  }, [
+    host,
+    updateWorkspaceSearchTiming,
+    workspaceQuery,
+    workspaceSearchOrderedPaths,
+    workspaceSearchRoot,
+  ]);
 
   useEffect(() => {
     if (searchScope !== "workspace") {

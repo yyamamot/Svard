@@ -16,6 +16,7 @@ import type {
 import {
   buildDocumentOrderNavigation,
   buildFileTreeDocumentRows,
+  collectResolvedDocumentOrderPaths,
   type DocumentOrderNavigationState,
   type DocumentsViewMode,
 } from "../lib/fileTreeDocuments";
@@ -146,6 +147,27 @@ export function suggestedDocumentsModeForCatalog({
     : detectedSuggestion;
 }
 
+export function workspaceSearchOrderedPathsForCatalog({
+  documentOrder,
+  filesViewMode,
+}: {
+  documentOrder: DocumentOrderCatalog;
+  filesViewMode: DocumentsViewMode;
+}): string[] | undefined {
+  const selectedOrder =
+    filesViewMode === "documents-mkdocs"
+      ? documentOrder.orders.find((order) => order.source === "mkdocs")
+      : filesViewMode === "documents-zensical"
+        ? documentOrder.orders.find((order) => order.source === "zensical")
+        : filesViewMode === "documents-antora"
+          ? documentOrder.orders.find((order) => order.source === "antora")
+          : undefined;
+  if (!selectedOrder) {
+    return undefined;
+  }
+  return collectResolvedDocumentOrderPaths(selectedOrder.nodes);
+}
+
 export function useAppSidebarWiring({
   activePath,
   antoraContextSelectorOpenSignal,
@@ -204,6 +226,7 @@ export function useAppSidebarWiring({
 }: UseAppSidebarWiringOptions): {
   leftSidebarProps: AppLeftSidebarProps;
   documentOrderNavigation: DocumentOrderNavigationState | null;
+  workspaceSearchOrderedPaths?: string[];
 } {
   const [documentOrder, setDocumentOrder] = useState<DocumentOrderCatalog>({
     orders: [],
@@ -260,6 +283,11 @@ export function useAppSidebarWiring({
       order: selectedOrder,
     });
   }, [activePath, documentOrder.orders, documentRows, filesViewMode]);
+  const workspaceSearchOrderedPaths = useMemo(
+    () =>
+      workspaceSearchOrderedPathsForCatalog({ documentOrder, filesViewMode }),
+    [documentOrder, filesViewMode],
+  );
   const suggestedDocumentsMode = useMemo(
     () =>
       suggestedDocumentsModeForCatalog({
@@ -369,5 +397,6 @@ export function useAppSidebarWiring({
   return {
     leftSidebarProps,
     documentOrderNavigation,
+    workspaceSearchOrderedPaths,
   };
 }

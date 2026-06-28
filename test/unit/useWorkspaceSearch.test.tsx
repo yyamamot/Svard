@@ -75,6 +75,7 @@ function renderHookHarness({
   hostSearchWorkspace = vi.fn(async ({ query }: WorkspaceSearchInput) =>
     searchResult(query),
   ),
+  workspaceSearchOrderedPaths,
   navigateToSourceLine = vi.fn((_line: number) => {}),
   openDocumentWorkspaceTab = vi.fn(async (_path: string) => {}),
   clearActiveContentCursor = vi.fn(() => {}),
@@ -83,6 +84,7 @@ function renderHookHarness({
   hostSearchWorkspace?: (
     input: WorkspaceSearchInput,
   ) => Promise<WorkspaceSearchResult>;
+  workspaceSearchOrderedPaths?: string[];
   navigateToSourceLine?: (line: number) => void;
   openDocumentWorkspaceTab?: (path: string) => Promise<void>;
   clearActiveContentCursor?: () => void;
@@ -115,6 +117,7 @@ function renderHookHarness({
       openDocumentWorkspaceTab,
       query,
       rootDirectory,
+      workspaceSearchOrderedPaths,
       setRightSidebarTab,
       setTabQueries,
       updateQuery: setQuery,
@@ -199,6 +202,31 @@ describe("useWorkspaceSearch", () => {
     });
     expect(api().workspaceSearch.status).toBe("ready");
     expect(api().workspaceSearch.result?.results).toHaveLength(2);
+    harness.cleanup();
+  });
+
+  it("passes active document order paths to workspace search when available", async () => {
+    const { api, harness, hostSearchWorkspace } = renderHookHarness({
+      workspaceSearchOrderedPaths: [
+        "/workspace/docs/part-2.md",
+        "/workspace/docs/part-1.md",
+      ],
+    });
+
+    await act(async () => {
+      api().setSearchScope("workspace");
+    });
+    await act(async () => {
+      api().updateSearchQuery("Graphviz");
+    });
+    await runWorkspaceSearch(api);
+
+    expect(hostSearchWorkspace).toHaveBeenCalledWith({
+      rootPath: "/workspace",
+      query: "Graphviz",
+      ...defaultWorkspaceSearchLimits,
+      orderedPaths: ["/workspace/docs/part-2.md", "/workspace/docs/part-1.md"],
+    });
     harness.cleanup();
   });
 
@@ -387,11 +415,7 @@ describe("useWorkspaceSearch", () => {
   });
 
   it("uses Enter and Shift+Enter to open next and previous workspace results", async () => {
-    const {
-      api,
-      harness,
-      openDocumentWorkspaceTab,
-    } = renderHookHarness();
+    const { api, harness, openDocumentWorkspaceTab } = renderHookHarness();
 
     await act(async () => {
       api().setSearchScope("workspace");

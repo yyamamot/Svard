@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { suggestedDocumentsModeForCatalog } from "../../src/ui/hooks/useAppSidebarWiring";
+import {
+  suggestedDocumentsModeForCatalog,
+  workspaceSearchOrderedPathsForCatalog,
+} from "../../src/ui/hooks/useAppSidebarWiring";
 import type { DocumentOrderCatalog } from "../../src/core/types";
 
 describe("useAppSidebarWiring document mode suggestion", () => {
@@ -96,5 +99,96 @@ describe("useAppSidebarWiring document mode suggestion", () => {
         rootDirectory: "/workspace",
       })?.label,
     ).toBe("Antora: selected");
+  });
+});
+
+describe("workspaceSearchOrderedPathsForCatalog", () => {
+  const documentOrder: DocumentOrderCatalog = {
+    orders: [
+      {
+        source: "mkdocs",
+        nodes: [
+          {
+            kind: "document",
+            title: "Part 2",
+            path: "/workspace/part-2.md",
+            displayPath: "part-2.md",
+            depth: 1,
+            status: "resolved",
+          },
+          {
+            kind: "section",
+            title: "Section",
+            depth: 1,
+            children: [
+              {
+                kind: "document",
+                title: "Part 1",
+                path: "/workspace/part-1.md",
+                displayPath: "part-1.md",
+                depth: 2,
+                status: "resolved",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        source: "zensical",
+        nodes: [
+          {
+            kind: "document",
+            title: "Zensical",
+            path: "/workspace/zensical.md",
+            displayPath: "zensical.md",
+            depth: 1,
+            status: "resolved",
+          },
+        ],
+      },
+      {
+        source: "antora",
+        nodes: [
+          {
+            kind: "document",
+            title: "Antora",
+            path: "/workspace/antora.adoc",
+            displayPath: "antora.adoc",
+            depth: 1,
+            status: "resolved",
+          },
+        ],
+      },
+    ],
+  };
+
+  it("returns paths for the active Docs order mode", () => {
+    expect(
+      workspaceSearchOrderedPathsForCatalog({
+        documentOrder,
+        filesViewMode: "documents-mkdocs",
+      }),
+    ).toEqual(["/workspace/part-2.md", "/workspace/part-1.md"]);
+    expect(
+      workspaceSearchOrderedPathsForCatalog({
+        documentOrder,
+        filesViewMode: "documents-zensical",
+      }),
+    ).toEqual(["/workspace/zensical.md"]);
+    expect(
+      workspaceSearchOrderedPathsForCatalog({
+        documentOrder,
+        filesViewMode: "documents-antora",
+      }),
+    ).toEqual(["/workspace/antora.adoc"]);
+  });
+
+  it("does not provide ordered paths in normal file tree mode", () => {
+    expect(
+      workspaceSearchOrderedPathsForCatalog({
+        documentOrder,
+        filesViewMode: "tree",
+      }),
+    ).toBeUndefined();
   });
 });

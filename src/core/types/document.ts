@@ -141,6 +141,7 @@ export interface WorkspaceSearchInput {
   maxFiles: number;
   maxMatches: number;
   maxBytesPerFile: number;
+  orderedPaths?: string[];
 }
 
 export interface WorkspaceSearchResultItem {

@@ -43,11 +43,9 @@ fn open_document_rejects_missing_workspace_fixture_path() {
     let result = open_document_from_path("/workspace/docs/mvp-guide.adoc");
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("missing fixture path should fail")
-            .contains("failed to resolve document")
-    );
+    assert!(result
+        .expect_err("missing fixture path should fail")
+        .contains("failed to resolve document"));
 }
 
 #[test]
@@ -115,22 +113,25 @@ fn search_workspace_with_roots_skips_symlink_escape_directories() {
             max_files: 20,
             max_matches: 20,
             max_bytes_per_file: 1_048_576,
+            ordered_paths: Vec::new(),
         },
         Some(&roots),
     )
     .expect("search workspace");
 
     assert_eq!(result.total_matches, 1);
-    assert!(
-        result.results.iter().all(|item| item.path
-            != path_to_ui_string(&fixture.outside_document.canonicalize().unwrap()))
-    );
+    assert!(result
+        .results
+        .iter()
+        .all(|item| item.path
+            != path_to_ui_string(&fixture.outside_document.canonicalize().unwrap())));
     assert!(result.skipped_files >= 1);
 }
 
 #[test]
 fn search_workspace_respects_max_files_cap() {
     let fixture = create_security_path_fixture();
+    fs::write(fixture.workspace.join("second.md"), "# Second\nneedle\n").expect("write second");
 
     let result = crate::document_io::search_workspace(
         WorkspaceSearchInput {
@@ -139,6 +140,7 @@ fn search_workspace_respects_max_files_cap() {
             max_files: 1,
             max_matches: 20,
             max_bytes_per_file: 1_048_576,
+            ordered_paths: Vec::new(),
         },
         None,
     )
@@ -263,6 +265,7 @@ fn search_workspace_caps_total_scanned_entries() {
             max_files: 0,
             max_matches: 20,
             max_bytes_per_file: 1_048_576,
+            ordered_paths: Vec::new(),
         },
         None,
     )
@@ -448,11 +451,9 @@ fn direct_antora_page_open_collects_module_partials_and_images() {
         payload.include_files[1].path,
         path_to_ui_string(&service.canonicalize().unwrap())
     );
-    assert!(
-        payload.include_files[0]
-            .source
-            .contains(":imagesdir: ../images")
-    );
+    assert!(payload.include_files[0]
+        .source
+        .contains(":imagesdir: ../images"));
     assert!(payload.include_files[1].source.contains("ExecStart"));
     assert_eq!(image_result.status, "resolved");
     assert_eq!(image_result.media_type.as_deref(), Some("image/svg+xml"));
@@ -514,12 +515,10 @@ fn open_document_collects_text_include_files_without_extension_allowlist() {
     assert!(payload.include_files[0].source.contains("ExecStart"));
     assert!(payload.include_files[1].source.contains("echo ready"));
     assert!(payload.include_files[2].source.contains("FEATURE_FLAG"));
-    assert!(
-        payload
-            .include_files
-            .iter()
-            .all(|file| file.path != path_to_ui_string(&nested.canonicalize().unwrap()))
-    );
+    assert!(payload
+        .include_files
+        .iter()
+        .all(|file| file.path != path_to_ui_string(&nested.canonicalize().unwrap())));
 }
 
 #[test]
@@ -603,11 +602,9 @@ fn open_document_blocks_protocol_and_absolute_include_targets_as_unsafe() {
         .filter(|node| node.kind == "include")
         .collect();
     assert_eq!(include_nodes.len(), 7);
-    assert!(
-        include_nodes
-            .iter()
-            .all(|node| node.status == "blocked" && node.reason.as_deref() == Some("unsafe"))
-    );
+    assert!(include_nodes
+        .iter()
+        .all(|node| node.status == "blocked" && node.reason.as_deref() == Some("unsafe")));
     for node in include_nodes {
         assert!(node.path.is_none());
         assert!(!node.display_path.contains("https://example.invalid"));
@@ -733,11 +730,9 @@ fn open_document_collects_proto_include_inside_source_block() {
         payload.include_files[0].path,
         path_to_ui_string(&proto.canonicalize().unwrap())
     );
-    assert!(
-        payload.include_files[0]
-            .source
-            .contains("message RenderRequest")
-    );
+    assert!(payload.include_files[0]
+        .source
+        .contains("message RenderRequest"));
 }
 
 #[test]
@@ -782,10 +777,8 @@ fn open_document_collects_extensionless_utf8_include_as_literal() {
         path_to_ui_string(&helper.canonicalize().unwrap())
     );
     assert!(payload.include_files[0].source.contains("puts 'helper'"));
-    assert!(
-        payload
-            .include_files
-            .iter()
-            .all(|file| file.path != path_to_ui_string(&nested.canonicalize().unwrap()))
-    );
+    assert!(payload
+        .include_files
+        .iter()
+        .all(|file| file.path != path_to_ui_string(&nested.canonicalize().unwrap())));
 }

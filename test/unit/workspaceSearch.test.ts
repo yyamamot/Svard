@@ -93,4 +93,29 @@ describe("workspace search", () => {
     expect(capped.results).toHaveLength(1);
     expect(capped.capped).toBe(true);
   });
+
+  it("uses ordered paths before path-sorted fallback while keeping line order", () => {
+    const result = searchWorkspaceDocuments(
+      {
+        "/workspace/docs/part-1.md": "# Part 1\nGraphviz first\nGraphviz later",
+        "/workspace/docs/part-2.md": "# Part 2\nGraphviz second",
+        "/workspace/docs/appendix.md": "# Appendix\nGraphviz fallback",
+      },
+      {
+        ...input,
+        orderedPaths: [
+          "/workspace/docs/part-2.md",
+          "/workspace/docs/part-1.md",
+          "/workspace/docs/part-2.md",
+        ],
+      },
+    );
+
+    expect(result.results.map((item) => item.sourceReference)).toEqual([
+      "/workspace/docs/part-2.md:2",
+      "/workspace/docs/part-1.md:2",
+      "/workspace/docs/part-1.md:3",
+      "/workspace/docs/appendix.md:2",
+    ]);
+  });
 });

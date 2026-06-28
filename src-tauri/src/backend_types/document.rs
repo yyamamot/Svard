@@ -234,6 +234,8 @@ pub struct WorkspaceSearchInput {
     pub max_files: usize,
     pub max_matches: usize,
     pub max_bytes_per_file: u64,
+    #[serde(default)]
+    pub ordered_paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

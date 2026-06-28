@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -433,97 +433,55 @@ pub(crate) fn search_workspace(
     let mut searched_files = 0;
     let mut skipped_files = 0;
     let mut capped = false;
-    let mut pending = VecDeque::from([root_path.clone()]);
-    let mut visited_directories = BTreeSet::from([path_to_ui_string(&root_path)]);
-    let mut scanned_entries = 0usize;
-    let max_scanned_entries = workspace_search_max_scanned_entries(input.max_files);
     let query_lower = query.to_lowercase();
+    let (search_paths, search_scan_capped) =
+        collect_workspace_search_paths(&input, &root_path, roots, &mut skipped_files);
 
-    while let Some(directory) = pending.pop_front() {
-        let entries = match fs::read_dir(&directory) {
-            Ok(entries) => entries,
+    let search_path_count = search_paths.len();
+    for entry_path in search_paths {
+        if searched_files >= input.max_files || results.len() >= input.max_matches {
+            capped = true;
+            break;
+        }
+        let metadata = match fs::metadata(&entry_path) {
+            Ok(metadata) => metadata,
             Err(_) => {
                 skipped_files += 1;
                 continue;
             }
         };
-        for entry in entries.flatten() {
-            if searched_files >= input.max_files || results.len() >= input.max_matches {
-                capped = true;
-                break;
-            }
-            scanned_entries += 1;
-            if scanned_entries > max_scanned_entries {
-                capped = true;
-                break;
-            }
-            let entry_path = path_for_policy(&entry.path());
-            if roots
-                .map(|roots| ensure_path_allowed(&entry_path, roots).is_err())
-                .unwrap_or(false)
-            {
-                skipped_files += 1;
-                continue;
-            }
-            let metadata = match fs::metadata(&entry_path) {
-                Ok(metadata) => metadata,
-                Err(_) => {
-                    skipped_files += 1;
-                    continue;
-                }
-            };
-            if metadata.is_dir() {
-                if is_workspace_search_excluded_dir(&entry_path) {
-                    skipped_files += 1;
-                    continue;
-                }
-                let directory_key = path_to_ui_string(&entry_path);
-                if !visited_directories.insert(directory_key) {
-                    skipped_files += 1;
-                    continue;
-                }
-                if visited_directories.len() > WORKSPACE_SEARCH_MAX_DIRECTORIES {
-                    capped = true;
-                    break;
-                }
-                pending.push_back(entry_path);
-                continue;
-            }
-            if !metadata.is_file() || !is_supported_document_file(&entry_path) {
-                skipped_files += 1;
-                continue;
-            }
-            if metadata.len() > input.max_bytes_per_file {
-                skipped_files += 1;
-                continue;
-            }
-            let source = match fs::read_to_string(&entry_path) {
-                Ok(source) => source,
-                Err(_) => {
-                    skipped_files += 1;
-                    continue;
-                }
-            };
-            searched_files += 1;
-            let path = path_to_ui_string(&entry_path);
-            let file_results = search_document_source(
-                &path,
-                &display_path_for_workspace_search(&entry_path, &root_path),
-                &source,
-                &query,
-                &query_lower,
-                input.max_matches.saturating_sub(results.len()),
-            );
-            total_matches += file_results
-                .iter()
-                .map(|item| item.match_count)
-                .sum::<usize>();
-            results.extend(file_results);
+        if metadata.len() > input.max_bytes_per_file {
+            skipped_files += 1;
+            continue;
         }
-        if searched_files >= input.max_files || results.len() >= input.max_matches {
-            capped = true;
-            break;
-        }
+        let source = match fs::read_to_string(&entry_path) {
+            Ok(source) => source,
+            Err(_) => {
+                skipped_files += 1;
+                continue;
+            }
+        };
+        searched_files += 1;
+        let path = path_to_ui_string(&entry_path);
+        let file_results = search_document_source(
+            &path,
+            &display_path_for_workspace_search(&entry_path, &root_path),
+            &source,
+            &query,
+            &query_lower,
+            input.max_matches.saturating_sub(results.len()),
+        );
+        total_matches += file_results
+            .iter()
+            .map(|item| item.match_count)
+            .sum::<usize>();
+        results.extend(file_results);
+    }
+    if (searched_files >= input.max_files && search_path_count > searched_files)
+        || results.len() >= input.max_matches
+        || search_scan_capped
+    {
+        capped = true;
     }
 
     Ok(WorkspaceSearchResult {
@@ -548,6 +506,150 @@ fn workspace_search_max_scanned_entries(max_files: usize) -> usize {
         WORKSPACE_SEARCH_MIN_SCANNED_ENTRIES,
         WORKSPACE_SEARCH_MAX_SCANNED_ENTRIES,
     )
+}
+
+fn collect_workspace_search_paths(
+    input: &WorkspaceSearchInput,
+    root_path: &Path,
+    roots: Option<&AllowedRoots>,
+    skipped_files: &mut usize,
+) -> (Vec<PathBuf>, bool) {
+    let mut ordered_paths = Vec::new();
+    let mut ordered_keys = BTreeSet::new();
+    for raw_path in &input.ordered_paths {
+        let entry_path = path_for_policy(&PathBuf::from(raw_path));
+        if !workspace_search_file_is_allowed(&entry_path, root_path, roots) {
+            *skipped_files += 1;
+            continue;
+        }
+        let key = path_to_ui_string(&entry_path);
+        if ordered_keys.insert(key) {
+            ordered_paths.push(entry_path);
+        }
+    }
+
+    let mut fallback_paths = Vec::new();
+    let mut visited_directories = BTreeSet::from([path_to_ui_string(root_path)]);
+    let mut scanned_entries = 0usize;
+    let max_scanned_entries = workspace_search_max_scanned_entries(input.max_files);
+    let mut capped = false;
+    collect_workspace_search_paths_from_directory(
+        root_path,
+        root_path,
+        roots,
+        &ordered_keys,
+        &mut visited_directories,
+        &mut scanned_entries,
+        max_scanned_entries,
+        &mut capped,
+        skipped_files,
+        &mut fallback_paths,
+    );
+    fallback_paths.sort_by(|left, right| {
+        display_path_for_workspace_search(left, root_path)
+            .cmp(&display_path_for_workspace_search(right, root_path))
+    });
+    ordered_paths.extend(fallback_paths);
+    (ordered_paths, capped)
+}
+
+fn collect_workspace_search_paths_from_directory(
+    directory: &Path,
+    root_path: &Path,
+    roots: Option<&AllowedRoots>,
+    ordered_keys: &BTreeSet<String>,
+    visited_directories: &mut BTreeSet<String>,
+    scanned_entries: &mut usize,
+    max_scanned_entries: usize,
+    capped: &mut bool,
+    skipped_files: &mut usize,
+    fallback_paths: &mut Vec<PathBuf>,
+) {
+    if *scanned_entries > max_scanned_entries {
+        *capped = true;
+        return;
+    }
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(_) => {
+            *skipped_files += 1;
+            return;
+        }
+    };
+    for entry in entries.flatten() {
+        *scanned_entries += 1;
+        if *scanned_entries > max_scanned_entries {
+            *capped = true;
+            break;
+        }
+        let entry_path = path_for_policy(&entry.path());
+        if roots
+            .map(|roots| ensure_path_allowed(&entry_path, roots).is_err())
+            .unwrap_or(false)
+        {
+            *skipped_files += 1;
+            continue;
+        }
+        let metadata = match fs::metadata(&entry_path) {
+            Ok(metadata) => metadata,
+            Err(_) => {
+                *skipped_files += 1;
+                continue;
+            }
+        };
+        if metadata.is_dir() {
+            if is_workspace_search_excluded_dir(&entry_path) {
+                *skipped_files += 1;
+                continue;
+            }
+            let directory_key = path_to_ui_string(&entry_path);
+            if !visited_directories.insert(directory_key) {
+                *skipped_files += 1;
+                continue;
+            }
+            if visited_directories.len() > WORKSPACE_SEARCH_MAX_DIRECTORIES {
+                *capped = true;
+                break;
+            }
+            collect_workspace_search_paths_from_directory(
+                &entry_path,
+                root_path,
+                roots,
+                ordered_keys,
+                visited_directories,
+                scanned_entries,
+                max_scanned_entries,
+                capped,
+                skipped_files,
+                fallback_paths,
+            );
+            continue;
+        }
+        let entry_key = path_to_ui_string(&entry_path);
+        if ordered_keys.contains(&entry_key) {
+            continue;
+        }
+        if workspace_search_file_is_allowed(&entry_path, root_path, roots) {
+            fallback_paths.push(entry_path);
+        } else {
+            *skipped_files += 1;
+        }
+    }
+}
+
+fn workspace_search_file_is_allowed(
+    path: &Path,
+    root_path: &Path,
+    roots: Option<&AllowedRoots>,
+) -> bool {
+    path.starts_with(root_path)
+        && roots
+            .map(|roots| ensure_path_allowed(path, roots).is_ok())
+            .unwrap_or(true)
+        && fs::metadata(path)
+            .map(|metadata| metadata.is_file())
+            .unwrap_or(false)
+        && is_supported_document_file(path)
 }
 
 fn search_document_source(

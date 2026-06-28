@@ -12,6 +12,7 @@ mod antora_static_attributes;
 mod config;
 mod desktop_open;
 mod document_io;
+mod document_io_workspace_search;
 mod kroki;
 mod local_assets;
 mod path_policy;

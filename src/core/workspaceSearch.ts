@@ -60,7 +60,7 @@ export function searchWorkspaceDocuments(
   let totalMatches = 0;
   let capped = false;
 
-  for (const path of Object.keys(documents).sort()) {
+  for (const path of workspaceSearchPaths(documents, input, rootPrefix)) {
     if (searchedFiles >= input.maxFiles || results.length >= input.maxMatches) {
       capped = true;
       break;
@@ -108,6 +108,40 @@ export function searchWorkspaceDocuments(
     capped,
     message: results.length === 0 ? "No matches" : null,
   };
+}
+
+function workspaceSearchPaths(
+  documents: Record<string, string>,
+  input: WorkspaceSearchInput,
+  rootPrefix: string,
+) {
+  const documentPaths = new Set(Object.keys(documents));
+  const seen = new Set<string>();
+  const orderedPaths: string[] = [];
+  for (const path of input.orderedPaths ?? []) {
+    if (
+      seen.has(path) ||
+      !documentPaths.has(path) ||
+      !(path === rootPrefix || path.startsWith(`${rootPrefix}/`))
+    ) {
+      continue;
+    }
+    seen.add(path);
+    orderedPaths.push(path);
+  }
+  const fallbackPaths = Object.keys(documents)
+    .filter((path) => {
+      if (seen.has(path)) {
+        return false;
+      }
+      return path === rootPrefix || path.startsWith(`${rootPrefix}/`);
+    })
+    .sort((left, right) =>
+      workspaceSearchDisplayPath(left, input.rootPath).localeCompare(
+        workspaceSearchDisplayPath(right, input.rootPath),
+      ),
+    );
+  return [...orderedPaths, ...fallbackPaths];
 }
 
 export function searchMockWorkspace(

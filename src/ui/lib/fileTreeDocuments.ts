@@ -136,7 +136,10 @@ export function buildOpenDocumentTree({
     rootDirectory,
   });
   const rootNodes: OpenDocumentTreeNode[] = [];
-  const directoryByKey = new Map<string, Extract<OpenDocumentTreeNode, { kind: "directory" }>>();
+  const directoryByKey = new Map<
+    string,
+    Extract<OpenDocumentTreeNode, { kind: "directory" }>
+  >();
   const activeSectionKeys = new Set<string>();
 
   for (const row of rows) {
@@ -277,7 +280,8 @@ function compareOpenDocumentTreeNodes(
     return left.kind === "directory" ? -1 : 1;
   }
   const leftName = left.kind === "directory" ? left.name : left.row.entry.name;
-  const rightName = right.kind === "directory" ? right.name : right.row.entry.name;
+  const rightName =
+    right.kind === "directory" ? right.name : right.row.entry.name;
   return leftName.localeCompare(rightName);
 }
 
@@ -290,7 +294,9 @@ export function filterVisibleDocumentRows(
   if (documentsFilter !== "changed") {
     return documentRows;
   }
-  if (isOrderedDocumentsMode(viewMode, experimentalStaticSiteOrderSourcesEnabled)) {
+  if (
+    isOrderedDocumentsMode(viewMode, experimentalStaticSiteOrderSourcesEnabled)
+  ) {
     return documentRows.filter((row) => row.isChanged);
   }
   return [...documentRows.filter((row) => row.isChanged)].sort(
@@ -300,7 +306,10 @@ export function filterVisibleDocumentRows(
   );
 }
 
-export function relativeDocumentPath(path: string, rootDirectory: string): string {
+export function relativeDocumentPath(
+  path: string,
+  rootDirectory: string,
+): string {
   if (!rootDirectory) {
     return path;
   }
@@ -368,6 +377,33 @@ export function collectDocumentOrderPaths(
     }
   }
   return paths;
+}
+
+export function collectResolvedDocumentOrderPaths(
+  nodes: DocumentOrderNode[],
+): string[] {
+  const paths: string[] = [];
+  const seen = new Set<string>();
+  collectResolvedDocumentOrderPathsInto(nodes, paths, seen);
+  return paths;
+}
+
+function collectResolvedDocumentOrderPathsInto(
+  nodes: DocumentOrderNode[],
+  paths: string[],
+  seen: Set<string>,
+) {
+  for (const node of nodes) {
+    if (node.kind === "section") {
+      collectResolvedDocumentOrderPathsInto(node.children, paths, seen);
+      continue;
+    }
+    if (node.status !== "resolved" || seen.has(node.path)) {
+      continue;
+    }
+    seen.add(node.path);
+    paths.push(node.path);
+  }
 }
 
 export function buildDocumentOrderNavigation({
@@ -463,7 +499,9 @@ function flattenDocumentOrderTargets({
           sectionKeys: [...sectionAncestors, sectionKey],
         });
       }
-      const childNodes = sectionDocument ? node.children.slice(1) : node.children;
+      const childNodes = sectionDocument
+        ? node.children.slice(1)
+        : node.children;
       targets.push(
         ...flattenDocumentOrderTargets({
           loadedDocumentPaths,
