@@ -11,8 +11,8 @@ use crate::{
         DocumentOrderSource,
     },
     document_order_common::{
-        display_title_from_path, is_external_or_absolute_target, mapping_get, none_result,
-        normalize_document_order_target_path,
+        display_title_from_path, fallback_docs_dir_nodes, is_external_or_absolute_target,
+        mapping_get, none_result, normalize_document_order_target_path,
     },
     path_policy::{ensure_path_allowed, path_to_ui_string},
 };
@@ -34,14 +34,24 @@ pub(crate) fn load_mkdocs_order_from_root(
         return none_result(Some("MkDocs configuration is not a mapping.".to_string()));
     };
     let config_dir = config_path.parent().unwrap_or(root);
-    let docs_dir = docs_dir_for_config(config_dir, mapping);
+    let docs_dir = normalize_document_order_target_path(&docs_dir_for_config(config_dir, mapping));
     if ensure_path_allowed(&docs_dir, roots).is_err() {
         return none_result(Some(
             "MkDocs documentation directory is outside the workspace.".to_string(),
         ));
     }
     let Some(nav) = mapping_get(mapping, "nav") else {
-        return none_result(Some("MkDocs nav is not configured.".to_string()));
+        let nodes = fallback_docs_dir_nodes(&docs_dir, roots);
+        if nodes.is_empty() {
+            return none_result(Some(
+                "MkDocs docs directory did not contain local Markdown entries.".to_string(),
+            ));
+        }
+        return DocumentOrderResult {
+            source: DocumentOrderSource::Mkdocs,
+            nodes,
+            message: None,
+        };
     };
     let Some(sequence) = nav.as_sequence() else {
         return none_result(Some("MkDocs nav is not a list.".to_string()));
@@ -225,6 +235,25 @@ mod tests {
         AllowedRoots(Mutex::new([path_for_policy(path)].into_iter().collect()))
     }
 
+    fn flatten_display_paths(nodes: &[DocumentOrderNode], paths: &mut Vec<String>) {
+        for node in nodes {
+            match node {
+                DocumentOrderNode::Document { display_path, .. } => {
+                    paths.push(display_path.clone());
+                }
+                DocumentOrderNode::Section { children, .. } => {
+                    flatten_display_paths(children, paths);
+                }
+            }
+        }
+    }
+
+    fn display_paths(result: &DocumentOrderResult) -> Vec<String> {
+        let mut paths = Vec::new();
+        flatten_display_paths(&result.nodes, &mut paths);
+        paths
+    }
+
     #[test]
     fn parses_nested_mkdocs_nav_with_docs_dir() {
         let dir = tempdir().expect("tempdir");
@@ -280,6 +309,89 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_docs_dir_markdown_when_mkdocs_nav_is_missing() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("site-docs");
+        fs::create_dir_all(docs.join("01_basics")).expect("basics");
+        fs::create_dir_all(docs.join("02_engines")).expect("engines");
+        fs::write(docs.join("zeta.md"), "# Zeta").expect("zeta");
+        fs::write(docs.join("index.md"), "# Home").expect("home");
+        fs::write(docs.join("00_overview.md"), "# Overview").expect("overview");
+        fs::write(docs.join("01_basics").join("kv_cache.md"), "# KV").expect("kv");
+        fs::write(docs.join("01_basics").join("checkpoint.md"), "# Checkpoint")
+            .expect("checkpoint");
+        fs::write(docs.join("02_engines").join("overview.md"), "# Engines")
+            .expect("engines overview");
+        fs::write(docs.join("ignored.adoc"), "= Ignored").expect("adoc");
+        fs::write(dir.path().join("mkdocs.yml"), "docs_dir: site-docs\n").expect("config");
+
+        let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
+
+        assert_eq!(result.source, DocumentOrderSource::Mkdocs);
+        assert_eq!(
+            display_paths(&result),
+            vec![
+                "index.md",
+                "00_overview.md",
+                "01_basics/checkpoint.md",
+                "01_basics/kv_cache.md",
+                "02_engines/overview.md",
+                "zeta.md",
+            ]
+        );
+        assert!(matches!(
+            &result.nodes[2],
+            DocumentOrderNode::Section { title, depth: 0, children }
+                if title == "01_basics" && children.len() == 2
+        ));
+    }
+
+    #[test]
+    fn explicit_mkdocs_nav_takes_precedence_over_docs_dir_fallback() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        fs::create_dir_all(&docs).expect("docs");
+        fs::write(docs.join("alpha.md"), "# Alpha").expect("alpha");
+        fs::write(docs.join("zeta.md"), "# Zeta").expect("zeta");
+        fs::write(
+            dir.path().join("mkdocs.yml"),
+            "nav:\n  - Zeta first: zeta.md\n",
+        )
+        .expect("config");
+
+        let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
+
+        assert_eq!(result.source, DocumentOrderSource::Mkdocs);
+        assert_eq!(display_paths(&result), vec!["zeta.md"]);
+    }
+
+    #[test]
+    fn mkdocs_fallback_skips_hidden_cache_build_and_symlink_escape_dirs() {
+        let dir = tempdir().expect("tempdir");
+        let outside = tempdir().expect("outside");
+        let docs = dir.path().join("docs");
+        fs::create_dir_all(docs.join(".cache")).expect("cache");
+        fs::create_dir_all(docs.join("dist")).expect("dist");
+        fs::create_dir_all(docs.join("guide")).expect("guide");
+        fs::write(docs.join("index.md"), "# Home").expect("home");
+        fs::write(docs.join(".cache").join("hidden.md"), "# Hidden").expect("hidden");
+        fs::write(docs.join("dist").join("built.md"), "# Built").expect("built");
+        fs::write(docs.join("guide").join("intro.md"), "# Intro").expect("intro");
+        fs::write(outside.path().join("secret.md"), "# Secret").expect("secret");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(outside.path(), docs.join("linked-outside")).expect("symlink");
+        fs::write(dir.path().join("mkdocs.yml"), "site_name: Docs\n").expect("config");
+
+        let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
+        let serialized = serde_json::to_string(&result).expect("serialize");
+
+        assert_eq!(display_paths(&result), vec!["index.md", "guide/intro.md"]);
+        assert!(!serialized.contains("hidden.md"));
+        assert!(!serialized.contains("built.md"));
+        assert!(!serialized.contains("secret.md"));
+    }
+
+    #[test]
     fn resolves_local_mkdocs_inherit_for_nav_and_docs_dir() {
         let dir = tempdir().expect("tempdir");
         let docs = dir.path().join("site-docs");
@@ -327,6 +439,19 @@ mod tests {
         assert_eq!(
             result.message.as_deref(),
             Some("MkDocs configuration could not be parsed.")
+        );
+
+        fs::write(dir.path().join("mkdocs.yml"), "nav: index.md\n").expect("config");
+        let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
+        assert_eq!(result.source, DocumentOrderSource::None);
+        assert_eq!(result.message.as_deref(), Some("MkDocs nav is not a list."));
+
+        fs::write(dir.path().join("mkdocs.yml"), "site_name: Docs\n").expect("config");
+        let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
+        assert_eq!(result.source, DocumentOrderSource::None);
+        assert_eq!(
+            result.message.as_deref(),
+            Some("MkDocs docs directory did not contain local Markdown entries.")
         );
     }
 }

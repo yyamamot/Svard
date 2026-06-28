@@ -189,13 +189,14 @@ mod tests {
     }
 
     #[test]
-    fn load_document_order_includes_zensical_docs_dir_fallback_order() {
+    fn load_document_order_includes_static_docs_dir_fallback_orders() {
         let dir = tempdir().expect("tempdir");
         let docs = dir.path().join("docs");
         fs::create_dir_all(docs.join("guide")).expect("guide");
         fs::write(docs.join("index.md"), "# Home").expect("home");
         fs::write(docs.join("00_overview.md"), "# Overview").expect("overview");
         fs::write(docs.join("guide").join("intro.md"), "# Intro").expect("intro");
+        fs::write(dir.path().join("mkdocs.yml"), "site_name: Docs\n").expect("mkdocs");
         fs::write(
             dir.path().join("zensical.toml"),
             "[project]\ndocs_dir = \"docs\"\n",
@@ -207,16 +208,19 @@ mod tests {
             &roots_for(dir.path()),
         )
         .expect("catalog");
-        let order = catalog
-            .orders
-            .iter()
-            .find(|order| order.source == DocumentOrderSource::Zensical)
-            .expect("zensical order");
-        let serialized = normalized_test_path(&serde_json::to_string(order).expect("serialize"));
+        for source in [DocumentOrderSource::Mkdocs, DocumentOrderSource::Zensical] {
+            let order = catalog
+                .orders
+                .iter()
+                .find(|order| order.source == source)
+                .expect("fallback order");
+            let serialized =
+                normalized_test_path(&serde_json::to_string(order).expect("serialize"));
 
-        assert!(serialized.contains("index.md"));
-        assert!(serialized.contains("00_overview.md"));
-        assert!(serialized.contains("guide/intro.md"));
+            assert!(serialized.contains("index.md"));
+            assert!(serialized.contains("00_overview.md"));
+            assert!(serialized.contains("guide/intro.md"));
+        }
     }
 
     #[test]
