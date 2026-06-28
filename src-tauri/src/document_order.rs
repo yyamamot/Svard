@@ -166,36 +166,57 @@ mod tests {
         .expect("catalog");
 
         assert_eq!(catalog.orders.len(), 5);
-        assert!(
-            catalog
-                .orders
-                .iter()
-                .any(|order| order.source == DocumentOrderSource::Mkdocs)
-        );
-        assert!(
-            catalog
-                .orders
-                .iter()
-                .any(|order| order.source == DocumentOrderSource::Zensical)
-        );
-        assert!(
-            catalog
-                .orders
-                .iter()
-                .any(|order| order.source == DocumentOrderSource::Antora)
-        );
-        assert!(
-            catalog
-                .orders
-                .iter()
-                .any(|order| order.source == DocumentOrderSource::Vitepress)
-        );
-        assert!(
-            catalog
-                .orders
-                .iter()
-                .any(|order| order.source == DocumentOrderSource::Docusaurus)
-        );
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Mkdocs));
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Zensical));
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Antora));
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Vitepress));
+        assert!(catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Docusaurus));
+    }
+
+    #[test]
+    fn load_document_order_includes_zensical_docs_dir_fallback_order() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        fs::create_dir_all(docs.join("guide")).expect("guide");
+        fs::write(docs.join("index.md"), "# Home").expect("home");
+        fs::write(docs.join("00_overview.md"), "# Overview").expect("overview");
+        fs::write(docs.join("guide").join("intro.md"), "# Intro").expect("intro");
+        fs::write(
+            dir.path().join("zensical.toml"),
+            "[project]\ndocs_dir = \"docs\"\n",
+        )
+        .expect("zensical");
+
+        let catalog = load_document_order_from_root(
+            dir.path().to_str().expect("path"),
+            &roots_for(dir.path()),
+        )
+        .expect("catalog");
+        let order = catalog
+            .orders
+            .iter()
+            .find(|order| order.source == DocumentOrderSource::Zensical)
+            .expect("zensical order");
+        let serialized = normalized_test_path(&serde_json::to_string(order).expect("serialize"));
+
+        assert!(serialized.contains("index.md"));
+        assert!(serialized.contains("00_overview.md"));
+        assert!(serialized.contains("guide/intro.md"));
     }
 
     #[test]
@@ -410,12 +431,10 @@ mod tests {
         .expect("catalog");
         let serialized = serde_json::to_string(&catalog).expect("serialize");
 
-        assert!(
-            !catalog
-                .orders
-                .iter()
-                .any(|order| order.source == DocumentOrderSource::Antora)
-        );
+        assert!(!catalog
+            .orders
+            .iter()
+            .any(|order| order.source == DocumentOrderSource::Antora));
         assert!(!serialized.contains("example.invalid"));
         assert!(!serialized.contains("Outside Component"));
         assert!(!serialized.contains("Guide Home"));

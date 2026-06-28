@@ -1,4 +1,8 @@
-use std::{fs, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::{Path, PathBuf},
+};
 
 use toml::Value;
 
@@ -15,6 +19,19 @@ use crate::{
 };
 
 const ZENSICAL_CONFIG_NAME: &str = "zensical.toml";
+const ZENSICAL_FALLBACK_EXCLUDED_DIRS: &[&str] = &[
+    ".artifacts",
+    ".cache",
+    ".codegraph",
+    ".git",
+    ".serena",
+    "dist",
+    "node_modules",
+    "playwright-report",
+    "site",
+    "target",
+    "test-results",
+];
 
 pub(crate) fn load_zensical_order_from_root(
     root: &Path,
@@ -56,14 +73,24 @@ pub(crate) fn load_zensical_order_from_root(
             "Zensical documentation directory is outside the workspace.".to_string(),
         ));
     }
-    let docs_dir = config_dir.join(docs_dir);
+    let docs_dir = normalize_document_order_target_path(&config_dir.join(docs_dir));
     if ensure_path_allowed(&docs_dir, roots).is_err() {
         return none_result(Some(
             "Zensical documentation directory is outside the workspace.".to_string(),
         ));
     }
     let Some(nav) = project.get("nav") else {
-        return none_result(Some("Zensical nav is not configured.".to_string()));
+        let nodes = fallback_docs_dir_nodes(&docs_dir, roots);
+        if nodes.is_empty() {
+            return none_result(Some(
+                "Zensical docs directory did not contain local Markdown entries.".to_string(),
+            ));
+        }
+        return DocumentOrderResult {
+            source: DocumentOrderSource::Zensical,
+            nodes,
+            message: None,
+        };
     };
     let Some(items) = nav.as_array() else {
         return none_result(Some("Zensical nav is not a list.".to_string()));
@@ -217,6 +244,132 @@ fn zensical_target_candidates(docs_dir: &Path, target: &str) -> Vec<std::path::P
     candidates
 }
 
+fn fallback_docs_dir_nodes(docs_dir: &Path, roots: &AllowedRoots) -> Vec<DocumentOrderNode> {
+    let mut entries = Vec::new();
+    let mut visited_directories = BTreeSet::from([path_to_ui_string(docs_dir)]);
+    collect_fallback_markdown_entries(
+        docs_dir,
+        docs_dir,
+        roots,
+        &mut visited_directories,
+        &mut entries,
+    );
+    entries.sort_by(|left, right| {
+        fallback_order_key(&left.display_path).cmp(&fallback_order_key(&right.display_path))
+    });
+
+    let mut groups = Vec::new();
+    let mut sections: BTreeMap<String, Vec<FallbackMarkdownEntry>> = BTreeMap::new();
+    for entry in entries {
+        let Some((top_level, _)) = entry.display_path.split_once('/') else {
+            groups.push(FallbackNodeGroup::Document(entry));
+            continue;
+        };
+        let section_key = top_level.to_string();
+        if !sections.contains_key(&section_key) {
+            groups.push(FallbackNodeGroup::Section(section_key.clone()));
+        }
+        sections.entry(section_key).or_default().push(entry);
+    }
+    groups
+        .into_iter()
+        .map(|group| match group {
+            FallbackNodeGroup::Document(entry) => fallback_document_node(entry, 0),
+            FallbackNodeGroup::Section(section) => DocumentOrderNode::Section {
+                title: display_title_from_path(&section),
+                depth: 0,
+                children: sections
+                    .remove(&section)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|entry| fallback_document_node(entry, 1))
+                    .collect(),
+            },
+        })
+        .collect()
+}
+
+fn collect_fallback_markdown_entries(
+    directory: &Path,
+    docs_dir: &Path,
+    roots: &AllowedRoots,
+    visited_directories: &mut BTreeSet<String>,
+    entries: &mut Vec<FallbackMarkdownEntry>,
+) {
+    let read_dir = match fs::read_dir(directory) {
+        Ok(read_dir) => read_dir,
+        Err(_) => return,
+    };
+    for entry in read_dir.flatten() {
+        let path = normalize_document_order_target_path(&entry.path());
+        if ensure_path_allowed(&path, roots).is_err() {
+            continue;
+        }
+        let metadata = match fs::metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+        if metadata.is_dir() {
+            if is_zensical_fallback_excluded_dir(&path) {
+                continue;
+            }
+            let key = path_to_ui_string(&path);
+            if !visited_directories.insert(key) {
+                continue;
+            }
+            collect_fallback_markdown_entries(&path, docs_dir, roots, visited_directories, entries);
+            continue;
+        }
+        if !metadata.is_file() || !path.extension().is_some_and(|extension| extension == "md") {
+            continue;
+        }
+        let Some(display_path) = path.strip_prefix(docs_dir).ok().map(path_to_ui_string) else {
+            continue;
+        };
+        entries.push(FallbackMarkdownEntry { display_path, path });
+    }
+}
+
+fn is_zensical_fallback_excluded_dir(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| {
+            name.starts_with('.')
+                || ZENSICAL_FALLBACK_EXCLUDED_DIRS
+                    .iter()
+                    .any(|excluded| *excluded == name)
+        })
+        .unwrap_or(false)
+}
+
+fn fallback_order_key(display_path: &str) -> (usize, String) {
+    match display_path {
+        "index.md" => (0, display_path.to_string()),
+        "00_overview.md" => (1, display_path.to_string()),
+        _ => (2, display_path.to_string()),
+    }
+}
+
+fn fallback_document_node(entry: FallbackMarkdownEntry, depth: usize) -> DocumentOrderNode {
+    DocumentOrderNode::Document {
+        title: display_title_from_path(&entry.display_path),
+        path: path_to_ui_string(&entry.path),
+        display_path: entry.display_path,
+        depth,
+        status: DocumentOrderDocumentStatus::Resolved,
+    }
+}
+
+struct FallbackMarkdownEntry {
+    display_path: String,
+    path: PathBuf,
+}
+
+enum FallbackNodeGroup {
+    Document(FallbackMarkdownEntry),
+    Section(String),
+}
+
 #[cfg(test)]
 mod tests {
     use std::{fs, path::Path, sync::Mutex};
@@ -232,6 +385,25 @@ mod tests {
 
     fn normalized_serialized_paths(value: &str) -> String {
         value.replace("\\\\", "/").replace('\\', "/")
+    }
+
+    fn flatten_display_paths(nodes: &[DocumentOrderNode], paths: &mut Vec<String>) {
+        for node in nodes {
+            match node {
+                DocumentOrderNode::Document { display_path, .. } => {
+                    paths.push(display_path.clone());
+                }
+                DocumentOrderNode::Section { children, .. } => {
+                    flatten_display_paths(children, paths);
+                }
+            }
+        }
+    }
+
+    fn display_paths(result: &DocumentOrderResult) -> Vec<String> {
+        let mut paths = Vec::new();
+        flatten_display_paths(&result.nodes, &mut paths);
+        paths
     }
 
     #[test]
@@ -314,7 +486,137 @@ nav = [{ "Home" = "home.md" }]
     }
 
     #[test]
-    fn rejects_malformed_and_missing_zensical_nav_safely() {
+    fn falls_back_to_docs_dir_markdown_when_nav_is_missing() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("docs").join("01_basics")).expect("basics");
+        fs::create_dir_all(dir.path().join("docs").join("02_engines")).expect("engines");
+        fs::write(dir.path().join("docs").join("zeta.md"), "# Zeta").expect("zeta");
+        fs::write(dir.path().join("docs").join("index.md"), "# Home").expect("home");
+        fs::write(dir.path().join("docs").join("00_overview.md"), "# Overview").expect("overview");
+        fs::write(
+            dir.path()
+                .join("docs")
+                .join("01_basics")
+                .join("kv_cache.md"),
+            "# KV",
+        )
+        .expect("kv");
+        fs::write(
+            dir.path()
+                .join("docs")
+                .join("01_basics")
+                .join("checkpoint.md"),
+            "# Checkpoint",
+        )
+        .expect("checkpoint");
+        fs::write(
+            dir.path()
+                .join("docs")
+                .join("02_engines")
+                .join("overview.md"),
+            "# Engines",
+        )
+        .expect("engines overview");
+        fs::write(dir.path().join("docs").join("ignored.adoc"), "= Ignored").expect("adoc");
+        fs::write(
+            dir.path().join("zensical.toml"),
+            r#"[project]
+docs_dir = "docs"
+"#,
+        )
+        .expect("config");
+
+        let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
+
+        assert_eq!(result.source, DocumentOrderSource::Zensical);
+        assert_eq!(
+            display_paths(&result),
+            vec![
+                "index.md",
+                "00_overview.md",
+                "01_basics/checkpoint.md",
+                "01_basics/kv_cache.md",
+                "02_engines/overview.md",
+                "zeta.md",
+            ]
+        );
+        assert!(matches!(
+            &result.nodes[2],
+            DocumentOrderNode::Section { title, depth: 0, children }
+                if title == "01_basics" && children.len() == 2
+        ));
+    }
+
+    #[test]
+    fn explicit_zensical_nav_takes_precedence_over_docs_dir_fallback() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("docs")).expect("docs");
+        fs::write(dir.path().join("docs").join("alpha.md"), "# Alpha").expect("alpha");
+        fs::write(dir.path().join("docs").join("zeta.md"), "# Zeta").expect("zeta");
+        fs::write(
+            dir.path().join("zensical.toml"),
+            r#"[project]
+docs_dir = "docs"
+nav = [{ "Zeta first" = "zeta.md" }]
+"#,
+        )
+        .expect("config");
+
+        let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
+
+        assert_eq!(result.source, DocumentOrderSource::Zensical);
+        assert_eq!(display_paths(&result), vec!["zeta.md"]);
+    }
+
+    #[test]
+    fn zensical_fallback_skips_hidden_cache_build_and_symlink_escape_dirs() {
+        let dir = tempdir().expect("tempdir");
+        let outside = tempdir().expect("outside");
+        fs::create_dir_all(dir.path().join("docs").join(".cache")).expect("cache");
+        fs::create_dir_all(dir.path().join("docs").join("dist")).expect("dist");
+        fs::create_dir_all(dir.path().join("docs").join("guide")).expect("guide");
+        fs::write(dir.path().join("docs").join("index.md"), "# Home").expect("home");
+        fs::write(
+            dir.path().join("docs").join(".cache").join("hidden.md"),
+            "# Hidden",
+        )
+        .expect("hidden");
+        fs::write(
+            dir.path().join("docs").join("dist").join("built.md"),
+            "# Built",
+        )
+        .expect("built");
+        fs::write(
+            dir.path().join("docs").join("guide").join("intro.md"),
+            "# Intro",
+        )
+        .expect("intro");
+        fs::write(outside.path().join("secret.md"), "# Secret").expect("secret");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            outside.path(),
+            dir.path().join("docs").join("linked-outside"),
+        )
+        .expect("symlink");
+        fs::write(
+            dir.path().join("zensical.toml"),
+            r#"[project]
+docs_dir = "docs"
+"#,
+        )
+        .expect("config");
+
+        let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
+        let serialized = serde_json::to_string(&result).expect("serialize");
+
+        assert_eq!(display_paths(&result), vec!["index.md", "guide/intro.md"]);
+        assert!(!serialized.contains("hidden.md"));
+        assert!(!serialized.contains("built.md"));
+        assert!(!serialized.contains("secret.md"));
+    }
+
+    #[test]
+    fn rejects_malformed_empty_and_non_list_zensical_nav_safely() {
         let dir = tempdir().expect("tempdir");
         fs::write(dir.path().join("zensical.toml"), "[project]\nnav = [").expect("config");
 
@@ -325,12 +627,27 @@ nav = [{ "Home" = "home.md" }]
             Some("Zensical configuration could not be parsed.")
         );
 
+        fs::write(
+            dir.path().join("zensical.toml"),
+            r#"[project]
+docs_dir = "docs"
+nav = "index.md"
+"#,
+        )
+        .expect("config");
+        let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
+        assert_eq!(result.source, DocumentOrderSource::None);
+        assert_eq!(
+            result.message.as_deref(),
+            Some("Zensical nav is not a list.")
+        );
+
         fs::write(dir.path().join("zensical.toml"), "[project]\n").expect("config");
         let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
         assert_eq!(result.source, DocumentOrderSource::None);
         assert_eq!(
             result.message.as_deref(),
-            Some("Zensical nav is not configured.")
+            Some("Zensical docs directory did not contain local Markdown entries.")
         );
     }
 

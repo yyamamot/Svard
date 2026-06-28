@@ -123,7 +123,7 @@ export async function buildFilesAssertions(context) {
               result?.panelOpened === true &&
               result?.badgeLabel ===
                 "Modified in Git. Open rendered diff for git-modified.md" &&
-              result?.suggestionLabel === "Docs: MkDocs detected"
+              result?.suggestionLabel === "Docs: MkDocs"
             );
           })) &&
           (await page
