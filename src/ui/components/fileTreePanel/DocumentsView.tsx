@@ -354,7 +354,7 @@ export function DocumentsView({
       if (node.status === "resolved") {
         const row = visibleRowsByPath.get(node.path);
         if (row) {
-          result.push(renderDocumentRow(row, node.title, node.depth));
+          result.push(renderOrderDocumentRow(node, index, row));
         } else if (documentsFilter !== "changed") {
           result.push(renderOrderDocumentRow(node, index));
         }
@@ -463,7 +463,7 @@ export function DocumentsView({
       : false;
     const documentActive = activePath === documentPath;
     const documentDisplayPath =
-      documentRow?.relativePath ?? document?.displayPath;
+      document?.displayPath ?? documentRow?.relativePath;
     const sectionTitle = (
       <>
         <span className="documents-view-row-title">
@@ -602,22 +602,33 @@ export function DocumentsView({
   function renderOrderDocumentRow(
     node: Extract<DocumentOrderNode, { kind: "document" }>,
     index: number,
+    row?: FileTreeDocumentRow,
   ): React.ReactNode {
-    const isOpen = openDocumentPaths.has(node.path);
-    const isActive = activePath === node.path;
+    const isOpen = row?.isOpen ?? openDocumentPaths.has(node.path);
+    const isActive = row?.isActive ?? activePath === node.path;
     return (
       <div
         key={`order-${node.depth}-${index}-${node.path}`}
-        className={`tree-row file documents-view-row documents-view-row-order ${isActive ? "active" : ""}`}
+        className={`tree-row file documents-view-row documents-view-row-order ${isActive ? "active" : ""} ${row?.gitStatus?.className ?? ""}`}
         data-review-id="documents-view-row"
         data-context-menu-kind="file-tree"
         data-path={node.path}
         data-entry-kind="file"
+        data-git-status={
+          row?.gitStatus ? fileTreeGitStatusByPath[node.path] : undefined
+        }
+        data-git-status-label={row?.gitStatusLabel}
         data-document-status="resolved"
         data-document-open={isOpen ? "true" : undefined}
         data-document-order-active={isActive ? "true" : undefined}
-        title={node.path}
-        aria-label={`${node.title}${isOpen ? ", open" : ""}`}
+        title={
+          row?.gitStatus ? `${node.path} · ${row.gitStatus.label}` : node.path
+        }
+        aria-label={
+          row?.gitStatus
+            ? `${node.title}, ${row.gitStatus.label}`
+            : `${node.title}${isOpen ? ", open" : ""}`
+        }
         draggable
         onPointerDown={() => {
           prepareFileCompareDragData(node.path);
@@ -653,6 +664,22 @@ export function DocumentsView({
             <span className="documents-view-row-path">{node.displayPath}</span>
           </span>
         </button>
+        {row?.gitStatus ? (
+          <button
+            type="button"
+            className={`git-status-badge git-status-diff-button ${row.gitStatus.className}`}
+            data-review-id="git-status-diff-button"
+            data-git-status-label={row.gitStatusLabel}
+            aria-label={row.gitStatusLabel}
+            title={row.gitStatusLabel}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenGitDiff(node.path);
+            }}
+          >
+            {row.gitStatus.shortLabel}
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -686,13 +713,32 @@ export function DocumentsView({
     );
   }
 
+  function documentsViewHeading(): string {
+    switch (viewMode) {
+      case "documents-path":
+        return "Docs: Loaded";
+      case "documents-mkdocs":
+        return "Docs: MkDocs";
+      case "documents-zensical":
+        return "Docs: Zensical";
+      case "documents-antora":
+        return "Docs: Antora";
+      case "documents-vitepress":
+        return "Docs: VitePress";
+      case "documents-docusaurus":
+        return "Docs: Docusaurus";
+      default:
+        return "Documents only";
+    }
+  }
+
   function renderDocumentsSourceFilter(): React.ReactNode {
     return (
       <div
         className="documents-view-header"
         data-review-id="documents-view-header"
       >
-        <span className="documents-view-heading">Documents only</span>
+        <span className="documents-view-heading">{documentsViewHeading()}</span>
         <div
           className="documents-source-filter"
           data-review-id="documents-source-filter"

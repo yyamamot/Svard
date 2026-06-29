@@ -38,7 +38,11 @@ describe("FileTreePanel Antora and experimental document order", () => {
           ]}
           childrenByDirectory={{
             "/workspace": [
-              { name: "modules", path: "/workspace/modules", kind: "directory" },
+              {
+                name: "modules",
+                path: "/workspace/modules",
+                kind: "directory",
+              },
             ],
             "/workspace/modules/ROOT/pages": [
               {
@@ -121,6 +125,9 @@ describe("FileTreePanel Antora and experimental document order", () => {
     await chooseFileViewMode("documents-view-mode-antora");
 
     expect(
+      container.querySelector(".documents-view-heading")?.textContent,
+    ).toBe("Docs: Antora");
+    expect(
       container.querySelector('[data-review-id="documents-antora-section"]')
         ?.textContent,
     ).toContain("Product");
@@ -150,8 +157,6 @@ describe("FileTreePanel Antora and experimental document order", () => {
       expect.stringContaining("extra.adoc"),
     ]);
   });
-
-
 
   it("keeps experimental VitePress and Docusaurus order sources hidden by default", async () => {
     await act(async () => {
@@ -295,14 +300,16 @@ describe("FileTreePanel Antora and experimental document order", () => {
     });
 
     expect(
-      container.querySelector('[data-review-id="documents-view-mode-vitepress"]'),
+      container.querySelector(
+        '[data-review-id="documents-view-mode-vitepress"]',
+      ),
     ).toBeNull();
     expect(
-      container.querySelector('[data-review-id="documents-view-mode-docusaurus"]'),
+      container.querySelector(
+        '[data-review-id="documents-view-mode-docusaurus"]',
+      ),
     ).toBeNull();
   });
-
-
 
   it("collapses Antora order sections with the shared section toggle", async () => {
     await act(async () => {
@@ -314,7 +321,11 @@ describe("FileTreePanel Antora and experimental document order", () => {
           ]}
           childrenByDirectory={{
             "/workspace": [
-              { name: "modules", path: "/workspace/modules", kind: "directory" },
+              {
+                name: "modules",
+                path: "/workspace/modules",
+                kind: "directory",
+              },
             ],
             "/workspace/modules/ROOT/pages": [
               {
@@ -387,7 +398,8 @@ describe("FileTreePanel Antora and experimental document order", () => {
 
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
     expect(
-      container.querySelector('[data-review-id="documents-antora-section"]')
+      container
+        .querySelector('[data-review-id="documents-antora-section"]')
         ?.getAttribute("data-document-order-section-state"),
     ).toBe("expanded");
     const rows = [
@@ -398,8 +410,6 @@ describe("FileTreePanel Antora and experimental document order", () => {
       expect.stringContaining("Missing"),
     ]);
   });
-
-
 
   it("renders Antora parent xref as a collapsible document section without duplicate row", async () => {
     const onOpenFile = vi.fn();
@@ -412,7 +422,11 @@ describe("FileTreePanel Antora and experimental document order", () => {
           ]}
           childrenByDirectory={{
             "/workspace": [
-              { name: "modules", path: "/workspace/modules", kind: "directory" },
+              {
+                name: "modules",
+                path: "/workspace/modules",
+                kind: "directory",
+              },
             ],
             "/workspace/modules/ROOT/pages": [
               {
@@ -494,6 +508,9 @@ describe("FileTreePanel Antora and experimental document order", () => {
       "true",
     );
     expect(section?.className).toContain("active");
+    expect(
+      section?.querySelector(".documents-view-row-path")?.textContent,
+    ).toBe("index.adoc");
     const rows = [
       ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
     ];
@@ -525,8 +542,6 @@ describe("FileTreePanel Antora and experimental document order", () => {
     ]);
   });
 
-
-
   it("shows Antora order documents before their file tree directories are expanded", async () => {
     const onOpenFile = vi.fn();
     await act(async () => {
@@ -538,7 +553,11 @@ describe("FileTreePanel Antora and experimental document order", () => {
           ]}
           childrenByDirectory={{
             "/workspace": [
-              { name: "modules", path: "/workspace/modules", kind: "directory" },
+              {
+                name: "modules",
+                path: "/workspace/modules",
+                kind: "directory",
+              },
             ],
           }}
           expandedDirectories={new Set()}
@@ -597,18 +616,20 @@ describe("FileTreePanel Antora and experimental document order", () => {
         )
         ?.click();
     });
-    const row = container.querySelector('[data-review-id="documents-view-row"]');
+    const row = container.querySelector(
+      '[data-review-id="documents-view-row"]',
+    );
     expect(row?.textContent).toContain("Home");
 
     await act(async () => {
-      row?.querySelector<HTMLButtonElement>(".documents-view-row-main")?.click();
+      row
+        ?.querySelector<HTMLButtonElement>(".documents-view-row-main")
+        ?.click();
     });
     expect(onOpenFile).toHaveBeenCalledWith(
       "/workspace/modules/ROOT/pages/index.adoc",
     );
   });
-
-
 
   it("marks open ordered documents when their directories are not loaded", async () => {
     await act(async () => {
@@ -620,7 +641,11 @@ describe("FileTreePanel Antora and experimental document order", () => {
           ]}
           childrenByDirectory={{
             "/workspace": [
-              { name: "modules", path: "/workspace/modules", kind: "directory" },
+              {
+                name: "modules",
+                path: "/workspace/modules",
+                kind: "directory",
+              },
             ],
           }}
           expandedDirectories={new Set()}
@@ -662,7 +687,9 @@ describe("FileTreePanel Antora and experimental document order", () => {
 
     await chooseFileViewMode("documents-view-mode-antora");
 
-    const row = container.querySelector('[data-review-id="documents-view-row"]');
+    const row = container.querySelector(
+      '[data-review-id="documents-view-row"]',
+    );
     expect(row?.getAttribute("data-document-open")).toBe("true");
     expect(row?.textContent).toContain("open");
     expect(
@@ -784,5 +811,4 @@ describe("FileTreePanel Antora and experimental document order", () => {
       ),
     ).toBeNull();
   });
-
 });

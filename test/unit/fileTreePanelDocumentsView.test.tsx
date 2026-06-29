@@ -97,7 +97,9 @@ describe("FileTreePanel Documents only view", () => {
       );
     });
 
-    expect(container.querySelector('[data-review-id="file-tree"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-review-id="file-tree"]'),
+    ).not.toBeNull();
     expect(
       container.querySelector('[data-review-id="documents-view"]'),
     ).toBeNull();
@@ -109,6 +111,9 @@ describe("FileTreePanel Documents only view", () => {
 
     await chooseFileViewMode("documents-view-mode-path");
 
+    expect(
+      container.querySelector(".documents-view-heading")?.textContent,
+    ).toBe("Docs: Loaded");
     const rows = [
       ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
     ];
@@ -137,11 +142,12 @@ describe("FileTreePanel Documents only view", () => {
         .querySelector('[data-review-id="documents-source-filter-all"]')
         ?.getAttribute("aria-pressed"),
     ).toBe("true");
-    const readmeRow = rows.find((row) => row.textContent?.includes("README.md"));
+    const readmeRow = rows.find((row) =>
+      row.textContent?.includes("README.md"),
+    );
     expect(readmeRow?.getAttribute("data-document-open")).toBe("true");
     expect(readmeRow?.textContent).not.toContain("open");
   });
-
 
   it("collapses and expands open document directory groups", async () => {
     await act(async () => {
@@ -197,6 +203,9 @@ describe("FileTreePanel Documents only view", () => {
 
     await chooseFileViewMode("documents-view-mode-path");
 
+    expect(
+      container.querySelector(".documents-view-heading")?.textContent,
+    ).toBe("Docs: Loaded");
     const section = container.querySelector(
       '[data-review-id="documents-loaded-section"]',
     );
@@ -204,6 +213,9 @@ describe("FileTreePanel Documents only view", () => {
       "expanded",
     );
     expect(container.textContent).toContain("guide.md");
+    expect(
+      container.querySelector(".documents-view-row-path")?.textContent,
+    ).toBe("docs/guide.md");
     expect(container.textContent).not.toContain("unopened.md");
 
     await act(async () => {
@@ -219,7 +231,6 @@ describe("FileTreePanel Documents only view", () => {
     );
     expect(container.textContent).not.toContain("guide.md");
   });
-
 
   it("filters Documents view to changed loaded documents", async () => {
     await act(async () => {
@@ -392,7 +403,6 @@ describe("FileTreePanel Documents only view", () => {
     expect(container.textContent).not.toContain("clean.md");
   });
 
-
   it("uses cached Source Control changes for loaded Documents rows only", async () => {
     await act(async () => {
       root.render(
@@ -494,7 +504,6 @@ describe("FileTreePanel Documents only view", () => {
     expect(container.textContent).not.toContain("plain.md");
   });
 
-
   it("opens diff from a changed Documents badge without opening the file", async () => {
     const onOpenFile = vi.fn();
     const onOpenGitDiff = vi.fn();
@@ -561,7 +570,6 @@ describe("FileTreePanel Documents only view", () => {
     expect(onOpenFile).not.toHaveBeenCalled();
   });
 
-
   it("shows a changed Documents empty state when no loaded document changed", async () => {
     await act(async () => {
       root.render(
@@ -620,7 +628,6 @@ describe("FileTreePanel Documents only view", () => {
     ).toContain("No changed open documents");
   });
 
-
   it("opens active document rows from Documents view", async () => {
     const onOpenFile = vi.fn();
 
@@ -669,16 +676,19 @@ describe("FileTreePanel Documents only view", () => {
 
     await chooseFileViewMode("documents-view-mode-path");
 
-    const row = container.querySelector('[data-review-id="documents-view-row"]');
+    const row = container.querySelector(
+      '[data-review-id="documents-view-row"]',
+    );
     expect(row?.classList.contains("active")).toBe(true);
 
     await act(async () => {
-      row?.querySelector<HTMLButtonElement>(".documents-view-row-main")?.click();
+      row
+        ?.querySelector<HTMLButtonElement>(".documents-view-row-main")
+        ?.click();
     });
 
     expect(onOpenFile).toHaveBeenCalledWith("/workspace/README.md");
   });
-
 
   it("shows a Documents empty state when no loaded documents exist", async () => {
     await act(async () => {

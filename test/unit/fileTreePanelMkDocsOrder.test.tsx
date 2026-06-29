@@ -66,7 +66,9 @@ describe("FileTreePanel MkDocs document order", () => {
           expandedDirectories={new Set(["/workspace/docs"])}
           loadingDirectories={new Set()}
           directoryErrors={{}}
-          gitStatusByPath={{}}
+          gitStatusByPath={{
+            "/workspace/docs/z-last.md": "modified",
+          }}
           gitChanges={null}
           documentOrder={{
             orders: [
@@ -124,6 +126,9 @@ describe("FileTreePanel MkDocs document order", () => {
     await chooseFileViewMode("documents-view-mode-mkdocs");
 
     expect(
+      container.querySelector(".documents-view-heading")?.textContent,
+    ).toBe("Docs: MkDocs");
+    expect(
       container.querySelector('[data-review-id="documents-mkdocs-section"]')
         ?.textContent,
     ).toContain("Guide");
@@ -152,6 +157,16 @@ describe("FileTreePanel MkDocs document order", () => {
       expect.stringContaining("Missing"),
       expect.stringContaining("extra.md"),
     ]);
+    const rowPaths = rows.map(
+      (row) => row.querySelector(".documents-view-row-path")?.textContent ?? "",
+    );
+    expect(rowPaths[0]).toBe("index.md");
+    expect(rowPaths[1]).toBe("z-last.md");
+    expect(rowPaths[2]).toContain("missing.md");
+    expect(rowPaths[3]).toBe("docs/extra.md");
+    expect(
+      rows[1].querySelector('[data-review-id="git-status-diff-button"]'),
+    ).not.toBeNull();
   });
 
   it("renders nav-less MkDocs fallback as a directory tree without not-in-nav", async () => {
@@ -279,6 +294,15 @@ describe("FileTreePanel MkDocs document order", () => {
       expect.stringContaining("03_kv_cache_systems/overview.md"),
       expect.stringContaining("03_kv_cache_systems/engines/overview.md"),
     ]);
+    expect(
+      rows.map(
+        (row) =>
+          row.querySelector(".documents-view-row-path")?.textContent ?? "",
+      ),
+    ).toEqual([
+      "03_kv_cache_systems/overview.md",
+      "03_kv_cache_systems/engines/overview.md",
+    ]);
   });
 
   it("orders Documents view by Zensical nav when selected", async () => {
@@ -362,6 +386,9 @@ describe("FileTreePanel MkDocs document order", () => {
     });
 
     await chooseFileViewMode("documents-view-mode-zensical");
+    expect(
+      container.querySelector(".documents-view-heading")?.textContent,
+    ).toBe("Docs: Zensical");
     await act(async () => {
       container
         .querySelector<HTMLButtonElement>(
