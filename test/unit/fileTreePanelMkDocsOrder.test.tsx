@@ -433,23 +433,13 @@ describe("FileTreePanel MkDocs document order", () => {
             "/workspace": [
               { name: "docs", path: "/workspace/docs", kind: "directory" },
             ],
-            "/workspace/docs": [
-              {
-                name: "extra.md",
-                path: "/workspace/docs/extra.md",
-                kind: "file",
-              },
-              {
-                name: "overview.md",
-                path: "/workspace/docs/guide/overview.md",
-                kind: "file",
-              },
-            ],
           }}
-          expandedDirectories={new Set(["/workspace/docs"])}
+          expandedDirectories={new Set()}
           loadingDirectories={new Set()}
           directoryErrors={{}}
-          gitStatusByPath={{}}
+          gitStatusByPath={{
+            "/workspace/docs/guide/overview.md": "modified",
+          }}
           gitChanges={null}
           documentOrder={{
             orders: [
@@ -500,6 +490,25 @@ describe("FileTreePanel MkDocs document order", () => {
       container.querySelector('[data-review-id="documents-zensical-section"]')
         ?.textContent,
     ).toContain("guide");
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-zensical-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+
+    const row = container.querySelector(
+      '[data-review-id="documents-view-row"]',
+    );
+    expect(row?.querySelector(".documents-view-row-path")?.textContent).toBe(
+      "guide/overview.md",
+    );
+    expect(
+      row?.querySelector('[data-review-id="git-status-diff-button"]')
+        ?.textContent,
+    ).toBe("M");
   });
 
   it("collapses MkDocs order sections and not-in-nav groups", async () => {

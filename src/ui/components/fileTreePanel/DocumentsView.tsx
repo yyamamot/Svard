@@ -10,6 +10,8 @@ import {
   scheduleClearFileCompareDragData,
   writeFileCompareDragData,
 } from "../../lib/fileCompareDrag";
+import { fileGitStatusBadgeLabel } from "../../lib/gitStatusBadgeLabels";
+import { gitStatusDisplay } from "../../lib/gitStatusDisplay";
 import {
   collectDocumentOrderPaths,
   documentOrderSectionKey,
@@ -19,6 +21,7 @@ import {
   type OpenDocumentTreeNode,
 } from "../../lib/fileTreeDocuments";
 import { registerDocumentsPanelCommandBridge } from "../../lib/documentsPanelCommandBridge";
+import { fileName } from "../../lib/path";
 import type {
   ActiveDocumentOrder,
   DocumentOrderSectionOptions,
@@ -606,27 +609,30 @@ export function DocumentsView({
   ): React.ReactNode {
     const isOpen = row?.isOpen ?? openDocumentPaths.has(node.path);
     const isActive = row?.isActive ?? activePath === node.path;
+    const rawGitStatus = fileTreeGitStatusByPath[node.path];
+    const gitStatus = row?.gitStatus ?? gitStatusDisplay(rawGitStatus);
+    const gitStatusLabel =
+      row?.gitStatusLabel ??
+      (gitStatus
+        ? fileGitStatusBadgeLabel(gitStatus, fileName(node.path))
+        : undefined);
     return (
       <div
         key={`order-${node.depth}-${index}-${node.path}`}
-        className={`tree-row file documents-view-row documents-view-row-order ${isActive ? "active" : ""} ${row?.gitStatus?.className ?? ""}`}
+        className={`tree-row file documents-view-row documents-view-row-order ${isActive ? "active" : ""} ${gitStatus?.className ?? ""}`}
         data-review-id="documents-view-row"
         data-context-menu-kind="file-tree"
         data-path={node.path}
         data-entry-kind="file"
-        data-git-status={
-          row?.gitStatus ? fileTreeGitStatusByPath[node.path] : undefined
-        }
-        data-git-status-label={row?.gitStatusLabel}
+        data-git-status={gitStatus ? rawGitStatus : undefined}
+        data-git-status-label={gitStatusLabel}
         data-document-status="resolved"
         data-document-open={isOpen ? "true" : undefined}
         data-document-order-active={isActive ? "true" : undefined}
-        title={
-          row?.gitStatus ? `${node.path} · ${row.gitStatus.label}` : node.path
-        }
+        title={gitStatus ? `${node.path} · ${gitStatus.label}` : node.path}
         aria-label={
-          row?.gitStatus
-            ? `${node.title}, ${row.gitStatus.label}`
+          gitStatus
+            ? `${node.title}, ${gitStatus.label}`
             : `${node.title}${isOpen ? ", open" : ""}`
         }
         draggable
@@ -664,20 +670,20 @@ export function DocumentsView({
             <span className="documents-view-row-path">{node.displayPath}</span>
           </span>
         </button>
-        {row?.gitStatus ? (
+        {gitStatus ? (
           <button
             type="button"
-            className={`git-status-badge git-status-diff-button ${row.gitStatus.className}`}
+            className={`git-status-badge git-status-diff-button ${gitStatus.className}`}
             data-review-id="git-status-diff-button"
-            data-git-status-label={row.gitStatusLabel}
-            aria-label={row.gitStatusLabel}
-            title={row.gitStatusLabel}
+            data-git-status-label={gitStatusLabel}
+            aria-label={gitStatusLabel}
+            title={gitStatusLabel}
             onClick={(event) => {
               event.stopPropagation();
               onOpenGitDiff(node.path);
             }}
           >
-            {row.gitStatus.shortLabel}
+            {gitStatus.shortLabel}
           </button>
         ) : null}
       </div>
