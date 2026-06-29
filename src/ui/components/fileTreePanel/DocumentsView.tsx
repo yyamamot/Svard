@@ -272,9 +272,10 @@ export function DocumentsView({
       options,
       [],
     );
-    const notInNavRows = visibleDocumentRows.filter(
-      (row) => !navPaths.has(row.entry.path),
-    );
+    const showNotInNav = options.showNotInNav ?? true;
+    const notInNavRows = showNotInNav
+      ? visibleDocumentRows.filter((row) => !navPaths.has(row.entry.path))
+      : [];
     const notInNavSectionKey = documentOrderSectionKey(
       order.source,
       ["not-in-nav"],

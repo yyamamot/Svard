@@ -221,6 +221,7 @@ export function FileTreePanel({
           sectionReviewId: "documents-mkdocs-section",
           notInNavReviewId: "documents-mkdocs-not-in-nav",
           notInNavLabel: "Not in mkdocs.yml",
+          showNotInNav: mkdocsOrder.orderKind !== "docs-dir-fallback",
         },
       };
     }
@@ -241,6 +242,7 @@ export function FileTreePanel({
           sectionReviewId: "documents-zensical-section",
           notInNavReviewId: "documents-zensical-not-in-nav",
           notInNavLabel: "Not in zensical.toml",
+          showNotInNav: zensicalOrder.orderKind !== "docs-dir-fallback",
         },
       };
     }

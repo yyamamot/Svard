@@ -186,7 +186,16 @@ pub struct DocumentOrderResult {
     pub source: DocumentOrderSource,
     pub nodes: Vec<DocumentOrderNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order_kind: Option<DocumentOrderKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum DocumentOrderKind {
+    ExplicitNav,
+    DocsDirFallback,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

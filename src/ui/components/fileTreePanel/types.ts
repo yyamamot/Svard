@@ -12,6 +12,7 @@ export type DocumentOrderSectionOptions = {
   sectionReviewId: string;
   notInNavReviewId: string;
   notInNavLabel: string;
+  showNotInNav?: boolean;
 };
 
 export type ActiveDocumentOrder = {

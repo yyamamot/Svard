@@ -7,8 +7,8 @@ use serde_norway::{Mapping, Value};
 
 use crate::{
     backend_types::{
-        AllowedRoots, DocumentOrderDocumentStatus, DocumentOrderNode, DocumentOrderResult,
-        DocumentOrderSource,
+        AllowedRoots, DocumentOrderDocumentStatus, DocumentOrderKind, DocumentOrderNode,
+        DocumentOrderResult, DocumentOrderSource,
     },
     document_order_common::{
         display_title_from_path, fallback_docs_dir_nodes, is_external_or_absolute_target,
@@ -50,6 +50,7 @@ pub(crate) fn load_mkdocs_order_from_root(
         return DocumentOrderResult {
             source: DocumentOrderSource::Mkdocs,
             nodes,
+            order_kind: Some(DocumentOrderKind::DocsDirFallback),
             message: None,
         };
     };
@@ -67,6 +68,7 @@ pub(crate) fn load_mkdocs_order_from_root(
     DocumentOrderResult {
         source: DocumentOrderSource::Mkdocs,
         nodes,
+        order_kind: Some(DocumentOrderKind::ExplicitNav),
         message: None,
     }
 }
@@ -314,6 +316,8 @@ mod tests {
         let docs = dir.path().join("site-docs");
         fs::create_dir_all(docs.join("01_basics")).expect("basics");
         fs::create_dir_all(docs.join("02_engines")).expect("engines");
+        fs::create_dir_all(docs.join("03_kv_cache_systems").join("engines")).expect("kv engines");
+        fs::create_dir_all(docs.join("03_kv_cache_systems").join("storage")).expect("kv storage");
         fs::write(docs.join("zeta.md"), "# Zeta").expect("zeta");
         fs::write(docs.join("index.md"), "# Home").expect("home");
         fs::write(docs.join("00_overview.md"), "# Overview").expect("overview");
@@ -322,12 +326,32 @@ mod tests {
             .expect("checkpoint");
         fs::write(docs.join("02_engines").join("overview.md"), "# Engines")
             .expect("engines overview");
+        fs::write(
+            docs.join("03_kv_cache_systems").join("overview.md"),
+            "# KV Overview",
+        )
+        .expect("kv overview");
+        fs::write(
+            docs.join("03_kv_cache_systems")
+                .join("engines")
+                .join("overview.md"),
+            "# Engine Overview",
+        )
+        .expect("engine overview");
+        fs::write(
+            docs.join("03_kv_cache_systems")
+                .join("storage")
+                .join("overview.md"),
+            "# Storage Overview",
+        )
+        .expect("storage overview");
         fs::write(docs.join("ignored.adoc"), "= Ignored").expect("adoc");
         fs::write(dir.path().join("mkdocs.yml"), "docs_dir: site-docs\n").expect("config");
 
         let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
 
         assert_eq!(result.source, DocumentOrderSource::Mkdocs);
+        assert_eq!(result.order_kind, Some(DocumentOrderKind::DocsDirFallback));
         assert_eq!(
             display_paths(&result),
             vec![
@@ -336,6 +360,9 @@ mod tests {
                 "01_basics/checkpoint.md",
                 "01_basics/kv_cache.md",
                 "02_engines/overview.md",
+                "03_kv_cache_systems/overview.md",
+                "03_kv_cache_systems/engines/overview.md",
+                "03_kv_cache_systems/storage/overview.md",
                 "zeta.md",
             ]
         );
@@ -343,6 +370,14 @@ mod tests {
             &result.nodes[2],
             DocumentOrderNode::Section { title, depth: 0, children }
                 if title == "01_basics" && children.len() == 2
+        ));
+        assert!(matches!(
+            &result.nodes[4],
+            DocumentOrderNode::Section { title, depth: 0, children }
+                if title == "03_kv_cache_systems"
+                    && matches!(&children[0], DocumentOrderNode::Document { title, depth: 1, .. } if title == "overview")
+                    && matches!(&children[1], DocumentOrderNode::Section { title, depth: 1, children } if title == "engines" && children.len() == 1)
+                    && matches!(&children[2], DocumentOrderNode::Section { title, depth: 1, children } if title == "storage" && children.len() == 1)
         ));
     }
 
@@ -362,6 +397,7 @@ mod tests {
         let result = load_mkdocs_order_from_root(dir.path(), &roots_for(dir.path()));
 
         assert_eq!(result.source, DocumentOrderSource::Mkdocs);
+        assert_eq!(result.order_kind, Some(DocumentOrderKind::ExplicitNav));
         assert_eq!(display_paths(&result), vec!["zeta.md"]);
     }
 

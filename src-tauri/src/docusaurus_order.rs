@@ -92,6 +92,7 @@ pub(crate) fn load_docusaurus_order_from_root(
     DocumentOrderResult {
         source: DocumentOrderSource::Docusaurus,
         nodes,
+        order_kind: None,
         message: None,
     }
 }

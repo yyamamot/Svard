@@ -52,6 +52,7 @@ pub(crate) fn load_antora_order_from_roots(
     DocumentOrderResult {
         source: DocumentOrderSource::Antora,
         nodes: sections,
+        order_kind: None,
         message: None,
     }
 }
@@ -112,6 +113,7 @@ fn load_antora_order_from_content_root(root: &Path, roots: &AllowedRoots) -> Doc
     DocumentOrderResult {
         source: DocumentOrderSource::Antora,
         nodes,
+        order_kind: None,
         message: None,
     }
 }

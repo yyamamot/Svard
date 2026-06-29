@@ -122,6 +122,7 @@ export type DocumentOrderNode =
 export interface DocumentOrderResult {
   source: DocumentOrderSource;
   nodes: DocumentOrderNode[];
+  orderKind?: "explicit-nav" | "docs-dir-fallback";
   message?: string;
 }
 

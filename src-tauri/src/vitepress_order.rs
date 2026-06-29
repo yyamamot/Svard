@@ -68,6 +68,7 @@ pub(crate) fn load_vitepress_order_from_root(
     DocumentOrderResult {
         source: DocumentOrderSource::Vitepress,
         nodes,
+        order_kind: None,
         message: None,
     }
 }

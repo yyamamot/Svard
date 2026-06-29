@@ -4,8 +4,8 @@ use toml::Value;
 
 use crate::{
     backend_types::{
-        AllowedRoots, DocumentOrderDocumentStatus, DocumentOrderNode, DocumentOrderResult,
-        DocumentOrderSource,
+        AllowedRoots, DocumentOrderDocumentStatus, DocumentOrderKind, DocumentOrderNode,
+        DocumentOrderResult, DocumentOrderSource,
     },
     document_order_common::{
         display_title_from_path, fallback_docs_dir_nodes, is_external_or_absolute_target,
@@ -72,6 +72,7 @@ pub(crate) fn load_zensical_order_from_root(
         return DocumentOrderResult {
             source: DocumentOrderSource::Zensical,
             nodes,
+            order_kind: Some(DocumentOrderKind::DocsDirFallback),
             message: None,
         };
     };
@@ -88,6 +89,7 @@ pub(crate) fn load_zensical_order_from_root(
     DocumentOrderResult {
         source: DocumentOrderSource::Zensical,
         nodes,
+        order_kind: Some(DocumentOrderKind::ExplicitNav),
         message: None,
     }
 }
@@ -347,6 +349,20 @@ nav = [{ "Home" = "home.md" }]
         let dir = tempdir().expect("tempdir");
         fs::create_dir_all(dir.path().join("docs").join("01_basics")).expect("basics");
         fs::create_dir_all(dir.path().join("docs").join("02_engines")).expect("engines");
+        fs::create_dir_all(
+            dir.path()
+                .join("docs")
+                .join("03_kv_cache_systems")
+                .join("engines"),
+        )
+        .expect("kv engines");
+        fs::create_dir_all(
+            dir.path()
+                .join("docs")
+                .join("03_kv_cache_systems")
+                .join("storage"),
+        )
+        .expect("kv storage");
         fs::write(dir.path().join("docs").join("zeta.md"), "# Zeta").expect("zeta");
         fs::write(dir.path().join("docs").join("index.md"), "# Home").expect("home");
         fs::write(dir.path().join("docs").join("00_overview.md"), "# Overview").expect("overview");
@@ -374,6 +390,32 @@ nav = [{ "Home" = "home.md" }]
             "# Engines",
         )
         .expect("engines overview");
+        fs::write(
+            dir.path()
+                .join("docs")
+                .join("03_kv_cache_systems")
+                .join("overview.md"),
+            "# KV Overview",
+        )
+        .expect("kv overview");
+        fs::write(
+            dir.path()
+                .join("docs")
+                .join("03_kv_cache_systems")
+                .join("engines")
+                .join("overview.md"),
+            "# Engine Overview",
+        )
+        .expect("engine overview");
+        fs::write(
+            dir.path()
+                .join("docs")
+                .join("03_kv_cache_systems")
+                .join("storage")
+                .join("overview.md"),
+            "# Storage Overview",
+        )
+        .expect("storage overview");
         fs::write(dir.path().join("docs").join("ignored.adoc"), "= Ignored").expect("adoc");
         fs::write(
             dir.path().join("zensical.toml"),
@@ -386,6 +428,7 @@ docs_dir = "docs"
         let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
 
         assert_eq!(result.source, DocumentOrderSource::Zensical);
+        assert_eq!(result.order_kind, Some(DocumentOrderKind::DocsDirFallback));
         assert_eq!(
             display_paths(&result),
             vec![
@@ -394,6 +437,9 @@ docs_dir = "docs"
                 "01_basics/checkpoint.md",
                 "01_basics/kv_cache.md",
                 "02_engines/overview.md",
+                "03_kv_cache_systems/overview.md",
+                "03_kv_cache_systems/engines/overview.md",
+                "03_kv_cache_systems/storage/overview.md",
                 "zeta.md",
             ]
         );
@@ -401,6 +447,14 @@ docs_dir = "docs"
             &result.nodes[2],
             DocumentOrderNode::Section { title, depth: 0, children }
                 if title == "01_basics" && children.len() == 2
+        ));
+        assert!(matches!(
+            &result.nodes[4],
+            DocumentOrderNode::Section { title, depth: 0, children }
+                if title == "03_kv_cache_systems"
+                    && matches!(&children[0], DocumentOrderNode::Document { title, depth: 1, .. } if title == "overview")
+                    && matches!(&children[1], DocumentOrderNode::Section { title, depth: 1, children } if title == "engines" && children.len() == 1)
+                    && matches!(&children[2], DocumentOrderNode::Section { title, depth: 1, children } if title == "storage" && children.len() == 1)
         ));
     }
 
@@ -422,6 +476,7 @@ nav = [{ "Zeta first" = "zeta.md" }]
         let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
 
         assert_eq!(result.source, DocumentOrderSource::Zensical);
+        assert_eq!(result.order_kind, Some(DocumentOrderKind::ExplicitNav));
         assert_eq!(display_paths(&result), vec!["zeta.md"]);
     }
 

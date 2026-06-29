@@ -154,6 +154,133 @@ describe("FileTreePanel MkDocs document order", () => {
     ]);
   });
 
+  it("renders nav-less MkDocs fallback as a directory tree without not-in-nav", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "extra.md",
+                path: "/workspace/docs/extra.md",
+                kind: "file",
+              },
+              {
+                name: "overview.md",
+                path: "/workspace/docs/03_kv_cache_systems/overview.md",
+                kind: "file",
+              },
+              {
+                name: "overview.md",
+                path: "/workspace/docs/03_kv_cache_systems/engines/overview.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "mkdocs",
+                orderKind: "docs-dir-fallback",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "03_kv_cache_systems",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "overview",
+                        path: "/workspace/docs/03_kv_cache_systems/overview.md",
+                        displayPath: "03_kv_cache_systems/overview.md",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                      {
+                        kind: "section",
+                        title: "engines",
+                        depth: 1,
+                        children: [
+                          {
+                            kind: "document",
+                            title: "overview",
+                            path: "/workspace/docs/03_kv_cache_systems/engines/overview.md",
+                            displayPath:
+                              "03_kv_cache_systems/engines/overview.md",
+                            depth: 2,
+                            status: "resolved",
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/docs/extra.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-mkdocs");
+    expect(
+      container.querySelector('[data-review-id="documents-mkdocs-not-in-nav"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-review-id="documents-mkdocs-section"]')
+        ?.textContent,
+    ).toContain("03_kv_cache_systems");
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-mkdocs-section"] [data-review-id="documents-order-section-toggle"]',
+        )
+        ?.click();
+    });
+    await act(async () => {
+      [
+        ...container.querySelectorAll<HTMLButtonElement>(
+          '[data-review-id="documents-mkdocs-section"] [data-review-id="documents-order-section-toggle"]',
+        ),
+      ]
+        .find((button) =>
+          button.closest("div")?.textContent?.includes("engines"),
+        )
+        ?.click();
+    });
+
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("03_kv_cache_systems/overview.md"),
+      expect.stringContaining("03_kv_cache_systems/engines/overview.md"),
+    ]);
+  });
+
   it("orders Documents view by Zensical nav when selected", async () => {
     await act(async () => {
       root.render(
@@ -265,6 +392,87 @@ describe("FileTreePanel MkDocs document order", () => {
       expect.stringContaining("API"),
       expect.stringContaining("extra.md"),
     ]);
+  });
+
+  it("hides not-in-nav for nav-less Zensical fallback orders", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "extra.md",
+                path: "/workspace/docs/extra.md",
+                kind: "file",
+              },
+              {
+                name: "overview.md",
+                path: "/workspace/docs/guide/overview.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{}}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "zensical",
+                orderKind: "docs-dir-fallback",
+                nodes: [
+                  {
+                    kind: "section",
+                    title: "guide",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "overview",
+                        path: "/workspace/docs/guide/overview.md",
+                        displayPath: "guide/overview.md",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/docs/extra.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-zensical");
+
+    expect(
+      container.querySelector(
+        '[data-review-id="documents-zensical-not-in-nav"]',
+      ),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-review-id="documents-zensical-section"]')
+        ?.textContent,
+    ).toContain("guide");
   });
 
   it("collapses MkDocs order sections and not-in-nav groups", async () => {

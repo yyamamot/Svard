@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -32,6 +32,7 @@ pub(crate) fn none_result(message: Option<String>) -> DocumentOrderResult {
     DocumentOrderResult {
         source: DocumentOrderSource::None,
         nodes: Vec::new(),
+        order_kind: None,
         message,
     }
 }
@@ -82,61 +83,22 @@ pub(crate) fn fallback_docs_dir_nodes(
     docs_dir: &Path,
     roots: &AllowedRoots,
 ) -> Vec<DocumentOrderNode> {
-    let mut entries = Vec::new();
     let mut visited_directories = BTreeSet::from([path_to_ui_string(docs_dir)]);
-    collect_fallback_markdown_entries(
-        docs_dir,
-        docs_dir,
-        roots,
-        &mut visited_directories,
-        &mut entries,
-    );
-    entries.sort_by(|left, right| {
-        fallback_order_key(&left.display_path).cmp(&fallback_order_key(&right.display_path))
-    });
-
-    let mut groups = Vec::new();
-    let mut sections: BTreeMap<String, Vec<FallbackMarkdownEntry>> = BTreeMap::new();
-    for entry in entries {
-        let Some((top_level, _)) = entry.display_path.split_once('/') else {
-            groups.push(FallbackNodeGroup::Document(entry));
-            continue;
-        };
-        let section_key = top_level.to_string();
-        if !sections.contains_key(&section_key) {
-            groups.push(FallbackNodeGroup::Section(section_key.clone()));
-        }
-        sections.entry(section_key).or_default().push(entry);
-    }
-    groups
-        .into_iter()
-        .map(|group| match group {
-            FallbackNodeGroup::Document(entry) => fallback_document_node(entry, 0),
-            FallbackNodeGroup::Section(section) => DocumentOrderNode::Section {
-                title: display_title_from_path(&section),
-                depth: 0,
-                children: sections
-                    .remove(&section)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|entry| fallback_document_node(entry, 1))
-                    .collect(),
-            },
-        })
-        .collect()
+    fallback_docs_dir_nodes_for_directory(docs_dir, docs_dir, roots, &mut visited_directories, 0)
 }
 
-fn collect_fallback_markdown_entries(
+fn fallback_docs_dir_nodes_for_directory(
     directory: &Path,
     docs_dir: &Path,
     roots: &AllowedRoots,
     visited_directories: &mut BTreeSet<String>,
-    entries: &mut Vec<FallbackMarkdownEntry>,
-) {
+    depth: usize,
+) -> Vec<DocumentOrderNode> {
     let read_dir = match fs::read_dir(directory) {
         Ok(read_dir) => read_dir,
-        Err(_) => return,
+        Err(_) => return Vec::new(),
     };
+    let mut children = Vec::new();
     for entry in read_dir.flatten() {
         let path = normalize_document_order_target_path(&entry.path());
         if ensure_path_allowed(&path, roots).is_err() {
@@ -154,7 +116,27 @@ fn collect_fallback_markdown_entries(
             if !visited_directories.insert(key) {
                 continue;
             }
-            collect_fallback_markdown_entries(&path, docs_dir, roots, visited_directories, entries);
+            let section_children = fallback_docs_dir_nodes_for_directory(
+                &path,
+                docs_dir,
+                roots,
+                visited_directories,
+                depth + 1,
+            );
+            if section_children.is_empty() {
+                continue;
+            }
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            children.push(FallbackNodeGroup {
+                sort_name: name.to_string(),
+                node: DocumentOrderNode::Section {
+                    title: display_title_from_path(name),
+                    depth,
+                    children: section_children,
+                },
+            });
             continue;
         }
         if !metadata.is_file() || !path.extension().is_some_and(|extension| extension == "md") {
@@ -163,8 +145,18 @@ fn collect_fallback_markdown_entries(
         let Some(display_path) = path.strip_prefix(docs_dir).ok().map(relative_slash_path) else {
             continue;
         };
-        entries.push(FallbackMarkdownEntry { display_path, path });
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        children.push(FallbackNodeGroup {
+            sort_name: name.to_string(),
+            node: fallback_document_node(FallbackMarkdownEntry { display_path, path }, depth),
+        });
     }
+    children.sort_by(|left, right| {
+        fallback_order_key(&left.sort_name).cmp(&fallback_order_key(&right.sort_name))
+    });
+    children.into_iter().map(|child| child.node).collect()
 }
 
 fn relative_slash_path(path: &Path) -> String {
@@ -186,11 +178,12 @@ fn is_fallback_excluded_dir(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn fallback_order_key(display_path: &str) -> (usize, String) {
-    match display_path {
-        "index.md" => (0, display_path.to_string()),
-        "00_overview.md" => (1, display_path.to_string()),
-        _ => (2, display_path.to_string()),
+fn fallback_order_key(name: &str) -> (usize, String) {
+    match name {
+        "index.md" => (0, name.to_string()),
+        "00_overview.md" => (1, name.to_string()),
+        "overview.md" => (2, name.to_string()),
+        _ => (3, name.to_string()),
     }
 }
 
@@ -204,12 +197,12 @@ fn fallback_document_node(entry: FallbackMarkdownEntry, depth: usize) -> Documen
     }
 }
 
+struct FallbackNodeGroup {
+    sort_name: String,
+    node: DocumentOrderNode,
+}
+
 struct FallbackMarkdownEntry {
     display_path: String,
     path: PathBuf,
-}
-
-enum FallbackNodeGroup {
-    Document(FallbackMarkdownEntry),
-    Section(String),
 }
