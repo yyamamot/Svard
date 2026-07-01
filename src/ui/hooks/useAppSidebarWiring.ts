@@ -47,6 +47,7 @@ interface UseAppSidebarWiringOptions {
   childrenByDirectory: Record<string, DirectoryEntry[]>;
   config: AppConfig | null;
   directoryErrors: Record<string, string>;
+  documentOrderRefreshRevision?: number;
   expandedDirectories: Set<string>;
   gitSourceControl: SourceControlPropsInput;
   hideOpenFiles: boolean;
@@ -175,6 +176,7 @@ export function useAppSidebarWiring({
   childrenByDirectory,
   config,
   directoryErrors,
+  documentOrderRefreshRevision = 0,
   expandedDirectories,
   gitSourceControl,
   hideOpenFiles,
@@ -324,7 +326,12 @@ export function useAppSidebarWiring({
     return () => {
       cancelled = true;
     };
-  }, [host, rootDirectory, selectedAntoraContextId]);
+  }, [
+    host,
+    rootDirectory,
+    selectedAntoraContextId,
+    documentOrderRefreshRevision,
+  ]);
 
   useEffect(() => {
     void onAntoraContextsChange(documentOrder.antoraContexts?.length ?? 0);

@@ -282,6 +282,8 @@ export function App() {
   const refreshSourceControlFromFileTreeRef = useRef<
     (event: { reason: string; changedPath: string | null }) => void
   >(() => undefined);
+  const [workspaceFileChangeRevision, setWorkspaceFileChangeRevision] =
+    useState(0);
   const {
     rootDirectory,
     setRootDirectory,
@@ -300,8 +302,10 @@ export function App() {
     persistWorkspace,
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
     showInlineNotice,
-    onWorkspaceFileChange: (event) =>
-      refreshSourceControlFromFileTreeRef.current(event),
+    onWorkspaceFileChange: (event) => {
+      setWorkspaceFileChangeRevision((revision) => revision + 1);
+      refreshSourceControlFromFileTreeRef.current(event);
+    },
   });
   const {
     diagramInspectorItems,
@@ -789,6 +793,7 @@ export function App() {
     childrenByDirectory,
     config,
     directoryErrors,
+    documentOrderRefreshRevision: workspaceFileChangeRevision,
     expandedDirectories,
     gitSourceControl: sourceControl,
     hideOpenFiles: hideOpenFilesForSiteScreenshot,
@@ -858,6 +863,7 @@ export function App() {
     openDocumentWorkspaceTab: workspaceTabActions.openDocumentWorkspaceTab,
     query,
     rootDirectory,
+    workspaceSearchRefreshRevision: workspaceFileChangeRevision,
     workspaceSearchOrderedPaths: sidebarWiring.workspaceSearchOrderedPaths,
     setRightSidebarTab,
     setTabQueries,

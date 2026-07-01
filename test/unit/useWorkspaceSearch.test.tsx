@@ -26,6 +26,7 @@ type HookApi = ReturnType<typeof useWorkspaceSearch> & {
   setRootDirectory: (value: string | null) => void;
   setDocumentPayload: (value: DocumentPayload | null) => void;
   setDocumentHtml: (value: ReturnType<typeof markSafeHtml>) => void;
+  setWorkspaceSearchRefreshRevision: (value: number) => void;
 };
 
 function documentPayload(path: string): DocumentPayload {
@@ -102,6 +103,8 @@ function renderHookHarness({
       null,
     );
     const [documentHtml, setDocumentHtml] = useState(emptySafeHtml);
+    const [workspaceSearchRefreshRevision, setWorkspaceSearchRefreshRevision] =
+      useState(0);
     const [tabQueries, setTabQueries] = useState<Record<string, string>>({});
     const [rightSidebarTab, setRightSidebarTab] =
       useState<RightSidebarTab>("contents");
@@ -118,6 +121,7 @@ function renderHookHarness({
       query,
       rootDirectory,
       workspaceSearchOrderedPaths,
+      workspaceSearchRefreshRevision,
       setRightSidebarTab,
       setTabQueries,
       updateQuery: setQuery,
@@ -130,6 +134,7 @@ function renderHookHarness({
       setDocumentPayload,
       setQuery,
       setRootDirectory,
+      setWorkspaceSearchRefreshRevision,
       tabQueries,
     };
     return null;
@@ -227,6 +232,35 @@ describe("useWorkspaceSearch", () => {
       ...defaultWorkspaceSearchLimits,
       orderedPaths: ["/workspace/docs/part-2.md", "/workspace/docs/part-1.md"],
     });
+    harness.cleanup();
+  });
+
+  it("reruns workspace search when the workspace file change revision advances", async () => {
+    vi.useFakeTimers();
+    const { api, harness, hostSearchWorkspace } = renderHookHarness();
+
+    await act(async () => {
+      api().setSearchScope("workspace");
+    });
+    await act(async () => {
+      api().updateSearchQuery("Graphviz");
+    });
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+    });
+    await flushAsyncWork();
+
+    expect(hostSearchWorkspace).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      api().setWorkspaceSearchRefreshRevision(1);
+    });
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+    });
+    await flushAsyncWork();
+
+    expect(hostSearchWorkspace).toHaveBeenCalledTimes(2);
     harness.cleanup();
   });
 

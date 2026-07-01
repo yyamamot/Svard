@@ -35,6 +35,7 @@ interface UseWorkspaceSearchInput {
   query: string;
   rootDirectory: string | null | undefined;
   workspaceSearchOrderedPaths?: string[];
+  workspaceSearchRefreshRevision?: number;
   config: AppConfig | null;
   activeDocumentPayload: DocumentPayload | null;
   documentPayload: DocumentPayload | null;
@@ -52,6 +53,7 @@ export function useWorkspaceSearch({
   query,
   rootDirectory,
   workspaceSearchOrderedPaths,
+  workspaceSearchRefreshRevision = 0,
   config,
   activeDocumentPayload,
   documentPayload,
@@ -144,6 +146,7 @@ export function useWorkspaceSearch({
       defaultWorkspaceSearchLimits.maxFiles,
       defaultWorkspaceSearchLimits.maxMatches,
       defaultWorkspaceSearchLimits.maxBytesPerFile,
+      workspaceSearchRefreshRevision,
       ...(workspaceSearchOrderedPaths ?? []),
     ].join("\u0000");
     if (
@@ -244,6 +247,7 @@ export function useWorkspaceSearch({
     updateWorkspaceSearchTiming,
     workspaceQuery,
     workspaceSearchOrderedPaths,
+    workspaceSearchRefreshRevision,
     workspaceSearchRoot,
   ]);
 
