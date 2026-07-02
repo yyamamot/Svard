@@ -11,6 +11,10 @@ import {
   replaceMarkdownDetailsPlaceholders,
 } from "./details";
 import {
+  extractMarkdownCompatibility,
+  replaceMarkdownCompatibilityPlaceholders,
+} from "./compat";
+import {
   enhanceGithubAlerts,
   enhanceTaskLists,
   transformSimpleAdmonitions,
@@ -64,8 +68,14 @@ export function renderMarkdownDocument(source: string): RenderResult {
     count: details.replacements.size,
   });
 
+  const compatStartedAt = perfNow();
+  const compatibility = extractMarkdownCompatibility(details.source);
+  recordPerf("markdown.compatibility", compatStartedAt, {
+    count: compatibility.replacements.size,
+  });
+
   const transformStartedAt = perfNow();
-  const transformedSource = transformSimpleAdmonitions(details.source);
+  const transformedSource = transformSimpleAdmonitions(compatibility.source);
   recordPerf("markdown.transformSimpleAdmonitions", transformStartedAt);
 
   const parseStartedAt = perfNow();
@@ -169,12 +179,12 @@ export function renderMarkdownDocument(source: string): RenderResult {
   });
 
   const detailsReplaceStartedAt = perfNow();
-  const html = `${htmlPrefix}${replaceMarkdownDetailsPlaceholders(
-    renderedHtml,
-    details.replacements,
+  const html = `${htmlPrefix}${replaceMarkdownCompatibilityPlaceholders(
+    replaceMarkdownDetailsPlaceholders(renderedHtml, details.replacements),
+    compatibility.replacements,
   )}`;
   recordPerf("markdown.replaceDetails", detailsReplaceStartedAt, {
-    count: details.replacements.size,
+    count: details.replacements.size + compatibility.replacements.size,
   });
 
   recordPerf("markdown.total", totalStartedAt, {

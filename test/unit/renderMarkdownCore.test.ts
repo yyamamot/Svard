@@ -236,6 +236,33 @@ empty_value:
     expect(result.headings[0].sourceLocation).toEqual({ line: 15, column: 1 });
   });
 
+  it("hides standalone HTML comments and renders separator-first pipe tables", () => {
+    const result = renderMarkdownCore(`* mft-mlx5
+
+<!-- -->
+
+* mft-nvredfish
+
+|---------------|------------------------------------------------------------------------------|
+| **DEB-based** | $ sudo apt install -y \\\\ kernel-mft-dkms \\\\ mft \\\\ mft-mlx5 \\\\ mft-nvredfish |
+| **RPM-based** | $ sudo yum install -y \\\\ kernel-mft-dkms \\\\ mft \\\\ mft-mlx5 \\\\ mft-nvredfish |
+
+\`\`\`md
+<!-- keep comments in code fences -->
+|---------------|------|
+\`\`\`
+`);
+
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    const table = doc.querySelector("table");
+    expect(result.html).not.toContain("&lt;!-- --&gt;");
+    expect(table?.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(table?.querySelector("strong")?.textContent).toBe("DEB-based");
+    expect(table?.textContent).toContain("sudo apt install");
+    expect(result.html).toContain("&lt;!-- keep comments in code fences --&gt;");
+    expect(result.html).toContain("|---------------|------|");
+  });
+
   it("turns Markdown diagram fences into inline placeholders", () => {
     const result = renderMarkdownCore(`## Diagrams
 
