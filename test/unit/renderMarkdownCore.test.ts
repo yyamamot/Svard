@@ -138,6 +138,52 @@ name = "Svard"
     expect(result.html).not.toContain("[x] Render Markdown");
   });
 
+  it("renders practical GFM README features without enabling raw HTML", () => {
+    const result = renderMarkdownCore(`# README
+
+| Feature | Status |
+| --- | --- |
+| Table | Ready |
+| ~~Legacy~~ | <script>alert(1)</script> |
+
+- [x] Render GFM tables
+- [ ] Keep raw HTML escaped
+
+Visit https://example.test/docs.
+`);
+
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(doc.querySelector("table")).not.toBeNull();
+    expect(doc.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(doc.querySelector("s")?.textContent).toBe("Legacy");
+    expect(doc.querySelectorAll(".task-list-item-checkbox")).toHaveLength(2);
+    expect(doc.querySelector("a")?.getAttribute("href")).toBe(
+      "https://example.test/docs",
+    );
+    expect(result.html).toContain("&lt;script&gt;");
+    expect(result.html).not.toContain("<script>");
+  });
+
+  it("keeps standard GFM table headers when separator cells omit spaces", () => {
+    const result = renderMarkdownCore(`### DOCA services
+
+| DOCA Service | Quality Level |
+|--------------|---------------|
+| DOCA Argus | Beta |
+| DOCA Blueman | GA |
+`);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    const table = doc.querySelector("table");
+
+    expect(result.html).not.toContain("<p>| DOCA Service | Quality Level |");
+    expect(table?.querySelectorAll("thead th")).toHaveLength(2);
+    expect(table?.querySelector("thead")?.textContent).toContain(
+      "DOCA Service",
+    );
+    expect(table?.querySelectorAll("tbody tr")).toHaveLength(2);
+  });
+
   it("renders Markdown footnotes and leaves missing definitions readable", () => {
     const result =
       renderMarkdownCore(`Footnote one.[^one] Repeated.[^one] Missing stays readable.[^missing]
@@ -259,7 +305,9 @@ empty_value:
     expect(table?.querySelectorAll("tbody tr")).toHaveLength(2);
     expect(table?.querySelector("strong")?.textContent).toBe("DEB-based");
     expect(table?.textContent).toContain("sudo apt install");
-    expect(result.html).toContain("&lt;!-- keep comments in code fences --&gt;");
+    expect(result.html).toContain(
+      "&lt;!-- keep comments in code fences --&gt;",
+    );
     expect(result.html).toContain("|---------------|------|");
   });
 

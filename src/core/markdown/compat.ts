@@ -13,7 +13,10 @@ function parsePipeCells(line: string): string[] | null {
   if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) {
     return null;
   }
-  return trimmed.slice(1, -1).split("|").map((cell) => cell.trim());
+  return trimmed
+    .slice(1, -1)
+    .split("|")
+    .map((cell) => cell.trim());
 }
 
 function isSeparatorCell(cell: string): boolean {
@@ -30,6 +33,13 @@ function isSeparatorFirstTableStart(line: string): boolean {
 function isPipeRow(line: string): boolean {
   const cells = parsePipeCells(line);
   return Boolean(cells && cells.length >= 2);
+}
+
+function isPreviousLinePipeRow(lines: string[], index: number): boolean {
+  if (index === 0) {
+    return false;
+  }
+  return isPipeRow(lines[index - 1]);
 }
 
 function renderCompatPipeTable(lines: string[]): string {
@@ -71,7 +81,11 @@ export function extractMarkdownCompatibility(source: string): {
       continue;
     }
 
-    if (!inFence && isSeparatorFirstTableStart(line)) {
+    if (
+      !inFence &&
+      isSeparatorFirstTableStart(line) &&
+      !isPreviousLinePipeRow(lines, index)
+    ) {
       const tableLines = [line];
       let tableEndIndex = index;
       for (

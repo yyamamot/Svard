@@ -38,11 +38,20 @@
   white-space: pre;
 }
 
-.document-body.format-markdown table {
-  display: block;
+.document-body.format-markdown .markdown-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.document-body.format-markdown .markdown-table-scroll > table {
+  display: table;
   width: max-content;
   max-width: 100%;
-  overflow: auto;
+}
+
+.document-body.format-markdown table:not(.rouge-table) {
+  display: table;
 }
 
 .document-body.format-markdown blockquote.markdown-alert {

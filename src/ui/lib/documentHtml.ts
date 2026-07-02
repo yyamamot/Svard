@@ -64,7 +64,7 @@ function tableSourceLines(source: string, format: DocumentPayload["format"]) {
   }
 
   const pattern =
-    /^\s*\|.+\|\s*\n\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/gm;
+    /^[ \t]*\|.+\|[ \t]*\n[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-{3,}:?[ \t]*)+\|?[ \t]*$/gm;
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(source)) !== null) {
@@ -72,6 +72,31 @@ function tableSourceLines(source: string, format: DocumentPayload["format"]) {
   }
 
   return lines;
+}
+
+function shouldWrapMarkdownTable(table: HTMLTableElement): boolean {
+  if (table.classList.contains("rouge-table")) {
+    return false;
+  }
+  if (
+    table.closest(
+      ".admonitionblock, .markdown-frontmatter, .asciidoc-document-attributes, .frontmatter-nested, .markdown-table-scroll",
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function wrapMarkdownTable(doc: Document, table: HTMLTableElement): void {
+  if (!shouldWrapMarkdownTable(table)) {
+    return;
+  }
+  const wrapper = doc.createElement("div");
+  wrapper.className = "markdown-table-scroll";
+  wrapper.setAttribute("data-review-id", "markdown-table-scroll");
+  table.replaceWith(wrapper);
+  wrapper.append(table);
 }
 
 function encodeLocalSvgImage(svg: string): string {
@@ -478,6 +503,9 @@ export async function prepareDocumentHtml(
           "data-source-reference",
           sourceReference(document, sourceLine),
         );
+      }
+      if (document.format === "markdown") {
+        wrapMarkdownTable(doc, table);
       }
     });
   }

@@ -561,11 +561,6 @@
   max-width: 100%;
   border-collapse: collapse;
   border-spacing: 0;
-  overflow: auto;
-}
-
-.document-body :where(table:not(.rouge-table)) {
-  display: block;
 }
 
 .document-body :where(th, td) {

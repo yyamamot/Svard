@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fixed Markdown table rendering for compact GFM separators and wide technical tables.
+
 ## 1.0.4
 
 - Added a Diagram Inspector sidebar tab for reviewing diagram render status, source references, cache state, metrics, and SVG actions.

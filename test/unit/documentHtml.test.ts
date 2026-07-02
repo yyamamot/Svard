@@ -474,6 +474,65 @@ $not rendered in source$
     );
   });
 
+  it("wraps Markdown tables for horizontal scrolling without hiding table metadata", async () => {
+    const html = await prepareDocumentHtml(
+      "<table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Wide Markdown table</td><td>Ready</td></tr></tbody></table>",
+      {
+        ...documentPayload,
+        path: "/workspace/docs/readme.md",
+        format: "markdown",
+        source:
+          "# README\n\n| Feature | Status |\n| --- | --- |\n| Wide Markdown table | Ready |",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      { headings: [], sourceBlocks: [] },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const wrapper = doc.querySelector(".markdown-table-scroll");
+    const table = doc.querySelector("table");
+
+    expect(wrapper?.getAttribute("data-review-id")).toBe(
+      "markdown-table-scroll",
+    );
+    expect(wrapper?.querySelector("table")).toBe(table);
+    expect(doc.querySelectorAll("table")).toHaveLength(1);
+    expect(table?.getAttribute("data-review-id")).toBe("rendered-table");
+    expect(table?.getAttribute("data-source-line")).toBe("3");
+    expect(table?.getAttribute("data-source-reference")).toBe(
+      "/workspace/docs/readme.md:3",
+    );
+  });
+
+  it("does not wrap Markdown frontmatter or Rouge helper tables", async () => {
+    const html = await prepareDocumentHtml(
+      '<details class="markdown-frontmatter"><summary>Frontmatter</summary><table><tbody><tr><th>title</th><td>Guide</td></tr></tbody></table></details><table class="rouge-table"><tbody><tr><td>line</td></tr></tbody></table><table><tbody><tr><td>Body</td></tr></tbody></table>',
+      {
+        ...documentPayload,
+        path: "/workspace/docs/readme.md",
+        format: "markdown",
+        source: "# README\n\n| Body |\n| --- |\n| Cell |",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      { headings: [], sourceBlocks: [] },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(
+      doc
+        .querySelector(".markdown-frontmatter table")
+        ?.parentElement?.classList.contains("markdown-table-scroll"),
+    ).toBe(false);
+    expect(
+      doc
+        .querySelector(".rouge-table")
+        ?.parentElement?.classList.contains("markdown-table-scroll"),
+    ).toBe(false);
+    expect(doc.querySelectorAll(".markdown-table-scroll")).toHaveLength(1);
+    expect(
+      doc.querySelector(".markdown-table-scroll > table")?.textContent,
+    ).toContain("Body");
+  });
+
   it("keeps AsciiDoc document attributes tables out of rendered table metadata", async () => {
     const html = await prepareDocumentHtml(
       '<details class="markdown-frontmatter asciidoc-document-attributes"><summary>Document Attributes</summary><table><tbody><tr><th>toc</th><td><span class="frontmatter-null">empty</span></td></tr></tbody></table></details><table><tbody><tr><td>Item</td></tr></tbody></table>',
