@@ -50,14 +50,20 @@ pub(crate) fn load_zensical_order_from_root(
     let docs_dir = project
         .get("docs_dir")
         .and_then(Value::as_str)
-        .unwrap_or("docs");
-    if docs_dir == "." || is_external_or_absolute_target(docs_dir) {
+        .unwrap_or_else(|| {
+            if config_dir.join("docs").is_dir() {
+                "docs"
+            } else {
+                "."
+            }
+        });
+    if is_external_or_absolute_target(docs_dir) {
         return none_result(Some(
             "Zensical documentation directory is outside the workspace.".to_string(),
         ));
     }
     let docs_dir = normalize_document_order_target_path(&config_dir.join(docs_dir));
-    if ensure_path_allowed(&docs_dir, roots).is_err() {
+    if !docs_dir.starts_with(config_dir) || ensure_path_allowed(&docs_dir, roots).is_err() {
         return none_result(Some(
             "Zensical documentation directory is outside the workspace.".to_string(),
         ));
@@ -345,6 +351,63 @@ nav = [{ "Home" = "home.md" }]
     }
 
     #[test]
+    fn parses_zensical_nav_from_project_root_when_docs_dir_is_missing() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("guide")).expect("guide");
+        fs::write(dir.path().join("index.md"), "# Home").expect("home");
+        fs::write(dir.path().join("guide").join("intro.md"), "# Intro").expect("intro");
+        fs::write(
+            dir.path().join("zensical.toml"),
+            r#"[project]
+nav = [
+  "index.md",
+  { "Intro" = "guide/intro.md" },
+]
+"#,
+        )
+        .expect("config");
+
+        let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
+        let serialized = serde_json::to_string(&result).expect("serialize");
+        let normalized = normalized_serialized_paths(&serialized);
+
+        assert_eq!(result.source, DocumentOrderSource::Zensical);
+        assert_eq!(result.order_kind, Some(DocumentOrderKind::ExplicitNav));
+        assert_eq!(display_paths(&result), vec!["index.md", "guide/intro.md"]);
+        assert!(normalized.contains("guide/intro.md"));
+        assert!(!serialized.contains("\"status\":\"missing\""));
+    }
+
+    #[test]
+    fn parses_zensical_nav_with_root_docs_dir() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("guide")).expect("guide");
+        fs::write(dir.path().join("index.md"), "# Home").expect("home");
+        fs::write(dir.path().join("guide").join("index.md"), "# Guide").expect("guide");
+        fs::write(
+            dir.path().join("zensical.toml"),
+            r#"[project]
+docs_dir = "."
+nav = [
+  "index.md",
+  { "Guide" = "guide/" },
+]
+"#,
+        )
+        .expect("config");
+
+        let result = load_zensical_order_from_root(dir.path(), &roots_for(dir.path()));
+        let serialized = serde_json::to_string(&result).expect("serialize");
+        let normalized = normalized_serialized_paths(&serialized);
+
+        assert_eq!(result.source, DocumentOrderSource::Zensical);
+        assert_eq!(result.order_kind, Some(DocumentOrderKind::ExplicitNav));
+        assert_eq!(display_paths(&result), vec!["index.md", "guide/"]);
+        assert!(normalized.contains("guide/index.md"));
+        assert!(!serialized.contains("\"status\":\"missing\""));
+    }
+
+    #[test]
     fn falls_back_to_docs_dir_markdown_when_nav_is_missing() {
         let dir = tempdir().expect("tempdir");
         fs::create_dir_all(dir.path().join("docs").join("01_basics")).expect("basics");
@@ -589,7 +652,7 @@ nav = [{ "Outside" = "../../outside.md" }]
         fs::write(
             dir.path().join("zensical.toml"),
             r#"[project]
-docs_dir = "."
+docs_dir = ".."
 nav = ["index.md"]
 "#,
         )

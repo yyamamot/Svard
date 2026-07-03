@@ -421,6 +421,118 @@ describe("FileTreePanel MkDocs document order", () => {
     ]);
   });
 
+  it("shows changed Zensical section and not-in-nav rows without manual expansion", async () => {
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "docs", path: "/workspace/docs", kind: "directory" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "docs", path: "/workspace/docs", kind: "directory" },
+            ],
+            "/workspace/docs": [
+              {
+                name: "index.md",
+                path: "/workspace/docs/index.md",
+                kind: "file",
+              },
+              {
+                name: "reference.md",
+                path: "/workspace/docs/reference.md",
+                kind: "file",
+              },
+              {
+                name: "extra.md",
+                path: "/workspace/docs/extra.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set(["/workspace/docs"])}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          gitStatusByPath={{
+            "/workspace/docs/reference.md": "modified",
+            "/workspace/docs/extra.md": "untracked",
+          }}
+          gitChanges={null}
+          documentOrder={{
+            orders: [
+              {
+                source: "zensical",
+                nodes: [
+                  {
+                    kind: "document",
+                    title: "Home",
+                    path: "/workspace/docs/index.md",
+                    displayPath: "index.md",
+                    depth: 0,
+                    status: "resolved",
+                  },
+                  {
+                    kind: "section",
+                    title: "Reference",
+                    depth: 0,
+                    children: [
+                      {
+                        kind: "document",
+                        title: "API",
+                        path: "/workspace/docs/reference.md",
+                        displayPath: "reference.md",
+                        depth: 1,
+                        status: "resolved",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }}
+          openDocumentPaths={new Set()}
+          activePath="/workspace/docs/index.md"
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-zensical");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-source-filter-changed"]',
+        )
+        ?.click();
+    });
+
+    expect(
+      container
+        .querySelector('[data-review-id="documents-zensical-section"]')
+        ?.getAttribute("data-document-order-section-state"),
+    ).toBe("expanded");
+    expect(
+      container
+        .querySelector('[data-review-id="documents-zensical-not-in-nav"]')
+        ?.getAttribute("data-document-order-section-state"),
+    ).toBe("expanded");
+    const rows = [
+      ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("API"),
+      expect.stringContaining("extra.md"),
+    ]);
+    expect(rows.map((row) => row.textContent).join("\n")).not.toContain("Home");
+  });
+
   it("hides not-in-nav for nav-less Zensical fallback orders", async () => {
     await act(async () => {
       root.render(

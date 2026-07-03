@@ -281,10 +281,9 @@ export function useAppSidebarWiring({
     }
     return buildDocumentOrderNavigation({
       activePath,
-      loadedDocumentPaths: new Set(documentRows.map((row) => row.entry.path)),
       order: selectedOrder,
     });
-  }, [activePath, documentOrder.orders, documentRows, filesViewMode]);
+  }, [activePath, documentOrder.orders, filesViewMode]);
   const workspaceSearchOrderedPaths = useMemo(
     () =>
       workspaceSearchOrderedPathsForCatalog({ documentOrder, filesViewMode }),

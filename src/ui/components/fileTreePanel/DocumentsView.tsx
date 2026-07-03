@@ -286,6 +286,7 @@ export function DocumentsView({
       0,
     );
     const notInNavExpanded =
+      documentsFilter === "changed" ||
       expandedDocumentOrderSections.has(notInNavSectionKey);
 
     return (
@@ -336,7 +337,9 @@ export function DocumentsView({
             node.title,
             node.depth,
           );
-          const expanded = expandedDocumentOrderSections.has(sectionKey);
+          const expanded =
+            documentsFilter === "changed" ||
+            expandedDocumentOrderSections.has(sectionKey);
           result.push(
             renderDocumentOrderSectionHeader({
               key: sectionKey,

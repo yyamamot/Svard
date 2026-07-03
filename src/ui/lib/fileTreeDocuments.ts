@@ -408,11 +408,9 @@ function collectResolvedDocumentOrderPathsInto(
 
 export function buildDocumentOrderNavigation({
   activePath,
-  loadedDocumentPaths,
   order,
 }: {
   activePath?: string;
-  loadedDocumentPaths: ReadonlySet<string>;
   order: DocumentOrderResult;
 }): DocumentOrderNavigationState | null {
   if (
@@ -426,7 +424,6 @@ export function buildDocumentOrderNavigation({
 
   const activeSectionKeys = new Set<string>();
   const targets = flattenDocumentOrderTargets({
-    loadedDocumentPaths,
     nodes: order.nodes,
     sectionAncestors: [],
     source: order.source,
@@ -464,13 +461,11 @@ interface FlattenDocumentOrderTarget {
 }
 
 function flattenDocumentOrderTargets({
-  loadedDocumentPaths,
   nodes,
   sectionAncestors,
   source,
   targetAncestors,
 }: {
-  loadedDocumentPaths: ReadonlySet<string>;
   nodes: DocumentOrderNode[];
   sectionAncestors: string[];
   source: StableDocumentOrderSource;
@@ -490,7 +485,7 @@ function flattenDocumentOrderTargets({
       const sectionDocument = sectionHeaderDocument(node);
       if (
         sectionDocument?.status === "resolved" &&
-        loadedDocumentPaths.has(sectionDocument.path)
+        sectionDocument.path.length > 0
       ) {
         targets.push({
           path: sectionDocument.path,
@@ -504,7 +499,6 @@ function flattenDocumentOrderTargets({
         : node.children;
       targets.push(
         ...flattenDocumentOrderTargets({
-          loadedDocumentPaths,
           nodes: childNodes,
           sectionAncestors: [...sectionAncestors, sectionKey],
           source,
@@ -514,7 +508,7 @@ function flattenDocumentOrderTargets({
       return;
     }
 
-    if (node.status === "resolved" && loadedDocumentPaths.has(node.path)) {
+    if (node.status === "resolved" && node.path.length > 0) {
       targets.push({
         path: node.path,
         title: node.title,

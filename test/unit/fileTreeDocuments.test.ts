@@ -11,7 +11,10 @@ import {
   relativeDocumentPath,
   sectionHeaderDocument,
 } from "../../src/ui/lib/fileTreeDocuments";
-import type { DocumentOrderNode, DocumentOrderResult } from "../../src/core/types";
+import type {
+  DocumentOrderNode,
+  DocumentOrderResult,
+} from "../../src/core/types";
 
 describe("fileTreeDocuments helpers", () => {
   it("builds supported document rows with relative paths and open state", () => {
@@ -91,7 +94,10 @@ describe("fileTreeDocuments helpers", () => {
     expect(tree.documentCount).toBe(2);
     expect(tree.changedCount).toBe(1);
     expect([...tree.activeSectionKeys]).toEqual(["loaded/docs"]);
-    expect(tree.nodes.map((node) => node.kind)).toEqual(["directory", "document"]);
+    expect(tree.nodes.map((node) => node.kind)).toEqual([
+      "directory",
+      "document",
+    ]);
     const docs = tree.nodes[0];
     expect(docs).toMatchObject({
       kind: "directory",
@@ -153,9 +159,12 @@ describe("fileTreeDocuments helpers", () => {
       ),
     ).toEqual(["a.md", "b.md"]);
     expect(
-      filterVisibleDocumentRows(rows, "changed", "documents-zensical", false).map(
-        (row) => row.entry.name,
-      ),
+      filterVisibleDocumentRows(
+        rows,
+        "changed",
+        "documents-zensical",
+        false,
+      ).map((row) => row.entry.name),
     ).toEqual(["a.md", "b.md"]);
   });
 
@@ -209,15 +218,10 @@ describe("fileTreeDocuments helpers", () => {
     );
   });
 
-  it("builds previous and next targets from resolved loaded documents", () => {
+  it("builds previous and next targets from resolved ordered documents", () => {
     const mkdocsOrder = navigationOrderFixture();
     const navigation = buildDocumentOrderNavigation({
       activePath: "/workspace/docs/install/linux.md",
-      loadedDocumentPaths: new Set([
-        "/workspace/docs/index.md",
-        "/workspace/docs/install/linux.md",
-        "/workspace/docs/reference.md",
-      ]),
       order: mkdocsOrder,
     });
 
@@ -237,14 +241,12 @@ describe("fileTreeDocuments helpers", () => {
     expect(
       buildDocumentOrderNavigation({
         activePath: "/workspace/docs/install/linux.md",
-        loadedDocumentPaths: new Set(["/workspace/docs/install/linux.md"]),
         order: { ...mkdocsOrder, source: "vitepress" },
       }),
     ).toBeNull();
     expect(
       buildDocumentOrderNavigation({
         activePath: "/workspace/docs/not-in-nav.md",
-        loadedDocumentPaths: new Set(["/workspace/docs/not-in-nav.md"]),
         order: mkdocsOrder,
       }),
     ).toBeNull();
@@ -257,11 +259,6 @@ describe("fileTreeDocuments helpers", () => {
     };
     const navigation = buildDocumentOrderNavigation({
       activePath: "/workspace/docs/install/linux.md",
-      loadedDocumentPaths: new Set([
-        "/workspace/docs/index.md",
-        "/workspace/docs/install/linux.md",
-        "/workspace/docs/reference.md",
-      ]),
       order: zensicalOrder,
     });
 
