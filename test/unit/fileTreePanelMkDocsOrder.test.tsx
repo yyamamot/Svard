@@ -133,9 +133,24 @@ describe("FileTreePanel MkDocs document order", () => {
         ?.textContent,
     ).toContain("Guide");
     expect(
+      container.querySelector(
+        '[data-review-id="documents-source-filter-changed"]',
+      )?.textContent,
+    ).toBe("Changed 1");
+    expect(
+      container
+        .querySelector('[data-review-id="documents-mkdocs-section"]')
+        ?.querySelector(".documents-change-count-badge")?.textContent,
+    ).toBe("1");
+    expect(
       container.querySelector('[data-review-id="documents-mkdocs-not-in-nav"]')
         ?.textContent,
     ).toContain("Not in mkdocs.yml");
+    expect(
+      container
+        .querySelector('[data-review-id="documents-mkdocs-not-in-nav"]')
+        ?.querySelector(".documents-change-count-badge"),
+    ).toBeNull();
     await act(async () => {
       container
         .querySelector<HTMLButtonElement>(
@@ -514,15 +529,30 @@ describe("FileTreePanel MkDocs document order", () => {
     });
 
     expect(
+      container.querySelector(
+        '[data-review-id="documents-source-filter-changed"]',
+      )?.textContent,
+    ).toBe("Changed 2");
+    expect(
       container
         .querySelector('[data-review-id="documents-zensical-section"]')
         ?.getAttribute("data-document-order-section-state"),
     ).toBe("expanded");
     expect(
       container
+        .querySelector('[data-review-id="documents-zensical-section"]')
+        ?.querySelector(".documents-change-count-badge")?.textContent,
+    ).toBe("1");
+    expect(
+      container
         .querySelector('[data-review-id="documents-zensical-not-in-nav"]')
         ?.getAttribute("data-document-order-section-state"),
     ).toBe("expanded");
+    expect(
+      container
+        .querySelector('[data-review-id="documents-zensical-not-in-nav"]')
+        ?.querySelector(".documents-change-count-badge")?.textContent,
+    ).toBe("1");
     const rows = [
       ...container.querySelectorAll('[data-review-id="documents-view-row"]'),
     ];

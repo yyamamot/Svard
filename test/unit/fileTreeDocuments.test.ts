@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDocumentOrderChangeCounts,
   buildDocumentOrderNavigation,
   buildFileTreeDocumentRows,
   buildOpenDocumentTree,
@@ -210,6 +211,90 @@ describe("fileTreeDocuments helpers", () => {
     expect(documentOrderSectionKey("mkdocs", ["0"], "Guide", 0)).toBe(
       "mkdocs:0:0:Guide",
     );
+  });
+
+  it("counts changed document order paths by logical section", () => {
+    const order: DocumentOrderResult = {
+      source: "antora",
+      nodes: [
+        {
+          kind: "section",
+          title: "Guide",
+          depth: 0,
+          children: [
+            {
+              kind: "document",
+              title: "Guide",
+              path: "/workspace/docs/index.md",
+              displayPath: "index.md",
+              depth: 0,
+              status: "resolved",
+            },
+            {
+              kind: "section",
+              title: "Install",
+              depth: 1,
+              children: [
+                {
+                  kind: "document",
+                  title: "Linux",
+                  path: "/workspace/docs/install/linux.md",
+                  displayPath: "install/linux.md",
+                  depth: 2,
+                  status: "resolved",
+                },
+                {
+                  kind: "document",
+                  title: "Duplicate Linux",
+                  path: "/workspace/docs/install/linux.md",
+                  displayPath: "install/linux.md",
+                  depth: 2,
+                  status: "resolved",
+                },
+                {
+                  kind: "document",
+                  title: "Missing",
+                  path: "",
+                  displayPath: "install/missing.md",
+                  depth: 2,
+                  status: "missing",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          kind: "document",
+          title: "Reference",
+          path: "/workspace/docs/reference.md",
+          displayPath: "reference.md",
+          depth: 0,
+          status: "resolved",
+        },
+      ],
+    };
+
+    const counts = buildDocumentOrderChangeCounts({
+      gitStatusByPath: {
+        "/workspace/docs/index.md": "modified",
+        "/workspace/docs/install/linux.md": "added",
+        "/workspace/docs/reference.md": "deleted",
+      },
+      nodes: order.nodes,
+      source: order.source,
+    });
+
+    expect(counts.totalCount).toBe(3);
+    expect(
+      counts.sectionCounts.get(
+        documentOrderSectionKey("antora", ["0"], "Guide", 0),
+      ),
+    ).toBe(2);
+    expect(
+      counts.sectionCounts.get(
+        documentOrderSectionKey("antora", ["0", "1"], "Install", 1),
+      ),
+    ).toBe(1);
   });
 
   it("keeps paths outside the root unchanged", () => {

@@ -71,6 +71,11 @@ export interface DocumentOrderNavigationState {
   activeSectionKeys: Set<string>;
 }
 
+export interface DocumentOrderChangeCounts {
+  totalCount: number;
+  sectionCounts: Map<string, number>;
+}
+
 export function buildFileTreeDocumentRows({
   activePath,
   childrenByDirectory,
@@ -404,6 +409,77 @@ function collectResolvedDocumentOrderPathsInto(
     seen.add(node.path);
     paths.push(node.path);
   }
+}
+
+export function buildDocumentOrderChangeCounts({
+  gitStatusByPath,
+  nodes,
+  source,
+}: {
+  gitStatusByPath: Record<string, GitDiffStatus>;
+  nodes: DocumentOrderNode[];
+  source: DocumentOrderResult["source"];
+}): DocumentOrderChangeCounts {
+  const sectionCounts = new Map<string, number>();
+  const changedPaths = collectDocumentOrderChangedPaths({
+    ancestry: [],
+    gitStatusByPath,
+    nodes,
+    sectionCounts,
+    source,
+  });
+  return {
+    totalCount: changedPaths.size,
+    sectionCounts,
+  };
+}
+
+function collectDocumentOrderChangedPaths({
+  ancestry,
+  gitStatusByPath,
+  nodes,
+  sectionCounts,
+  source,
+}: {
+  ancestry: string[];
+  gitStatusByPath: Record<string, GitDiffStatus>;
+  nodes: DocumentOrderNode[];
+  sectionCounts: Map<string, number>;
+  source: DocumentOrderResult["source"];
+}): Set<string> {
+  const changedPaths = new Set<string>();
+  nodes.forEach((node, index) => {
+    if (node.kind === "section") {
+      const sectionAncestry = [...ancestry, String(index)];
+      const sectionChangedPaths = collectDocumentOrderChangedPaths({
+        ancestry: sectionAncestry,
+        gitStatusByPath,
+        nodes: node.children,
+        sectionCounts,
+        source,
+      });
+      const sectionKey = documentOrderSectionKey(
+        source,
+        sectionAncestry,
+        node.title,
+        node.depth,
+      );
+      sectionCounts.set(sectionKey, sectionChangedPaths.size);
+      for (const path of sectionChangedPaths) {
+        changedPaths.add(path);
+      }
+      return;
+    }
+
+    if (
+      node.status === "resolved" &&
+      node.path.length > 0 &&
+      gitStatusDisplay(gitStatusByPath[node.path])
+    ) {
+      changedPaths.add(node.path);
+    }
+  });
+  return changedPaths;
 }
 
 export function buildDocumentOrderNavigation({

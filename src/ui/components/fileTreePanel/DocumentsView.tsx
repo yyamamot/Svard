@@ -13,9 +13,11 @@ import {
 import { fileGitStatusBadgeLabel } from "../../lib/gitStatusBadgeLabels";
 import { gitStatusDisplay } from "../../lib/gitStatusDisplay";
 import {
+  buildDocumentOrderChangeCounts,
   collectDocumentOrderPaths,
   documentOrderSectionKey,
   sectionHeaderDocument,
+  type DocumentOrderChangeCounts,
   type FileTreeDocumentRow,
   type OpenDocumentTreeModel,
   type OpenDocumentTreeNode,
@@ -80,6 +82,38 @@ export function DocumentsView({
         : undefined,
     [activePath, autoExpandSectionKeys, viewMode],
   );
+  const activeDocumentOrderChangeCounts = useMemo(
+    () =>
+      activeDocumentOrder
+        ? buildDocumentOrderChangeCounts({
+            gitStatusByPath: fileTreeGitStatusByPath,
+            nodes: activeDocumentOrder.order.nodes,
+            source: activeDocumentOrder.order.source,
+          })
+        : null,
+    [activeDocumentOrder, fileTreeGitStatusByPath],
+  );
+  const documentsChangedCount = useMemo(() => {
+    if (viewMode === "documents-path") {
+      return openDocumentTree.changedCount;
+    }
+    if (activeDocumentOrder && activeDocumentOrderChangeCounts) {
+      const navPaths = collectDocumentOrderPaths(
+        activeDocumentOrder.order.nodes,
+      );
+      const notInNavChangedCount = documentRows.filter(
+        (row) => row.isChanged && !navPaths.has(row.entry.path),
+      ).length;
+      return activeDocumentOrderChangeCounts.totalCount + notInNavChangedCount;
+    }
+    return documentRows.filter((row) => row.isChanged).length;
+  }, [
+    activeDocumentOrder,
+    activeDocumentOrderChangeCounts,
+    documentRows,
+    openDocumentTree.changedCount,
+    viewMode,
+  ]);
 
   const scrollActiveDocumentIntoView = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -176,7 +210,10 @@ export function DocumentsView({
     }
 
     if (documentRows.length === 0) {
-      if (activeDocumentOrder && documentsFilter !== "changed") {
+      if (activeDocumentOrder) {
+        if (documentsFilter === "changed" && documentsChangedCount === 0) {
+          return renderNoChangedDocuments("No changed documents");
+        }
         return (
           <>
             {renderDocumentsSourceFilter()}
@@ -199,17 +236,21 @@ export function DocumentsView({
     }
 
     if (visibleDocumentRows.length === 0) {
-      return (
-        <>
-          {renderDocumentsSourceFilter()}
-          <div
-            className="documents-view-empty"
-            data-review-id="documents-view-empty"
-          >
-            No changed open documents
-          </div>
-        </>
-      );
+      if (activeDocumentOrder) {
+        if (documentsFilter === "changed" && documentsChangedCount === 0) {
+          return renderNoChangedDocuments("No changed documents");
+        }
+        return (
+          <>
+            {renderDocumentsSourceFilter()}
+            {renderOrderedDocumentEntries(
+              activeDocumentOrder.order,
+              activeDocumentOrder.options,
+            )}
+          </>
+        );
+      }
+      return renderNoChangedDocuments("No changed open documents");
     }
 
     return (
@@ -221,6 +262,20 @@ export function DocumentsView({
               activeDocumentOrder.options,
             )
           : visibleDocumentRows.map((row) => renderDocumentRow(row))}
+      </>
+    );
+  }
+
+  function renderNoChangedDocuments(message: string): React.ReactNode {
+    return (
+      <>
+        {renderDocumentsSourceFilter()}
+        <div
+          className="documents-view-empty"
+          data-review-id="documents-view-empty"
+        >
+          {message}
+        </div>
       </>
     );
   }
@@ -270,6 +325,7 @@ export function DocumentsView({
     const navPaths = collectDocumentOrderPaths(order.nodes);
     const orderedNodes = renderDocumentOrderNodes(
       order.nodes,
+      activeDocumentOrderChangeCounts,
       visibleRowsByPath,
       order.source,
       options,
@@ -299,6 +355,7 @@ export function DocumentsView({
               depth: 0,
               reviewId: options.notInNavReviewId,
               collapsed: !notInNavExpanded,
+              changeCount: notInNavRows.filter((row) => row.isChanged).length,
             })
           : null}
         {notInNavExpanded
@@ -310,6 +367,7 @@ export function DocumentsView({
 
   function renderDocumentOrderNodes(
     nodes: DocumentOrderNode[],
+    changeCounts: DocumentOrderChangeCounts | null,
     visibleRowsByPath: Map<string, FileTreeDocumentRow>,
     source: DocumentOrderResult["source"],
     options: DocumentOrderSectionOptions,
@@ -325,6 +383,7 @@ export function DocumentsView({
           : node.children;
         const children = renderDocumentOrderNodes(
           childNodes,
+          changeCounts,
           visibleRowsByPath,
           source,
           options,
@@ -348,6 +407,7 @@ export function DocumentsView({
               reviewId: options.sectionReviewId,
               collapsed: !expanded,
               document: sectionDocument,
+              changeCount: changeCounts?.sectionCounts.get(sectionKey) ?? 0,
             }),
           );
           if (expanded) {
@@ -362,6 +422,8 @@ export function DocumentsView({
         if (row) {
           result.push(renderOrderDocumentRow(node, index, row));
         } else if (documentsFilter !== "changed") {
+          result.push(renderOrderDocumentRow(node, index));
+        } else if (gitStatusDisplay(fileTreeGitStatusByPath[node.path])) {
           result.push(renderOrderDocumentRow(node, index));
         }
         return;
@@ -450,6 +512,7 @@ export function DocumentsView({
     depth,
     reviewId,
     collapsed,
+    changeCount,
     document,
   }: {
     key: string;
@@ -457,6 +520,7 @@ export function DocumentsView({
     depth: number;
     reviewId: string;
     collapsed: boolean;
+    changeCount?: number;
     document?: Extract<DocumentOrderNode, { kind: "document" }>;
   }): React.ReactNode {
     const documentRow =
@@ -474,6 +538,7 @@ export function DocumentsView({
       <>
         <span className="documents-view-row-title">
           <span className="tree-label">{title}</span>
+          {renderChangeCountBadge(changeCount)}
           {documentOpen ? (
             <span className="documents-view-open-indicator">open</span>
           ) : null}
@@ -517,9 +582,27 @@ export function DocumentsView({
             <span className="documents-view-row-text">{sectionTitle}</span>
           </button>
         ) : (
-          <span className="documents-order-section-label">{title}</span>
+          <span className="documents-order-section-label">
+            <span className="tree-label">{title}</span>
+            {renderChangeCountBadge(changeCount)}
+          </span>
         )}
       </div>
+    );
+  }
+
+  function renderChangeCountBadge(count?: number): React.ReactNode {
+    if (!count) {
+      return null;
+    }
+    return (
+      <span
+        className="documents-change-count-badge"
+        aria-label={`${count} changed documents`}
+        title={`${count} changed documents`}
+      >
+        {count}
+      </span>
     );
   }
 
@@ -769,7 +852,9 @@ export function DocumentsView({
             aria-pressed={documentsFilter === "changed"}
             onClick={() => onDocumentsFilterChange("changed")}
           >
-            Changed
+            {documentsChangedCount > 0
+              ? `Changed ${documentsChangedCount}`
+              : "Changed"}
           </button>
         </div>
       </div>
