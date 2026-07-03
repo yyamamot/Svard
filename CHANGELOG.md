@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Fixed Markdown table rendering for compact GFM separators and wide technical tables.
+- Improved MkDocs, Zensical, and Antora document order views with Git change counts, and fixed root-based Zensical navigation.
 
 ## 1.0.4
 
