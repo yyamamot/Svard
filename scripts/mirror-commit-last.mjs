@@ -40,7 +40,9 @@ function collectChangedFiles() {
     const diff = git(["diff", "--name-only", `${parent}..${head}`]);
     return diff ? diff.split(/\r?\n/).filter(Boolean) : [];
   } catch (error) {
-    console.error("mirror: failed to resolve git history; fallback as empty diff");
+    console.error(
+      "mirror: failed to resolve git history; fallback as empty diff",
+    );
     return [];
   }
 }
@@ -75,19 +77,37 @@ function shouldSync(commitFiles) {
 }
 
 function inferCommitSummary(commitFiles) {
-  const hasRenderedDiff = commitFiles.some((file) =>
-    file.startsWith("src/ui/lib/gitRenderedDiff/") ||
-    file.startsWith("src/ui/components/") ||
-    file.startsWith("src/ui/styles/") ||
-    file.includes("PostDiffGitMarkers") ||
-    file.includes("gitRenderedDiff"),
+  const hasDocumentReviewSession = commitFiles.some(
+    (file) =>
+      file.includes("DocumentReviewSession") ||
+      file.includes("documentReviewSession") ||
+      file.includes("sourceControlContextMenus") ||
+      file.includes("SourceControlPanel") ||
+      file.includes("DocumentsView"),
+  );
+  const hasRenderedDiff = commitFiles.some(
+    (file) =>
+      file.startsWith("src/ui/lib/gitRenderedDiff/") ||
+      file.startsWith("src/ui/components/") ||
+      file.startsWith("src/ui/styles/") ||
+      file.includes("PostDiffGitMarkers") ||
+      file.includes("gitRenderedDiff"),
   );
   const hasUiReview = commitFiles.some((file) =>
-    file.startsWith("scripts/ui-review/")
+    file.startsWith("scripts/ui-review/"),
   );
-  const hasUnitTest = commitFiles.some((file) => file.startsWith("test/unit/") );
+  const hasUnitTest = commitFiles.some((file) => file.startsWith("test/unit/"));
   const hasFixture = commitFiles.some((file) => file.includes("fixtures"));
 
+  if (hasDocumentReviewSession && hasUiReview && hasUnitTest) {
+    return "add document review session stream";
+  }
+  if (hasDocumentReviewSession && hasUnitTest) {
+    return "add document review session tests";
+  }
+  if (hasDocumentReviewSession) {
+    return "add document review session";
+  }
   if (hasRenderedDiff && hasUiReview && hasUnitTest) {
     return "sync rendered diff markers implementation and review coverage";
   }
@@ -133,8 +153,13 @@ function run() {
   const decision = shouldSync(commitFiles);
 
   if (!decision.shouldSync) {
-    console.log("mirror: public mirror sync is skipped because changed files are mirror-excluded.");
-    if (decision.matchedFiles.length === 0 && decision.skippedFiles.length > 0) {
+    console.log(
+      "mirror: public mirror sync is skipped because changed files are mirror-excluded.",
+    );
+    if (
+      decision.matchedFiles.length === 0 &&
+      decision.skippedFiles.length > 0
+    ) {
       console.log(`mirror: skipped files: ${decision.skippedFiles.join(", ")}`);
     }
     return;
