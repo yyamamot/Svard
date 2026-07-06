@@ -71,6 +71,30 @@
   min-height: 24px;
 }
 
+.git-diff-watch-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid color-mix(in srgb, #b98000 58%, var(--reader-border));
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #684400;
+  background: color-mix(in srgb, #fff5d8 82%, var(--reader-bg));
+  white-space: nowrap;
+}
+
+.git-diff-watch-status.refreshing {
+  border-color: color-mix(in srgb, #2f806f 58%, var(--reader-border));
+  color: #1f5d50;
+  background: color-mix(in srgb, #dff0ec 82%, var(--reader-bg));
+}
+
+.git-diff-watch-status.blocked {
+  border-color: color-mix(in srgb, #c85240 58%, var(--reader-border));
+  color: #8f2f22;
+  background: color-mix(in srgb, #fde7e1 82%, var(--reader-bg));
+}
+
 .git-diff-navigation button {
   border: 1px solid var(--reader-border);
   border-radius: 5px;
@@ -79,6 +103,12 @@
   background: var(--reader-bg);
   font: inherit;
   font-size: 12px;
+}
+
+.git-diff-navigation .git-diff-refresh-preview-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .git-diff-navigation button:disabled {

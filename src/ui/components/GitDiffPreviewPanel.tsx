@@ -11,6 +11,8 @@ import type {
   LocalImageResult,
 } from "../../core/types";
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
+import type { DiffPreviewWatchState } from "../lib/diffPreviewWatch";
+import { diffPreviewIdentityKey } from "../lib/diffPreviewWatch";
 import type { RenderedDiffPresentation } from "../lib/gitRenderedDiff";
 import { DiffToolbar } from "./gitDiffPreview/toolbar";
 import { DiffPreviewBody } from "./gitDiffPreview/body";
@@ -72,6 +74,8 @@ interface DocumentDiffPreviewPanelProps {
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
   setLastMouseGesture?: (gesture: MouseGestureAutomation | null) => void;
+  watchState?: DiffPreviewWatchState;
+  onRefreshPreview?: () => void;
   onClose: (handoff?: DiffPreviewCloseHandoff) => void;
 }
 
@@ -96,6 +100,8 @@ export function DocumentDiffPreviewPanel({
   onOpenDiagramPreview,
   showInlineNotice,
   setLastMouseGesture,
+  watchState,
+  onRefreshPreview,
   onClose,
 }: DocumentDiffPreviewPanelProps) {
   const panelRef = useRef<HTMLElement | null>(null);
@@ -110,6 +116,8 @@ export function DocumentDiffPreviewPanel({
   const [syncScrollEnabled, setSyncScrollEnabled] = useState(true);
   const [activeChangeIndex, setActiveChangeIndex] = useState(0);
   const [activeTableIndex, setActiveTableIndex] = useState(0);
+  const previewIdentityKey = diffPreviewIdentityKey(preview);
+  const autoRefreshKeyRef = useRef<string | null>(null);
   const {
     changeCount,
     changeCountLabel,
@@ -213,11 +221,43 @@ export function DocumentDiffPreviewPanel({
     setIsExpanded(true);
     setActiveTableIndex(0);
     setActiveChangeIndex(0);
-  }, [preview]);
+  }, [previewIdentityKey]);
 
   useEffect(() => {
     setActiveChangeIndex(0);
   }, [view, activeTableIndex]);
+
+  useEffect(() => {
+    setActiveChangeIndex((current) => {
+      if (changeCount === 0) {
+        return 0;
+      }
+      return current >= changeCount ? changeCount - 1 : current;
+    });
+  }, [changeCount]);
+
+  useEffect(() => {
+    if (watchState?.status !== "stale") {
+      autoRefreshKeyRef.current = null;
+      return;
+    }
+    if (!onRefreshPreview || activeChangeIndex !== 0) {
+      return;
+    }
+    const autoRefreshKey = `${previewIdentityKey}:${watchState.reason ?? ""}:${watchState.message ?? ""}`;
+    if (autoRefreshKeyRef.current === autoRefreshKey) {
+      return;
+    }
+    autoRefreshKeyRef.current = autoRefreshKey;
+    onRefreshPreview();
+  }, [
+    activeChangeIndex,
+    onRefreshPreview,
+    previewIdentityKey,
+    watchState?.message,
+    watchState?.reason,
+    watchState?.status,
+  ]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -270,9 +310,11 @@ export function DocumentDiffPreviewPanel({
             isExpanded={isExpanded}
             syncScrollEnabled={syncScrollEnabled}
             tableViewAvailable={tableViewAvailable}
+            watchState={watchState}
             renderedSummaryLoading={renderedSummaryLoading}
             renderedBlockCount={renderedSummary.blocks.length}
             onMoveChange={moveChange}
+            onRefreshPreview={onRefreshPreview}
             onViewChange={setView}
             onToggleExpanded={() => setIsExpanded((current) => !current)}
             onSyncScrollChange={setSyncScrollEnabled}

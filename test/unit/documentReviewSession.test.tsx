@@ -77,4 +77,21 @@ describe("document review session", () => {
     expect(api?.stateByPath["/workspace/b.adoc"]).toBe("unreviewed");
     expect(api?.summary.total).toBe(1);
   });
+
+  it("adds refreshed changed targets as unreviewed without resetting existing review state", async () => {
+    await render(["/workspace/a.md"]);
+    await act(async () => {
+      api?.markViewed("/workspace/a.md");
+    });
+
+    await render(["/workspace/a.md", "/workspace/c.md"]);
+
+    expect(api?.stateByPath["/workspace/a.md"]).toBe("viewed");
+    expect(api?.stateByPath["/workspace/c.md"]).toBe("unreviewed");
+    expect(api?.summary).toEqual({
+      total: 2,
+      reviewed: 1,
+      needsAttention: 0,
+    });
+  });
 });

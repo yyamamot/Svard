@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppMainShell } from "./components/AppMainShell";
 import { useActiveHeadingTracking } from "./hooks/useActiveHeadingTracking";
 import { useBookmarksState } from "./hooks/useBookmarksState";
@@ -57,6 +57,12 @@ import { MAIN_WINDOW_SESSION_ID, normalizeConfig } from "./lib/config";
 import type { ContentCursorCommandHandler } from "./lib/contentCursor";
 import { mergeWindowConfigForSave } from "./lib/windowConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
+import {
+  type DiffPreviewWatchReason,
+  type DiffPreviewWatchState,
+  freshDiffPreviewWatchState,
+  watchedGitDiffPreviewPath,
+} from "./lib/diffPreviewWatch";
 import type { LinkPreviewState } from "./lib/linkPreview";
 import type {
   DiagramPreviewState,
@@ -72,6 +78,7 @@ import type {
   AppConfig,
   DocumentDiffPreview,
   DocumentPayload,
+  GitChanges,
   RenderResult,
   WorkspaceEnvironment,
 } from "../core/types";
@@ -141,6 +148,13 @@ export function App() {
     useState<DiagramPreviewState | null>(null);
   const [documentDiffPreview, setDocumentDiffPreview] =
     useState<DocumentDiffPreview | null>(null);
+  const [diffPreviewWatchState, setDiffPreviewWatchState] =
+    useState<DiffPreviewWatchState>(freshDiffPreviewWatchState);
+  const diffPreviewRefreshRequestRef = useRef(0);
+  const activeDiffPreviewWatchPath = useMemo(
+    () => watchedGitDiffPreviewPath(documentDiffPreview),
+    [documentDiffPreview],
+  );
   const [workspaceEnvironment, setWorkspaceEnvironment] =
     useState<WorkspaceEnvironment | null>(null);
   const {
@@ -476,6 +490,18 @@ export function App() {
     resolveDiffDocumentLink,
     resolveDiffLocalImage,
   } = useDiffPreviewHostCallbacks(host);
+  const setFreshDocumentDiffPreview = useCallback(
+    (preview: DocumentDiffPreview | null) => {
+      setDocumentDiffPreview(preview);
+      setDiffPreviewWatchState(freshDiffPreviewWatchState);
+    },
+    [],
+  );
+  useEffect(() => {
+    if (!activeDiffPreviewWatchPath) {
+      setDiffPreviewWatchState(freshDiffPreviewWatchState);
+    }
+  }, [activeDiffPreviewWatchPath]);
   const {
     activePostDiffGitMarkers,
     closeDocumentDiffPreview,
@@ -493,20 +519,89 @@ export function App() {
     loadDiffDocumentContext,
     resolveDiffLocalImage,
     renderDiffDiagram,
-    setDocumentDiffPreview,
+    setDocumentDiffPreview: setFreshDocumentDiffPreview,
   });
   const documentReviewViewedRef = useRef<((path: string) => void) | null>(null);
   const documentReviewNeedsAttentionRef = useRef<
     ((path: string) => void) | null
   >(null);
   const documentReviewResetRef = useRef<((path: string) => void) | null>(null);
+  const markActiveDiffPreviewStale = useCallback(
+    (reason: DiffPreviewWatchReason) => {
+      if (!activeDiffPreviewWatchPath) {
+        return;
+      }
+      setDiffPreviewWatchState((current) =>
+        current.status === "refreshing"
+          ? current
+          : {
+              status: "stale",
+              reason,
+              message: "Preview changed on disk",
+            },
+      );
+    },
+    [activeDiffPreviewWatchPath],
+  );
+  const handleReviewWatchGitChangesRefreshComplete = useCallback(
+    (reason: string, changes: GitChanges) => {
+      handleGitChangesRefreshComplete(reason, changes);
+      if (reason === "metadata-event" || reason === "visibility-restore") {
+        markActiveDiffPreviewStale(reason);
+      }
+    },
+    [handleGitChangesRefreshComplete, markActiveDiffPreviewStale],
+  );
+  const refreshActiveDiffPreview = useCallback(async () => {
+    const path = activeDiffPreviewWatchPath;
+    if (!path) {
+      return;
+    }
+    const requestId = diffPreviewRefreshRequestRef.current + 1;
+    diffPreviewRefreshRequestRef.current = requestId;
+    setDiffPreviewWatchState((current) => ({
+      status: "refreshing",
+      reason: current.reason,
+      message: "Preview changed on disk",
+    }));
+    try {
+      const preview = await getGitDiffPreview(path);
+      if (diffPreviewRefreshRequestRef.current !== requestId) {
+        return;
+      }
+      setFreshDocumentDiffPreview({
+        ...preview,
+        source: preview.source ?? "git",
+        leftPath: preview.leftPath ?? path,
+        rightPath: preview.rightPath ?? path,
+      });
+      documentReviewViewedRef.current?.(path);
+    } catch (error) {
+      if (diffPreviewRefreshRequestRef.current !== requestId) {
+        return;
+      }
+      setDiffPreviewWatchState({
+        status: "blocked",
+        message: "Preview refresh blocked",
+      });
+      showInlineNotice(
+        error instanceof Error ? error.message : "Preview refresh blocked",
+        { tone: "warning" },
+      );
+    }
+  }, [
+    activeDiffPreviewWatchPath,
+    getGitDiffPreview,
+    setFreshDocumentDiffPreview,
+    showInlineNotice,
+  ]);
   const sourceControl = useSourceControlActions({
     config,
     copyText: (label, value) => copyTextRef.current(label, value),
     documentPayload: activeDocumentPayload,
     host,
     openContextMenu,
-    onGitChangesRefreshComplete: handleGitChangesRefreshComplete,
+    onGitChangesRefreshComplete: handleReviewWatchGitChangesRefreshComplete,
     onDocumentReviewNeedsAttention: (path) =>
       documentReviewNeedsAttentionRef.current?.(path),
     onDocumentReviewReset: (path) => documentReviewResetRef.current?.(path),
@@ -518,7 +613,7 @@ export function App() {
     },
     persistWorkspace,
     rootDirectory,
-    setDocumentDiffPreview,
+    setDocumentDiffPreview: setFreshDocumentDiffPreview,
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
     showInlineNotice,
   });
@@ -551,8 +646,15 @@ export function App() {
     documentReviewSession.markViewed,
     documentReviewSession.reset,
   ]);
-  refreshSourceControlFromFileTreeRef.current = (event) =>
+  refreshSourceControlFromFileTreeRef.current = (event) => {
+    if (
+      activeDiffPreviewWatchPath &&
+      event.changedPath === activeDiffPreviewWatchPath
+    ) {
+      markActiveDiffPreviewStale("file-watch");
+    }
     handleWorkspaceFileChangeRefresh(event, sourceControl.refreshGitChanges);
+  };
   const matchCount = searchHits.length;
   const {
     activateSearchHit,
@@ -1200,6 +1302,9 @@ export function App() {
         diffContentCursorClearRef,
         diffContentCursorCommandRef,
         documentDiffPreview,
+        diffPreviewWatchState: activeDiffPreviewWatchPath
+          ? diffPreviewWatchState
+          : undefined,
         diffPreviewChromeHidden,
         documentPayload,
         externalLinkConfirmation,
@@ -1221,6 +1326,9 @@ export function App() {
         viewerShortcutHintsOpen,
         onCloseContextMenu: closeContextMenu,
         onCloseDocumentDiffPreview: closeDocumentDiffPreview,
+        onRefreshDiffPreview: activeDiffPreviewWatchPath
+          ? refreshActiveDiffPreview
+          : undefined,
         onCloseFileComparePicker: () => setFileComparePickerOpen(false),
         onCloseGitCommitDetails: () => sourceControl.setGitCommitDetails(null),
         onCloseGitRefPicker: () => sourceControl.setGitRefPicker(null),

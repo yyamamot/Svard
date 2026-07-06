@@ -56,6 +56,7 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("Git Diff Modified Fixture") ||
       bodyText.includes("Git Diff Clean Fixture") ||
       bodyText.includes("Git Diff Untracked Fixture") ||
+      bodyText.includes("Review Watch") ||
       bodyText.includes("Large Table Row Addition") ||
       bodyText.includes("Git Table Diff Fixture") ||
       bodyText.includes("Git Markdown Table Cell Fixture") ||
@@ -161,6 +162,7 @@ export async function buildCoreAssertions(context) {
       scenario === "viewer-topbar-direct-layout-controls" ||
       scenario.startsWith("viewer-git-timeline-") ||
       scenario.startsWith("viewer-git-compare-") ||
+      scenario.startsWith("viewer-review-watch-mode") ||
       scenario.startsWith("viewer-source-control-")
         ? true
         : scenario === "viewer-bookmarks" ||

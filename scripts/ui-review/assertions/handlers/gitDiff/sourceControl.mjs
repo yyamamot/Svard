@@ -283,6 +283,35 @@ export async function buildGitDiffSourceControlAssertions(context) {
                 ?.callCount === 1,
           ))
         : true,
+    hasReviewWatchMode:
+      scenario === "viewer-review-watch-mode"
+        ? await page.evaluate(() => {
+            const sample = window.__SVARD_REVIEW_WATCH_MODE_SAMPLE__;
+            return sample?.callCount >= 2 && sample?.changesVisible === true;
+          })
+        : true,
+    hasReviewWatchModeActiveDiff:
+      scenario === "viewer-review-watch-mode-active-diff"
+        ? await page.evaluate(() => {
+            const sample = window.__SVARD_REVIEW_WATCH_ACTIVE_DIFF_SAMPLE__;
+            return (
+              sample?.staleVisible === "Stale" &&
+              sample?.refreshVisible === true &&
+              sample?.initialActiveLabel === sample?.activeLabel
+            );
+          })
+        : true,
+    hasReviewWatchModeRefreshPreview:
+      scenario === "viewer-review-watch-mode-refresh-preview"
+        ? await page.evaluate(() => {
+            const sample = window.__SVARD_REVIEW_WATCH_ACTIVE_DIFF_SAMPLE__;
+            return (
+              sample?.staleVisible === "" &&
+              sample?.refreshedTextVisible === true &&
+              sample?.activeMarkerPresent === true
+            );
+          })
+        : true,
     hasSourceControlBranchDiff:
       scenario === "viewer-source-control-branch-diff" ||
       scenario === "viewer-source-control-branch-diff-provider-fallback"

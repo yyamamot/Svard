@@ -35,6 +35,7 @@ import { QuickOpen, type QuickOpenCandidate } from "./QuickOpen";
 import { ShortcutGestureHints } from "./ShortcutGestureHints";
 import type { CopyText } from "../hooks/documentLinks/types";
 import type { ContextMenuItem } from "../types";
+import type { DiffPreviewWatchState } from "../lib/diffPreviewWatch";
 
 interface ExternalLinkConfirmationRequest {
   url: string;
@@ -56,6 +57,7 @@ interface AppOverlaysProps {
   contextMenu: ContextMenuState | null;
   copyText: CopyText;
   documentDiffPreview: DocumentDiffPreview | null;
+  diffPreviewWatchState?: DiffPreviewWatchState;
   diffPreviewChromeHidden: boolean;
   documentPayload: DocumentPayload | null;
   externalLinkConfirmation: ExternalLinkConfirmationRequest | null;
@@ -98,6 +100,7 @@ interface AppOverlaysProps {
   openDiffExternalUrl: (url: string) => Promise<void>;
   onCloseContextMenu: () => void;
   onCloseDocumentDiffPreview: (handoff?: DiffPreviewCloseHandoff) => void;
+  onRefreshDiffPreview?: () => void;
   onCloseFileComparePicker: () => void;
   onCloseGitCommitDetails: () => void;
   onCloseGitRefPicker: () => void;
@@ -130,6 +133,7 @@ export function AppOverlays({
   contextMenu,
   copyText,
   documentDiffPreview,
+  diffPreviewWatchState,
   diffPreviewChromeHidden,
   documentPayload,
   externalLinkConfirmation,
@@ -156,6 +160,7 @@ export function AppOverlays({
   openDiffExternalUrl,
   onCloseContextMenu,
   onCloseDocumentDiffPreview,
+  onRefreshDiffPreview,
   onCloseFileComparePicker,
   onCloseGitCommitDetails,
   onCloseGitRefPicker,
@@ -273,6 +278,8 @@ export function AppOverlays({
           onOpenDiagramPreview={onOpenDiagramPreview}
           showInlineNotice={showInlineNotice}
           setLastMouseGesture={onSetLastMouseGesture}
+          watchState={diffPreviewWatchState}
+          onRefreshPreview={onRefreshDiffPreview}
           onClose={onCloseDocumentDiffPreview}
         />
       )}

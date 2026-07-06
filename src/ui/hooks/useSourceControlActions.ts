@@ -387,7 +387,12 @@ export function useSourceControlActions({
       if (gitDiffPreviewRequestRef.current !== requestId) {
         return;
       }
-      setDocumentDiffPreview(preview);
+      setDocumentDiffPreview({
+        ...preview,
+        source: preview.source ?? "git",
+        leftPath: preview.leftPath ?? path,
+        rightPath: preview.rightPath ?? path,
+      });
       onDocumentReviewViewed?.(path);
     } catch (error) {
       if (gitDiffPreviewRequestRef.current !== requestId) {

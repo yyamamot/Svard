@@ -1,5 +1,10 @@
-import { Maximize2, Minimize2, X } from "lucide-react";
+import { Maximize2, Minimize2, RefreshCw, X } from "lucide-react";
 import type { AppConfig, DocumentDiffPreview } from "../../../core/types";
+import type { DiffPreviewWatchState } from "../../lib/diffPreviewWatch";
+import {
+  diffPreviewWatchLabel,
+  diffPreviewWatchMessage,
+} from "../../lib/diffPreviewWatch";
 import { ShortcutGestureHints } from "../ShortcutGestureHints";
 import type { DiffView } from "./types";
 
@@ -30,9 +35,11 @@ export function DiffToolbar({
   isExpanded,
   syncScrollEnabled,
   tableViewAvailable,
+  watchState,
   renderedSummaryLoading,
   renderedBlockCount,
   onMoveChange,
+  onRefreshPreview,
   onViewChange,
   onToggleExpanded,
   onSyncScrollChange,
@@ -47,14 +54,19 @@ export function DiffToolbar({
   isExpanded: boolean;
   syncScrollEnabled: boolean;
   tableViewAvailable: boolean;
+  watchState?: DiffPreviewWatchState;
   renderedSummaryLoading: boolean;
   renderedBlockCount: number;
   onMoveChange: (offset: number) => void;
+  onRefreshPreview?: () => void;
   onViewChange: (view: DiffView) => void;
   onToggleExpanded: () => void;
   onSyncScrollChange: (enabled: boolean) => void;
   onClose: () => void;
 }) {
+  const watchLabel = diffPreviewWatchLabel(watchState);
+  const watchMessage = diffPreviewWatchMessage(watchState);
+  const refreshDisabled = watchState?.status === "refreshing";
   return (
     <header className="git-diff-toolbar">
       <div className="git-diff-title">
@@ -66,6 +78,29 @@ export function DiffToolbar({
         data-review-id="git-diff-change-navigation"
       >
         <span data-review-id="git-diff-change-count">{changeCountLabel}</span>
+        {watchLabel && (
+          <span
+            className={`git-diff-watch-status ${watchState?.status ?? ""}`}
+            data-review-id="git-diff-preview-watch-status"
+            data-watch-status={watchState?.status}
+            title={watchMessage ?? undefined}
+          >
+            {watchLabel}
+          </span>
+        )}
+        {watchLabel && onRefreshPreview && (
+          <button
+            type="button"
+            className="git-diff-refresh-preview-button"
+            data-review-id="git-diff-preview-refresh"
+            disabled={refreshDisabled}
+            title={watchMessage ?? "Refresh preview"}
+            onClick={onRefreshPreview}
+          >
+            <RefreshCw size={13} />
+            Refresh preview
+          </button>
+        )}
         <button
           type="button"
           disabled={changeCount === 0}

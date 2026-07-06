@@ -756,6 +756,41 @@ describe("useSourceControlActions", () => {
     expect(markViewed).not.toHaveBeenCalledWith("/workspace/docs/first.md");
   });
 
+  it("fills the working tree diff preview path for review watch state", async () => {
+    const host = createHost();
+    vi.mocked(host.getGitDiffPreview).mockResolvedValueOnce({
+      source: "git",
+      repositoryRoot: "/workspace",
+      relativePath: "docs/guide.md",
+      leftPath: null,
+      rightPath: null,
+      status: "modified",
+      leftLabel: "HEAD",
+      rightLabel: "Working Tree",
+      hunks: [],
+    });
+    const setDocumentDiffPreview = vi.fn();
+    let actions: SourceControlActions | undefined;
+
+    await render(configWithWorkspace({ sidebarTab: "files" }), host, {
+      onActions: (nextActions) => {
+        actions = nextActions;
+      },
+      setDocumentDiffPreview,
+    });
+
+    await act(async () => {
+      await actions?.showGitDiff("/workspace/docs/guide.md");
+    });
+
+    expect(setDocumentDiffPreview).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        leftPath: "/workspace/docs/guide.md",
+        rightPath: "/workspace/docs/guide.md",
+      }),
+    );
+  });
+
   it("deduplicates visible Changes fetch with idle warm", async () => {
     vi.useFakeTimers();
     const restoreIdleCallback = mockRequestIdleCallback();
