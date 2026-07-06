@@ -132,6 +132,44 @@ describe("SourceControlPanel review session", () => {
     expect(onOpenChange).toHaveBeenNthCalledWith(3, "/workspace/docs/first.md");
   });
 
+  it("opens an all diffs stream without marking every document viewed", async () => {
+    const onOpenAllDiffs = vi.fn();
+    const markViewed = vi.fn();
+    await renderPanel({
+      documentReviewSession: {
+        stateByPath: {},
+        summary: { total: 1, reviewed: 0, needsAttention: 0 },
+        markViewed,
+        markNeedsAttention: vi.fn(),
+        reset: vi.fn(),
+      },
+      onOpenAllDiffs,
+    });
+
+    const allDiffsButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "All diffs",
+    );
+
+    await act(async () => {
+      allDiffsButton?.click();
+    });
+
+    expect(markViewed).not.toHaveBeenCalled();
+    expect(onOpenAllDiffs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "git-changes-stream",
+        watchStatus: "fresh",
+        items: [
+          expect.objectContaining({
+            kind: "document",
+            documentPath: "/workspace/docs/guide.md",
+          }),
+        ],
+      }),
+    );
+    expect(onOpenAllDiffs.mock.calls[0]?.[0].items).toHaveLength(1);
+  });
+
   async function renderPanel(
     overrides: Partial<Parameters<typeof SourceControlPanel>[0]> = {},
   ) {
@@ -173,6 +211,7 @@ describe("SourceControlPanel review session", () => {
           onSelectBranchDiffBase={vi.fn()}
           onSelectGraphScope={vi.fn()}
           onOpenChange={vi.fn()}
+          onOpenAllDiffs={vi.fn()}
           onOpenBranchDiffItem={vi.fn()}
           onOpenGraphItem={vi.fn()}
           onOpenFileHistoryChanges={vi.fn()}

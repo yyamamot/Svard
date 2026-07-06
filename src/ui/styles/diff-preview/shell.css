@@ -25,6 +25,10 @@
   display: none;
 }
 
+.diff-stream-panel {
+  background: var(--reader-bg);
+}
+
 .git-diff-toolbar {
   display: flex;
   align-items: center;
@@ -175,6 +179,113 @@
 .git-diff-body-with-ruler > .git-rendered-diff-body {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.diff-stream-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding: 14px;
+  background: var(--reader-bg);
+}
+
+.diff-stream-file-section {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--reader-border);
+  border-radius: 7px;
+  background: var(--reader-surface);
+}
+
+.diff-stream-file-section.blocker {
+  background: color-mix(in srgb, #f7fafb 86%, var(--reader-bg));
+}
+
+.diff-stream-file-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--reader-border);
+}
+
+.diff-stream-file-header > button,
+.diff-stream-review-actions button {
+  border: 1px solid var(--reader-border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.diff-stream-file-title {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.diff-stream-file-title strong,
+.diff-stream-file-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-stream-file-title span {
+  color: var(--muted-text);
+  font-size: 12px;
+}
+
+.diff-stream-review-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-stream-rendered-body {
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  border-top: 0;
+  overflow: visible;
+}
+
+.diff-stream-rendered-body .git-rendered-pane {
+  min-height: 0;
+  height: auto;
+  max-height: none;
+}
+
+.diff-stream-rendered-body .git-rendered-scroll {
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  padding: 18px;
+}
+
+.diff-stream-rendered-body .git-rendered-block {
+  overflow: hidden;
+}
+
+.diff-stream-rendered-body .git-rendered-block-content {
+  overflow-x: auto;
+}
+
+.diff-stream-blocker-message,
+.diff-stream-loading {
+  margin: 0;
+  padding: 14px;
+  color: var(--muted-text);
 }
 
 .git-diff-change-ruler {

@@ -290,6 +290,42 @@ export async function buildGitDiffSourceControlAssertions(context) {
             return sample?.callCount >= 2 && sample?.changesVisible === true;
           })
         : true,
+    hasSourceControlAllDiffs:
+      scenario === "viewer-source-control-all-diffs"
+        ? await page.evaluate(() => {
+            const sample = window.__SVARD_ALL_DIFFS_STREAM_SAMPLE__;
+            return (
+              sample?.panelVisible === true &&
+              sample?.fileSections >= 1 &&
+              sample?.renderedBlocks >= 1 &&
+              sample?.renderedBodyHeight > 0 &&
+              sample?.renderedBodyWidth > 0 &&
+              sample?.renderedBlockHeight > 0 &&
+              sample?.renderedBlockWidth > 0 &&
+              sample?.renderedBlockVisibleInSection === true &&
+              sample?.renderedSectionHeight >= sample?.renderedBodyHeight &&
+              sample?.streamBodyOverflowY === "auto" &&
+              sample?.renderedScrollOverflowY === "visible" &&
+              sample?.fullPreviewDefault === true &&
+              sample?.contextMenuVisible === true &&
+              sample?.contextMenuSourceReviewId !== "" &&
+              sample?.contextMenuItemCount > 0 &&
+              sample?.assetVisible === false &&
+              sample?.navigationVisible === true &&
+              sample?.refreshVisible === true
+            );
+          })
+        : true,
+    hasSourceControlAllDiffsPrivacy:
+      scenario === "viewer-source-control-all-diffs-privacy"
+        ? await page.evaluate(() => {
+            const sample = window.__SVARD_ALL_DIFFS_STREAM_SAMPLE__;
+            return (
+              sample?.panelVisible === true &&
+              sample?.privatePathVisible === false
+            );
+          })
+        : true,
     hasReviewWatchModeActiveDiff:
       scenario === "viewer-review-watch-mode-active-diff"
         ? await page.evaluate(() => {

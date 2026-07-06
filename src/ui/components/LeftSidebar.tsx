@@ -15,6 +15,7 @@ import type {
   BookmarkEntry,
   DirectoryEntry,
   DocumentOrderCatalog,
+  DocumentDiffStreamPreview,
   DocumentPayload,
   GitBranchDiff,
   GitBranchDiffEntry,
@@ -92,6 +93,7 @@ interface LeftSidebarProps {
   onOpenBookmark: (bookmark: BookmarkEntry) => void;
   onOpenFile: (path: string) => void;
   onOpenGitDiff: (path: string) => void;
+  onOpenAllDiffs: (preview: DocumentDiffStreamPreview) => void;
   onFilesViewModeChange: (mode: DocumentsViewMode) => void;
   onPickDirectory: () => void;
   onPickDocument: () => void;
@@ -193,6 +195,7 @@ export function LeftSidebar({
   onOpenBookmark,
   onOpenFile,
   onOpenGitDiff,
+  onOpenAllDiffs,
   onFilesViewModeChange,
   onPickDirectory,
   onPickDocument,
@@ -331,6 +334,7 @@ export function LeftSidebar({
                 onSelectBranchDiffBase={onSelectSourceControlBranchDiffBase}
                 onSelectGraphScope={onSelectSourceControlGraphScope}
                 onOpenChange={onOpenSourceControlChange}
+                onOpenAllDiffs={onOpenAllDiffs}
                 onOpenBranchDiffItem={onOpenBranchDiffItem}
                 onOpenGraphItem={onOpenSourceControlGraphItem}
                 onOpenFileHistoryChanges={onOpenTimelineChanges}

@@ -164,6 +164,33 @@ export interface GitChanges {
   message?: string | null;
 }
 
+export type DocumentDiffStreamSource = "git-changes-stream";
+
+export type DocumentDiffStreamItemKind = "document" | "blocker";
+
+export type DocumentDiffStreamWatchStatus =
+  | "fresh"
+  | "stale"
+  | "refreshing"
+  | "blocked";
+
+export interface DocumentDiffStreamItem {
+  path: string;
+  status: GitDiffStatus;
+  documentPath?: string | null;
+  kind: DocumentDiffStreamItemKind;
+  reason?: string | null;
+}
+
+export interface DocumentDiffStreamPreview {
+  source: DocumentDiffStreamSource;
+  repositoryRoot?: string | null;
+  items: DocumentDiffStreamItem[];
+  activePath?: string | null;
+  watchStatus?: DocumentDiffStreamWatchStatus;
+  message?: string | null;
+}
+
 export type GitBranchDiffStatus = "ok" | "not-in-repo" | "no-history" | "error";
 
 export interface GitBranchDiffEntry {

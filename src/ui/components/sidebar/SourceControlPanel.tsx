@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type {
   AppConfig,
+  DocumentDiffStreamPreview,
   GitBranchDiff,
   GitBranchDiffProviderBaseCandidate,
   GitBranchDiffEntry,
@@ -15,6 +16,7 @@ import type {
   GitFileHistoryItem,
 } from "../../../core/types";
 import { gitStatusDisplay } from "../../lib/gitStatusDisplay";
+import { buildDocumentDiffStreamItems } from "../../lib/documentDiffStream";
 import type {
   DocumentReviewSessionControls,
   DocumentReviewState,
@@ -56,6 +58,7 @@ export function SourceControlPanel({
   onSelectBranchDiffBase,
   onSelectGraphScope,
   onOpenChange,
+  onOpenAllDiffs,
   onOpenBranchDiffItem,
   onOpenGraphItem,
   onOpenFileHistoryChanges,
@@ -85,6 +88,7 @@ export function SourceControlPanel({
   onSelectBranchDiffBase: (baseRef: string) => void;
   onSelectGraphScope: (scope: GitCommitGraphScope) => void;
   onOpenChange: (path: string | null | undefined) => void | Promise<void>;
+  onOpenAllDiffs: (preview: DocumentDiffStreamPreview) => void;
   onOpenBranchDiffItem: (item: GitBranchDiffEntry) => void | Promise<void>;
   onOpenGraphItem: (item: GitFileHistoryItem) => void | Promise<void>;
   onOpenFileHistoryChanges: (item: GitFileHistoryItem) => void | Promise<void>;
@@ -218,6 +222,7 @@ export function SourceControlPanel({
           documentReviewSession={documentReviewSession}
           loading={changesLoading}
           onOpenChange={onOpenChange}
+          onOpenAllDiffs={onOpenAllDiffs}
           onItemContextMenu={onChangeContextMenu}
         />
       ) : view === "branchDiff" ? (
@@ -256,12 +261,14 @@ function ChangesPanel({
   documentReviewSession,
   loading,
   onOpenChange,
+  onOpenAllDiffs,
   onItemContextMenu,
 }: {
   changes: GitChanges | null;
   documentReviewSession: DocumentReviewSessionControls;
   loading: boolean;
   onOpenChange: (path: string | null | undefined) => void | Promise<void>;
+  onOpenAllDiffs: (preview: DocumentDiffStreamPreview) => void;
   onItemContextMenu: (
     event: ReactMouseEvent<HTMLElement>,
     item: GitChangeEntry,
@@ -331,6 +338,9 @@ function ChangesPanel({
     stateByPath: documentReviewSession.stateByPath,
     targetPaths: reviewTargetPaths,
   });
+  const streamItems = buildDocumentDiffStreamItems(changes.items, {
+    repositoryRoot: changes.repositoryRoot,
+  });
   const openReviewChange = (path: string) => {
     setReviewCursorPath(path);
     void onOpenChange(path);
@@ -373,6 +383,20 @@ function ChangesPanel({
             }}
           >
             Next
+          </button>
+          <button
+            type="button"
+            data-review-id="source-control-all-diffs"
+            onClick={() =>
+              onOpenAllDiffs({
+                source: "git-changes-stream",
+                repositoryRoot: changes.repositoryRoot,
+                items: streamItems,
+                watchStatus: "fresh",
+              })
+            }
+          >
+            All diffs
           </button>
         </div>
       ) : null}

@@ -24,6 +24,7 @@ export function buildLeftSidebarSourceControlProps({
   openSourceControlBranchDiffContextMenu,
   openSourceControlChange,
   openSourceControlChangeContextMenu,
+  openSourceControlAllDiffs,
   openSourceControlGraphContextMenu,
   openSourceControlGraphItem,
   openTimelineChanges,
@@ -53,6 +54,7 @@ export function buildLeftSidebarSourceControlProps({
   openSourceControlBranchDiffContextMenu: LeftSidebarProps["onSourceControlBranchDiffContextMenu"];
   openSourceControlChange: LeftSidebarProps["onOpenSourceControlChange"];
   openSourceControlChangeContextMenu: LeftSidebarProps["onSourceControlChangeContextMenu"];
+  openSourceControlAllDiffs: LeftSidebarProps["onOpenAllDiffs"];
   openSourceControlGraphContextMenu: LeftSidebarProps["onSourceControlGraphContextMenu"];
   openSourceControlGraphItem: LeftSidebarProps["onOpenSourceControlGraphItem"];
   openTimelineChanges: LeftSidebarProps["onOpenTimelineChanges"];
@@ -99,6 +101,7 @@ export function buildLeftSidebarSourceControlProps({
       void setSourceControlGraphScope(scope),
     onOpenTimelineChanges: openTimelineChanges,
     onOpenSourceControlChange: openSourceControlChange,
+    onOpenAllDiffs: openSourceControlAllDiffs,
     onOpenSourceControlGraphItem: openSourceControlGraphItem,
     onSourceControlChangeContextMenu: openSourceControlChangeContextMenu,
     onSourceControlBranchDiffContextMenu:

@@ -2,6 +2,7 @@ import type { MouseEvent, RefObject } from "react";
 import type {
   AppConfig,
   DocumentDiffPreview,
+  DocumentDiffStreamPreview,
   DocumentLinkResolution,
   DocumentPayload,
   GitCommitDetails,
@@ -16,6 +17,7 @@ import type {
 import type { HostAdapter } from "../../core/types";
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
+import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
 import type {
   ContextMenuState,
   DiagramPreviewState,
@@ -30,6 +32,7 @@ import {
   DocumentDiffPreviewPanel,
   type DiffPreviewCloseHandoff,
 } from "./GitDiffPreviewPanel";
+import { DocumentDiffStreamPanel } from "./DocumentDiffStreamPanel";
 import { GitRefPicker } from "./GitRefPicker";
 import { QuickOpen, type QuickOpenCandidate } from "./QuickOpen";
 import { ShortcutGestureHints } from "./ShortcutGestureHints";
@@ -57,9 +60,11 @@ interface AppOverlaysProps {
   contextMenu: ContextMenuState | null;
   copyText: CopyText;
   documentDiffPreview: DocumentDiffPreview | null;
+  documentDiffStreamPreview: DocumentDiffStreamPreview | null;
   diffPreviewWatchState?: DiffPreviewWatchState;
   diffPreviewChromeHidden: boolean;
   documentPayload: DocumentPayload | null;
+  documentReviewSession: DocumentReviewSessionControls;
   externalLinkConfirmation: ExternalLinkConfirmationRequest | null;
   fileComparePickerOpen: boolean;
   gitCommitDetails: GitCommitDetails | null;
@@ -100,7 +105,9 @@ interface AppOverlaysProps {
   openDiffExternalUrl: (url: string) => Promise<void>;
   onCloseContextMenu: () => void;
   onCloseDocumentDiffPreview: (handoff?: DiffPreviewCloseHandoff) => void;
+  onCloseDocumentDiffStreamPreview: () => void;
   onRefreshDiffPreview?: () => void;
+  onRefreshDocumentDiffStream?: () => void;
   onCloseFileComparePicker: () => void;
   onCloseGitCommitDetails: () => void;
   onCloseGitRefPicker: () => void;
@@ -133,9 +140,11 @@ export function AppOverlays({
   contextMenu,
   copyText,
   documentDiffPreview,
+  documentDiffStreamPreview,
   diffPreviewWatchState,
   diffPreviewChromeHidden,
   documentPayload,
+  documentReviewSession,
   externalLinkConfirmation,
   fileComparePickerOpen,
   gitCommitDetails,
@@ -160,7 +169,9 @@ export function AppOverlays({
   openDiffExternalUrl,
   onCloseContextMenu,
   onCloseDocumentDiffPreview,
+  onCloseDocumentDiffStreamPreview,
   onRefreshDiffPreview,
+  onRefreshDocumentDiffStream,
   onCloseFileComparePicker,
   onCloseGitCommitDetails,
   onCloseGitRefPicker,
@@ -281,6 +292,31 @@ export function AppOverlays({
           watchState={diffPreviewWatchState}
           onRefreshPreview={onRefreshDiffPreview}
           onClose={onCloseDocumentDiffPreview}
+        />
+      )}
+
+      {documentDiffStreamPreview && (
+        <DocumentDiffStreamPanel
+          preview={documentDiffStreamPreview}
+          config={config}
+          getGitDiffPreview={(path) => host.getGitDiffPreview(path)}
+          copyText={copyText}
+          openContextMenu={openContextMenu}
+          openDocument={onOpenDocument}
+          openPathInEditor={onOpenPathInEditor}
+          resolveDocumentLink={resolveDiffDocumentLink}
+          confirmExternalLink={confirmExternalLink}
+          openExternalUrl={openDiffExternalUrl}
+          onOpenDiagramPreview={onOpenDiagramPreview}
+          showInlineNotice={showInlineNotice}
+          resolveLocalImage={resolveDiffLocalImage}
+          loadDocumentContext={loadDiffDocumentContext}
+          renderDiagram={renderDiffDiagram}
+          confirmedRemoteDiagramKeys={confirmedRemoteDiagramKeys}
+          krokiFallbackDiagramKeys={krokiFallbackDiagramKeys}
+          documentReviewSession={documentReviewSession}
+          onRefresh={onRefreshDocumentDiffStream}
+          onClose={onCloseDocumentDiffStreamPreview}
         />
       )}
 
