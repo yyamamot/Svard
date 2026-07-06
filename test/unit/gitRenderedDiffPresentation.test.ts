@@ -309,7 +309,99 @@ describe("git rendered diff presentation", () => {
         reason: "complex",
       },
     ]);
+    expect(presentation.inlineDiagnostics).toEqual([
+      {
+        id: `inline-diagnostic:${presentation.entries[0]?.id}:list:reorder`,
+        entryId: presentation.entries[0]?.id,
+        blockId: "fallback-list",
+        category: "fallback",
+        label: "List fallback: reorder",
+        detail:
+          "Svard kept this change at block level because detailed matching was not reliable for this target.",
+      },
+      {
+        id: `inline-diagnostic:${presentation.entries[1]?.id}:table:complex`,
+        entryId: presentation.entries[1]?.id,
+        blockId: "fallback-table",
+        category: "fallback",
+        label: "Table fallback: complex",
+        detail:
+          "Svard kept this change at block level because detailed matching was not reliable for this target.",
+      },
+    ]);
     expect(JSON.stringify(presentation.fallbackReasons)).not.toContain("Secret");
+    expect(JSON.stringify(presentation.inlineDiagnostics)).not.toContain(
+      "Secret",
+    );
+  });
+
+  it("anchors blocked asset and unsupported diagram diagnostics without source details", () => {
+    const presentation = buildRenderedDiffPresentation([
+      {
+        id: "blocked-image",
+        kind: "changed",
+        blockKind: "image",
+        left: {
+          id: "blocked-image-left",
+          kind: "image",
+          tagName: "p",
+          text: "Secret asset",
+          html: `<p><span class="git-rendered-placeholder">External image blocked: Secret asset</span></p>`,
+        },
+        right: {
+          id: "blocked-image-right",
+          kind: "image",
+          tagName: "p",
+          text: "Secret asset",
+          html: `<p><span class="git-rendered-placeholder">External image blocked: Secret asset</span></p>`,
+        },
+      },
+      {
+        id: "unsupported-diagram",
+        kind: "changed",
+        blockKind: "diagram",
+        left: {
+          id: "unsupported-diagram-left",
+          kind: "diagram",
+          tagName: "div",
+          text: "Secret diagram",
+          html: `<div class="diagram-inline-diagnostic"><span>Secret diagram source failed</span></div>`,
+        },
+        right: {
+          id: "unsupported-diagram-right",
+          kind: "diagram",
+          tagName: "div",
+          text: "Secret diagram",
+          html: `<div class="diagram-inline-diagnostic"><span>Secret diagram source failed</span></div>`,
+        },
+      },
+    ]);
+
+    expect(presentation.inlineDiagnostics).toEqual([
+      {
+        id: `inline-diagnostic:${presentation.entries[0]?.id}:blocked-asset`,
+        entryId: presentation.entries[0]?.id,
+        blockId: "blocked-image",
+        category: "blocked-asset",
+        label: "Blocked asset",
+        detail:
+          "Image output is hidden by the current security or render policy.",
+      },
+      {
+        id: `inline-diagnostic:${presentation.entries[1]?.id}:unsupported-diagram`,
+        entryId: presentation.entries[1]?.id,
+        blockId: "unsupported-diagram",
+        category: "unsupported",
+        label: "Unsupported diagram",
+        detail: "Diagram output is unavailable for this rendered diff target.",
+      },
+    ]);
+    expect(JSON.stringify(presentation.inlineDiagnostics)).not.toContain(
+      "Secret",
+    );
+    expect(JSON.stringify(presentation.inlineDiagnostics)).not.toContain(
+      "/private",
+    );
   });
 
   it("groups contiguous one-sided rendered changes for presentation", () => {

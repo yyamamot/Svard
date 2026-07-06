@@ -651,7 +651,11 @@ export async function applyGitDiffNavigationScenario(context) {
         rightScrollDrift: Math.abs(finalRightScrollTop - stableRightScrollTop),
       };
     });
-  } else if (scenario === "viewer-diff-diagram-placeholder") {
+  } else if (
+    scenario === "viewer-diff-diagram-placeholder" ||
+    scenario === "viewer-diff-inline-diagnostics" ||
+    scenario === "viewer-diff-inline-diagnostics-privacy"
+  ) {
     await page.locator("text=git-rendered-unsupported-diagram.adoc").click();
     await page
       .locator('[data-review-id="document-body"]')
@@ -667,6 +671,47 @@ export async function applyGitDiffNavigationScenario(context) {
       )
       .first()
       .waitFor();
+    if (
+      scenario === "viewer-diff-inline-diagnostics" ||
+      scenario === "viewer-diff-inline-diagnostics-privacy"
+    ) {
+      await page
+        .locator(
+          '[data-review-id="git-full-preview-diff"] [data-review-id="diff-inline-diagnostic-note"]',
+        )
+        .first()
+        .waitFor();
+      await page.evaluate((scenarioName) => {
+        const notes = Array.from(
+          document.querySelectorAll(
+            '[data-review-id="diff-inline-diagnostic-note"]',
+          ),
+        );
+        window.__SVARD_DIFF_INLINE_DIAGNOSTICS__ = {
+          scenario: scenarioName,
+          count: notes.length,
+          categories: notes.map((note) =>
+            note.getAttribute("data-diagnostic-category"),
+          ),
+          text: notes.map((note) =>
+            (note.textContent ?? "").replace(/\s+/g, " ").trim(),
+          ),
+        };
+        if (scenarioName === "viewer-diff-inline-diagnostics-privacy") {
+          const unsafePattern =
+            /\/workspace|\/Users|data-diagram|data-source|@startuml|mermaid|flowchart|```|@@/iu;
+          const unsafeText =
+            window.__SVARD_DIFF_INLINE_DIAGNOSTICS__.text.find((item) =>
+              unsafePattern.test(item),
+            ) ?? null;
+          if (unsafeText) {
+            throw new Error(
+              `Inline diagnostic note exposed unsafe text: ${unsafeText}`,
+            );
+          }
+        }
+      }, scenario);
+    }
   } else {
     return false;
   }

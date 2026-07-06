@@ -111,6 +111,44 @@ export function readLabel() {
     expect(block?.html).not.toContain("<img");
   });
 
+  it("classifies blocked and missing image placeholders as privacy-safe inline diagnostics", () => {
+    const blocked = compareRenderedBlocks(
+      blocksFromHtml(`<p><img src="https://example.test/private.png"></p>`),
+      blocksFromHtml(`<p><img src="https://example.test/private-new.png"></p>`),
+    );
+    const [missingLeft] = blocksFromHtml(`<p><img></p>`);
+    const [missingRight] = blocksFromHtml(`<p><img></p>`);
+    const blockedPresentation = buildRenderedDiffPresentation(blocked);
+    const missingPresentation = buildRenderedDiffPresentation([
+      {
+        id: "missing-image",
+        kind: "changed",
+        blockKind: "image",
+        left: missingLeft!,
+        right: missingRight!,
+      },
+    ]);
+
+    expect(blockedPresentation.inlineDiagnostics).toEqual([
+      expect.objectContaining({
+        category: "blocked-asset",
+        label: "Blocked asset",
+      }),
+    ]);
+    expect(missingPresentation.inlineDiagnostics).toEqual([
+      expect.objectContaining({
+        category: "missing-reference",
+        label: "Missing image",
+      }),
+    ]);
+    expect(JSON.stringify(blockedPresentation.inlineDiagnostics)).not.toContain(
+      "private.png",
+    );
+    expect(JSON.stringify(missingPresentation.inlineDiagnostics)).not.toContain(
+      "<img",
+    );
+  });
+
   it("marks same-alt remote image placeholders changed when source changes without exposing source", () => {
     const left = blocksFromHtml(
       `<p><img src="https://example.test/old.png" alt="Remote diagram"></p>`,
@@ -201,6 +239,29 @@ export function readLabel() {
     });
     expect(diff[0]?.left?.html).toContain("Diagram placeholder");
     expect(diff[0]?.right?.html).toContain("Diagram placeholder");
+  });
+
+  it("classifies diagram placeholders as unsupported inline diagnostics", () => {
+    const diff = compareRenderedBlocks(
+      blocksFromHtml(
+        `<div class="diagram-slot" data-diagram-id="mermaid-1" data-diagram-type="mermaid"></div>`,
+      ),
+      blocksFromHtml(
+        `<div class="diagram-slot" data-diagram-id="mermaid-2" data-diagram-type="mermaid"></div>`,
+      ),
+    );
+    const presentation = buildRenderedDiffPresentation(diff);
+
+    expect(presentation.inlineDiagnostics).toEqual([
+      expect.objectContaining({
+        category: "unsupported",
+        label: "Unsupported diagram",
+        detail: "Diagram output is unavailable for this rendered diff target.",
+      }),
+    ]);
+    expect(JSON.stringify(presentation.inlineDiagnostics)).not.toContain(
+      "mermaid-1",
+    );
   });
 
   it("keeps identical signed diagram blocks unchanged without exposing source", () => {

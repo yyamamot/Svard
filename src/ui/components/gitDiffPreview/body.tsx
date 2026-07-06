@@ -175,6 +175,7 @@ export function DiffPreviewBody({
             documentFormat={documentFormat}
             activeChangeIndex={activeChangeIndex}
             showBlockMeta={false}
+            inlineDiagnostics={renderedPresentation.inlineDiagnostics}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "left")
             }
@@ -221,6 +222,7 @@ export function DiffPreviewBody({
             documentFormat={documentFormat}
             activeChangeIndex={activeChangeIndex}
             showBlockMeta={false}
+            inlineDiagnostics={renderedPresentation.inlineDiagnostics}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "right")
             }
@@ -292,6 +294,7 @@ export function DiffPreviewBody({
             documentFormat={documentFormat}
             activeChangeIndex={activeChangeIndex}
             focusTableRows={true}
+            inlineDiagnostics={renderedPresentation.inlineDiagnostics}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "left")
             }
@@ -338,6 +341,7 @@ export function DiffPreviewBody({
             documentFormat={documentFormat}
             activeChangeIndex={activeChangeIndex}
             focusTableRows={true}
+            inlineDiagnostics={renderedPresentation.inlineDiagnostics}
             changeIndexForEntry={(entry) =>
               renderedEntryChangeIndex(renderedPresentation, entry, "right")
             }

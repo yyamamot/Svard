@@ -146,6 +146,7 @@ function presentation(blocks: RenderedBlockDiff[]): RenderedDiffPresentation {
     })),
     sectionOutline: [],
     fallbackReasons: [],
+    inlineDiagnostics: [],
     entryChangeIndexes: new Map(),
     entryChildChangeIndexes: new Map(),
     entryStructuredChildChangeIndexes: new Map(),

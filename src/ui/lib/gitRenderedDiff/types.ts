@@ -212,11 +212,28 @@ export interface RenderedDiffFallbackReason {
     | RenderedTableFallbackReason;
 }
 
+export type RenderedDiffInlineDiagnosticCategory =
+  | "fallback"
+  | "blocked-asset"
+  | "unsupported"
+  | "missing-reference"
+  | "agent-note";
+
+export interface RenderedDiffInlineDiagnostic {
+  id: string;
+  entryId: string;
+  blockId: string;
+  category: RenderedDiffInlineDiagnosticCategory;
+  label: string;
+  detail: string;
+}
+
 export interface RenderedDiffPresentation {
   entries: RenderedDiffPresentationEntry[];
   navigationTargets: RenderedDiffNavigationTarget[];
   sectionOutline: RenderedDiffSectionOutlineItem[];
   fallbackReasons: RenderedDiffFallbackReason[];
+  inlineDiagnostics: RenderedDiffInlineDiagnostic[];
   entryChangeIndexes: Map<string, number>;
   entryChildChangeIndexes: Map<string, number>;
   entryStructuredChildChangeIndexes: Map<string, number>;

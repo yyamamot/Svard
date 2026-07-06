@@ -5,6 +5,7 @@ import type {
   RenderedBlockKind,
   RenderedDiffContentCursorTarget,
   RenderedDiffFallbackReason,
+  RenderedDiffInlineDiagnostic,
   RenderedDiffNavigationTarget,
   RenderedDiffPresentation,
   RenderedDiffPresentationEntry,
@@ -389,6 +390,114 @@ function fallbackReasonsForEntry(
   return reasons;
 }
 
+function fallbackReasonText(
+  reason: RenderedDiffFallbackReason["reason"],
+): string {
+  return reason.replace(/-/g, " ");
+}
+
+function fallbackKindText(kind: RenderedDiffFallbackReason["kind"]): string {
+  if (kind === "list") {
+    return "List fallback";
+  }
+  if (kind === "structured") {
+    return "Structured fallback";
+  }
+  return "Table fallback";
+}
+
+function fallbackDiagnostic(
+  reason: RenderedDiffFallbackReason,
+): RenderedDiffInlineDiagnostic {
+  return {
+    id: `inline-diagnostic:${reason.entryId}:${reason.kind}:${reason.reason}`,
+    entryId: reason.entryId,
+    blockId: reason.blockId,
+    category: "fallback",
+    label: `${fallbackKindText(reason.kind)}: ${fallbackReasonText(
+      reason.reason,
+    )}`,
+    detail:
+      "Svard kept this change at block level because detailed matching was not reliable for this target.",
+  };
+}
+
+function blockHtmlIncludes(block: RenderedBlockDiff, value: string): boolean {
+  return Boolean(
+    block.left?.html.includes(value) || block.right?.html.includes(value),
+  );
+}
+
+function placeholderDiagnosticForEntry(
+  entry: RenderedDiffPresentationEntry,
+): RenderedDiffInlineDiagnostic[] {
+  if (entry.kind !== "block" || !isRenderedChangeBlock(entry.block)) {
+    return [];
+  }
+  const block = entry.block;
+  if (block.blockKind === "diagram") {
+    if (
+      blockHtmlIncludes(block, "diagram-inline-diagnostic") ||
+      blockHtmlIncludes(block, "Diagram placeholder")
+    ) {
+      return [
+        {
+          id: `inline-diagnostic:${entry.id}:unsupported-diagram`,
+          entryId: entry.id,
+          blockId: block.id,
+          category: "unsupported",
+          label: "Unsupported diagram",
+          detail:
+            "Diagram output is unavailable for this rendered diff target.",
+        },
+      ];
+    }
+  }
+  if (block.blockKind !== "image") {
+    return [];
+  }
+  if (
+    blockHtmlIncludes(block, "External image blocked") ||
+    blockHtmlIncludes(block, "Local image blocked") ||
+    blockHtmlIncludes(block, "Data image blocked")
+  ) {
+    return [
+      {
+        id: `inline-diagnostic:${entry.id}:blocked-asset`,
+        entryId: entry.id,
+        blockId: block.id,
+        category: "blocked-asset",
+        label: "Blocked asset",
+        detail:
+          "Image output is hidden by the current security or render policy.",
+      },
+    ];
+  }
+  if (blockHtmlIncludes(block, "Image placeholder")) {
+    return [
+      {
+        id: `inline-diagnostic:${entry.id}:missing-image`,
+        entryId: entry.id,
+        blockId: block.id,
+        category: "missing-reference",
+        label: "Missing image",
+        detail: "Image output is not available for this rendered diff target.",
+      },
+    ];
+  }
+  return [];
+}
+
+function inlineDiagnosticsForEntries(
+  entries: RenderedDiffPresentationEntry[],
+  fallbackReasons: RenderedDiffFallbackReason[],
+): RenderedDiffInlineDiagnostic[] {
+  return [
+    ...fallbackReasons.map(fallbackDiagnostic),
+    ...entries.flatMap(placeholderDiagnosticForEntry),
+  ];
+}
+
 export function buildRenderedDiffPresentation(
   blocks: RenderedBlockDiff[],
 ): RenderedDiffPresentation {
@@ -443,6 +552,10 @@ export function buildRenderedDiffPresentation(
   const entryTableRowChangeIndexes = new Map<string, number>();
   const entryTargetSides = new Map<string, "left" | "right" | "both">();
   const fallbackReasons = entries.flatMap(fallbackReasonsForEntry);
+  const inlineDiagnostics = inlineDiagnosticsForEntries(
+    entries,
+    fallbackReasons,
+  );
 
   for (const entry of entries) {
     const targetBlock = presentationEntryBlocks(entry).find(
@@ -581,6 +694,7 @@ export function buildRenderedDiffPresentation(
     navigationTargets,
     sectionOutline: buildSectionOutline(entries, navigationTargets),
     fallbackReasons,
+    inlineDiagnostics,
     entryChangeIndexes,
     entryChildChangeIndexes,
     entryStructuredChildChangeIndexes,

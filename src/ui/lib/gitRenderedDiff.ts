@@ -9,6 +9,8 @@ export type {
   RenderedDiffContentCursorTarget,
   RenderedDiffFallbackKind,
   RenderedDiffFallbackReason,
+  RenderedDiffInlineDiagnostic,
+  RenderedDiffInlineDiagnosticCategory,
   RenderedDiffNavigationTarget,
   RenderedDiffPresentation,
   RenderedDiffPresentationEntry,

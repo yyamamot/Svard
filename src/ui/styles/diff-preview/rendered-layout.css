@@ -157,6 +157,51 @@
   background: color-mix(in srgb, #e7b84a 18%, transparent);
 }
 
+.diff-inline-diagnostic-note {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 6px;
+  border: 1px solid color-mix(in srgb, #e7b84a 42%, var(--reader-border));
+  border-radius: 6px;
+  color: #5f4915;
+  background: color-mix(in srgb, #e7b84a 12%, var(--reader-bg));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.diff-inline-diagnostic-note summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 3px 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.diff-inline-diagnostic-note summary::-webkit-details-marker {
+  display: none;
+}
+
+.diff-inline-diagnostic-note summary::before {
+  color: currentColor;
+  opacity: 0.72;
+  content: "›";
+}
+
+.diff-inline-diagnostic-note[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.diff-inline-diagnostic-note p {
+  max-width: 520px;
+  margin: 0;
+  border-top: 1px solid color-mix(in srgb, #e7b84a 30%, transparent);
+  padding: 0 8px 7px 20px;
+  color: var(--muted-text);
+  font-weight: 700;
+}
+
 .git-rendered-block-content {
   overflow: visible;
   color: var(--reader-text);

@@ -61,6 +61,7 @@ describe("UI review scenario metadata", () => {
         "viewer-source-control-changes",
         "viewer-diff-preview-regression-suite",
         "viewer-diff-code-fence-word-highlight",
+        "viewer-diff-inline-diagnostics",
       ]),
     );
     expect(scenarioContractFor("viewer-source-control-changes")).toMatchObject({
@@ -87,6 +88,15 @@ describe("UI review scenario metadata", () => {
         "git-diff-preview-panel",
         "git-full-preview-diff",
         "git-full-preview-block",
+      ]),
+    );
+    expect(
+      requiredMarkersForScenario("viewer-diff-inline-diagnostics"),
+    ).toEqual(
+      expect.arrayContaining([
+        "git-diff-preview-panel",
+        "git-full-preview-diff",
+        "diff-inline-diagnostic-note",
       ]),
     );
   });
