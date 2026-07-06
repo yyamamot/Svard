@@ -33,6 +33,12 @@ import {
   sourceControlInitialHistoryLimit,
   sourceControlHistoryPageLimit,
 } from "./sourceControlRequests";
+import {
+  emptyGitRefList,
+  mergeGitCommitGraphPage,
+  mergeGitFileHistoryPage,
+  mergeGitRefPage,
+} from "./sourceControlState";
 import { perfDuration, perfNow, tracePerf } from "../lib/perfTrace";
 
 export function useSourceControlActions({
@@ -330,35 +336,11 @@ export function useSourceControlActions({
   }
 
   function appendGitCommitGraphPage(page: GitCommitGraph) {
-    setGitCommitGraph((current) => {
-      if (!current || page.status !== "ok" || page.metrics?.staleCursor) {
-        return page;
-      }
-      const seen = new Set(current.items.map((item) => item.revision));
-      return {
-        ...page,
-        items: [
-          ...current.items,
-          ...page.items.filter((item) => !seen.has(item.revision)),
-        ],
-      };
-    });
+    setGitCommitGraph((current) => mergeGitCommitGraphPage(current, page));
   }
 
   function appendGitFileHistoryPage(page: GitFileHistory) {
-    setGitTimelineHistory((current) => {
-      if (!current || page.status !== "ok" || page.metrics?.staleCursor) {
-        return page;
-      }
-      const seen = new Set(current.items.map((item) => item.revision));
-      return {
-        ...page,
-        items: [
-          ...current.items,
-          ...page.items.filter((item) => !seen.has(item.revision)),
-        ],
-      };
-    });
+    setGitTimelineHistory((current) => mergeGitFileHistoryPage(current, page));
   }
 
   async function setSourceControlBranchDiffBaseRef(baseRef: string) {
@@ -428,18 +410,10 @@ export function useSourceControlActions({
       );
       return;
     }
-    const loadingRefs: GitRefList = {
-      status: "ok",
-      relativePath: null,
-      items: [],
-      message: null,
-      hasMore: false,
-      nextCursor: null,
-    };
     setGitRefPicker({
       kind,
       path,
-      refs: loadingRefs,
+      refs: emptyGitRefList(),
       loading: true,
       loadingMore: false,
       query: "",
@@ -593,30 +567,9 @@ export function useSourceControlActions({
         if (!current || current.kind !== kind || current.path !== path) {
           return current;
         }
-        if (page.metrics?.staleCursor) {
-          return {
-            ...current,
-            refs: page,
-            loadingMore: false,
-          };
-        }
-        const seen = new Set(
-          current.refs.items.map(
-            (item) => `${item.kind}:${item.name}:${item.revision}`,
-          ),
-        );
         return {
           ...current,
-          refs: {
-            ...page,
-            items: [
-              ...current.refs.items,
-              ...page.items.filter(
-                (item) =>
-                  !seen.has(`${item.kind}:${item.name}:${item.revision}`),
-              ),
-            ],
-          },
+          refs: mergeGitRefPage(current.refs, page),
           loadingMore: false,
         };
       });

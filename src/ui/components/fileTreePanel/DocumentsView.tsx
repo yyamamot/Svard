@@ -12,14 +12,8 @@ import {
 } from "../../lib/fileCompareDrag";
 import { fileGitStatusBadgeLabel } from "../../lib/gitStatusBadgeLabels";
 import { gitStatusDisplay } from "../../lib/gitStatusDisplay";
-import type {
-  DocumentReviewSessionControls,
-  DocumentReviewState,
-} from "../../lib/documentReviewSession";
+import type { DocumentReviewSessionControls } from "../../lib/documentReviewSession";
 import {
-  documentReviewStateLabel,
-  nextDocumentReviewPath,
-  previousDocumentReviewPath,
   summarizeDocumentReviewSession,
   uniqueDocumentReviewPaths,
 } from "../../lib/documentReviewSession";
@@ -35,6 +29,11 @@ import {
 } from "../../lib/fileTreeDocuments";
 import { registerDocumentsPanelCommandBridge } from "../../lib/documentsPanelCommandBridge";
 import { fileName } from "../../lib/path";
+import {
+  DocumentReviewRowControls,
+  DocumentsChangeCountBadge,
+  DocumentsSourceFilterHeader,
+} from "./DocumentsViewLeaf";
 import type {
   ActiveDocumentOrder,
   DocumentOrderSectionOptions,
@@ -592,7 +591,7 @@ export function DocumentsView({
       <>
         <span className="documents-view-row-title">
           <span className="tree-label">{title}</span>
-          {renderChangeCountBadge(changeCount)}
+          <DocumentsChangeCountBadge count={changeCount} />
           {documentOpen ? (
             <span className="documents-view-open-indicator">open</span>
           ) : null}
@@ -638,25 +637,10 @@ export function DocumentsView({
         ) : (
           <span className="documents-order-section-label">
             <span className="tree-label">{title}</span>
-            {renderChangeCountBadge(changeCount)}
+            <DocumentsChangeCountBadge count={changeCount} />
           </span>
         )}
       </div>
-    );
-  }
-
-  function renderChangeCountBadge(count?: number): React.ReactNode {
-    if (!count) {
-      return null;
-    }
-    return (
-      <span
-        className="documents-change-count-badge"
-        aria-label={`${count} changed documents`}
-        title={`${count} changed documents`}
-      >
-        {count}
-      </span>
     );
   }
 
@@ -667,9 +651,6 @@ export function DocumentsView({
     showOpenIndicator = true,
   ): React.ReactNode {
     const entry = row.entry;
-    const reviewState = row.isChanged
-      ? documentReviewSession.stateByPath[entry.path]
-      : undefined;
     return (
       <div
         key={entry.path}
@@ -741,7 +722,12 @@ export function DocumentsView({
             {row.gitStatus.shortLabel}
           </button>
         ) : null}
-        {row.isChanged ? renderReviewControls(entry.path, reviewState) : null}
+        {row.isChanged ? (
+          <DocumentReviewRowControls
+            path={entry.path}
+            documentReviewSession={documentReviewSession}
+          />
+        ) : null}
       </div>
     );
   }
@@ -755,9 +741,6 @@ export function DocumentsView({
     const isActive = row?.isActive ?? activePath === node.path;
     const rawGitStatus = fileTreeGitStatusByPath[node.path];
     const gitStatus = row?.gitStatus ?? gitStatusDisplay(rawGitStatus);
-    const reviewState = gitStatus
-      ? documentReviewSession.stateByPath[node.path]
-      : undefined;
     const gitStatusLabel =
       row?.gitStatusLabel ??
       (gitStatus
@@ -833,67 +816,13 @@ export function DocumentsView({
             {gitStatus.shortLabel}
           </button>
         ) : null}
-        {gitStatus ? renderReviewControls(node.path, reviewState) : null}
+        {gitStatus ? (
+          <DocumentReviewRowControls
+            path={node.path}
+            documentReviewSession={documentReviewSession}
+          />
+        ) : null}
       </div>
-    );
-  }
-
-  function renderReviewControls(
-    path: string,
-    state: DocumentReviewState | undefined,
-  ): React.ReactNode {
-    const effectiveState = state ?? "unreviewed";
-    const label = documentReviewStateLabel(effectiveState);
-    return (
-      <span className="document-review-row-controls">
-        <span
-          className={`document-review-state document-review-state-${effectiveState}`}
-          data-review-id="document-review-state"
-          title={label}
-          aria-label={label}
-        >
-          {label}
-        </span>
-        {effectiveState !== "viewed" ? (
-          <button
-            type="button"
-            className="document-review-action"
-            data-review-id="document-review-mark-viewed"
-            onClick={(event) => {
-              event.stopPropagation();
-              documentReviewSession.markViewed(path);
-            }}
-          >
-            Mark viewed
-          </button>
-        ) : null}
-        {effectiveState !== "needs-attention" ? (
-          <button
-            type="button"
-            className="document-review-action"
-            data-review-id="document-review-mark-attention"
-            onClick={(event) => {
-              event.stopPropagation();
-              documentReviewSession.markNeedsAttention(path);
-            }}
-          >
-            Mark needs attention
-          </button>
-        ) : null}
-        {effectiveState !== "unreviewed" ? (
-          <button
-            type="button"
-            className="document-review-action"
-            data-review-id="document-review-reset"
-            onClick={(event) => {
-              event.stopPropagation();
-              documentReviewSession.reset(path);
-            }}
-          >
-            Reset review state
-          </button>
-        ) : null}
-      </span>
     );
   }
 
@@ -926,109 +855,19 @@ export function DocumentsView({
     );
   }
 
-  function documentsViewHeading(): string {
-    switch (viewMode) {
-      case "documents-path":
-        return "Docs: Loaded";
-      case "documents-mkdocs":
-        return "Docs: MkDocs";
-      case "documents-zensical":
-        return "Docs: Zensical";
-      case "documents-antora":
-        return "Docs: Antora";
-      case "documents-vitepress":
-        return "Docs: VitePress";
-      case "documents-docusaurus":
-        return "Docs: Docusaurus";
-      default:
-        return "Documents only";
-    }
-  }
-
   function renderDocumentsSourceFilter(): React.ReactNode {
-    const nextReviewPath = nextDocumentReviewPath({
-      currentPath: currentReviewPath,
-      stateByPath: documentReviewSession.stateByPath,
-      targetPaths: reviewTargetPaths,
-    });
-    const previousReviewPath = previousDocumentReviewPath({
-      currentPath: currentReviewPath,
-      targetPaths: reviewTargetPaths,
-    });
     return (
-      <div
-        className="documents-view-header"
-        data-review-id="documents-view-header"
-      >
-        <span className="documents-view-heading">{documentsViewHeading()}</span>
-        <div
-          className="documents-source-filter"
-          data-review-id="documents-source-filter"
-          aria-label="Documents source filter"
-        >
-          <button
-            type="button"
-            className={documentsFilter === "all" ? "active" : ""}
-            data-review-id="documents-source-filter-all"
-            aria-pressed={documentsFilter === "all"}
-            onClick={() => onDocumentsFilterChange("all")}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            className={documentsFilter === "changed" ? "active" : ""}
-            data-review-id="documents-source-filter-changed"
-            aria-pressed={documentsFilter === "changed"}
-            onClick={() => onDocumentsFilterChange("changed")}
-          >
-            {documentsChangedCount > 0
-              ? `Changed ${documentsChangedCount}`
-              : "Changed"}
-          </button>
-        </div>
-        {documentsFilter === "changed" && reviewTargetPaths.length > 0 ? (
-          <div
-            className="document-review-session"
-            data-review-id="document-review-session"
-            aria-label="Review session"
-          >
-            <span className="document-review-session-title">
-              Review session
-            </span>
-            <span data-review-id="document-review-session-progress">
-              Reviewed {reviewSummary.reviewed} / {reviewSummary.total}
-            </span>
-            {reviewSummary.needsAttention > 0 ? (
-              <span data-review-id="document-review-session-attention">
-                Needs attention {reviewSummary.needsAttention}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              disabled={!previousReviewPath}
-              onClick={() => {
-                if (previousReviewPath) {
-                  openReviewDiff(previousReviewPath);
-                }
-              }}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              disabled={!nextReviewPath}
-              onClick={() => {
-                if (nextReviewPath) {
-                  openReviewDiff(nextReviewPath);
-                }
-              }}
-            >
-              Next
-            </button>
-          </div>
-        ) : null}
-      </div>
+      <DocumentsSourceFilterHeader
+        currentReviewPath={currentReviewPath}
+        documentReviewSession={documentReviewSession}
+        documentsChangedCount={documentsChangedCount}
+        documentsFilter={documentsFilter}
+        reviewSummary={reviewSummary}
+        reviewTargetPaths={reviewTargetPaths}
+        viewMode={viewMode}
+        onDocumentsFilterChange={onDocumentsFilterChange}
+        onOpenReviewDiff={openReviewDiff}
+      />
     );
   }
 

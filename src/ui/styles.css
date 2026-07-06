@@ -4,6 +4,7 @@
 @import "./styles/sidebar-source-control.css";
 @import "./styles/sidebar-dark.css";
 @import "./styles/file-tree-topbar.css";
+@import "./styles/file-tree-topbar-dark.css";
 @import "./styles/viewer-markdown.css";
 @import "./styles/asciidoc-theme.css";
 @import "./styles/diagrams-overlays.css";
