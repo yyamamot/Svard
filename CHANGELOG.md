@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a runtime review session for changed documents in Documents and Source Control views.
 - Fixed Markdown table rendering for compact GFM separators and wide technical tables.
 - Improved MkDocs, Zensical, and Antora document order views with Git change counts, and fixed root-based Zensical navigation.
 

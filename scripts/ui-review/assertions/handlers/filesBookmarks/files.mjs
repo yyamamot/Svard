@@ -162,5 +162,32 @@ export async function buildFilesAssertions(context) {
             );
           })
         : true,
+    hasDocumentReviewSession:
+      scenario === "viewer-document-review-session"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_DOCUMENT_REVIEW_SESSION_CHECK__;
+            return (
+              result?.progress?.startsWith("Reviewed ") &&
+              result?.progress?.includes(" / ") &&
+              result?.attention?.startsWith("Needs attention ") &&
+              result?.rowState === "Needs attention" &&
+              result?.hasMarkViewed === true &&
+              result?.hasReset === true &&
+              result?.panelOpen === false
+            );
+          })
+        : true,
+    hasDocumentReviewSessionPrivacy:
+      scenario === "viewer-document-review-session-privacy"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_DOCUMENT_REVIEW_SESSION_CHECK__;
+            return (
+              result?.bodyHasPrivatePath === false &&
+              result?.bodyHasDiffHunk === false &&
+              result?.rowState === "Needs attention" &&
+              result?.panelOpen === false
+            );
+          })
+        : true,
   };
 }

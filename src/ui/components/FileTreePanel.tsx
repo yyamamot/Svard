@@ -8,6 +8,8 @@ import {
   buildOpenDocumentTree,
   filterVisibleDocumentRows,
 } from "../lib/fileTreeDocuments";
+import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
+import { emptyDocumentReviewSessionControls } from "../lib/documentReviewSession";
 import { DocumentsView } from "./fileTreePanel/DocumentsView";
 import { FileTreeRows } from "./fileTreePanel/FileTreeRows";
 import { FileTreeToolbar } from "./fileTreePanel/FileTreeToolbar";
@@ -34,6 +36,7 @@ interface FileTreePanelProps {
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
   documentOrder?: DocumentOrderCatalog;
+  documentReviewSession?: DocumentReviewSessionControls;
   childrenByDirectory: Record<string, DirectoryEntry[]>;
   expandedDirectories: Set<string>;
   loadingDirectories: Set<string>;
@@ -62,6 +65,7 @@ export function FileTreePanel({
   rootDirectory,
   rootEntries,
   documentOrder = { orders: [] },
+  documentReviewSession = emptyDocumentReviewSessionControls,
   childrenByDirectory,
   expandedDirectories,
   loadingDirectories,
@@ -339,6 +343,7 @@ export function FileTreePanel({
           autoExpandSectionKeys={autoExpandSectionKeys}
           documentRows={documentRows}
           documentRowsByPath={documentRowsByPath}
+          documentReviewSession={documentReviewSession}
           documentsFilter={documentsFilter}
           fileTreeGitStatusByPath={fileTreeGitStatusByPath}
           openDocumentPaths={openDocumentPaths}

@@ -252,6 +252,7 @@ export function AppOverlays({
 
       {documentDiffPreview && (
         <DocumentDiffPreviewPanel
+          key={`${documentDiffPreview.source}:${documentDiffPreview.relativePath ?? ""}:${documentDiffPreview.leftPath ?? ""}:${documentDiffPreview.rightPath ?? ""}`}
           preview={documentDiffPreview}
           chromeHidden={diffPreviewChromeHidden}
           config={config}

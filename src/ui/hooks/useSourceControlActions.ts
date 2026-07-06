@@ -42,6 +42,9 @@ export function useSourceControlActions({
   host,
   openContextMenu,
   onGitChangesRefreshComplete,
+  onDocumentReviewNeedsAttention,
+  onDocumentReviewReset,
+  onDocumentReviewViewed,
   onGitRefresh,
   persistWorkspace,
   rootDirectory,
@@ -59,6 +62,9 @@ export function useSourceControlActions({
     source: string,
   ) => void;
   onGitChangesRefreshComplete?: (reason: string, changes: GitChanges) => void;
+  onDocumentReviewNeedsAttention?: (path: string) => void;
+  onDocumentReviewReset?: (path: string) => void;
+  onDocumentReviewViewed?: (path: string) => void;
   onGitRefresh?: (reason: string) => void;
   persistWorkspace: (patch: Partial<AppConfig["workspace"]>) => Promise<void>;
   rootDirectory: string;
@@ -116,6 +122,7 @@ export function useSourceControlActions({
   const sourceControlIdleWarmHandleRef = useRef<number | null>(null);
   const sourceControlSilentRefreshTimerRef = useRef<number | null>(null);
   const rootDirectoryRef = useRef(rootDirectory);
+  const gitDiffPreviewRequestRef = useRef(0);
 
   const effectiveGitTimelinePath =
     gitTimelinePath ?? documentPayload?.path ?? null;
@@ -372,10 +379,20 @@ export function useSourceControlActions({
       });
       return;
     }
+    const requestId = gitDiffPreviewRequestRef.current + 1;
+    gitDiffPreviewRequestRef.current = requestId;
+    setDocumentDiffPreview(null);
     try {
       const preview = await host.getGitDiffPreview(path);
+      if (gitDiffPreviewRequestRef.current !== requestId) {
+        return;
+      }
       setDocumentDiffPreview(preview);
+      onDocumentReviewViewed?.(path);
     } catch (error) {
+      if (gitDiffPreviewRequestRef.current !== requestId) {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : "Git diff preview failed";
       showInlineNotice(message, { tone: "error" });
@@ -777,7 +794,10 @@ export function useSourceControlActions({
       compareWithGitRef,
       copyText,
       item,
+      markNeedsAttention: onDocumentReviewNeedsAttention,
+      markViewed: onDocumentReviewViewed,
       openSourceControlChange,
+      resetReviewState: onDocumentReviewReset,
       showGitFileHistory,
     });
     openContextMenu(event, items, "source-control-change-item");

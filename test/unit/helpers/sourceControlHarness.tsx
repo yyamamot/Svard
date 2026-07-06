@@ -67,6 +67,17 @@ export function createHost() {
       items: [],
       message: null,
     }),
+    getGitDiffPreview: vi.fn().mockResolvedValue({
+      source: "git",
+      repositoryRoot: "/workspace",
+      relativePath: "docs/guide.md",
+      leftPath: "/workspace/docs/guide.md",
+      rightPath: "/workspace/docs/guide.md",
+      status: "modified",
+      leftLabel: "HEAD",
+      rightLabel: "Working Tree",
+      hunks: [],
+    }),
     watchGitStatus: vi.fn().mockResolvedValue({ dispose: vi.fn() }),
   } as unknown as HostAdapter;
 }
@@ -81,9 +92,13 @@ export function SourceControlHarness({
   document = documentPayload,
   host,
   onGitChangesRefreshComplete,
+  onDocumentReviewNeedsAttention,
+  onDocumentReviewReset,
+  onDocumentReviewViewed,
   onActions,
   openContextMenu = vi.fn() as unknown as OpenContextMenu,
   rootDirectory = "/workspace",
+  setDocumentDiffPreview = vi.fn(),
   workspacePerformanceMode,
 }: {
   config: AppConfig;
@@ -92,9 +107,21 @@ export function SourceControlHarness({
   onGitChangesRefreshComplete?: Parameters<
     typeof useSourceControlActions
   >[0]["onGitChangesRefreshComplete"];
+  onDocumentReviewNeedsAttention?: Parameters<
+    typeof useSourceControlActions
+  >[0]["onDocumentReviewNeedsAttention"];
+  onDocumentReviewReset?: Parameters<
+    typeof useSourceControlActions
+  >[0]["onDocumentReviewReset"];
+  onDocumentReviewViewed?: Parameters<
+    typeof useSourceControlActions
+  >[0]["onDocumentReviewViewed"];
   onActions?: (actions: SourceControlActions) => void;
   openContextMenu?: OpenContextMenu;
   rootDirectory?: string;
+  setDocumentDiffPreview?: Parameters<
+    typeof useSourceControlActions
+  >[0]["setDocumentDiffPreview"];
   workspacePerformanceMode?: Parameters<
     typeof useSourceControlActions
   >[0]["workspacePerformanceMode"];
@@ -106,9 +133,12 @@ export function SourceControlHarness({
     host,
     openContextMenu,
     onGitChangesRefreshComplete,
+    onDocumentReviewNeedsAttention,
+    onDocumentReviewReset,
+    onDocumentReviewViewed,
     persistWorkspace: vi.fn().mockResolvedValue(undefined),
     rootDirectory,
-    setDocumentDiffPreview: vi.fn(),
+    setDocumentDiffPreview,
     showInlineNotice: vi.fn(),
     workspacePerformanceMode,
   });

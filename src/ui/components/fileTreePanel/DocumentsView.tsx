@@ -12,6 +12,17 @@ import {
 } from "../../lib/fileCompareDrag";
 import { fileGitStatusBadgeLabel } from "../../lib/gitStatusBadgeLabels";
 import { gitStatusDisplay } from "../../lib/gitStatusDisplay";
+import type {
+  DocumentReviewSessionControls,
+  DocumentReviewState,
+} from "../../lib/documentReviewSession";
+import {
+  documentReviewStateLabel,
+  nextDocumentReviewPath,
+  previousDocumentReviewPath,
+  summarizeDocumentReviewSession,
+  uniqueDocumentReviewPaths,
+} from "../../lib/documentReviewSession";
 import {
   buildDocumentOrderChangeCounts,
   collectDocumentOrderPaths,
@@ -38,6 +49,7 @@ interface DocumentsViewProps {
   autoExpandSectionKeys: ReadonlySet<string>;
   documentRows: FileTreeDocumentRow[];
   documentRowsByPath: Map<string, FileTreeDocumentRow>;
+  documentReviewSession: DocumentReviewSessionControls;
   documentsFilter: DocumentsFilter;
   fileTreeGitStatusByPath: Record<string, GitDiffStatus>;
   openDocumentPaths: ReadonlySet<string>;
@@ -59,6 +71,7 @@ export function DocumentsView({
   autoExpandSectionKeys,
   documentRows,
   documentRowsByPath,
+  documentReviewSession,
   documentsFilter,
   fileTreeGitStatusByPath,
   openDocumentPaths,
@@ -114,6 +127,47 @@ export function DocumentsView({
     openDocumentTree.changedCount,
     viewMode,
   ]);
+  const reviewTargetPaths = useMemo(() => {
+    const documentRowPaths = documentRows
+      .filter((row) => row.isChanged)
+      .map((row) => row.entry.path);
+    if (!activeDocumentOrder) {
+      return uniqueDocumentReviewPaths(documentRowPaths);
+    }
+    const navPaths = [
+      ...collectDocumentOrderPaths(activeDocumentOrder.order.nodes),
+    ].filter((path) => gitStatusDisplay(fileTreeGitStatusByPath[path]));
+    const navPathSet = new Set(navPaths);
+    const notInNavPaths = documentRowPaths.filter(
+      (path) => !navPathSet.has(path),
+    );
+    return uniqueDocumentReviewPaths([...navPaths, ...notInNavPaths]);
+  }, [activeDocumentOrder, documentRows, fileTreeGitStatusByPath]);
+  const [reviewCursorPath, setReviewCursorPath] = useState<string | null>(null);
+  useEffect(() => {
+    setReviewCursorPath((current) =>
+      current && reviewTargetPaths.includes(current) ? current : null,
+    );
+  }, [reviewTargetPaths]);
+  const currentReviewPath =
+    reviewCursorPath && reviewTargetPaths.includes(reviewCursorPath)
+      ? reviewCursorPath
+      : activePath && reviewTargetPaths.includes(activePath)
+        ? activePath
+        : null;
+  const reviewSummary = useMemo(
+    () =>
+      summarizeDocumentReviewSession({
+        stateByPath: documentReviewSession.stateByPath,
+        targetPaths: reviewTargetPaths,
+      }),
+    [documentReviewSession.stateByPath, reviewTargetPaths],
+  );
+
+  function openReviewDiff(path: string): void {
+    setReviewCursorPath(path);
+    onOpenGitDiff(path);
+  }
 
   const scrollActiveDocumentIntoView = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -613,6 +667,9 @@ export function DocumentsView({
     showOpenIndicator = true,
   ): React.ReactNode {
     const entry = row.entry;
+    const reviewState = row.isChanged
+      ? documentReviewSession.stateByPath[entry.path]
+      : undefined;
     return (
       <div
         key={entry.path}
@@ -678,12 +735,13 @@ export function DocumentsView({
             title={row.gitStatusLabel}
             onClick={(event) => {
               event.stopPropagation();
-              onOpenGitDiff(entry.path);
+              openReviewDiff(entry.path);
             }}
           >
             {row.gitStatus.shortLabel}
           </button>
         ) : null}
+        {row.isChanged ? renderReviewControls(entry.path, reviewState) : null}
       </div>
     );
   }
@@ -697,6 +755,9 @@ export function DocumentsView({
     const isActive = row?.isActive ?? activePath === node.path;
     const rawGitStatus = fileTreeGitStatusByPath[node.path];
     const gitStatus = row?.gitStatus ?? gitStatusDisplay(rawGitStatus);
+    const reviewState = gitStatus
+      ? documentReviewSession.stateByPath[node.path]
+      : undefined;
     const gitStatusLabel =
       row?.gitStatusLabel ??
       (gitStatus
@@ -766,13 +827,73 @@ export function DocumentsView({
             title={gitStatusLabel}
             onClick={(event) => {
               event.stopPropagation();
-              onOpenGitDiff(node.path);
+              openReviewDiff(node.path);
             }}
           >
             {gitStatus.shortLabel}
           </button>
         ) : null}
+        {gitStatus ? renderReviewControls(node.path, reviewState) : null}
       </div>
+    );
+  }
+
+  function renderReviewControls(
+    path: string,
+    state: DocumentReviewState | undefined,
+  ): React.ReactNode {
+    const effectiveState = state ?? "unreviewed";
+    const label = documentReviewStateLabel(effectiveState);
+    return (
+      <span className="document-review-row-controls">
+        <span
+          className={`document-review-state document-review-state-${effectiveState}`}
+          data-review-id="document-review-state"
+          title={label}
+          aria-label={label}
+        >
+          {label}
+        </span>
+        {effectiveState !== "viewed" ? (
+          <button
+            type="button"
+            className="document-review-action"
+            data-review-id="document-review-mark-viewed"
+            onClick={(event) => {
+              event.stopPropagation();
+              documentReviewSession.markViewed(path);
+            }}
+          >
+            Mark viewed
+          </button>
+        ) : null}
+        {effectiveState !== "needs-attention" ? (
+          <button
+            type="button"
+            className="document-review-action"
+            data-review-id="document-review-mark-attention"
+            onClick={(event) => {
+              event.stopPropagation();
+              documentReviewSession.markNeedsAttention(path);
+            }}
+          >
+            Mark needs attention
+          </button>
+        ) : null}
+        {effectiveState !== "unreviewed" ? (
+          <button
+            type="button"
+            className="document-review-action"
+            data-review-id="document-review-reset"
+            onClick={(event) => {
+              event.stopPropagation();
+              documentReviewSession.reset(path);
+            }}
+          >
+            Reset review state
+          </button>
+        ) : null}
+      </span>
     );
   }
 
@@ -825,6 +946,15 @@ export function DocumentsView({
   }
 
   function renderDocumentsSourceFilter(): React.ReactNode {
+    const nextReviewPath = nextDocumentReviewPath({
+      currentPath: currentReviewPath,
+      stateByPath: documentReviewSession.stateByPath,
+      targetPaths: reviewTargetPaths,
+    });
+    const previousReviewPath = previousDocumentReviewPath({
+      currentPath: currentReviewPath,
+      targetPaths: reviewTargetPaths,
+    });
     return (
       <div
         className="documents-view-header"
@@ -857,6 +987,47 @@ export function DocumentsView({
               : "Changed"}
           </button>
         </div>
+        {documentsFilter === "changed" && reviewTargetPaths.length > 0 ? (
+          <div
+            className="document-review-session"
+            data-review-id="document-review-session"
+            aria-label="Review session"
+          >
+            <span className="document-review-session-title">
+              Review session
+            </span>
+            <span data-review-id="document-review-session-progress">
+              Reviewed {reviewSummary.reviewed} / {reviewSummary.total}
+            </span>
+            {reviewSummary.needsAttention > 0 ? (
+              <span data-review-id="document-review-session-attention">
+                Needs attention {reviewSummary.needsAttention}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              disabled={!previousReviewPath}
+              onClick={() => {
+                if (previousReviewPath) {
+                  openReviewDiff(previousReviewPath);
+                }
+              }}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={!nextReviewPath}
+              onClick={() => {
+                if (nextReviewPath) {
+                  openReviewDiff(nextReviewPath);
+                }
+              }}
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }

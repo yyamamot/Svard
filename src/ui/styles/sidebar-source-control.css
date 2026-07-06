@@ -368,6 +368,10 @@
   gap: 3px;
 }
 
+.source-control-review-session {
+  padding: 2px 2px 7px;
+}
+
 .source-control-change-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

@@ -21,6 +21,8 @@ import {
   type DocumentsViewMode,
 } from "../lib/fileTreeDocuments";
 import { mergeGitStatusWithChanges } from "../lib/gitDirectoryStatusSummary";
+import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
+import { emptyDocumentReviewSessionControls } from "../lib/documentReviewSession";
 import type { LeftSidebar } from "../components/LeftSidebar";
 import type { SuggestedDocumentsMode } from "../components/fileTreePanel/types";
 import type { OpenFileReloadState } from "../types";
@@ -47,6 +49,7 @@ interface UseAppSidebarWiringOptions {
   childrenByDirectory: Record<string, DirectoryEntry[]>;
   config: AppConfig | null;
   directoryErrors: Record<string, string>;
+  documentReviewSession?: DocumentReviewSessionControls;
   documentOrderRefreshRevision?: number;
   expandedDirectories: Set<string>;
   gitSourceControl: SourceControlPropsInput;
@@ -176,6 +179,7 @@ export function useAppSidebarWiring({
   childrenByDirectory,
   config,
   directoryErrors,
+  documentReviewSession = emptyDocumentReviewSessionControls,
   documentOrderRefreshRevision = 0,
   expandedDirectories,
   gitSourceControl,
@@ -363,6 +367,7 @@ export function useAppSidebarWiring({
     rootDirectory,
     rootEntries,
     gitStatusByPath,
+    documentReviewSession,
     openFileReloadStates,
     sidebarResizeState,
     sidebarTab: config?.workspace.sidebarTab ?? "files",

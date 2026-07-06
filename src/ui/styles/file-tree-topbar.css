@@ -241,7 +241,7 @@
 .documents-order-section-toggle {
   display: inline-flex;
   flex: 0 0 auto;
-  width: 22px;
+  width: 28px;
   height: 28px;
   align-items: center;
   justify-content: center;
@@ -390,6 +390,83 @@
   font-size: 10px;
   font-weight: 700;
   line-height: 1.1;
+}
+
+.document-review-session {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  color: #5c6c74;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.document-review-session-title {
+  color: #22363a;
+  font-weight: 760;
+}
+
+.document-review-session [data-review-id$="progress"],
+.document-review-session [data-review-id$="attention"] {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+}
+
+.document-review-session button,
+.document-review-action {
+  border: 1px solid #cbd6dc;
+  border-radius: 5px;
+  padding: 2px 6px;
+  background: #f8fafb;
+  color: #213136;
+  font: inherit;
+}
+
+.document-review-session button:disabled {
+  color: #89979e;
+  opacity: 0.58;
+}
+
+.document-review-row-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 180px;
+}
+
+.document-review-state {
+  flex: 0 0 auto;
+  border: 1px solid #cbd6dc;
+  border-radius: 999px;
+  padding: 2px 6px;
+  color: #667780;
+  background: rgb(248 250 251 / 84%);
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.document-review-state-viewed {
+  border-color: #7ab2a3;
+  color: #287b6a;
+}
+
+.document-review-state-needs-attention {
+  border-color: #d3a15f;
+  color: #925d14;
+}
+
+.document-review-action {
+  max-width: 92px;
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .documents-view-empty {

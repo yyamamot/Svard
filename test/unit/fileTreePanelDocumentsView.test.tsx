@@ -570,6 +570,188 @@ describe("FileTreePanel Documents only view", () => {
     expect(onOpenFile).not.toHaveBeenCalled();
   });
 
+  it("shows review session progress and row state in Changed documents", async () => {
+    const markViewed = vi.fn();
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "README.md", path: "/workspace/README.md", kind: "file" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              {
+                name: "README.md",
+                path: "/workspace/README.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          documentReviewSession={{
+            stateByPath: { "/workspace/README.md": "needs-attention" },
+            summary: { total: 1, reviewed: 0, needsAttention: 1 },
+            markViewed,
+            markNeedsAttention: vi.fn(),
+            reset: vi.fn(),
+          }}
+          gitStatusByPath={{
+            "/workspace/README.md": "modified",
+          }}
+          gitChanges={null}
+          orderedTabs={[
+            {
+              path: "/workspace/README.md",
+              basePath: "/workspace",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={new Set(["/workspace/README.md"])}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={vi.fn()}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-path");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-source-filter-changed"]',
+        )
+        ?.click();
+    });
+
+    expect(
+      container.querySelector('[data-review-id="document-review-session"]')
+        ?.textContent,
+    ).toContain("Reviewed 1 / 1");
+    expect(
+      container.querySelector('[data-review-id="document-review-session"]')
+        ?.textContent,
+    ).toContain("Needs attention 1");
+    expect(
+      container.querySelector('[data-review-id="document-review-state"]')
+        ?.textContent,
+    ).toBe("Needs attention");
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="document-review-mark-viewed"]',
+        )
+        ?.click();
+    });
+
+    expect(markViewed).toHaveBeenCalledWith("/workspace/README.md");
+  });
+
+  it("advances Previous and Next from the last opened review document", async () => {
+    const onOpenGitDiff = vi.fn();
+    await act(async () => {
+      root.render(
+        <FileTreePanel
+          rootDirectory="/workspace"
+          rootEntries={[
+            { name: "first.md", path: "/workspace/first.md", kind: "file" },
+            { name: "second.md", path: "/workspace/second.md", kind: "file" },
+          ]}
+          childrenByDirectory={{
+            "/workspace": [
+              { name: "first.md", path: "/workspace/first.md", kind: "file" },
+              {
+                name: "second.md",
+                path: "/workspace/second.md",
+                kind: "file",
+              },
+            ],
+          }}
+          expandedDirectories={new Set()}
+          loadingDirectories={new Set()}
+          directoryErrors={{}}
+          documentReviewSession={{
+            stateByPath: {
+              "/workspace/first.md": "viewed",
+              "/workspace/second.md": "viewed",
+            },
+            summary: { total: 2, reviewed: 2, needsAttention: 0 },
+            markViewed: vi.fn(),
+            markNeedsAttention: vi.fn(),
+            reset: vi.fn(),
+          }}
+          gitStatusByPath={{
+            "/workspace/first.md": "modified",
+            "/workspace/second.md": "modified",
+          }}
+          gitChanges={null}
+          orderedTabs={[
+            {
+              path: "/workspace/first.md",
+              basePath: "/workspace",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              path: "/workspace/second.md",
+              basePath: "/workspace",
+              format: "markdown",
+              source: "",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ]}
+          openDocumentPaths={new Set()}
+          onOpenFile={vi.fn()}
+          onOpenGitDiff={onOpenGitDiff}
+          onToggleDirectory={vi.fn()}
+          onPickDocument={vi.fn()}
+          onPickDirectory={vi.fn()}
+          onRefresh={vi.fn()}
+          onCollapse={vi.fn()}
+        />,
+      );
+    });
+
+    await chooseFileViewMode("documents-view-mode-path");
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="documents-source-filter-changed"]',
+        )
+        ?.click();
+    });
+    const nextButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Next",
+    );
+    const previousButton = Array.from(
+      container.querySelectorAll("button"),
+    ).find((button) => button.textContent === "Previous");
+
+    await act(async () => {
+      nextButton?.click();
+    });
+    await act(async () => {
+      nextButton?.click();
+    });
+    await act(async () => {
+      previousButton?.click();
+    });
+
+    expect(onOpenGitDiff).toHaveBeenNthCalledWith(1, "/workspace/first.md");
+    expect(onOpenGitDiff).toHaveBeenNthCalledWith(2, "/workspace/second.md");
+    expect(onOpenGitDiff).toHaveBeenNthCalledWith(3, "/workspace/first.md");
+  });
+
   it("shows a changed Documents empty state when no loaded document changed", async () => {
     await act(async () => {
       root.render(

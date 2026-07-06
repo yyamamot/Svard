@@ -13,6 +13,7 @@ import { useContentCursorActions } from "./hooks/useContentCursorActions";
 import { useDocumentLifecycle } from "./hooks/useDocumentLifecycle";
 import { useDocumentRender } from "./hooks/useDocumentRender";
 import { useDiffPreviewHostCallbacks } from "./hooks/useDiffPreviewHostCallbacks";
+import { useDocumentReviewSession } from "./hooks/useDocumentReviewSession";
 import { useExternalLinkConfirmation } from "./hooks/useExternalLinkConfirmation";
 import { useFileTreeState } from "./hooks/useFileTreeState";
 import { useFileCompareActions } from "./hooks/useFileCompareActions";
@@ -49,6 +50,7 @@ import { useWorkspacePerformanceNotice } from "./hooks/useWorkspacePerformanceNo
 import { useWorkspaceSearch } from "./hooks/useWorkspaceSearch";
 import { useWorkspaceTabLayoutState } from "./hooks/useWorkspaceTabLayoutState";
 import { usePostDiffGitMarkerState } from "./hooks/usePostDiffGitMarkerState";
+import { uniqueDocumentReviewPaths } from "./lib/documentReviewSession";
 import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { useZenModeActions } from "./hooks/useZenModeActions";
 import { MAIN_WINDOW_SESSION_ID, normalizeConfig } from "./lib/config";
@@ -493,6 +495,11 @@ export function App() {
     renderDiffDiagram,
     setDocumentDiffPreview,
   });
+  const documentReviewViewedRef = useRef<((path: string) => void) | null>(null);
+  const documentReviewNeedsAttentionRef = useRef<
+    ((path: string) => void) | null
+  >(null);
+  const documentReviewResetRef = useRef<((path: string) => void) | null>(null);
   const sourceControl = useSourceControlActions({
     config,
     copyText: (label, value) => copyTextRef.current(label, value),
@@ -500,6 +507,10 @@ export function App() {
     host,
     openContextMenu,
     onGitChangesRefreshComplete: handleGitChangesRefreshComplete,
+    onDocumentReviewNeedsAttention: (path) =>
+      documentReviewNeedsAttentionRef.current?.(path),
+    onDocumentReviewReset: (path) => documentReviewResetRef.current?.(path),
+    onDocumentReviewViewed: (path) => documentReviewViewedRef.current?.(path),
     onGitRefresh: (reason) => {
       if (shouldInvalidatePostDiffGitMarkersForGitRefreshReason(reason)) {
         invalidatePostDiffGitMarkersForActiveDocument("git-refresh");
@@ -511,6 +522,35 @@ export function App() {
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
     showInlineNotice,
   });
+  const documentReviewTargetPaths = useMemo(
+    () =>
+      uniqueDocumentReviewPaths(
+        sourceControl.gitChanges?.status === "ok"
+          ? sourceControl.gitChanges.items
+              .map((item) => item.documentPath)
+              .filter((path): path is string => Boolean(path))
+          : [],
+      ),
+    [sourceControl.gitChanges],
+  );
+  const documentReviewSession = useDocumentReviewSession(
+    documentReviewTargetPaths,
+  );
+  useEffect(() => {
+    documentReviewViewedRef.current = documentReviewSession.markViewed;
+    documentReviewNeedsAttentionRef.current =
+      documentReviewSession.markNeedsAttention;
+    documentReviewResetRef.current = documentReviewSession.reset;
+    return () => {
+      documentReviewViewedRef.current = null;
+      documentReviewNeedsAttentionRef.current = null;
+      documentReviewResetRef.current = null;
+    };
+  }, [
+    documentReviewSession.markNeedsAttention,
+    documentReviewSession.markViewed,
+    documentReviewSession.reset,
+  ]);
   refreshSourceControlFromFileTreeRef.current = (event) =>
     handleWorkspaceFileChangeRefresh(event, sourceControl.refreshGitChanges);
   const matchCount = searchHits.length;
@@ -793,6 +833,7 @@ export function App() {
     childrenByDirectory,
     config,
     directoryErrors,
+    documentReviewSession,
     documentOrderRefreshRevision: workspaceFileChangeRevision,
     expandedDirectories,
     gitSourceControl: sourceControl,

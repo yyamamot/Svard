@@ -203,7 +203,9 @@ export async function applyFilesScenario(context) {
     await page.locator('[data-review-id="documents-view"]').waitFor();
   } else if (
     scenario === "viewer-files-documents-source-control-filter" ||
-    scenario === "viewer-files-documents-source-control-privacy"
+    scenario === "viewer-files-documents-source-control-privacy" ||
+    scenario === "viewer-document-review-session" ||
+    scenario === "viewer-document-review-session-privacy"
   ) {
     await page.locator('[data-review-id="file-tree"]').waitFor();
     await page.getByText("git-modified.md").click();
@@ -221,6 +223,75 @@ export async function applyFilesScenario(context) {
       .locator('[data-review-id="documents-view-row"][data-git-status]')
       .first()
       .waitFor();
+    if (
+      scenario === "viewer-document-review-session" ||
+      scenario === "viewer-document-review-session-privacy"
+    ) {
+      const firstChangedRow = page
+        .locator('[data-review-id="documents-view-row"][data-git-status]')
+        .first();
+      await page
+        .locator('[data-review-id="document-review-session"]')
+        .waitFor();
+      await firstChangedRow
+        .locator('[data-review-id="git-status-diff-button"]')
+        .click();
+      await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+      await page.locator('[data-review-id="git-diff-preview-close"]').click();
+      await page.locator('[data-review-id="documents-view"]').waitFor();
+      await firstChangedRow
+        .locator('[data-review-id="document-review-mark-attention"]')
+        .click();
+      await page
+        .locator('[data-review-id="document-review-state"]')
+        .filter({ hasText: "Needs attention" })
+        .first()
+        .waitFor();
+      await page.evaluate(() => {
+        const firstRow = document.querySelector(
+          '[data-review-id="documents-view-row"][data-git-status]',
+        );
+        window.__SVARD_DOCUMENT_REVIEW_SESSION_CHECK__ = {
+          bodyHasPrivatePath:
+            document.body.textContent?.includes("/Users/") ?? false,
+          bodyHasDiffHunk:
+            document.body.textContent?.includes("@@") ||
+            document.body.textContent?.includes("diff --git"),
+          panelOpen:
+            document.querySelector(
+              '[data-review-id="git-diff-preview-panel"]',
+            ) !== null,
+          progress:
+            document
+              .querySelector(
+                '[data-review-id="document-review-session-progress"]',
+              )
+              ?.textContent?.trim() ?? "",
+          attention:
+            document
+              .querySelector(
+                '[data-review-id="document-review-session-attention"]',
+              )
+              ?.textContent?.trim() ?? "",
+          rowState:
+            firstRow
+              ?.querySelector('[data-review-id="document-review-state"]')
+              ?.textContent?.trim() ?? "",
+          hasMarkViewed:
+            firstRow?.querySelector(
+              '[data-review-id="document-review-mark-viewed"]',
+            ) !== null,
+          hasMarkAttention:
+            firstRow?.querySelector(
+              '[data-review-id="document-review-mark-attention"]',
+            ) !== null,
+          hasReset:
+            firstRow?.querySelector(
+              '[data-review-id="document-review-reset"]',
+            ) !== null,
+        };
+      });
+    }
     await page.evaluate(() => {
       window.__SVARD_DOCUMENTS_SOURCE_CONTROL_PRIVACY_CHECK__ = {
         bodyHasPrivatePath:

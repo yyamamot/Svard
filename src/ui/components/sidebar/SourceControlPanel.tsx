@@ -1,4 +1,5 @@
 import { GitBranch } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type {
   AppConfig,
@@ -14,6 +15,18 @@ import type {
   GitFileHistoryItem,
 } from "../../../core/types";
 import { gitStatusDisplay } from "../../lib/gitStatusDisplay";
+import type {
+  DocumentReviewSessionControls,
+  DocumentReviewState,
+} from "../../lib/documentReviewSession";
+import { emptyDocumentReviewSessionControls } from "../../lib/documentReviewSession";
+import {
+  documentReviewStateLabel,
+  nextDocumentReviewPath,
+  previousDocumentReviewPath,
+  summarizeDocumentReviewSession,
+  uniqueDocumentReviewPaths,
+} from "../../lib/documentReviewSession";
 import { fileName } from "../../lib/path";
 import { sourceControlEmptyTitle } from "./shared";
 import {
@@ -26,6 +39,7 @@ import {
 export function SourceControlPanel({
   changes,
   changesLoading,
+  documentReviewSession = emptyDocumentReviewSessionControls,
   branchDiff,
   branchDiffLoading,
   graph,
@@ -54,6 +68,7 @@ export function SourceControlPanel({
 }: {
   changes: GitChanges | null;
   changesLoading: boolean;
+  documentReviewSession?: DocumentReviewSessionControls;
   branchDiff: GitBranchDiff | null;
   branchDiffLoading: boolean;
   graph: GitCommitGraph | null;
@@ -200,6 +215,7 @@ export function SourceControlPanel({
       {view === "changes" ? (
         <ChangesPanel
           changes={changes}
+          documentReviewSession={documentReviewSession}
           loading={changesLoading}
           onOpenChange={onOpenChange}
           onItemContextMenu={onChangeContextMenu}
@@ -237,11 +253,13 @@ export function SourceControlPanel({
 
 function ChangesPanel({
   changes,
+  documentReviewSession,
   loading,
   onOpenChange,
   onItemContextMenu,
 }: {
   changes: GitChanges | null;
+  documentReviewSession: DocumentReviewSessionControls;
   loading: boolean;
   onOpenChange: (path: string | null | undefined) => void | Promise<void>;
   onItemContextMenu: (
@@ -249,6 +267,23 @@ function ChangesPanel({
     item: GitChangeEntry,
   ) => void;
 }) {
+  const reviewTargetPaths = useMemo(
+    () =>
+      uniqueDocumentReviewPaths(
+        changes?.status === "ok"
+          ? changes.items
+              .map((item) => item.documentPath)
+              .filter((path): path is string => Boolean(path))
+          : [],
+      ),
+    [changes],
+  );
+  const [reviewCursorPath, setReviewCursorPath] = useState<string | null>(null);
+  useEffect(() => {
+    setReviewCursorPath((current) =>
+      current && reviewTargetPaths.includes(current) ? current : null,
+    );
+  }, [reviewTargetPaths]);
   if (loading) {
     return (
       <div
@@ -283,29 +318,93 @@ function ChangesPanel({
       </div>
     );
   }
+  const nextReviewPath = nextDocumentReviewPath({
+    currentPath: reviewCursorPath,
+    stateByPath: documentReviewSession.stateByPath,
+    targetPaths: reviewTargetPaths,
+  });
+  const previousReviewPath = previousDocumentReviewPath({
+    currentPath: reviewCursorPath,
+    targetPaths: reviewTargetPaths,
+  });
+  const reviewSummary = summarizeDocumentReviewSession({
+    stateByPath: documentReviewSession.stateByPath,
+    targetPaths: reviewTargetPaths,
+  });
+  const openReviewChange = (path: string) => {
+    setReviewCursorPath(path);
+    void onOpenChange(path);
+  };
   return (
-    <div
-      className="source-control-change-list"
-      data-review-id="source-control-changes-list"
-    >
-      {changes.items.map((item) => (
-        <ChangeRow
-          key={`${item.status}:${item.path}`}
-          item={item}
-          onOpenChange={onOpenChange}
-          onItemContextMenu={onItemContextMenu}
-        />
-      ))}
-    </div>
+    <>
+      {reviewTargetPaths.length > 0 ? (
+        <div
+          className="document-review-session source-control-review-session"
+          data-review-id="source-control-review-session"
+          aria-label="Review session"
+        >
+          <span className="document-review-session-title">Review session</span>
+          <span data-review-id="source-control-review-progress">
+            Reviewed {reviewSummary.reviewed} / {reviewSummary.total}
+          </span>
+          {reviewSummary.needsAttention > 0 ? (
+            <span data-review-id="source-control-review-attention">
+              Needs attention {reviewSummary.needsAttention}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            disabled={!previousReviewPath}
+            onClick={() => {
+              if (previousReviewPath) {
+                openReviewChange(previousReviewPath);
+              }
+            }}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            disabled={!nextReviewPath}
+            onClick={() => {
+              if (nextReviewPath) {
+                openReviewChange(nextReviewPath);
+              }
+            }}
+          >
+            Next
+          </button>
+        </div>
+      ) : null}
+      <div
+        className="source-control-change-list"
+        data-review-id="source-control-changes-list"
+      >
+        {changes.items.map((item) => (
+          <ChangeRow
+            key={`${item.status}:${item.path}`}
+            documentReviewSession={documentReviewSession}
+            item={item}
+            onOpenReviewChange={openReviewChange}
+            onOpenChange={onOpenChange}
+            onItemContextMenu={onItemContextMenu}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
 function ChangeRow({
+  documentReviewSession,
   item,
+  onOpenReviewChange,
   onOpenChange,
   onItemContextMenu,
 }: {
+  documentReviewSession: DocumentReviewSessionControls;
   item: GitChangeEntry;
+  onOpenReviewChange: (path: string) => void;
   onOpenChange: (path: string | null | undefined) => void | Promise<void>;
   onItemContextMenu: (
     event: ReactMouseEvent<HTMLElement>,
@@ -314,6 +413,9 @@ function ChangeRow({
 }) {
   const display = gitStatusDisplay(item.status);
   const supported = Boolean(item.documentPath);
+  const reviewState = item.documentPath
+    ? documentReviewSession.stateByPath[item.documentPath]
+    : undefined;
   return (
     <button
       type="button"
@@ -322,8 +424,8 @@ function ChangeRow({
       data-git-status={item.status}
       aria-disabled={!supported}
       onClick={() => {
-        if (supported) {
-          void onOpenChange(item.documentPath);
+        if (item.documentPath) {
+          onOpenReviewChange(item.documentPath);
         }
       }}
       onContextMenu={(event) => onItemContextMenu(event, item)}
@@ -346,9 +448,29 @@ function ChangeRow({
             {display.shortLabel}
           </span>
         ) : null}
+        {supported ? <ReviewStateBadge state={reviewState} /> : null}
       </span>
       <span className="source-control-change-path">{item.path}</span>
     </button>
+  );
+}
+
+function ReviewStateBadge({
+  state,
+}: {
+  state: DocumentReviewState | undefined;
+}) {
+  const effectiveState = state ?? "unreviewed";
+  const label = documentReviewStateLabel(effectiveState);
+  return (
+    <span
+      className={`document-review-state document-review-state-${effectiveState}`}
+      data-review-id="document-review-state"
+      title={label}
+      aria-label={label}
+    >
+      {label}
+    </span>
   );
 }
 

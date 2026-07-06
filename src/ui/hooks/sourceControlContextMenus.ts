@@ -59,7 +59,10 @@ export function buildSourceControlChangeContextMenuItems({
   compareWithGitRef,
   copyText,
   item,
+  markNeedsAttention,
+  markViewed,
   openSourceControlChange,
+  resetReviewState,
   showGitFileHistory,
 }: {
   compareWithGitRef: (
@@ -68,9 +71,12 @@ export function buildSourceControlChangeContextMenuItems({
   ) => void | Promise<void>;
   copyText: CopyText;
   item: GitChangeEntry;
+  markNeedsAttention?: (path: string) => void;
+  markViewed?: (path: string) => void;
   openSourceControlChange: (
     path: string | null | undefined,
   ) => void | Promise<void>;
+  resetReviewState?: (path: string) => void;
   showGitFileHistory: (path?: string) => void | Promise<void>;
 }): ContextMenuItem[] {
   const documentPath = item.documentPath ?? undefined;
@@ -78,16 +84,41 @@ export function buildSourceControlChangeContextMenuItems({
   const supported = Boolean(
     documentPath && isSupportedDocumentPath(documentPath),
   );
-  return [
+  const items: ContextMenuItem[] = [
     {
       id: "open-changes",
-      label: "Open Changes",
+      label: "Open rendered diff",
       enabled: supported,
       title: supported
         ? undefined
         : "Preview diff is available for markup documents only",
       onSelect: () => openSourceControlChange(documentPath),
     },
+  ];
+  if (
+    supported &&
+    documentPath &&
+    (markViewed || markNeedsAttention || resetReviewState)
+  ) {
+    items.push(
+      {
+        id: "mark-review-viewed",
+        label: "Mark viewed",
+        onSelect: () => markViewed?.(documentPath),
+      },
+      {
+        id: "mark-review-needs-attention",
+        label: "Mark needs attention",
+        onSelect: () => markNeedsAttention?.(documentPath),
+      },
+      {
+        id: "reset-review-state",
+        label: "Reset review state",
+        onSelect: () => resetReviewState?.(documentPath),
+      },
+    );
+  }
+  items.push(
     {
       id: "show-file-history",
       label: "Show File History",
@@ -134,7 +165,8 @@ export function buildSourceControlChangeContextMenuItems({
       label: "Copy Relative Path",
       onSelect: () => copyText("Relative path", item.path),
     },
-  ];
+  );
+  return items;
 }
 
 export function buildSourceControlBranchDiffContextMenuItems({

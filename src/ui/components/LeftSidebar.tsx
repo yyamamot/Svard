@@ -26,6 +26,7 @@ import type {
   GitDiffStatus,
 } from "../../core/types";
 import type { DocumentsViewMode } from "../lib/fileTreeDocuments";
+import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
 import type { SuggestedDocumentsMode } from "./fileTreePanel/types";
 import type { OpenFileReloadState } from "../types";
 
@@ -51,6 +52,7 @@ interface LeftSidebarProps {
   rootDirectory: string;
   rootEntries: DirectoryEntry[];
   documentOrder: DocumentOrderCatalog;
+  documentReviewSession: DocumentReviewSessionControls;
   filesViewMode: DocumentsViewMode;
   suggestedDocumentsMode?: SuggestedDocumentsMode;
   activeDocumentOrderSectionKeys: ReadonlySet<string>;
@@ -154,6 +156,7 @@ export function LeftSidebar({
   rootDirectory,
   rootEntries,
   documentOrder,
+  documentReviewSession,
   filesViewMode,
   suggestedDocumentsMode,
   activeDocumentOrderSectionKeys,
@@ -269,6 +272,7 @@ export function LeftSidebar({
                 rootDirectory={rootDirectory}
                 rootEntries={rootEntries}
                 documentOrder={documentOrder}
+                documentReviewSession={documentReviewSession}
                 childrenByDirectory={childrenByDirectory}
                 expandedDirectories={expandedDirectories}
                 loadingDirectories={loadingDirectories}
@@ -310,6 +314,7 @@ export function LeftSidebar({
               <SourceControlPanel
                 changes={gitChanges}
                 changesLoading={gitChangesLoading}
+                documentReviewSession={documentReviewSession}
                 branchDiff={gitBranchDiff}
                 branchDiffLoading={gitBranchDiffLoading}
                 graph={gitCommitGraph}
