@@ -656,6 +656,7 @@ function DiffStreamRenderedSection({
         documentFormat={documentFormat}
         activeChangeIndex={activeChangeIndex}
         focusTableRows={true}
+        showBlockMeta={viewMode !== "full"}
         inlineDiagnostics={presentation.inlineDiagnostics}
         onContextMenu={(event) =>
           handleDiffContextMenu(event, "left", "rendered", event.currentTarget)
@@ -691,6 +692,7 @@ function DiffStreamRenderedSection({
         documentFormat={documentFormat}
         activeChangeIndex={activeChangeIndex}
         focusTableRows={true}
+        showBlockMeta={viewMode !== "full"}
         inlineDiagnostics={presentation.inlineDiagnostics}
         onContextMenu={(event) =>
           handleDiffContextMenu(event, "right", "rendered", event.currentTarget)
