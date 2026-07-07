@@ -483,6 +483,9 @@ describe("FileTreePanel Documents only view", () => {
     });
 
     await chooseFileViewMode("documents-view-mode-path");
+    expect(
+      container.querySelector('[data-review-id="document-review-state"]'),
+    ).toBeNull();
     await act(async () => {
       container
         .querySelector<HTMLButtonElement>(
@@ -570,8 +573,7 @@ describe("FileTreePanel Documents only view", () => {
     expect(onOpenFile).not.toHaveBeenCalled();
   });
 
-  it("shows review session progress and row state in Changed documents", async () => {
-    const markViewed = vi.fn();
+  it("shows review session progress and compact row state in Changed documents", async () => {
     await act(async () => {
       root.render(
         <FileTreePanel
@@ -594,7 +596,7 @@ describe("FileTreePanel Documents only view", () => {
           documentReviewSession={{
             stateByPath: { "/workspace/README.md": "needs-attention" },
             summary: { total: 1, reviewed: 0, needsAttention: 1 },
-            markViewed,
+            markViewed: vi.fn(),
             markNeedsAttention: vi.fn(),
             reset: vi.fn(),
           }}
@@ -643,17 +645,23 @@ describe("FileTreePanel Documents only view", () => {
     expect(
       container.querySelector('[data-review-id="document-review-state"]')
         ?.textContent,
-    ).toBe("Needs attention");
-
-    await act(async () => {
+    ).toBe("!");
+    expect(
       container
-        .querySelector<HTMLButtonElement>(
-          '[data-review-id="document-review-mark-viewed"]',
-        )
-        ?.click();
-    });
-
-    expect(markViewed).toHaveBeenCalledWith("/workspace/README.md");
+        .querySelector('[data-review-id="document-review-state"]')
+        ?.getAttribute("aria-label"),
+    ).toBe("Needs attention");
+    expect(
+      container.querySelector('[data-review-id="document-review-mark-viewed"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-review-id="document-review-mark-attention"]',
+      ),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-review-id="document-review-reset"]'),
+    ).toBeNull();
   });
 
   it("advances Previous and Next from the last opened review document", async () => {

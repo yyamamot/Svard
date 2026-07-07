@@ -170,9 +170,11 @@ export async function buildFilesAssertions(context) {
               result?.progress?.startsWith("Reviewed ") &&
               result?.progress?.includes(" / ") &&
               result?.attention?.startsWith("Needs attention ") &&
-              result?.rowState === "Needs attention" &&
-              result?.hasMarkViewed === true &&
-              result?.hasReset === true &&
+              result?.rowState === "!" &&
+              result?.rowStateLabel === "Needs attention" &&
+              result?.hasMarkViewed === false &&
+              result?.hasMarkAttention === false &&
+              result?.hasReset === false &&
               result?.panelOpen === false
             );
           })
@@ -184,7 +186,8 @@ export async function buildFilesAssertions(context) {
             return (
               result?.bodyHasPrivatePath === false &&
               result?.bodyHasDiffHunk === false &&
-              result?.rowState === "Needs attention" &&
+              result?.rowState === "!" &&
+              result?.rowStateLabel === "Needs attention" &&
               result?.panelOpen === false
             );
           })

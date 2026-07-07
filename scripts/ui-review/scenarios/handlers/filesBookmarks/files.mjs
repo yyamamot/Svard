@@ -239,12 +239,15 @@ export async function applyFilesScenario(context) {
       await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
       await page.locator('[data-review-id="git-diff-preview-close"]').click();
       await page.locator('[data-review-id="documents-view"]').waitFor();
-      await firstChangedRow
-        .locator('[data-review-id="document-review-mark-attention"]')
+      await firstChangedRow.click({ button: "right" });
+      await page.locator('[data-review-id="context-menu"]').waitFor();
+      await page
+        .locator('[data-review-id^="context-menu-item-"]')
+        .filter({ hasText: "Mark needs attention" })
         .click();
       await page
         .locator('[data-review-id="document-review-state"]')
-        .filter({ hasText: "Needs attention" })
+        .filter({ hasText: "!" })
         .first()
         .waitFor();
       await page.evaluate(() => {
@@ -277,6 +280,10 @@ export async function applyFilesScenario(context) {
             firstRow
               ?.querySelector('[data-review-id="document-review-state"]')
               ?.textContent?.trim() ?? "",
+          rowStateLabel:
+            firstRow
+              ?.querySelector('[data-review-id="document-review-state"]')
+              ?.getAttribute("aria-label") ?? "",
           hasMarkViewed:
             firstRow?.querySelector(
               '[data-review-id="document-review-mark-viewed"]',

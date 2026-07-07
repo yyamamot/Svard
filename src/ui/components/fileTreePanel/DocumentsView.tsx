@@ -663,6 +663,7 @@ export function DocumentsView({
           row.gitStatus ? fileTreeGitStatusByPath[entry.path] : undefined
         }
         data-git-status-label={row.gitStatusLabel}
+        data-document-review-target={row.isChanged ? "true" : undefined}
         data-document-open={row.isOpen ? "true" : undefined}
         data-document-order-active={row.isActive ? "true" : undefined}
         title={
@@ -722,7 +723,7 @@ export function DocumentsView({
             {row.gitStatus.shortLabel}
           </button>
         ) : null}
-        {row.isChanged ? (
+        {documentsFilter === "changed" && row.isChanged ? (
           <DocumentReviewRowControls
             path={entry.path}
             documentReviewSession={documentReviewSession}
@@ -756,6 +757,7 @@ export function DocumentsView({
         data-entry-kind="file"
         data-git-status={gitStatus ? rawGitStatus : undefined}
         data-git-status-label={gitStatusLabel}
+        data-document-review-target={gitStatus ? "true" : undefined}
         data-document-status="resolved"
         data-document-open={isOpen ? "true" : undefined}
         data-document-order-active={isActive ? "true" : undefined}
@@ -816,7 +818,7 @@ export function DocumentsView({
             {gitStatus.shortLabel}
           </button>
         ) : null}
-        {gitStatus ? (
+        {documentsFilter === "changed" && gitStatus ? (
           <DocumentReviewRowControls
             path={node.path}
             documentReviewSession={documentReviewSession}

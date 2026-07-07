@@ -50,55 +50,23 @@ export function DocumentReviewRowControls({
   const effectiveState =
     documentReviewSession.stateByPath[path] ?? "unreviewed";
   const label = documentReviewStateLabel(effectiveState);
+  const compactLabel =
+    effectiveState === "viewed"
+      ? "V"
+      : effectiveState === "needs-attention"
+        ? "!"
+        : "U";
   return (
     <span className="document-review-row-controls">
       <span
         className={`document-review-state document-review-state-${effectiveState}`}
         data-review-id="document-review-state"
+        data-review-state={effectiveState}
         title={label}
         aria-label={label}
       >
-        {label}
+        {compactLabel}
       </span>
-      {effectiveState !== "viewed" ? (
-        <button
-          type="button"
-          className="document-review-action"
-          data-review-id="document-review-mark-viewed"
-          onClick={(event) => {
-            event.stopPropagation();
-            documentReviewSession.markViewed(path);
-          }}
-        >
-          Mark viewed
-        </button>
-      ) : null}
-      {effectiveState !== "needs-attention" ? (
-        <button
-          type="button"
-          className="document-review-action"
-          data-review-id="document-review-mark-attention"
-          onClick={(event) => {
-            event.stopPropagation();
-            documentReviewSession.markNeedsAttention(path);
-          }}
-        >
-          Mark needs attention
-        </button>
-      ) : null}
-      {effectiveState !== "unreviewed" ? (
-        <button
-          type="button"
-          className="document-review-action"
-          data-review-id="document-review-reset"
-          onClick={(event) => {
-            event.stopPropagation();
-            documentReviewSession.reset(path);
-          }}
-        >
-          Reset review state
-        </button>
-      ) : null}
     </span>
   );
 }

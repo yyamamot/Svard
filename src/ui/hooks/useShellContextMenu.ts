@@ -22,6 +22,8 @@ import type {
   GitRefKind,
   RenderResult,
 } from "../../core/types";
+import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
+import { emptyDocumentReviewSessionControls } from "../lib/documentReviewSession";
 import { fileName } from "../lib/path";
 import type { ContextMenuItem } from "../types";
 
@@ -40,6 +42,7 @@ interface UseShellContextMenuOptions {
   closeTab: (path: string) => void;
   copyText: (label: string, value?: string) => void | Promise<void>;
   documentPayload: DocumentPayload | null;
+  documentReviewSession?: DocumentReviewSessionControls;
   navigateToHeading: (headingId: string) => void;
   openContextMenu: (
     event: ReactMouseEvent<HTMLElement>,
@@ -75,6 +78,7 @@ export function useShellContextMenu({
   closeTab,
   copyText,
   documentPayload,
+  documentReviewSession = emptyDocumentReviewSessionControls,
   navigateToHeading,
   openContextMenu,
   openDocumentInNewWindow,
@@ -265,11 +269,35 @@ export function useShellContextMenu({
       onSelect: () => copyText("Path", targetPath),
     });
     const items: ContextMenuItem[] = [];
+    const addDocumentReviewItems = (targetPath: string) => {
+      items.push(
+        {
+          id: "mark-review-viewed",
+          label: "Mark viewed",
+          separatorBefore: true,
+          onSelect: () => documentReviewSession.markViewed(targetPath),
+        },
+        {
+          id: "mark-review-needs-attention",
+          label: "Mark needs attention",
+          onSelect: () =>
+            documentReviewSession.markNeedsAttention(targetPath),
+        },
+        {
+          id: "reset-review-state",
+          label: "Reset review state",
+          onSelect: () => documentReviewSession.reset(targetPath),
+        },
+      );
+    };
 
     if (contextMenuKind === "file-tree" && path) {
       const bookmarkKind = entryKind === "directory" ? "directory" : "file";
       if (bookmarkKind === "file" && isSupportedDocumentPath(path)) {
         addSupportedDocumentActions(items, path);
+        if (contextTarget.dataset.documentReviewTarget === "true") {
+          addDocumentReviewItems(path);
+        }
       }
       items.push(copyPathItem(path, items.length > 0));
       items.push({

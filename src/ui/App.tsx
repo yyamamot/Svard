@@ -882,6 +882,7 @@ export function App() {
     closeTab: openFileActions.closeTab,
     copyText: documentLinks.copyText,
     documentPayload: activeDocumentPayload,
+    documentReviewSession,
     navigateToHeading: documentLinks.navigateToHeading,
     openContextMenu,
     openDocumentInNewWindow: windowActions.openDocumentInNewWindow,
