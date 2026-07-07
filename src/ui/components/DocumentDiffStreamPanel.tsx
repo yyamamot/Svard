@@ -56,6 +56,8 @@ import { MouseGestureTrail } from "./MouseGestureTrail";
 import { createDiffPreviewContextMenuHandler } from "./gitDiffPreview/contextMenu";
 import {
   changeRulerMarkerTopPercent,
+  changeRulerTargetAnchorTop,
+  resolveChangeTargetInPane,
   type DiffChangeRulerMarkerKind,
 } from "./gitDiffPreview/changeRuler";
 import { shouldIgnoreDiffMouseGestureTarget } from "./gitDiffPreview/diffPreviewInteractionEvents";
@@ -885,10 +887,7 @@ function scrollStreamTargetIntoView(
   target: DiffStreamTarget,
 ) {
   const section = diffStreamSection(panel, target.fileIndex);
-  const targetElement =
-    diffStreamRenderedTarget(section, target) ??
-    diffStreamBlockTarget(section, target.changeIndex) ??
-    section;
+  const targetElement = diffStreamTargetElement(section, target) ?? section;
   if (typeof targetElement?.scrollIntoView === "function") {
     targetElement.scrollIntoView({ block: "center" });
   }
@@ -907,9 +906,7 @@ function diffStreamRenderedTarget(
   const pane = section?.querySelector<HTMLElement>(
     `[data-review-id="diff-stream-${target.primarySide}-pane"]`,
   );
-  return pane?.querySelector<HTMLElement>(
-    `[data-change-index="${target.changeIndex}"]`,
-  );
+  return resolveChangeTargetInPane(pane, target.changeIndex);
 }
 
 function diffStreamBlockTarget(
@@ -923,6 +920,16 @@ function diffStreamBlockTarget(
     section?.querySelector<HTMLElement>(
       `[data-review-id="diff-stream-rendered-block"][data-change-index="${changeIndex}"]`,
     )
+  );
+}
+
+function diffStreamTargetElement(
+  section: HTMLElement | null | undefined,
+  target: DiffStreamTarget,
+) {
+  return (
+    diffStreamRenderedTarget(section, target) ??
+    diffStreamBlockTarget(section, target.changeIndex)
   );
 }
 
@@ -963,18 +970,16 @@ function DiffStreamChangeRuler({
 
     function measure() {
       frame = 0;
-      const streamBodyRect = body.getBoundingClientRect();
       const nextMarkers = targets.flatMap((target, index) => {
         const section = diffStreamSection(body, target.fileIndex);
-        const markerTarget =
-          diffStreamRenderedTarget(section, target) ??
-          diffStreamBlockTarget(section, target.changeIndex);
+        const markerTarget = diffStreamTargetElement(section, target);
         if (!markerTarget) {
           return [];
         }
-        const blockRect = markerTarget.getBoundingClientRect();
-        const targetTop =
-          blockRect.top - streamBodyRect.top + body.scrollTop;
+        const targetTop = changeRulerTargetAnchorTop({
+          container: body,
+          target: markerTarget,
+        });
         return [
           {
             fileIndex: target.fileIndex,

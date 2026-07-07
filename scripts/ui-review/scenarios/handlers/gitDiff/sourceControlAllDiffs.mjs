@@ -43,20 +43,26 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     );
     const activeRulerMarkerIndex =
       activeRulerMarker?.getAttribute("data-change-index") ?? "";
+    const activeRulerMarkerStreamIndex =
+      activeRulerMarker?.getAttribute("data-stream-index") ?? "";
     const activeRenderedTarget =
-      activeRulerMarkerIndex !== ""
-        ? panel?.querySelector(
-            `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
-          )
+      activeRulerMarkerIndex !== "" && activeRulerMarkerStreamIndex !== ""
+        ? panel
+            ?.querySelector(
+              `[data-review-id="diff-stream-file-section"][data-stream-index="${activeRulerMarkerStreamIndex}"]`,
+            )
+            ?.querySelector(
+              `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
+            )
         : null;
     const activeRenderedTargetRect =
       activeRenderedTarget?.getBoundingClientRect();
     const streamBodyRect = streamBody?.getBoundingClientRect();
     return Boolean(
       activeRenderedTargetRect &&
-        streamBodyRect &&
-        activeRenderedTargetRect.bottom > streamBodyRect.top &&
-        activeRenderedTargetRect.top < streamBodyRect.bottom,
+      streamBodyRect &&
+      activeRenderedTargetRect.bottom > streamBodyRect.top &&
+      activeRenderedTargetRect.top < streamBodyRect.bottom,
     );
   });
   await page.evaluate(() => {
@@ -69,17 +75,30 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     );
     const activeRulerMarkerIndex =
       activeRulerMarker?.getAttribute("data-change-index") ?? "";
+    const activeRulerMarkerStreamIndex =
+      activeRulerMarker?.getAttribute("data-stream-index") ?? "";
     const activeRenderedTarget =
-      activeRulerMarkerIndex !== ""
-        ? panel?.querySelector(
-            `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
-          )
+      activeRulerMarkerIndex !== "" && activeRulerMarkerStreamIndex !== ""
+        ? panel
+            ?.querySelector(
+              `[data-review-id="diff-stream-file-section"][data-stream-index="${activeRulerMarkerStreamIndex}"]`,
+            )
+            ?.querySelector(
+              `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
+            )
         : null;
     const activeRenderedTargetRect =
       activeRenderedTarget?.getBoundingClientRect();
     const streamBodyRect = streamBody?.getBoundingClientRect();
     window.__SVARD_ALL_DIFFS_ACTIVE_TARGET_AFTER_MARKER__ = {
       index: activeRulerMarkerIndex,
+      streamIndex: activeRulerMarkerStreamIndex,
+      targetIndex:
+        activeRenderedTarget?.getAttribute("data-change-index") ?? "",
+      targetStreamIndex:
+        activeRenderedTarget
+          ?.closest('[data-review-id="diff-stream-file-section"]')
+          ?.getAttribute("data-stream-index") ?? "",
       visible:
         activeRenderedTargetRect && streamBodyRect
           ? activeRenderedTargetRect.bottom > streamBodyRect.top &&
@@ -87,7 +106,10 @@ export async function applySourceControlAllDiffsScenario(page, context) {
           : false,
     };
   });
-  await page.locator('[data-review-id="diff-stream-right-pane"]').first().waitFor();
+  await page
+    .locator('[data-review-id="diff-stream-right-pane"]')
+    .first()
+    .waitFor();
   await page
     .locator('[data-review-id="diff-stream-right-pane"]')
     .first()
@@ -125,11 +147,17 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     );
     const activeRulerMarkerIndex =
       activeRulerMarker?.getAttribute("data-change-index") ?? "";
+    const activeRulerMarkerStreamIndex =
+      activeRulerMarker?.getAttribute("data-stream-index") ?? "";
     const activeRenderedTarget =
-      activeRulerMarkerIndex !== ""
-        ? panel?.querySelector(
-            `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
-          )
+      activeRulerMarkerIndex !== "" && activeRulerMarkerStreamIndex !== ""
+        ? panel
+            ?.querySelector(
+              `[data-review-id="diff-stream-file-section"][data-stream-index="${activeRulerMarkerStreamIndex}"]`,
+            )
+            ?.querySelector(
+              `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
+            )
         : null;
     const renderedBlockRect = firstRenderedBlock?.getBoundingClientRect();
     const renderedBodyRect = firstRenderedBody?.getBoundingClientRect();
@@ -166,13 +194,28 @@ export async function applySourceControlAllDiffsScenario(page, context) {
       fullPreviewDefault:
         fullPreviewButton?.getAttribute("aria-pressed") === "true",
       rulerVisible:
-        document.querySelector('[data-review-id="diff-stream-change-ruler"]') !==
-        null,
+        document.querySelector(
+          '[data-review-id="diff-stream-change-ruler"]',
+        ) !== null,
       rulerMarkers: document.querySelectorAll(
         '[data-review-id="diff-stream-change-ruler-marker"]',
       ).length,
       activeRulerMarkerVisible: activeRulerMarker !== null,
       activeRulerMarkerIndex,
+      activeRulerMarkerStreamIndex,
+      activeRenderedTargetIndex:
+        activeRenderedTarget?.getAttribute("data-change-index") ?? "",
+      activeRenderedTargetStreamIndex:
+        activeRenderedTarget
+          ?.closest('[data-review-id="diff-stream-file-section"]')
+          ?.getAttribute("data-stream-index") ?? "",
+      activeRenderedTargetIndexMatchesMarker:
+        activeRenderedTarget?.getAttribute("data-change-index") ===
+        activeRulerMarkerIndex,
+      activeRenderedTargetStreamIndexMatchesMarker:
+        activeRenderedTarget
+          ?.closest('[data-review-id="diff-stream-file-section"]')
+          ?.getAttribute("data-stream-index") === activeRulerMarkerStreamIndex,
       activeRenderedTargetVisible:
         activeRenderedTargetRect && streamBodyRect
           ? activeRenderedTargetRect.bottom > streamBodyRect.top &&
@@ -210,21 +253,27 @@ export async function applySourceControlAllDiffsScenario(page, context) {
       .click();
     await page.waitForFunction(() =>
       document
-        .querySelector('[data-review-id="diff-stream-change-ruler-marker"].active')
+        .querySelector(
+          '[data-review-id="diff-stream-change-ruler-marker"].active',
+        )
         ?.getAttribute("aria-label")
         ?.includes("1"),
     );
     await page.keyboard.press("Alt+ArrowDown");
     await page.waitForFunction(() =>
       document
-        .querySelector('[data-review-id="diff-stream-change-ruler-marker"].active')
+        .querySelector(
+          '[data-review-id="diff-stream-change-ruler-marker"].active',
+        )
         ?.getAttribute("aria-label")
         ?.includes("2"),
     );
     await page.keyboard.press("Alt+ArrowUp");
     await page.waitForFunction(() =>
       document
-        .querySelector('[data-review-id="diff-stream-change-ruler-marker"].active')
+        .querySelector(
+          '[data-review-id="diff-stream-change-ruler-marker"].active',
+        )
         ?.getAttribute("aria-label")
         ?.includes("1"),
     );
@@ -245,7 +294,8 @@ export async function applySourceControlAllDiffsScenario(page, context) {
             '[data-review-id="diff-stream-change-ruler-marker"].active',
           )
           ?.getAttribute("aria-label") ?? "";
-      const closeResult = await window.__SVARD_COMMANDS__?.dispatch("tab.close");
+      const closeResult =
+        await window.__SVARD_COMMANDS__?.dispatch("tab.close");
       window.__SVARD_ALL_DIFFS_KEYBINDING_SAMPLE__ = {
         afterBottom,
         afterTop,
@@ -288,9 +338,7 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     .locator('[data-review-id="preferences-nav"] button')
     .filter({ hasText: "Mouse Gestures" })
     .click();
-  await page
-    .locator('[data-review-id="mouse-gestures-enabled"] input')
-    .check();
+  await page.locator('[data-review-id="mouse-gestures-enabled"] input').check();
   await page
     .locator('[data-review-id="preferences-dialog"] button:has-text("Close")')
     .click();
@@ -355,7 +403,9 @@ export async function applySourceControlAllDiffsScenario(page, context) {
   }
   await page.waitForFunction(() =>
     document
-      .querySelector('[data-review-id="diff-stream-change-ruler-marker"].active')
+      .querySelector(
+        '[data-review-id="diff-stream-change-ruler-marker"].active',
+      )
       ?.getAttribute("aria-label")
       ?.includes("1"),
   );
@@ -388,13 +438,15 @@ export async function applySourceControlAllDiffsScenario(page, context) {
           hitClass: hit instanceof HTMLElement ? hit.className : "",
           hitReviewId:
             hit instanceof HTMLElement
-              ? hit
+              ? (hit
                   .closest("[data-review-id]")
-                  ?.getAttribute("data-review-id") ?? ""
+                  ?.getAttribute("data-review-id") ?? "")
               : "",
           mouseGesturesEnabled:
             document
-              .querySelector('[data-review-id="source-control-all-diffs-panel"]')
+              .querySelector(
+                '[data-review-id="source-control-all-diffs-panel"]',
+              )
               ?.getAttribute("data-mouse-gestures-enabled") ?? "",
           lastGesture: window.__SVARD_COMMANDS__?.getLastMouseGesture(),
         };
@@ -406,7 +458,9 @@ export async function applySourceControlAllDiffsScenario(page, context) {
   const afterRight = await page.evaluate(() => ({
     activeLabel:
       document
-        .querySelector('[data-review-id="diff-stream-change-ruler-marker"].active')
+        .querySelector(
+          '[data-review-id="diff-stream-change-ruler-marker"].active',
+        )
         ?.getAttribute("aria-label") ?? "",
     lastGesture: window.__SVARD_COMMANDS__?.getLastMouseGesture(),
   }));
@@ -414,14 +468,18 @@ export async function applySourceControlAllDiffsScenario(page, context) {
   await performStreamGesture(["Left"]);
   await page.waitForFunction(() =>
     document
-      .querySelector('[data-review-id="diff-stream-change-ruler-marker"].active')
+      .querySelector(
+        '[data-review-id="diff-stream-change-ruler-marker"].active',
+      )
       ?.getAttribute("aria-label")
       ?.includes("1"),
   );
   const afterLeft = await page.evaluate(() => ({
     activeLabel:
       document
-        .querySelector('[data-review-id="diff-stream-change-ruler-marker"].active')
+        .querySelector(
+          '[data-review-id="diff-stream-change-ruler-marker"].active',
+        )
         ?.getAttribute("aria-label") ?? "",
     lastGesture: window.__SVARD_COMMANDS__?.getLastMouseGesture(),
   }));

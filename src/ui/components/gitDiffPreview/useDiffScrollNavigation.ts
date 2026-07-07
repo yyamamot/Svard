@@ -6,6 +6,7 @@ import {
 } from "react";
 import { resolveAnchoredScrollTop } from "../../lib/diffScrollSync";
 import type { RenderedDiffNavigationTarget } from "../../lib/gitRenderedDiff";
+import { resolveChangeTargetInPane } from "./changeRuler";
 import type { DiffView } from "./types";
 
 export function useDiffScrollNavigation({
@@ -191,13 +192,8 @@ export function useDiffScrollNavigation({
     return side === "left" ? renderedLeftRef.current : renderedRightRef.current;
   }
 
-  function renderedTargetInPane(
-    pane: HTMLDivElement | null,
-    index: number,
-  ) {
-    const target = pane?.querySelector<HTMLElement>(
-      `[data-change-index="${index}"]`,
-    );
+  function renderedTargetInPane(pane: HTMLDivElement | null, index: number) {
+    const target = resolveChangeTargetInPane(pane, index);
     if (!pane || !target) {
       return null;
     }

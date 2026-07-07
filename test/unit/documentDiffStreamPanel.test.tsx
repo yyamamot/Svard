@@ -20,7 +20,9 @@ vi.mock("../../src/ui/lib/gitRenderedDiff", async (importOriginal) => {
   };
 });
 
-const deriveGitRenderedDiffSummaryMock = vi.mocked(deriveGitRenderedDiffSummary);
+const deriveGitRenderedDiffSummaryMock = vi.mocked(
+  deriveGitRenderedDiffSummary,
+);
 
 describe("DocumentDiffStreamPanel", () => {
   let container: HTMLDivElement;
@@ -102,9 +104,9 @@ describe("DocumentDiffStreamPanel", () => {
   });
 
   it("does not fetch every document when All diffs opens", async () => {
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const props = requiredDiffStreamProps();
 
     await act(async () => {
@@ -136,9 +138,9 @@ describe("DocumentDiffStreamPanel", () => {
 
   it("hydrates sections when they enter the stream viewport", async () => {
     const intersection = installMockIntersectionObserver();
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const props = requiredDiffStreamProps();
 
     try {
@@ -317,9 +319,9 @@ describe("DocumentDiffStreamPanel", () => {
   });
 
   it("hides block meta in full preview and shows it in changes only", async () => {
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const props = requiredDiffStreamProps();
 
     await act(async () => {
@@ -375,9 +377,9 @@ describe("DocumentDiffStreamPanel", () => {
 
   it("renders stream ruler markers and keeps marker selection in sync", async () => {
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(renderedDiffSummary(2));
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const props = requiredDiffStreamProps();
 
     await act(async () => {
@@ -441,9 +443,9 @@ describe("DocumentDiffStreamPanel", () => {
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(
       renderedDiffSummaryWithFineTargets(),
     );
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const props = requiredDiffStreamProps();
     const scrollTargets: Element[] = [];
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
@@ -523,9 +525,9 @@ describe("DocumentDiffStreamPanel", () => {
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(
       renderedDiffSummaryWithFineTargets(),
     );
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const props = requiredDiffStreamProps();
 
     await act(async () => {
@@ -565,17 +567,24 @@ describe("DocumentDiffStreamPanel", () => {
     });
 
     expect(markers[2].classList.contains("active")).toBe(true);
-    expect(
-      container.querySelector(
-        ".git-rendered-table-row-change[data-active-change='true']",
-      )?.textContent,
-    ).toContain("New table value");
+    const activeTarget = container.querySelector<HTMLElement>(
+      ".git-rendered-table-row-change[data-active-change='true']",
+    );
+    expect(activeTarget?.textContent).toContain("New table value");
+    expect(markers[2].dataset.changeIndex).toBe(
+      activeTarget?.dataset.changeIndex,
+    );
+    expect(markers[2].dataset.streamIndex).toBe(
+      activeTarget?.closest<HTMLElement>(
+        '[data-review-id="diff-stream-file-section"]',
+      )?.dataset.streamIndex,
+    );
   });
 
   it("defers rendered context menu until right button release", async () => {
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const props = requiredDiffStreamProps();
     const openContextMenu = vi.fn(() => true);
 
@@ -637,9 +646,9 @@ describe("DocumentDiffStreamPanel", () => {
   });
 
   it("opens rendered context menu immediately when contextmenu fires after release", async () => {
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const props = requiredDiffStreamProps();
     const openContextMenu = vi.fn(() => true);
 
@@ -689,9 +698,9 @@ describe("DocumentDiffStreamPanel", () => {
 
   it("routes content cursor and shortcut commands to the stream", async () => {
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(renderedDiffSummary(2));
-    const getGitDiffPreview = vi.fn().mockResolvedValue(
-      diffPreview("/workspace/docs/guide.md"),
-    );
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
     const contentCursorCommandRef: {
       current: ContentCursorCommandHandler | null;
     } = { current: null };
@@ -748,7 +757,8 @@ describe("DocumentDiffStreamPanel", () => {
     });
     expect(markers()[0].classList.contains("active")).toBe(true);
 
-    const streamBody = container.querySelector<HTMLElement>(".diff-stream-body");
+    const streamBody =
+      container.querySelector<HTMLElement>(".diff-stream-body");
     expect(streamBody).not.toBeNull();
     Object.defineProperty(streamBody, "clientHeight", {
       configurable: true,
@@ -768,7 +778,6 @@ describe("DocumentDiffStreamPanel", () => {
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
-
 });
 
 async function flushPreviewLoad() {

@@ -310,6 +310,8 @@ export async function buildGitDiffSourceControlAssertions(context) {
               sample?.rulerVisible === true &&
               sample?.rulerMarkers >= 1 &&
               sample?.activeRulerMarkerVisible === true &&
+              sample?.activeRenderedTargetIndexMatchesMarker === true &&
+              sample?.activeRenderedTargetStreamIndexMatchesMarker === true &&
               sample?.activeRenderedTargetVisibleAfterMarker === true &&
               sample?.contextMenuVisible === true &&
               sample?.contextMenuSourceReviewId !== "" &&
@@ -392,8 +394,7 @@ export async function buildGitDiffSourceControlAssertions(context) {
         ? await page.evaluate(() => {
             const result = window.__SVARD_ALL_DIFFS_KEYBINDING_SAMPLE__;
             return (
-              result?.closeStatus === "handled" &&
-              result?.panelCount === 0
+              result?.closeStatus === "handled" && result?.panelCount === 0
             );
           })
         : true,

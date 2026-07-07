@@ -35,16 +35,32 @@ export function changeRulerMarkerTopPercent({
   return clampRulerPercent((targetTop / scrollHeight) * 100);
 }
 
-function changeRulerEnabled(view: DiffView) {
-  return view === "preview" || view === "rendered" || view === "source";
+export function changeRulerTargetAnchorTop({
+  container,
+  target,
+}: {
+  container: HTMLElement;
+  target: HTMLElement;
+}) {
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  return (
+    targetRect.top -
+    containerRect.top +
+    container.scrollTop +
+    targetRect.height / 2
+  );
 }
 
-function targetTopInPane(target: HTMLElement, pane: HTMLElement) {
-  return (
-    target.getBoundingClientRect().top -
-    pane.getBoundingClientRect().top +
-    pane.scrollTop
-  );
+export function resolveChangeTargetInPane(
+  pane: HTMLElement | null | undefined,
+  index: number,
+) {
+  return pane?.querySelector<HTMLElement>(`[data-change-index="${index}"]`);
+}
+
+function changeRulerEnabled(view: DiffView) {
+  return view === "preview" || view === "rendered" || view === "source";
 }
 
 function markerKind(target: HTMLElement): DiffChangeRulerMarkerKind {
@@ -75,9 +91,7 @@ function measureMarker(
   panes: readonly (HTMLDivElement | null)[],
 ): DiffChangeRulerMarker | null {
   for (const pane of panes) {
-    const target = pane?.querySelector<HTMLElement>(
-      `[data-change-index="${index}"]`,
-    );
+    const target = resolveChangeTargetInPane(pane, index);
     if (!pane || !target) {
       continue;
     }
@@ -86,7 +100,10 @@ function measureMarker(
       kind: markerKind(target),
       topPercent: changeRulerMarkerTopPercent({
         scrollHeight: pane.scrollHeight,
-        targetTop: targetTopInPane(target, pane),
+        targetTop: changeRulerTargetAnchorTop({
+          container: pane,
+          target,
+        }),
       }),
     };
   }
@@ -104,8 +121,8 @@ function renderedPanesForTarget({
 }): HTMLDivElement[] {
   const primary = target?.primarySide === "left" ? left : right;
   const secondary = target?.primarySide === "left" ? right : left;
-  return [primary, secondary].filter(
-    (pane): pane is HTMLDivElement => Boolean(pane),
+  return [primary, secondary].filter((pane): pane is HTMLDivElement =>
+    Boolean(pane),
   );
 }
 
