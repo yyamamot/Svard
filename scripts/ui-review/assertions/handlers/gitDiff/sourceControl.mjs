@@ -310,6 +310,7 @@ export async function buildGitDiffSourceControlAssertions(context) {
               sample?.rulerVisible === true &&
               sample?.rulerMarkers >= 1 &&
               sample?.activeRulerMarkerVisible === true &&
+              sample?.activeRenderedTargetVisibleAfterMarker === true &&
               sample?.contextMenuVisible === true &&
               sample?.contextMenuSourceReviewId !== "" &&
               sample?.contextMenuItemCount > 0 &&

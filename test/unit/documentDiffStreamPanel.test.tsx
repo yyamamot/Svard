@@ -6,7 +6,10 @@ import { DocumentDiffStreamPanel } from "../../src/ui/components/DocumentDiffStr
 import type { DocumentDiffPreview } from "../../src/core/types";
 import type { ContentCursorCommandHandler } from "../../src/ui/lib/contentCursor";
 import type { DocumentDiffStreamCommandBridge } from "../../src/ui/lib/documentDiffStreamCommands";
-import { deriveGitRenderedDiffSummary } from "../../src/ui/lib/gitRenderedDiff";
+import {
+  deriveGitRenderedDiffSummary,
+  type GitRenderedDiffSummary,
+} from "../../src/ui/lib/gitRenderedDiff";
 
 vi.mock("../../src/ui/lib/gitRenderedDiff", async (importOriginal) => {
   const actual =
@@ -255,6 +258,141 @@ describe("DocumentDiffStreamPanel", () => {
     expect(markers()[1].classList.contains("active")).toBe(true);
   });
 
+  it("moves next through list item and table row targets", async () => {
+    deriveGitRenderedDiffSummaryMock.mockResolvedValue(
+      renderedDiffSummaryWithFineTargets(),
+    );
+    const getGitDiffPreview = vi.fn().mockResolvedValue(
+      diffPreview("/workspace/docs/guide.md"),
+    );
+    const props = requiredDiffStreamProps();
+    const scrollTargets: Element[] = [];
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = function scrollIntoViewMock() {
+      scrollTargets.push(this);
+    };
+
+    try {
+      await act(async () => {
+        root.render(
+          <DocumentDiffStreamPanel
+            config={null}
+            preview={{
+              source: "git-changes-stream",
+              items: [
+                {
+                  kind: "document",
+                  path: "docs/guide.md",
+                  documentPath: "/workspace/docs/guide.md",
+                  status: "modified",
+                },
+              ],
+            }}
+            getGitDiffPreview={getGitDiffPreview}
+            {...props}
+            onClose={vi.fn()}
+          />,
+        );
+      });
+
+      await flushPreviewLoad();
+      await flushRulerMeasure();
+
+      await act(async () => {
+        buttonByText("Next").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+
+      const activeListItem = container.querySelector(
+        ".git-rendered-list-item-change[data-active-change='true']",
+      );
+      expect(activeListItem?.textContent).toContain("New list item");
+      expect(scrollTargets.at(-1)?.textContent).toContain("New list item");
+      expect(scrollTargets.at(-1)?.getAttribute("data-change-index")).toBe("1");
+
+      await act(async () => {
+        buttonByText("Next").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+
+      const activeTableRow = container.querySelector(
+        ".git-rendered-table-row-change[data-active-change='true']",
+      );
+      expect(activeTableRow?.textContent).toContain("New table value");
+      expect(scrollTargets.at(-1)?.textContent).toContain("New table value");
+      expect(scrollTargets.at(-1)?.getAttribute("data-change-index")).toBe("2");
+
+      await act(async () => {
+        buttonByText("Previous").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+
+      expect(
+        container.querySelector(
+          ".git-rendered-list-item-change[data-active-change='true']",
+        )?.textContent,
+      ).toContain("New list item");
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
+
+  it("selects fine-grained stream targets from ruler markers", async () => {
+    deriveGitRenderedDiffSummaryMock.mockResolvedValue(
+      renderedDiffSummaryWithFineTargets(),
+    );
+    const getGitDiffPreview = vi.fn().mockResolvedValue(
+      diffPreview("/workspace/docs/guide.md"),
+    );
+    const props = requiredDiffStreamProps();
+
+    await act(async () => {
+      root.render(
+        <DocumentDiffStreamPanel
+          config={null}
+          preview={{
+            source: "git-changes-stream",
+            items: [
+              {
+                kind: "document",
+                path: "docs/guide.md",
+                documentPath: "/workspace/docs/guide.md",
+                status: "modified",
+              },
+            ],
+          }}
+          getGitDiffPreview={getGitDiffPreview}
+          {...props}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+
+    await flushPreviewLoad();
+    await flushRulerMeasure();
+
+    const markers = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(
+        '[data-review-id="diff-stream-change-ruler-marker"]',
+      ),
+    );
+    expect(markers).toHaveLength(3);
+
+    await act(async () => {
+      markers[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(markers[2].classList.contains("active")).toBe(true);
+    expect(
+      container.querySelector(
+        ".git-rendered-table-row-change[data-active-change='true']",
+      )?.textContent,
+    ).toContain("New table value");
+  });
+
   it("routes content cursor and shortcut commands to the stream", async () => {
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(renderedDiffSummary(2));
     const getGitDiffPreview = vi.fn().mockResolvedValue(
@@ -409,7 +547,7 @@ function diffPreview(path: string): DocumentDiffPreview {
   };
 }
 
-function renderedDiffSummary(count = 1) {
+function renderedDiffSummary(count = 1): GitRenderedDiffSummary {
   return {
     blocks: Array.from({ length: count }, (_, index) => ({
       id: `paragraph-${index}`,
@@ -430,5 +568,89 @@ function renderedDiffSummary(count = 1) {
         html: `<p>New text ${index}</p>`,
       },
     })),
+  };
+}
+
+function renderedDiffSummaryWithFineTargets(): GitRenderedDiffSummary {
+  return {
+    blocks: [
+      {
+        id: "paragraph-0",
+        kind: "changed" as const,
+        blockKind: "paragraph" as const,
+        left: {
+          id: "paragraph-0-left",
+          kind: "paragraph" as const,
+          tagName: "p",
+          text: "Old paragraph",
+          html: "<p>Old paragraph</p>",
+        },
+        right: {
+          id: "paragraph-0-right",
+          kind: "paragraph" as const,
+          tagName: "p",
+          text: "New paragraph",
+          html: "<p>New paragraph</p>",
+        },
+      },
+      {
+        id: "list-0",
+        kind: "changed" as const,
+        blockKind: "list" as const,
+        left: {
+          id: "list-0-left",
+          kind: "list" as const,
+          tagName: "ul",
+          text: "Old list item",
+          html: "<ul><li>Old list item</li></ul>",
+        },
+        right: {
+          id: "list-0-right",
+          kind: "list" as const,
+          tagName: "ul",
+          text: "New list item",
+          html: "<ul><li>New list item</li></ul>",
+        },
+        childChanges: [
+          {
+            kind: "changed" as const,
+            side: "both" as const,
+            confidence: "high" as const,
+            leftIndex: 0,
+            rightIndex: 0,
+          },
+        ],
+      },
+      {
+        id: "table-0",
+        kind: "changed" as const,
+        blockKind: "table" as const,
+        left: {
+          id: "table-0-left",
+          kind: "table" as const,
+          tagName: "table",
+          text: "Old table value",
+          html: "<table><tbody><tr><td>Old table value</td></tr></tbody></table>",
+        },
+        right: {
+          id: "table-0-right",
+          kind: "table" as const,
+          tagName: "table",
+          text: "New table value",
+          html: "<table><tbody><tr><td>New table value</td></tr></tbody></table>",
+        },
+        tableChanges: [
+          {
+            kind: "changed" as const,
+            side: "both" as const,
+            confidence: "high" as const,
+            leftRowIndex: 0,
+            rightRowIndex: 0,
+            leftCellIndex: 0,
+            rightCellIndex: 0,
+          },
+        ],
+      },
+    ],
   };
 }

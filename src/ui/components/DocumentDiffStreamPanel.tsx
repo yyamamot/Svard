@@ -39,7 +39,10 @@ import {
   deriveGitRenderedDiffSummary,
   isRenderedDiffPresentationChangeEntry,
 } from "../lib/gitRenderedDiff";
-import type { GitRenderedDiffSummary } from "../lib/gitRenderedDiff";
+import type {
+  GitRenderedDiffSummary,
+  RenderedDiffNavigationTarget,
+} from "../lib/gitRenderedDiff";
 import {
   RenderedDiffPane,
   renderedEntryChangeIndex,
@@ -81,6 +84,15 @@ interface DiffStreamMouseGestureSession {
   hasDragIntent: boolean;
   points: GesturePoint[];
 }
+
+type DiffStreamTarget = Pick<
+  RenderedDiffNavigationTarget,
+  "primarySide" | "targetKind"
+> & {
+  changeIndex: number;
+  fileIndex: number;
+  key: string;
+};
 
 interface DocumentDiffStreamPanelProps {
   config: AppConfig | null;
@@ -276,10 +288,12 @@ export function DocumentDiffStreamPanel({
         const presentation = buildRenderedDiffPresentation(
           state.summary.blocks,
         );
-        return presentation.navigationTargets.map((_, changeIndex) => ({
+        return presentation.navigationTargets.map((target) => ({
           fileIndex,
-          changeIndex,
+          changeIndex: target.index,
           key,
+          primarySide: target.primarySide,
+          targetKind: target.targetKind,
         }));
       }),
     [loadStates, preview.items],
@@ -307,7 +321,7 @@ export function DocumentDiffStreamPanel({
     }
   }, [activeTarget, loadedTargets]);
 
-  function selectTarget(target: { fileIndex: number; changeIndex: number }) {
+  function selectTarget(target: DiffStreamTarget) {
     setActiveTarget(target);
     scrollStreamTargetIntoView(panelRef.current, target);
   }
@@ -681,29 +695,58 @@ function shouldIgnoreDiffStreamGestureTarget(target: EventTarget | null) {
 
 function scrollStreamTargetIntoView(
   panel: HTMLElement | null,
-  target: { fileIndex: number; changeIndex: number },
+  target: DiffStreamTarget,
 ) {
-  const section = panel?.querySelector<HTMLElement>(
-    `[data-review-id="diff-stream-file-section"][data-stream-index="${target.fileIndex}"]`,
-  );
-  const block =
-    section?.querySelector<HTMLElement>(
-      `[data-review-id="diff-stream-rendered-block"][data-change-index="${target.changeIndex}"].right-side`,
-    ) ??
-    section?.querySelector<HTMLElement>(
-      `[data-review-id="diff-stream-rendered-block"][data-change-index="${target.changeIndex}"]`,
-    );
-  const targetElement = block ?? section;
+  const section = diffStreamSection(panel, target.fileIndex);
+  const targetElement =
+    diffStreamRenderedTarget(section, target) ??
+    diffStreamBlockTarget(section, target.changeIndex) ??
+    section;
   if (typeof targetElement?.scrollIntoView === "function") {
     targetElement.scrollIntoView({ block: "center" });
   }
+}
+
+function diffStreamSection(panel: HTMLElement | null, fileIndex: number) {
+  return panel?.querySelector<HTMLElement>(
+    `[data-review-id="diff-stream-file-section"][data-stream-index="${fileIndex}"]`,
+  );
+}
+
+function diffStreamRenderedTarget(
+  section: HTMLElement | null | undefined,
+  target: DiffStreamTarget,
+) {
+  const pane = section?.querySelector<HTMLElement>(
+    `[data-review-id="diff-stream-${target.primarySide}-pane"]`,
+  );
+  return pane?.querySelector<HTMLElement>(
+    `[data-change-index="${target.changeIndex}"]`,
+  );
+}
+
+function diffStreamBlockTarget(
+  section: HTMLElement | null | undefined,
+  changeIndex: number,
+) {
+  return (
+    section?.querySelector<HTMLElement>(
+      `[data-review-id="diff-stream-rendered-block"][data-change-index="${changeIndex}"].right-side`,
+    ) ??
+    section?.querySelector<HTMLElement>(
+      `[data-review-id="diff-stream-rendered-block"][data-change-index="${changeIndex}"]`,
+    )
+  );
 }
 
 interface DiffStreamRulerMarker {
   fileIndex: number;
   changeIndex: number;
   index: number;
+  key: string;
   kind: DiffChangeRulerMarkerKind;
+  primarySide: "left" | "right";
+  targetKind: RenderedDiffNavigationTarget["targetKind"];
   topPercent: number;
 }
 
@@ -715,8 +758,8 @@ function DiffStreamChangeRuler({
 }: {
   activeTarget: { fileIndex: number; changeIndex: number } | null;
   streamBodyRef: RefObject<HTMLDivElement | null>;
-  targets: readonly { fileIndex: number; changeIndex: number }[];
-  onSelectTarget: (target: { fileIndex: number; changeIndex: number }) => void;
+  targets: readonly DiffStreamTarget[];
+  onSelectTarget: (target: DiffStreamTarget) => void;
 }) {
   const [markers, setMarkers] = useState<DiffStreamRulerMarker[]>([]);
 
@@ -735,20 +778,14 @@ function DiffStreamChangeRuler({
       frame = 0;
       const streamBodyRect = body.getBoundingClientRect();
       const nextMarkers = targets.flatMap((target, index) => {
-        const section = body.querySelector<HTMLElement>(
-          `[data-review-id="diff-stream-file-section"][data-stream-index="${target.fileIndex}"]`,
-        );
-        const block =
-          section?.querySelector<HTMLElement>(
-            `[data-review-id="diff-stream-rendered-block"][data-change-index="${target.changeIndex}"].right-side`,
-          ) ??
-          section?.querySelector<HTMLElement>(
-            `[data-review-id="diff-stream-rendered-block"][data-change-index="${target.changeIndex}"]`,
-          );
-        if (!block) {
+        const section = diffStreamSection(body, target.fileIndex);
+        const markerTarget =
+          diffStreamRenderedTarget(section, target) ??
+          diffStreamBlockTarget(section, target.changeIndex);
+        if (!markerTarget) {
           return [];
         }
-        const blockRect = block.getBoundingClientRect();
+        const blockRect = markerTarget.getBoundingClientRect();
         const targetTop =
           blockRect.top - streamBodyRect.top + body.scrollTop;
         return [
@@ -756,7 +793,10 @@ function DiffStreamChangeRuler({
             fileIndex: target.fileIndex,
             changeIndex: target.changeIndex,
             index,
-            kind: diffStreamMarkerKind(block),
+            key: target.key,
+            kind: diffStreamMarkerKind(markerTarget),
+            primarySide: target.primarySide,
+            targetKind: target.targetKind,
             topPercent: changeRulerMarkerTopPercent({
               scrollHeight: body.scrollHeight,
               targetTop,
@@ -818,12 +858,7 @@ function DiffStreamChangeRuler({
             data-stream-index={marker.fileIndex}
             data-change-index={marker.changeIndex}
             aria-label={`Go to change ${marker.index + 1}`}
-            onClick={() =>
-              onSelectTarget({
-                fileIndex: marker.fileIndex,
-                changeIndex: marker.changeIndex,
-              })
-            }
+            onClick={() => onSelectTarget(marker)}
           />
         );
       })}

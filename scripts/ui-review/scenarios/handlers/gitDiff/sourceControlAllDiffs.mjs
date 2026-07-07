@@ -33,6 +33,60 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     .locator('[data-review-id="diff-stream-change-ruler-marker"]')
     .last()
     .click();
+  await page.waitForFunction(() => {
+    const panel = document.querySelector(
+      '[data-review-id="source-control-all-diffs-panel"]',
+    );
+    const streamBody = document.querySelector(".diff-stream-body");
+    const activeRulerMarker = document.querySelector(
+      '[data-review-id="diff-stream-change-ruler-marker"].active',
+    );
+    const activeRulerMarkerIndex =
+      activeRulerMarker?.getAttribute("data-change-index") ?? "";
+    const activeRenderedTarget =
+      activeRulerMarkerIndex !== ""
+        ? panel?.querySelector(
+            `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
+          )
+        : null;
+    const activeRenderedTargetRect =
+      activeRenderedTarget?.getBoundingClientRect();
+    const streamBodyRect = streamBody?.getBoundingClientRect();
+    return Boolean(
+      activeRenderedTargetRect &&
+        streamBodyRect &&
+        activeRenderedTargetRect.bottom > streamBodyRect.top &&
+        activeRenderedTargetRect.top < streamBodyRect.bottom,
+    );
+  });
+  await page.evaluate(() => {
+    const panel = document.querySelector(
+      '[data-review-id="source-control-all-diffs-panel"]',
+    );
+    const streamBody = document.querySelector(".diff-stream-body");
+    const activeRulerMarker = document.querySelector(
+      '[data-review-id="diff-stream-change-ruler-marker"].active',
+    );
+    const activeRulerMarkerIndex =
+      activeRulerMarker?.getAttribute("data-change-index") ?? "";
+    const activeRenderedTarget =
+      activeRulerMarkerIndex !== ""
+        ? panel?.querySelector(
+            `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
+          )
+        : null;
+    const activeRenderedTargetRect =
+      activeRenderedTarget?.getBoundingClientRect();
+    const streamBodyRect = streamBody?.getBoundingClientRect();
+    window.__SVARD_ALL_DIFFS_ACTIVE_TARGET_AFTER_MARKER__ = {
+      index: activeRulerMarkerIndex,
+      visible:
+        activeRenderedTargetRect && streamBodyRect
+          ? activeRenderedTargetRect.bottom > streamBodyRect.top &&
+            activeRenderedTargetRect.top < streamBodyRect.bottom
+          : false,
+    };
+  });
   await page.locator('[data-review-id="diff-stream-right-pane"]').first().waitFor();
   await page
     .locator('[data-review-id="diff-stream-right-pane"]')
@@ -69,9 +123,20 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     const activeRulerMarker = document.querySelector(
       '[data-review-id="diff-stream-change-ruler-marker"].active',
     );
+    const activeRulerMarkerIndex =
+      activeRulerMarker?.getAttribute("data-change-index") ?? "";
+    const activeRenderedTarget =
+      activeRulerMarkerIndex !== ""
+        ? panel?.querySelector(
+            `[data-active-change="true"][data-change-index="${activeRulerMarkerIndex}"]`,
+          )
+        : null;
     const renderedBlockRect = firstRenderedBlock?.getBoundingClientRect();
     const renderedBodyRect = firstRenderedBody?.getBoundingClientRect();
     const renderedSectionRect = firstRenderedSection?.getBoundingClientRect();
+    const activeRenderedTargetRect =
+      activeRenderedTarget?.getBoundingClientRect();
+    const streamBodyRect = streamBody?.getBoundingClientRect();
     const streamBodyStyle = streamBody
       ? window.getComputedStyle(streamBody)
       : null;
@@ -107,8 +172,14 @@ export async function applySourceControlAllDiffsScenario(page, context) {
         '[data-review-id="diff-stream-change-ruler-marker"]',
       ).length,
       activeRulerMarkerVisible: activeRulerMarker !== null,
-      activeRulerMarkerIndex:
-        activeRulerMarker?.getAttribute("data-change-index") ?? "",
+      activeRulerMarkerIndex,
+      activeRenderedTargetVisible:
+        activeRenderedTargetRect && streamBodyRect
+          ? activeRenderedTargetRect.bottom > streamBodyRect.top &&
+            activeRenderedTargetRect.top < streamBodyRect.bottom
+          : false,
+      activeRenderedTargetVisibleAfterMarker:
+        window.__SVARD_ALL_DIFFS_ACTIVE_TARGET_AFTER_MARKER__?.visible === true,
       contextMenuVisible: contextMenu !== null,
       contextMenuSourceReviewId:
         contextMenu?.getAttribute("data-source-review-id") ?? "",
