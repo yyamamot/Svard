@@ -1073,6 +1073,11 @@ function DiffStreamRenderedSection({
 }) {
   const leftRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
+  const pendingContextMenuRef = useRef<{
+    container: HTMLElement;
+    event: MouseEvent<HTMLElement>;
+    side: "left" | "right";
+  } | null>(null);
   const presentation = useMemo(
     () => buildRenderedDiffPresentation(summary.blocks),
     [summary.blocks],
@@ -1119,6 +1124,65 @@ function DiffStreamRenderedSection({
   const documentClassName = `markup-document format-${documentFormat}${
     documentFormat === "markdown" ? " markdown-body" : ""
   }`;
+
+  function renderedPaneContext(target: EventTarget | null): {
+    container: HTMLElement;
+    side: "left" | "right";
+  } | null {
+    if (!(target instanceof HTMLElement)) {
+      return null;
+    }
+    const pane = target.closest<HTMLElement>(".git-rendered-pane");
+    if (!pane) {
+      return null;
+    }
+    return {
+      container: pane,
+      side:
+        pane.dataset.reviewId === "diff-stream-left-pane" ? "left" : "right",
+    };
+  }
+
+  function handleRenderedContextMenuCapture(event: MouseEvent<HTMLElement>) {
+    const context = renderedPaneContext(event.target);
+    if (!context) {
+      return;
+    }
+    if (event.buttons === 0) {
+      pendingContextMenuRef.current = null;
+      return;
+    }
+    pendingContextMenuRef.current = {
+      container: context.container,
+      event,
+      side: context.side,
+    };
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handleRenderedMouseUpCapture(event: MouseEvent<HTMLElement>) {
+    if (event.button !== 2) {
+      return;
+    }
+    const pending = pendingContextMenuRef.current;
+    if (!pending) {
+      return;
+    }
+    pendingContextMenuRef.current = null;
+    if (
+      pending.event.target instanceof Node &&
+      event.currentTarget.contains(pending.event.target)
+    ) {
+      handleDiffContextMenu(
+        pending.event,
+        pending.side,
+        "rendered",
+        pending.container,
+      );
+    }
+  }
+
   if (summary.fallbackMessage && changedEntries.length === 0) {
     return <p className="diff-stream-blocker-message">{summary.fallbackMessage}</p>;
   }
@@ -1129,6 +1193,8 @@ function DiffStreamRenderedSection({
     <div
       className="git-rendered-diff-body diff-stream-rendered-body"
       data-review-id="diff-stream-rendered-body"
+      onContextMenuCapture={handleRenderedContextMenuCapture}
+      onMouseUpCapture={handleRenderedMouseUpCapture}
     >
       <RenderedDiffPane
         label={preview.leftLabel}

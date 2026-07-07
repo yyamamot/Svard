@@ -393,6 +393,121 @@ describe("DocumentDiffStreamPanel", () => {
     ).toContain("New table value");
   });
 
+  it("defers rendered context menu until right button release", async () => {
+    const getGitDiffPreview = vi.fn().mockResolvedValue(
+      diffPreview("/workspace/docs/guide.md"),
+    );
+    const props = requiredDiffStreamProps();
+    const openContextMenu = vi.fn(() => true);
+
+    await act(async () => {
+      root.render(
+        <DocumentDiffStreamPanel
+          config={null}
+          preview={{
+            source: "git-changes-stream",
+            items: [
+              {
+                kind: "document",
+                path: "docs/guide.md",
+                documentPath: "/workspace/docs/guide.md",
+                status: "modified",
+              },
+            ],
+          }}
+          getGitDiffPreview={getGitDiffPreview}
+          {...props}
+          openContextMenu={openContextMenu}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+
+    await flushPreviewLoad();
+
+    const rightPane = container.querySelector<HTMLElement>(
+      '[data-review-id="diff-stream-right-pane"]',
+    );
+    expect(rightPane).not.toBeNull();
+
+    await act(async () => {
+      rightPane!.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          button: 2,
+          buttons: 2,
+          clientX: 12,
+          clientY: 18,
+        }),
+      );
+    });
+    expect(openContextMenu).not.toHaveBeenCalled();
+
+    await act(async () => {
+      rightPane!.dispatchEvent(
+        new MouseEvent("mouseup", {
+          bubbles: true,
+          button: 2,
+          buttons: 0,
+          clientX: 12,
+          clientY: 18,
+        }),
+      );
+    });
+    expect(openContextMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens rendered context menu immediately when contextmenu fires after release", async () => {
+    const getGitDiffPreview = vi.fn().mockResolvedValue(
+      diffPreview("/workspace/docs/guide.md"),
+    );
+    const props = requiredDiffStreamProps();
+    const openContextMenu = vi.fn(() => true);
+
+    await act(async () => {
+      root.render(
+        <DocumentDiffStreamPanel
+          config={null}
+          preview={{
+            source: "git-changes-stream",
+            items: [
+              {
+                kind: "document",
+                path: "docs/guide.md",
+                documentPath: "/workspace/docs/guide.md",
+                status: "modified",
+              },
+            ],
+          }}
+          getGitDiffPreview={getGitDiffPreview}
+          {...props}
+          openContextMenu={openContextMenu}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+
+    await flushPreviewLoad();
+
+    const rightPane = container.querySelector<HTMLElement>(
+      '[data-review-id="diff-stream-right-pane"]',
+    );
+    expect(rightPane).not.toBeNull();
+
+    await act(async () => {
+      rightPane!.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          button: 2,
+          buttons: 0,
+          clientX: 12,
+          clientY: 18,
+        }),
+      );
+    });
+    expect(openContextMenu).toHaveBeenCalledTimes(1);
+  });
+
   it("routes content cursor and shortcut commands to the stream", async () => {
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(renderedDiffSummary(2));
     const getGitDiffPreview = vi.fn().mockResolvedValue(
