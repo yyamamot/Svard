@@ -101,6 +101,185 @@ describe("DocumentDiffStreamPanel", () => {
     expect(container.textContent).not.toContain("Preview failed");
   });
 
+  it("does not fetch every document when All diffs opens", async () => {
+    const getGitDiffPreview = vi.fn().mockResolvedValue(
+      diffPreview("/workspace/docs/guide.md"),
+    );
+    const props = requiredDiffStreamProps();
+
+    await act(async () => {
+      root.render(
+        <DocumentDiffStreamPanel
+          config={null}
+          preview={{
+            source: "git-changes-stream",
+            items: [
+              documentStreamItem("docs/one.md"),
+              documentStreamItem("docs/two.md"),
+              documentStreamItem("docs/three.md"),
+            ],
+          }}
+          getGitDiffPreview={getGitDiffPreview}
+          {...props}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+
+    await flushPreviewLoad();
+
+    expect(getGitDiffPreview).toHaveBeenCalledTimes(2);
+    expect(getGitDiffPreview).not.toHaveBeenCalledWith(
+      "/workspace/docs/three.md",
+    );
+  });
+
+  it("hydrates sections when they enter the stream viewport", async () => {
+    const intersection = installMockIntersectionObserver();
+    const getGitDiffPreview = vi.fn().mockResolvedValue(
+      diffPreview("/workspace/docs/guide.md"),
+    );
+    const props = requiredDiffStreamProps();
+
+    try {
+      await act(async () => {
+        root.render(
+          <DocumentDiffStreamPanel
+            config={null}
+            preview={{
+              source: "git-changes-stream",
+              items: [
+                documentStreamItem("docs/one.md"),
+                documentStreamItem("docs/two.md"),
+                documentStreamItem("docs/three.md"),
+              ],
+            }}
+            getGitDiffPreview={getGitDiffPreview}
+            {...props}
+            onClose={vi.fn()}
+          />,
+        );
+      });
+
+      expect(getGitDiffPreview).not.toHaveBeenCalled();
+
+      await act(async () => {
+        intersection.trigger("docs/two.md");
+      });
+      await flushPreviewLoad();
+
+      expect(getGitDiffPreview).toHaveBeenCalledTimes(1);
+      expect(getGitDiffPreview).toHaveBeenCalledWith("/workspace/docs/two.md");
+    } finally {
+      intersection.restore();
+    }
+  });
+
+  it("limits initial stream hydration to two concurrent preview requests", async () => {
+    const intersection = installMockIntersectionObserver();
+    const first = deferred<DocumentDiffPreview>();
+    const second = deferred<DocumentDiffPreview>();
+    const third = deferred<DocumentDiffPreview>();
+    const getGitDiffPreview = vi.fn((path: string) => {
+      if (path.endsWith("one.md")) {
+        return first.promise;
+      }
+      if (path.endsWith("two.md")) {
+        return second.promise;
+      }
+      return third.promise;
+    });
+    const props = requiredDiffStreamProps();
+
+    try {
+      await act(async () => {
+        root.render(
+          <DocumentDiffStreamPanel
+            config={null}
+            preview={{
+              source: "git-changes-stream",
+              items: [
+                documentStreamItem("docs/one.md"),
+                documentStreamItem("docs/two.md"),
+                documentStreamItem("docs/three.md"),
+              ],
+            }}
+            getGitDiffPreview={getGitDiffPreview}
+            {...props}
+            onClose={vi.fn()}
+          />,
+        );
+      });
+
+      await act(async () => {
+        intersection.trigger("docs/one.md", "docs/two.md", "docs/three.md");
+      });
+
+      expect(getGitDiffPreview).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        first.resolve(diffPreview("/workspace/docs/one.md"));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(getGitDiffPreview).toHaveBeenCalledTimes(3);
+      second.resolve(diffPreview("/workspace/docs/two.md"));
+      third.resolve(diffPreview("/workspace/docs/three.md"));
+    } finally {
+      intersection.restore();
+    }
+  });
+
+  it("loads the next unloaded document before moving to its first target", async () => {
+    const intersection = installMockIntersectionObserver();
+    const getGitDiffPreview = vi.fn((path: string) =>
+      Promise.resolve(diffPreview(path)),
+    );
+    const props = requiredDiffStreamProps();
+
+    try {
+      await act(async () => {
+        root.render(
+          <DocumentDiffStreamPanel
+            config={null}
+            preview={{
+              source: "git-changes-stream",
+              items: [
+                documentStreamItem("docs/one.md"),
+                documentStreamItem("docs/two.md"),
+              ],
+            }}
+            getGitDiffPreview={getGitDiffPreview}
+            {...props}
+            onClose={vi.fn()}
+          />,
+        );
+      });
+
+      await act(async () => {
+        intersection.trigger("docs/one.md");
+      });
+      await flushPreviewLoad();
+      expect(getGitDiffPreview).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        buttonByText("Next").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      await flushPreviewLoad();
+
+      expect(getGitDiffPreview).toHaveBeenCalledWith("/workspace/docs/two.md");
+      const activeTarget = container.querySelector(
+        '[data-stream-index="1"] [data-active-change="true"]',
+      );
+      expect(activeTarget).not.toBeNull();
+    } finally {
+      intersection.restore();
+    }
+  });
+
   it("renders unsupported files as blocker rows without fetching previews", async () => {
     const getGitDiffPreview = vi.fn();
     const props = requiredDiffStreamProps();
@@ -631,6 +810,79 @@ function requiredDiffStreamProps() {
     openExternalUrl: vi.fn().mockResolvedValue(undefined),
     onOpenDiagramPreview: vi.fn(),
     showInlineNotice: vi.fn(),
+  };
+}
+
+function documentStreamItem(path: string) {
+  return {
+    kind: "document" as const,
+    path,
+    documentPath: `/workspace/${path}`,
+    status: "modified" as const,
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
+function installMockIntersectionObserver() {
+  const original = globalThis.IntersectionObserver;
+  const observed = new Set<Element>();
+  let callback: IntersectionObserverCallback | null = null;
+  globalThis.IntersectionObserver = class {
+    readonly root = null;
+    readonly rootMargin = "";
+    readonly thresholds = [];
+
+    constructor(observerCallback: IntersectionObserverCallback) {
+      callback = observerCallback;
+    }
+
+    observe(element: Element) {
+      observed.add(element);
+    }
+
+    unobserve(element: Element) {
+      observed.delete(element);
+    }
+
+    disconnect() {
+      observed.clear();
+    }
+
+    takeRecords() {
+      return [];
+    }
+  } as unknown as typeof IntersectionObserver;
+  return {
+    trigger: (...paths: string[]) => {
+      const pathSet = new Set(paths.map((path) => `/workspace/${path}`));
+      const entries = Array.from(observed)
+        .filter(
+          (element) =>
+            element instanceof HTMLElement &&
+            element.dataset.streamKey &&
+            pathSet.has(element.dataset.streamKey),
+        )
+        .map(
+          (target) =>
+            ({
+              isIntersecting: true,
+              target,
+            }) as IntersectionObserverEntry,
+        );
+      callback?.(entries, {} as IntersectionObserver);
+    },
+    restore: () => {
+      globalThis.IntersectionObserver = original;
+    },
   };
 }
 

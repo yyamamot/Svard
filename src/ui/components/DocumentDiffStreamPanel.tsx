@@ -1,6 +1,8 @@
 import {
   useEffect,
+  useCallback,
   useMemo,
+  memo,
   useRef,
   useState,
   type MouseEvent,
@@ -79,6 +81,11 @@ type SectionLoadState =
   | { status: "blocked"; message: string };
 
 type DiffStreamViewMode = "full" | "changes";
+type DiffStreamLoadReason =
+  | "visible"
+  | "navigation"
+  | "manual-toggle"
+  | "refresh";
 
 interface DiffStreamMouseGestureSession {
   hasDragIntent: boolean;
@@ -187,6 +194,17 @@ export function DocumentDiffStreamPanel({
   const mouseGestureSessionRef =
     useRef<DiffStreamMouseGestureSession | null>(null);
   const suppressNextContextMenuRef = useRef(false);
+  const loadQueueRef = useRef<string[]>([]);
+  const inFlightLoadsRef = useRef<Set<string>>(new Set());
+  const loadStatesRef = useRef<Record<string, SectionLoadState>>({});
+  const pendingNavigationRef = useRef<{
+    fileIndex: number;
+    direction: 1 | -1;
+  } | null>(null);
+
+  useEffect(() => {
+    loadStatesRef.current = loadStates;
+  }, [loadStates]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -199,22 +217,37 @@ export function DocumentDiffStreamPanel({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  useEffect(() => {
-    for (const item of preview.items) {
-      const key = item.documentPath ?? item.path;
-      if (item.kind !== "document" || !item.documentPath) {
+  const pumpLoadQueue = useCallback(() => {
+    while (inFlightLoadsRef.current.size < 2 && loadQueueRef.current.length > 0) {
+      const key = loadQueueRef.current.shift();
+      if (!key || inFlightLoadsRef.current.has(key)) {
         continue;
       }
-      if (!expandedPaths.has(key) || loadStates[key]?.status) {
+      const item = preview.items.find(
+        (candidate) => (candidate.documentPath ?? candidate.path) === key,
+      );
+      if (item?.kind !== "document" || !item.documentPath) {
+        continue;
+      }
+      const currentState = loadStatesRef.current[key];
+      if (
+        currentState?.status === "loading" ||
+        currentState?.status === "ready"
+      ) {
         continue;
       }
       const requestId = (requestIds.current[key] ?? 0) + 1;
       const documentPath = item.documentPath;
       requestIds.current[key] = requestId;
-      setLoadStates((current) => ({
-        ...current,
-        [key]: { status: "loading" },
-      }));
+      inFlightLoadsRef.current.add(key);
+      setLoadStates((current) => {
+        const next = {
+          ...current,
+          [key]: { status: "loading" } as SectionLoadState,
+        };
+        loadStatesRef.current = next;
+        return next;
+      });
       getGitDiffPreview(documentPath)
         .then(async (diffPreview) => {
           const normalizedPreview = {
@@ -223,59 +256,130 @@ export function DocumentDiffStreamPanel({
             leftPath: diffPreview.leftPath ?? documentPath,
             rightPath: diffPreview.rightPath ?? documentPath,
           };
-          const summary = await deriveGitRenderedDiffSummary(
-            normalizedPreview,
-            {
-              config,
-              loadDocumentContext,
-              resolveLocalImage,
-              renderDiagram,
-              confirmedRemoteDiagramKeys,
-              krokiFallbackDiagramKeys,
-            },
-          );
+          const summary = await deriveGitRenderedDiffSummary(normalizedPreview, {
+            config,
+            loadDocumentContext,
+            resolveLocalImage,
+            renderDiagram,
+            confirmedRemoteDiagramKeys,
+            krokiFallbackDiagramKeys,
+          });
           if (requestIds.current[key] !== requestId) {
             return;
           }
-          setLoadStates((current) => ({
-            ...current,
-            [key]: {
-              status: "ready",
-              preview: normalizedPreview,
-              summary,
-            },
-          }));
+          setLoadStates((current) => {
+            const next = {
+              ...current,
+              [key]: {
+                status: "ready",
+                preview: normalizedPreview,
+                summary,
+              } as SectionLoadState,
+            };
+            loadStatesRef.current = next;
+            return next;
+          });
           documentReviewSession.markViewed(documentPath);
         })
         .catch((error) => {
           if (requestIds.current[key] !== requestId) {
             return;
           }
-          setLoadStates((current) => ({
-            ...current,
-            [key]: {
-              status: "blocked",
-              message:
-                error instanceof Error
-                  ? "This file cannot be previewed right now."
-                  : "Preview failed.",
-            },
-          }));
+          setLoadStates((current) => {
+            const next = {
+              ...current,
+              [key]: {
+                status: "blocked",
+                message:
+                  error instanceof Error
+                    ? "This file cannot be previewed right now."
+                    : "Preview failed.",
+              } as SectionLoadState,
+            };
+            loadStatesRef.current = next;
+            return next;
+          });
+        })
+        .finally(() => {
+          inFlightLoadsRef.current.delete(key);
+          pumpLoadQueue();
         });
     }
   }, [
     config,
     confirmedRemoteDiagramKeys,
     documentReviewSession,
-    expandedPaths,
     getGitDiffPreview,
     krokiFallbackDiagramKeys,
     loadDocumentContext,
-    loadStates,
     preview.items,
     renderDiagram,
     resolveLocalImage,
   ]);
+
+  const ensureSectionLoaded = useCallback(
+    (key: string, _reason: DiffStreamLoadReason) => {
+      const item = preview.items.find(
+        (candidate) => (candidate.documentPath ?? candidate.path) === key,
+      );
+      const currentState = loadStatesRef.current[key];
+      if (
+        item?.kind !== "document" ||
+        !item.documentPath ||
+        currentState?.status === "loading" ||
+        currentState?.status === "ready" ||
+        loadQueueRef.current.includes(key)
+      ) {
+        return false;
+      }
+      loadQueueRef.current.push(key);
+      pumpLoadQueue();
+      return true;
+    },
+    [preview.items, pumpLoadQueue],
+  );
+
+  useEffect(() => {
+    const streamBody = streamBodyRef.current;
+    if (!streamBody) {
+      return;
+    }
+    const documentKeys = preview.items
+      .filter((item) => item.kind === "document" && item.documentPath)
+      .map((item) => item.documentPath ?? item.path);
+    if (documentKeys.length === 0) {
+      return;
+    }
+    if (typeof IntersectionObserver === "undefined") {
+      for (const key of documentKeys.slice(0, 2)) {
+        ensureSectionLoaded(key, "visible");
+      }
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) {
+            continue;
+          }
+          const key = (entry.target as HTMLElement).dataset.streamKey;
+          if (key) {
+            ensureSectionLoaded(key, "visible");
+          }
+        }
+      },
+      { root: streamBody, rootMargin: "800px 0px" },
+    );
+    const sections = Array.from(
+      streamBody.querySelectorAll<HTMLElement>(
+        '[data-review-id="diff-stream-file-section"]',
+      ),
+    );
+    for (const section of sections) {
+      observer.observe(section);
+    }
+    return () => observer.disconnect();
+  }, [ensureSectionLoaded, preview.items]);
 
   const loadedTargets = useMemo(
     () =>
@@ -321,51 +425,147 @@ export function DocumentDiffStreamPanel({
     }
   }, [activeTarget, loadedTargets]);
 
-  function selectTarget(target: DiffStreamTarget) {
+  const selectTarget = useCallback((target: DiffStreamTarget) => {
     setActiveTarget(target);
     scrollStreamTargetIntoView(panelRef.current, target);
-  }
+  }, []);
 
-  function moveTarget(offset: number) {
-    if (loadedTargets.length === 0) {
+  const moveToUnloadedDocument = useCallback(
+    (direction: 1 | -1) => {
+      const startIndex =
+        activeTarget?.fileIndex ?? (direction === 1 ? -1 : preview.items.length);
+      for (
+        let index = startIndex + direction;
+        index >= 0 && index < preview.items.length;
+        index += direction
+      ) {
+        const item = preview.items[index];
+        const key = item.documentPath ?? item.path;
+        const state = loadStatesRef.current[key];
+        if (item.kind !== "document" || !item.documentPath) {
+          continue;
+        }
+        if (state?.status === "ready") {
+          continue;
+        }
+        pendingNavigationRef.current = { fileIndex: index, direction };
+        setExpandedPaths((current) => {
+          if (current.has(key)) {
+            return current;
+          }
+          const next = new Set(current);
+          next.add(key);
+          return next;
+        });
+        ensureSectionLoaded(key, "navigation");
+        const section = diffStreamSection(panelRef.current, index);
+        if (typeof section?.scrollIntoView === "function") {
+          section.scrollIntoView({ block: "center" });
+        }
+        return true;
+      }
       return false;
-    }
-    const currentIndex = activeTarget
-      ? loadedTargets.findIndex(
-          (target) =>
-            target.fileIndex === activeTarget.fileIndex &&
-            target.changeIndex === activeTarget.changeIndex,
-        )
-      : -1;
-    const nextIndex =
-      (currentIndex + offset + loadedTargets.length) % loadedTargets.length;
-    selectTarget(loadedTargets[nextIndex]);
-    return true;
-  }
+    },
+    [activeTarget?.fileIndex, ensureSectionLoaded, preview.items],
+  );
 
-  function scrollStream(action: DiffPreviewMouseGestureScrollAction) {
-    const pane = streamBodyRef.current;
-    if (!pane) {
-      return false;
+  const moveTarget = useCallback(
+    (offset: number) => {
+      const direction: 1 | -1 = offset >= 0 ? 1 : -1;
+      if (loadedTargets.length === 0) {
+        return moveToUnloadedDocument(direction);
+      }
+      const currentIndex = activeTarget
+        ? loadedTargets.findIndex(
+            (target) =>
+              target.fileIndex === activeTarget.fileIndex &&
+              target.changeIndex === activeTarget.changeIndex,
+          )
+        : -1;
+      const candidateIndex = currentIndex + offset;
+      if (candidateIndex < 0 || candidateIndex >= loadedTargets.length) {
+        return moveToUnloadedDocument(direction);
+      }
+      const nextIndex = candidateIndex;
+      selectTarget(loadedTargets[nextIndex]);
+      return true;
+    },
+    [activeTarget, loadedTargets, moveToUnloadedDocument, selectTarget],
+  );
+
+  useEffect(() => {
+    const pending = pendingNavigationRef.current;
+    if (!pending) {
+      return;
     }
-    const maxScrollTop = Math.max(0, pane.scrollHeight - pane.clientHeight);
-    const pageStep = Math.max(1, Math.floor(pane.clientHeight * 0.85));
-    const lineStep = 96;
-    const nextScrollTop =
-      action === "top"
-        ? 0
-        : action === "bottom"
-          ? maxScrollTop
-          : action === "pageUp"
-            ? pane.scrollTop - pageStep
-            : action === "pageDown"
-              ? pane.scrollTop + pageStep
-              : action === "lineUp"
-                ? pane.scrollTop - lineStep
-                : pane.scrollTop + lineStep;
-    pane.scrollTop = Math.max(0, Math.min(nextScrollTop, maxScrollTop));
-    return true;
-  }
+    const matchingTargets = loadedTargets.filter(
+      (target) => target.fileIndex === pending.fileIndex,
+    );
+    if (matchingTargets.length === 0) {
+      return;
+    }
+    pendingNavigationRef.current = null;
+    selectTarget(
+      pending.direction === 1
+        ? matchingTargets[0]
+        : matchingTargets[matchingTargets.length - 1],
+    );
+  }, [loadedTargets, selectTarget]);
+
+  const scrollStream = useCallback(
+    (action: DiffPreviewMouseGestureScrollAction) => {
+      const pane = streamBodyRef.current;
+      if (!pane) {
+        return false;
+      }
+      const maxScrollTop = Math.max(0, pane.scrollHeight - pane.clientHeight);
+      const pageStep = Math.max(1, Math.floor(pane.clientHeight * 0.85));
+      const lineStep = 96;
+      const nextScrollTop =
+        action === "top"
+          ? 0
+          : action === "bottom"
+            ? maxScrollTop
+            : action === "pageUp"
+              ? pane.scrollTop - pageStep
+              : action === "pageDown"
+                ? pane.scrollTop + pageStep
+                : action === "lineUp"
+                  ? pane.scrollTop - lineStep
+                  : pane.scrollTop + lineStep;
+      pane.scrollTop = Math.max(0, Math.min(nextScrollTop, maxScrollTop));
+      return true;
+    },
+    [],
+  );
+
+  const markNeedsAttention = useCallback(
+    (path: string) => documentReviewSession.markNeedsAttention(path),
+    [documentReviewSession],
+  );
+  const markViewed = useCallback(
+    (path: string) => documentReviewSession.markViewed(path),
+    [documentReviewSession],
+  );
+  const resetReview = useCallback(
+    (path: string) => documentReviewSession.reset(path),
+    [documentReviewSession],
+  );
+  const toggleSection = useCallback(
+    (key: string) => {
+      setExpandedPaths((current) => {
+        const next = new Set(current);
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.add(key);
+          ensureSectionLoaded(key, "manual-toggle");
+        }
+        return next;
+      });
+    },
+    [ensureSectionLoaded],
+  );
 
   function mouseGestureConfig() {
     return config?.mouseGestures ?? defaultMouseGestureConfig;
@@ -649,23 +849,10 @@ export function DocumentDiffStreamPanel({
                     ? documentReviewSession.stateByPath[item.documentPath]
                     : undefined
                 }
-                onMarkNeedsAttention={(path) =>
-                  documentReviewSession.markNeedsAttention(path)
-                }
-                onMarkViewed={(path) => documentReviewSession.markViewed(path)}
-                onResetReview={(path) => documentReviewSession.reset(path)}
-                onToggle={() => {
-                  const key = item.documentPath ?? item.path;
-                  setExpandedPaths((current) => {
-                    const next = new Set(current);
-                    if (next.has(key)) {
-                      next.delete(key);
-                    } else {
-                      next.add(key);
-                    }
-                    return next;
-                  });
-                }}
+                onMarkNeedsAttention={markNeedsAttention}
+                onMarkViewed={markViewed}
+                onResetReview={resetReview}
+                onToggle={toggleSection}
               />
             ))}
           </div>
@@ -814,7 +1001,6 @@ function DiffStreamChangeRuler({
       frame = window.requestAnimationFrame(measure);
     }
 
-    body.addEventListener("scroll", scheduleMeasure, { passive: true });
     if (typeof ResizeObserver !== "undefined") {
       resizeObserver = new ResizeObserver(scheduleMeasure);
       resizeObserver.observe(body);
@@ -826,7 +1012,6 @@ function DiffStreamChangeRuler({
       if (frame) {
         window.cancelAnimationFrame(frame);
       }
-      body.removeEventListener("scroll", scheduleMeasure);
       resizeObserver?.disconnect();
       window.removeEventListener("resize", scheduleMeasure);
     };
@@ -891,7 +1076,7 @@ function diffStreamMarkerKind(
   return "changed";
 }
 
-function DiffStreamSection({
+const DiffStreamSection = memo(function DiffStreamSection({
   activeChangeIndex,
   expanded,
   index,
@@ -942,7 +1127,7 @@ function DiffStreamSection({
   onMarkNeedsAttention: (path: string) => void;
   onMarkViewed: (path: string) => void;
   onResetReview: (path: string) => void;
-  onToggle: () => void;
+  onToggle: (key: string) => void;
 }) {
   const key = item.documentPath ?? item.path;
   const stateLabel = documentReviewStateLabel(reviewState);
@@ -958,11 +1143,12 @@ function DiffStreamSection({
           : "diff-stream-blocker-row"
       }
       data-stream-index={index}
+      data-stream-key={key}
       data-expanded={expanded ? "true" : "false"}
       data-load-status={loadState?.status ?? "idle"}
     >
       <header className="diff-stream-file-header">
-        <button type="button" onClick={onToggle} aria-expanded={expanded}>
+        <button type="button" onClick={() => onToggle(key)} aria-expanded={expanded}>
           {expanded ? "-" : "+"}
         </button>
         <div className="diff-stream-file-title">
@@ -1020,19 +1206,21 @@ function DiffStreamSection({
           />
         ) : loadState?.status === "blocked" ? (
           <p className="diff-stream-blocker-message">{loadState.message}</p>
-        ) : (
+        ) : loadState?.status === "loading" ? (
           <p className="diff-stream-loading">Loading rendered diff</p>
+        ) : (
+          null
         )
       ) : null}
     </section>
   );
-}
+});
 
 function documentFormatLabel(format: ReturnType<typeof documentFormatForPath>) {
   return format === "asciidoc" ? "AsciiDoc" : "Markdown";
 }
 
-function DiffStreamRenderedSection({
+const DiffStreamRenderedSection = memo(function DiffStreamRenderedSection({
   activeChangeIndex,
   preview,
   summary,
@@ -1270,4 +1458,4 @@ function DiffStreamRenderedSection({
       />
     </div>
   );
-}
+});

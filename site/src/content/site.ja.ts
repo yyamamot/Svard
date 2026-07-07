@@ -533,7 +533,7 @@ export const site = {
           {
             slug: "source-control-changes",
             title: "変更一覧",
-            body: "ローカルの変更を文書レビューの入口として扱います。",
+            body: "ローカルの変更を単体または一括の文書レビュー入口として扱います。",
             state: "公開中",
             href: sitePath("ja/docs/features/source-control-changes/"),
           },
@@ -2313,9 +2313,9 @@ export const site = {
         title: "変更一覧",
         lead: "変更一覧は、ローカルで変更された文書を確認し、プレビュー差分へ移動するための入口です",
         whatThisFeatureIs:
-          "Source Control の Changes list には、現在のフォルダで変更された文書が並びます。対応している文書は、一覧からプレビュー差分を開いて内容を確認できます。",
+          "Source Control の Changes list には、現在のフォルダで変更された文書が並びます。対応している文書は、一覧からプレビュー差分を開いて内容を確認できます。All diffs では、Markdown / AsciiDoc の変更文書を1つの連続した読み取り専用 stream としてまとめて確認できます。",
         whenToUse:
-          "どの文書が変更されているかを見てから、読み取り専用の差分確認へ進みたい時に使います。",
+          "どの文書が変更されているかを見てから、1件ずつ、または一括で読み取り専用の差分確認へ進みたい時に使います。",
         workflow: [
           {
             title: "変更された文書を一覧する",
@@ -2337,12 +2337,23 @@ export const site = {
               "Svard の変更一覧からプレビュー差分を開いている画面",
             ),
           },
+          {
+            title: "一括差分を確認する",
+            body: "All diffs を開くと、対応している Markdown / AsciiDoc の変更文書をファイル単位の stream として確認できます。Previous / Next、変更ルーラー、ショートカットは stream 全体の変更間移動に使えます。",
+            screenshot: screenshot(
+              "source-control-open-diff.png",
+              "All diffs の入口",
+              "変更一覧から一括差分確認へ進む入口を示します。",
+              "Svard の Source Control で All diffs へ進む入口を表示している画面",
+            ),
+          },
         ],
         limitations:
-          "変更一覧は読み取りと差分確認への入口です。このページでは stage、commit、branch 操作、履歴分析、リポジトリグラフの詳細は扱いません。公開画像には実リポジトリ名やローカルの絶対パスを含めません。",
+          "変更一覧と All diffs は読み取りと差分確認への入口です。このページでは stage、commit、branch 操作、履歴分析、リポジトリグラフの詳細は扱いません。All diffs は Markdown / AsciiDoc の文書差分を対象にし、非対応ファイルは本文を表示しません。公開画像には実リポジトリ名やローカルの絶対パスを含めません。",
         related: [
           "Change Review Mode",
           "プレビューベースの差分確認",
+          "変更ナビゲータ",
           "ブランチ差分",
           "リポジトリグラフ",
           "ファイル履歴",

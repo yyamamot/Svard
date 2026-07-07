@@ -533,7 +533,7 @@ export const site = {
           {
             slug: "source-control-changes",
             title: "Changes list",
-            body: "Use local changes as document-review entry points.",
+            body: "Use local changes as single-file or all-diffs review entry points.",
             state: "Available",
             href: sitePath("en/docs/features/source-control-changes/"),
           },
@@ -2333,9 +2333,9 @@ export const site = {
         title: "Changes list",
         lead: "The Changes list shows locally changed documents and opens them into preview-based review.",
         whatThisFeatureIs:
-          "Source Control lists changed documents in the current folder. Supported documents can be opened from the list into the preview diff workspace for read-only review.",
+          "Source Control lists changed documents in the current folder. Supported documents can be opened from the list into the preview diff workspace for read-only review. All diffs groups changed Markdown and AsciiDoc documents into one continuous read-only stream.",
         whenToUse:
-          "Use this when you want to see which documents changed before choosing one to review as rendered output.",
+          "Use this when you want to see which documents changed before reviewing one file at a time or scanning all supported document diffs together.",
         workflow: [
           {
             title: "List changed documents",
@@ -2357,12 +2357,23 @@ export const site = {
               "Svard preview diff opened from Source Control Changes",
             ),
           },
+          {
+            title: "Review all document diffs",
+            body: "Open All diffs to review changed Markdown and AsciiDoc documents as file sections in a single stream. Previous / Next, the change ruler, and shortcuts move across the stream.",
+            screenshot: screenshot(
+              "source-control-open-diff.png",
+              "All diffs entry",
+              "Shows the entry point from the Changes list into all-diffs review.",
+              "Svard Source Control showing the All diffs entry point",
+            ),
+          },
         ],
         limitations:
-          "The Changes list is a read and review entry point. This page does not cover staging, committing, branch operations, history analysis, or the repository graph. Public screenshots should not include real repository names or local absolute paths.",
+          "The Changes list and All diffs are read and review entry points. This page does not cover staging, committing, branch operations, history analysis, or the repository graph. All diffs focuses on Markdown and AsciiDoc document diffs; unsupported files do not expose rendered bodies. Public screenshots should not include real repository names or local absolute paths.",
         related: [
           "Change Review Mode",
           "Preview-based diff review",
+          "Change Navigator",
           "Branch Diff",
           "Repo Graph",
           "File History",
