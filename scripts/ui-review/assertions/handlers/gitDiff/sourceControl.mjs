@@ -307,12 +307,92 @@ export async function buildGitDiffSourceControlAssertions(context) {
               sample?.streamBodyOverflowY === "auto" &&
               sample?.renderedScrollOverflowY === "visible" &&
               sample?.fullPreviewDefault === true &&
+              sample?.rulerVisible === true &&
+              sample?.rulerMarkers >= 1 &&
+              sample?.activeRulerMarkerVisible === true &&
               sample?.contextMenuVisible === true &&
               sample?.contextMenuSourceReviewId !== "" &&
               sample?.contextMenuItemCount > 0 &&
               sample?.assetVisible === false &&
               sample?.navigationVisible === true &&
               sample?.refreshVisible === true
+            );
+          })
+        : true,
+    hasSourceControlAllDiffsMouseGestures:
+      scenario === "viewer-source-control-all-diffs-mouse-gestures"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_ALL_DIFFS_MOUSE_GESTURE_SAMPLE__;
+            return (
+              result?.afterRight?.activeLabel === "Go to change 2" &&
+              result?.afterRight?.lastGesture?.pattern === "Right" &&
+              result?.afterRight?.lastGesture?.commandId ===
+                "navigation.forward" &&
+              result?.afterRight?.lastGesture?.status === "handled" &&
+              result?.afterLeft?.activeLabel === "Go to change 1" &&
+              result?.afterLeft?.lastGesture?.pattern === "Left" &&
+              result?.afterLeft?.lastGesture?.commandId === "navigation.back" &&
+              result?.afterLeft?.lastGesture?.status === "handled" &&
+              result?.afterDown?.scrollTop > 0 &&
+              result?.afterDown?.lastGesture?.pattern === "Down" &&
+              result?.afterDown?.lastGesture?.commandId === "viewer.bottom" &&
+              result?.afterDown?.lastGesture?.status === "handled" &&
+              result?.afterUp?.scrollTop === 0 &&
+              result?.afterUp?.lastGesture?.pattern === "Up" &&
+              result?.afterUp?.lastGesture?.commandId === "viewer.top" &&
+              result?.afterUp?.lastGesture?.status === "handled" &&
+              result?.afterClose?.panelCount === 0 &&
+              result?.afterClose?.lastGesture?.pattern === "Down Right" &&
+              result?.afterClose?.lastGesture?.commandId === "tab.close" &&
+              result?.afterClose?.lastGesture?.status === "handled"
+            );
+          })
+        : true,
+    hasSourceControlAllDiffsKeybindings:
+      scenario === "viewer-source-control-all-diffs-keybindings"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_ALL_DIFFS_KEYBINDING_SAMPLE__;
+            return (
+              result?.activeLabel === "Go to change 1" &&
+              result?.bottomStatus === "handled" &&
+              (result?.scrollable === true
+                ? result?.afterBottom > 0
+                : result?.afterBottom === 0) &&
+              result?.topStatus === "handled" &&
+              result?.afterTop === 0 &&
+              result?.closeStatus === "handled" &&
+              result?.panelCount === 0
+            );
+          })
+        : true,
+    hasSourceControlAllDiffsKeybindingNavigation:
+      scenario === "viewer-source-control-all-diffs-keybindings"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_ALL_DIFFS_KEYBINDING_SAMPLE__;
+            return result?.activeLabel === "Go to change 1";
+          })
+        : true,
+    hasSourceControlAllDiffsKeybindingScroll:
+      scenario === "viewer-source-control-all-diffs-keybindings"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_ALL_DIFFS_KEYBINDING_SAMPLE__;
+            return (
+              result?.bottomStatus === "handled" &&
+              (result?.scrollable === true
+                ? result?.afterBottom > 0
+                : result?.afterBottom === 0) &&
+              result?.topStatus === "handled" &&
+              result?.afterTop === 0
+            );
+          })
+        : true,
+    hasSourceControlAllDiffsKeybindingClose:
+      scenario === "viewer-source-control-all-diffs-keybindings"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_ALL_DIFFS_KEYBINDING_SAMPLE__;
+            return (
+              result?.closeStatus === "handled" &&
+              result?.panelCount === 0
             );
           })
         : true,

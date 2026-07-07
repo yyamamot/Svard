@@ -1,5 +1,8 @@
 import { useCallback, type RefObject } from "react";
-import type { DocumentDiffPreview } from "../../core/types";
+import type {
+  DocumentDiffPreview,
+  DocumentDiffStreamPreview,
+} from "../../core/types";
 import {
   clearContentCursor,
   moveContentCursor,
@@ -10,6 +13,7 @@ interface UseContentCursorActionsOptions {
   articleRef: RefObject<HTMLElement | null>;
   viewerRef: RefObject<HTMLElement | null>;
   documentDiffPreview: DocumentDiffPreview | null;
+  documentDiffStreamPreview: DocumentDiffStreamPreview | null;
   diffContentCursorCommandRef: RefObject<ContentCursorCommandHandler | null>;
   diffContentCursorClearRef: RefObject<(() => void) | null>;
 }
@@ -20,6 +24,8 @@ function visibleDiffContentCursorRoots() {
     "git-rendered-right-pane",
     "git-full-preview-left-pane",
     "git-rendered-left-pane",
+    "diff-stream-right-pane",
+    "diff-stream-left-pane",
   ];
   return paneReviewIds
     .map((reviewId) =>
@@ -34,6 +40,7 @@ export function useContentCursorActions({
   articleRef,
   viewerRef,
   documentDiffPreview,
+  documentDiffStreamPreview,
   diffContentCursorCommandRef,
   diffContentCursorClearRef,
 }: UseContentCursorActionsOptions) {
@@ -45,7 +52,7 @@ export function useContentCursorActions({
 
   const moveActiveContentCursor = useCallback(
     (direction: "next" | "previous") => {
-      if (documentDiffPreview) {
+      if (documentDiffPreview || documentDiffStreamPreview) {
         return diffContentCursorCommandRef.current?.(direction) ?? false;
       }
       return moveContentCursor({
@@ -54,7 +61,13 @@ export function useContentCursorActions({
         direction,
       });
     },
-    [articleRef, diffContentCursorCommandRef, documentDiffPreview, viewerRef],
+    [
+      articleRef,
+      diffContentCursorCommandRef,
+      documentDiffPreview,
+      documentDiffStreamPreview,
+      viewerRef,
+    ],
   );
 
   return {

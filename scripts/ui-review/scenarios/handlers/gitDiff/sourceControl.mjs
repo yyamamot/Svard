@@ -518,7 +518,7 @@ export async function applyGitDiffSourceControlScenario(context) {
   } else if (isReviewWatchModeScenario(scenario)) {
     await applyReviewWatchModeScenario(page);
   } else if (isSourceControlAllDiffsScenario(scenario)) {
-    await applySourceControlAllDiffsScenario(page);
+    await applySourceControlAllDiffsScenario(page, context);
   } else if (isReviewWatchActiveDiffScenario(scenario)) {
     await applyReviewWatchActiveDiffScenario(page, scenario);
   } else if (scenario === "viewer-source-control-branch-diff") {

@@ -53,6 +53,7 @@ import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { useZenModeActions } from "./hooks/useZenModeActions";
 import { MAIN_WINDOW_SESSION_ID } from "./lib/config";
 import type { ContentCursorCommandHandler } from "./lib/contentCursor";
+import type { DocumentDiffStreamCommandBridge } from "./lib/documentDiffStreamCommands";
 import { saveAppConfig } from "./lib/saveAppConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
@@ -85,6 +86,8 @@ export function App() {
   const diffContentCursorCommandRef =
     useRef<ContentCursorCommandHandler | null>(null);
   const diffContentCursorClearRef = useRef<(() => void) | null>(null);
+  const diffStreamCommandRef =
+    useRef<DocumentDiffStreamCommandBridge | null>(null);
   const [documentPayload, setDocumentPayload] =
     useState<DocumentPayload | null>(null);
   const [navigationBackStack, setNavigationBackStack] = useState<
@@ -637,6 +640,7 @@ export function App() {
     articleRef,
     viewerRef,
     documentDiffPreview,
+    documentDiffStreamPreview,
     diffContentCursorCommandRef,
     diffContentCursorClearRef,
   });
@@ -754,6 +758,8 @@ export function App() {
       void sourceControl.setSidebarTab("files");
       antoraContextSelection.openSelector();
     },
+    diffStreamCommandRef,
+    documentDiffStreamActive: Boolean(documentDiffStreamPreview),
     onActivateDocumentWorkspaceTab:
       workspaceTabActions.activateDocumentWorkspaceTab,
     searchInputRef,
@@ -1142,6 +1148,7 @@ export function App() {
         diagramPreview,
         diffContentCursorClearRef,
         diffContentCursorCommandRef,
+        diffStreamCommandRef,
         documentDiffPreview,
         documentDiffStreamPreview,
         diffPreviewWatchState: activeDiffPreviewWatchPath

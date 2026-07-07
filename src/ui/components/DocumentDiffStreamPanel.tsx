@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type RefObject,
+} from "react";
 import { RefreshCw, X } from "lucide-react";
 import type {
   AppConfig,
@@ -12,13 +19,21 @@ import type {
   LocalImageResolveContext,
   LocalImageResult,
 } from "../../core/types";
+import type { CommandId } from "../../core/commands";
 import { documentFormatForPath } from "../../core/documentFormat";
 import type { CopyText } from "../hooks/documentLinks/types";
+import type { ContentCursorCommandHandler } from "../lib/contentCursor";
+import type { DocumentDiffStreamCommandBridge } from "../lib/documentDiffStreamCommands";
 import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
 import {
   documentReviewStateLabel,
   emptyDocumentReviewSessionControls,
 } from "../lib/documentReviewSession";
+import {
+  defaultMouseGestureConfig,
+  resolveMouseGesture,
+  type GesturePoint,
+} from "../../core/mouseGestures";
 import {
   buildRenderedDiffPresentation,
   deriveGitRenderedDiffSummary,
@@ -32,8 +47,23 @@ import {
   renderedStructuredChildChangeIndex,
   renderedTableRowChangeIndex,
 } from "./gitDiffPreview/renderedView";
+import { MouseGestureTrail } from "./MouseGestureTrail";
 import { createDiffPreviewContextMenuHandler } from "./gitDiffPreview/contextMenu";
-import type { ContextMenuItem, DiagramPreviewState } from "../types";
+import {
+  changeRulerMarkerTopPercent,
+  type DiffChangeRulerMarkerKind,
+} from "./gitDiffPreview/changeRuler";
+import { shouldIgnoreDiffMouseGestureTarget } from "./gitDiffPreview/diffPreviewInteractionEvents";
+import { dispatchDiffPreviewMouseGestureCommand } from "./gitDiffPreview/mouseGestures";
+import type {
+  DiffPreviewMouseGestureScrollAction,
+} from "./gitDiffPreview/mouseGestures";
+import { isGestureBlockedTarget } from "../lib/path";
+import type {
+  ContextMenuItem,
+  DiagramPreviewState,
+  MouseGestureAutomation,
+} from "../types";
 
 type SectionLoadState =
   | { status: "idle" }
@@ -46,6 +76,11 @@ type SectionLoadState =
   | { status: "blocked"; message: string };
 
 type DiffStreamViewMode = "full" | "changes";
+
+interface DiffStreamMouseGestureSession {
+  hasDragIntent: boolean;
+  points: GesturePoint[];
+}
 
 interface DocumentDiffStreamPanelProps {
   config: AppConfig | null;
@@ -85,6 +120,9 @@ interface DocumentDiffStreamPanelProps {
     documentPath: string,
     context: LocalImageResolveContext | null | undefined,
   ) => Promise<LocalImageResult>;
+  setLastMouseGesture?: (gesture: MouseGestureAutomation | null) => void;
+  contentCursorCommandRef?: RefObject<ContentCursorCommandHandler | null>;
+  streamCommandRef?: RefObject<DocumentDiffStreamCommandBridge | null>;
   onClose: () => void;
   onRefresh?: () => void;
 }
@@ -108,9 +146,14 @@ export function DocumentDiffStreamPanel({
   loadDocumentContext,
   renderDiagram,
   resolveLocalImage,
+  setLastMouseGesture,
+  contentCursorCommandRef,
+  streamCommandRef,
   onClose,
   onRefresh,
 }: DocumentDiffStreamPanelProps) {
+  const panelRef = useRef<HTMLElement | null>(null);
+  const streamBodyRef = useRef<HTMLDivElement | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
     () =>
       new Set(
@@ -127,7 +170,11 @@ export function DocumentDiffStreamPanel({
     changeIndex: number;
   } | null>(null);
   const [viewMode, setViewMode] = useState<DiffStreamViewMode>("full");
+  const [mouseGestureTrail, setMouseGestureTrail] = useState<GesturePoint[]>([]);
   const requestIds = useRef<Record<string, number>>({});
+  const mouseGestureSessionRef =
+    useRef<DiffStreamMouseGestureSession | null>(null);
+  const suppressNextContextMenuRef = useRef(false);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -238,9 +285,36 @@ export function DocumentDiffStreamPanel({
     [loadStates, preview.items],
   );
 
+  useEffect(() => {
+    if (loadedTargets.length === 0) {
+      if (activeTarget) {
+        setActiveTarget(null);
+      }
+      return;
+    }
+    const activeStillExists =
+      activeTarget &&
+      loadedTargets.some(
+        (target) =>
+          target.fileIndex === activeTarget.fileIndex &&
+          target.changeIndex === activeTarget.changeIndex,
+      );
+    if (!activeStillExists) {
+      setActiveTarget({
+        fileIndex: loadedTargets[0].fileIndex,
+        changeIndex: loadedTargets[0].changeIndex,
+      });
+    }
+  }, [activeTarget, loadedTargets]);
+
+  function selectTarget(target: { fileIndex: number; changeIndex: number }) {
+    setActiveTarget(target);
+    scrollStreamTargetIntoView(panelRef.current, target);
+  }
+
   function moveTarget(offset: number) {
     if (loadedTargets.length === 0) {
-      return;
+      return false;
     }
     const currentIndex = activeTarget
       ? loadedTargets.findIndex(
@@ -251,16 +325,185 @@ export function DocumentDiffStreamPanel({
       : -1;
     const nextIndex =
       (currentIndex + offset + loadedTargets.length) % loadedTargets.length;
-    const target = loadedTargets[nextIndex];
-    setActiveTarget({
-      fileIndex: target.fileIndex,
-      changeIndex: target.changeIndex,
+    selectTarget(loadedTargets[nextIndex]);
+    return true;
+  }
+
+  function scrollStream(action: DiffPreviewMouseGestureScrollAction) {
+    const pane = streamBodyRef.current;
+    if (!pane) {
+      return false;
+    }
+    const maxScrollTop = Math.max(0, pane.scrollHeight - pane.clientHeight);
+    const pageStep = Math.max(1, Math.floor(pane.clientHeight * 0.85));
+    const lineStep = 96;
+    const nextScrollTop =
+      action === "top"
+        ? 0
+        : action === "bottom"
+          ? maxScrollTop
+          : action === "pageUp"
+            ? pane.scrollTop - pageStep
+            : action === "pageDown"
+              ? pane.scrollTop + pageStep
+              : action === "lineUp"
+                ? pane.scrollTop - lineStep
+                : pane.scrollTop + lineStep;
+    pane.scrollTop = Math.max(0, Math.min(nextScrollTop, maxScrollTop));
+    return true;
+  }
+
+  function mouseGestureConfig() {
+    return config?.mouseGestures ?? defaultMouseGestureConfig;
+  }
+
+  function dispatchStreamMouseGesture(points: GesturePoint[]) {
+    const resolution = resolveMouseGesture(
+      points,
+      mouseGestureConfig().minDistancePx,
+      mouseGestureConfig().mappings,
+    );
+    if (!resolution.commandId) {
+      setLastMouseGesture?.({ pattern: resolution.pattern, status: "none" });
+      return;
+    }
+    const result = dispatchDiffPreviewMouseGestureCommand({
+      commandId: resolution.commandId,
+      changeCount: loadedTargets.length,
+      moveChange: moveTarget,
+      scrollPane: scrollStream,
+      closePreview: onClose,
     });
-    document
-      .querySelector<HTMLElement>(
-        `[data-review-id="diff-stream-file-section"][data-stream-index="${target.fileIndex}"]`,
-      )
-      ?.scrollIntoView({ block: "start" });
+    setLastMouseGesture?.({
+      pattern: resolution.pattern,
+      commandId: resolution.commandId,
+      status: result.status,
+    });
+  }
+
+  function dispatchStreamCommand(commandId: CommandId) {
+    switch (commandId) {
+      case "tab.close":
+      case "preferences.close":
+        onClose();
+        return true;
+      case "viewer.contentCursor.next":
+        return moveTarget(1);
+      case "viewer.contentCursor.previous":
+        return moveTarget(-1);
+      case "viewer.scrollDown":
+        return scrollStream("lineDown");
+      case "viewer.scrollUp":
+        return scrollStream("lineUp");
+      case "viewer.pageDown":
+        return scrollStream("pageDown");
+      case "viewer.pageUp":
+        return scrollStream("pageUp");
+      case "viewer.top":
+        return scrollStream("top");
+      case "viewer.bottom":
+        return scrollStream("bottom");
+      default:
+        return false;
+    }
+  }
+
+  useEffect(() => {
+    if (contentCursorCommandRef) {
+      contentCursorCommandRef.current = (direction) =>
+        moveTarget(direction === "next" ? 1 : -1);
+    }
+    if (streamCommandRef) {
+      streamCommandRef.current = {
+        dispatch: dispatchStreamCommand,
+      };
+    }
+    return () => {
+      if (contentCursorCommandRef) {
+        contentCursorCommandRef.current = null;
+      }
+      if (streamCommandRef) {
+        streamCommandRef.current = null;
+      }
+    };
+  });
+
+  function handleStreamMouseDown(event: MouseEvent<HTMLElement>) {
+    suppressNextContextMenuRef.current = false;
+    if (shouldIgnoreDiffStreamGestureTarget(event.target)) {
+      return;
+    }
+    const mouseGestures = mouseGestureConfig();
+    if (
+      !mouseGestures.enabled ||
+      mouseGestures.trigger !== "rightButton" ||
+      event.button !== 2 ||
+      isGestureBlockedTarget(event.target)
+    ) {
+      return;
+    }
+    mouseGestureSessionRef.current = {
+      hasDragIntent: false,
+      points: [{ x: event.clientX, y: event.clientY }],
+    };
+  }
+
+  function handleStreamMouseMove(event: MouseEvent<HTMLElement>) {
+    const session = mouseGestureSessionRef.current;
+    if (!session) {
+      return;
+    }
+    session.points.push({ x: event.clientX, y: event.clientY });
+    const resolution = resolveMouseGesture(
+      session.points,
+      mouseGestureConfig().minDistancePx,
+      mouseGestureConfig().mappings,
+    );
+    if (resolution.pattern.length === 0) {
+      return;
+    }
+    session.hasDragIntent = true;
+    if (mouseGestureConfig().showTrail) {
+      setMouseGestureTrail([...session.points]);
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    suppressNextContextMenuRef.current = true;
+  }
+
+  function handleStreamMouseUp(event: MouseEvent<HTMLElement>) {
+    const session = mouseGestureSessionRef.current;
+    if (!session) {
+      return;
+    }
+    mouseGestureSessionRef.current = null;
+    setMouseGestureTrail([]);
+    if (session.hasDragIntent) {
+      event.preventDefault();
+      event.stopPropagation();
+      suppressNextContextMenuRef.current = true;
+      dispatchStreamMouseGesture(session.points);
+    } else {
+      suppressNextContextMenuRef.current = false;
+    }
+  }
+
+  function handleStreamContextMenu(event: MouseEvent<HTMLElement>) {
+    if (shouldIgnoreDiffStreamGestureTarget(event.target)) {
+      return;
+    }
+    if (!suppressNextContextMenuRef.current) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    suppressNextContextMenuRef.current = false;
+  }
+
+  function handleStreamMouseLeave() {
+    mouseGestureSessionRef.current = null;
+    setMouseGestureTrail([]);
+    suppressNextContextMenuRef.current = false;
   }
 
   return (
@@ -274,10 +517,20 @@ export function DocumentDiffStreamPanel({
       }}
     >
       <section
+        ref={panelRef}
         className="git-diff-panel expanded diff-stream-panel"
         data-review-id="source-control-all-diffs-panel"
+        data-mouse-gestures-enabled={
+          config?.mouseGestures?.enabled ? "true" : "false"
+        }
         aria-label="All diffs"
+        onContextMenuCapture={handleStreamContextMenu}
+        onMouseDownCapture={handleStreamMouseDown}
+        onMouseLeave={handleStreamMouseLeave}
+        onMouseMoveCapture={handleStreamMouseMove}
+        onMouseUpCapture={handleStreamMouseUp}
       >
+        <MouseGestureTrail points={mouseGestureTrail} />
         <header className="git-diff-toolbar diff-stream-toolbar">
           <div className="git-diff-title">
             <span>All diffs</span>
@@ -353,57 +606,254 @@ export function DocumentDiffStreamPanel({
             </button>
           </div>
         </header>
-        <div className="diff-stream-body">
-          {preview.items.map((item, index) => (
-            <DiffStreamSection
-              key={`${item.status}:${item.documentPath ?? item.path}`}
-              activeChangeIndex={
-                activeTarget?.fileIndex === index
-                  ? activeTarget.changeIndex
-                  : undefined
-              }
-              expanded={expandedPaths.has(item.documentPath ?? item.path)}
-              index={index}
-              item={item}
-              loadState={loadStates[item.documentPath ?? item.path] ?? null}
-              viewMode={viewMode}
-              copyText={copyText}
-              openContextMenu={openContextMenu}
-              openDocument={openDocument}
-              openPathInEditor={openPathInEditor}
-              resolveDocumentLink={resolveDocumentLink}
-              confirmExternalLink={confirmExternalLink}
-              openExternalUrl={openExternalUrl}
-              onOpenDiagramPreview={onOpenDiagramPreview}
-              showInlineNotice={showInlineNotice}
-              reviewState={
-                item.documentPath
-                  ? documentReviewSession.stateByPath[item.documentPath]
-                  : undefined
-              }
-              onMarkNeedsAttention={(path) =>
-                documentReviewSession.markNeedsAttention(path)
-              }
-              onMarkViewed={(path) => documentReviewSession.markViewed(path)}
-              onResetReview={(path) => documentReviewSession.reset(path)}
-              onToggle={() => {
-                const key = item.documentPath ?? item.path;
-                setExpandedPaths((current) => {
-                  const next = new Set(current);
-                  if (next.has(key)) {
-                    next.delete(key);
-                  } else {
-                    next.add(key);
-                  }
-                  return next;
-                });
-              }}
-            />
-          ))}
+        <div className="diff-stream-body-with-ruler">
+          <div ref={streamBodyRef} className="diff-stream-body">
+            {preview.items.map((item, index) => (
+              <DiffStreamSection
+                key={`${item.status}:${item.documentPath ?? item.path}`}
+                activeChangeIndex={
+                  activeTarget?.fileIndex === index
+                    ? activeTarget.changeIndex
+                    : undefined
+                }
+                expanded={expandedPaths.has(item.documentPath ?? item.path)}
+                index={index}
+                item={item}
+                loadState={loadStates[item.documentPath ?? item.path] ?? null}
+                viewMode={viewMode}
+                copyText={copyText}
+                openContextMenu={openContextMenu}
+                openDocument={openDocument}
+                openPathInEditor={openPathInEditor}
+                resolveDocumentLink={resolveDocumentLink}
+                confirmExternalLink={confirmExternalLink}
+                openExternalUrl={openExternalUrl}
+                onOpenDiagramPreview={onOpenDiagramPreview}
+                showInlineNotice={showInlineNotice}
+                reviewState={
+                  item.documentPath
+                    ? documentReviewSession.stateByPath[item.documentPath]
+                    : undefined
+                }
+                onMarkNeedsAttention={(path) =>
+                  documentReviewSession.markNeedsAttention(path)
+                }
+                onMarkViewed={(path) => documentReviewSession.markViewed(path)}
+                onResetReview={(path) => documentReviewSession.reset(path)}
+                onToggle={() => {
+                  const key = item.documentPath ?? item.path;
+                  setExpandedPaths((current) => {
+                    const next = new Set(current);
+                    if (next.has(key)) {
+                      next.delete(key);
+                    } else {
+                      next.add(key);
+                    }
+                    return next;
+                  });
+                }}
+              />
+            ))}
+          </div>
+          <DiffStreamChangeRuler
+            activeTarget={activeTarget}
+            streamBodyRef={streamBodyRef}
+            targets={loadedTargets}
+            onSelectTarget={selectTarget}
+          />
         </div>
       </section>
     </div>
   );
+}
+
+function shouldIgnoreDiffStreamGestureTarget(target: EventTarget | null) {
+  return (
+    shouldIgnoreDiffMouseGestureTarget(target) ||
+    (target instanceof HTMLElement &&
+      Boolean(
+        target.closest(
+          ".diff-stream-file-header, .diff-stream-review-actions, .git-diff-change-ruler, [data-review-id='context-menu']",
+        ),
+      ))
+  );
+}
+
+function scrollStreamTargetIntoView(
+  panel: HTMLElement | null,
+  target: { fileIndex: number; changeIndex: number },
+) {
+  const section = panel?.querySelector<HTMLElement>(
+    `[data-review-id="diff-stream-file-section"][data-stream-index="${target.fileIndex}"]`,
+  );
+  const block =
+    section?.querySelector<HTMLElement>(
+      `[data-review-id="diff-stream-rendered-block"][data-change-index="${target.changeIndex}"].right-side`,
+    ) ??
+    section?.querySelector<HTMLElement>(
+      `[data-review-id="diff-stream-rendered-block"][data-change-index="${target.changeIndex}"]`,
+    );
+  const targetElement = block ?? section;
+  if (typeof targetElement?.scrollIntoView === "function") {
+    targetElement.scrollIntoView({ block: "center" });
+  }
+}
+
+interface DiffStreamRulerMarker {
+  fileIndex: number;
+  changeIndex: number;
+  index: number;
+  kind: DiffChangeRulerMarkerKind;
+  topPercent: number;
+}
+
+function DiffStreamChangeRuler({
+  activeTarget,
+  streamBodyRef,
+  targets,
+  onSelectTarget,
+}: {
+  activeTarget: { fileIndex: number; changeIndex: number } | null;
+  streamBodyRef: RefObject<HTMLDivElement | null>;
+  targets: readonly { fileIndex: number; changeIndex: number }[];
+  onSelectTarget: (target: { fileIndex: number; changeIndex: number }) => void;
+}) {
+  const [markers, setMarkers] = useState<DiffStreamRulerMarker[]>([]);
+
+  useEffect(() => {
+    const streamBody = streamBodyRef.current;
+    if (!streamBody || targets.length === 0) {
+      setMarkers([]);
+      return;
+    }
+    const body = streamBody;
+
+    let frame = 0;
+    let resizeObserver: ResizeObserver | null = null;
+
+    function measure() {
+      frame = 0;
+      const streamBodyRect = body.getBoundingClientRect();
+      const nextMarkers = targets.flatMap((target, index) => {
+        const section = body.querySelector<HTMLElement>(
+          `[data-review-id="diff-stream-file-section"][data-stream-index="${target.fileIndex}"]`,
+        );
+        const block =
+          section?.querySelector<HTMLElement>(
+            `[data-review-id="diff-stream-rendered-block"][data-change-index="${target.changeIndex}"].right-side`,
+          ) ??
+          section?.querySelector<HTMLElement>(
+            `[data-review-id="diff-stream-rendered-block"][data-change-index="${target.changeIndex}"]`,
+          );
+        if (!block) {
+          return [];
+        }
+        const blockRect = block.getBoundingClientRect();
+        const targetTop =
+          blockRect.top - streamBodyRect.top + body.scrollTop;
+        return [
+          {
+            fileIndex: target.fileIndex,
+            changeIndex: target.changeIndex,
+            index,
+            kind: diffStreamMarkerKind(block),
+            topPercent: changeRulerMarkerTopPercent({
+              scrollHeight: body.scrollHeight,
+              targetTop,
+            }),
+          },
+        ];
+      });
+      setMarkers(nextMarkers);
+    }
+
+    function scheduleMeasure() {
+      if (frame) {
+        return;
+      }
+      frame = window.requestAnimationFrame(measure);
+    }
+
+    body.addEventListener("scroll", scheduleMeasure, { passive: true });
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(body);
+    }
+    window.addEventListener("resize", scheduleMeasure);
+    scheduleMeasure();
+
+    return () => {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+      body.removeEventListener("scroll", scheduleMeasure);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [streamBodyRef, targets]);
+
+  if (targets.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="git-diff-change-ruler diff-stream-change-ruler"
+      data-review-id="diff-stream-change-ruler"
+      aria-label="All diffs change ruler"
+    >
+      {markers.map((marker) => {
+        const active =
+          activeTarget?.fileIndex === marker.fileIndex &&
+          activeTarget.changeIndex === marker.changeIndex;
+        return (
+          <button
+            key={`diff-stream-ruler:${marker.fileIndex}:${marker.changeIndex}`}
+            type="button"
+            className={`git-diff-change-ruler-marker ${marker.kind} ${
+              active ? "active" : ""
+            }`}
+            style={{ top: `${marker.topPercent}%` }}
+            data-review-id="diff-stream-change-ruler-marker"
+            data-stream-index={marker.fileIndex}
+            data-change-index={marker.changeIndex}
+            aria-label={`Go to change ${marker.index + 1}`}
+            onClick={() =>
+              onSelectTarget({
+                fileIndex: marker.fileIndex,
+                changeIndex: marker.changeIndex,
+              })
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function diffStreamMarkerKind(
+  target: HTMLElement,
+): DiffChangeRulerMarkerKind {
+  if (
+    target.classList.contains("has-table-row-changes") ||
+    target.querySelector('[data-review-id="git-diff-table-cell"]')
+  ) {
+    return "table";
+  }
+  if (
+    target.querySelector('[data-review-id="diagram-inline-image"]') ||
+    target.querySelector('[data-review-id="diagram-inline-diagnostic"]') ||
+    target.querySelector(".mermaid, .plantuml, .graphviz")
+  ) {
+    return "diagram";
+  }
+  if (target.classList.contains("added")) {
+    return "added";
+  }
+  if (target.classList.contains("removed")) {
+    return "removed";
+  }
+  return "changed";
 }
 
 function DiffStreamSection({

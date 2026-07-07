@@ -18,6 +18,7 @@ import {
   getDocumentsPanelCommands,
   subscribeDocumentsPanelCommandBridge,
 } from "../lib/documentsPanelCommandBridge";
+import type { DocumentDiffStreamCommandBridge } from "../lib/documentDiffStreamCommands";
 import { fileName, isEditableTarget } from "../lib/path";
 import type {
   MouseGestureAutomation,
@@ -42,6 +43,21 @@ interface SvardCommands {
   getLastMouseNavigation(): MouseNavigationAutomation | null;
 }
 
+function isDocumentDiffStreamCommand(commandId: CommandId) {
+  return (
+    commandId === "tab.close" ||
+    commandId === "preferences.close" ||
+    commandId === "viewer.contentCursor.next" ||
+    commandId === "viewer.contentCursor.previous" ||
+    commandId === "viewer.scrollDown" ||
+    commandId === "viewer.scrollUp" ||
+    commandId === "viewer.pageDown" ||
+    commandId === "viewer.pageUp" ||
+    commandId === "viewer.top" ||
+    commandId === "viewer.bottom"
+  );
+}
+
 export interface UseCommandDispatcherOptions {
   config: AppConfig | null;
   documentPayload: DocumentPayload | null;
@@ -57,6 +73,8 @@ export interface UseCommandDispatcherOptions {
   zenModeActive: boolean;
   canSwitchToRecentTab: boolean;
   canSelectAntoraContext?: boolean;
+  documentDiffStreamActive?: boolean;
+  diffStreamCommandRef?: RefObject<DocumentDiffStreamCommandBridge | null>;
   zenModeEscapeBlocked: boolean;
   onActivateRelativeTab: (delta: number) => void;
   onActivateTabByIndex: (index: number) => void;
@@ -128,6 +146,8 @@ export function useCommandDispatcher({
   zenModeActive,
   canSwitchToRecentTab,
   canSelectAntoraContext = false,
+  documentDiffStreamActive = false,
+  diffStreamCommandRef,
   zenModeEscapeBlocked,
   onActivateRelativeTab,
   onActivateTabByIndex,
@@ -207,6 +227,12 @@ export function useCommandDispatcher({
   }
 
   function isCommandEnabled(commandId: CommandId): boolean {
+    if (
+      documentDiffStreamActive &&
+      isDocumentDiffStreamCommand(commandId)
+    ) {
+      return true;
+    }
     if (commandId === "tab.restoreClosed") {
       return lastClosedTabs.length > 0;
     }
@@ -321,6 +347,14 @@ export function useCommandDispatcher({
     }
 
     setLastCommand(commandId);
+
+    if (
+      documentDiffStreamActive &&
+      isDocumentDiffStreamCommand(commandId) &&
+      diffStreamCommandRef?.current?.dispatch(commandId)
+    ) {
+      return { status: "handled", commandId };
+    }
 
     switch (commandId) {
       case "file.open":

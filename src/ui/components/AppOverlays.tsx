@@ -17,6 +17,7 @@ import type {
 import type { HostAdapter } from "../../core/types";
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
+import type { DocumentDiffStreamCommandBridge } from "../lib/documentDiffStreamCommands";
 import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
 import type {
   ContextMenuState,
@@ -85,6 +86,7 @@ interface AppOverlaysProps {
   diagramPreview: DiagramPreviewState | null;
   diffContentCursorClearRef: RefObject<(() => void) | null>;
   diffContentCursorCommandRef: RefObject<ContentCursorCommandHandler | null>;
+  diffStreamCommandRef: RefObject<DocumentDiffStreamCommandBridge | null>;
   resolveDiffLocalImage: (
     source: string,
     documentPath: string,
@@ -161,6 +163,7 @@ export function AppOverlays({
   diagramPreview,
   diffContentCursorClearRef,
   diffContentCursorCommandRef,
+  diffStreamCommandRef,
   resolveDiffLocalImage,
   loadDiffDocumentContext,
   renderDiffDiagram,
@@ -315,6 +318,9 @@ export function AppOverlays({
           confirmedRemoteDiagramKeys={confirmedRemoteDiagramKeys}
           krokiFallbackDiagramKeys={krokiFallbackDiagramKeys}
           documentReviewSession={documentReviewSession}
+          setLastMouseGesture={onSetLastMouseGesture}
+          contentCursorCommandRef={diffContentCursorCommandRef}
+          streamCommandRef={diffStreamCommandRef}
           onRefresh={onRefreshDocumentDiffStream}
           onClose={onCloseDocumentDiffStreamPreview}
         />
