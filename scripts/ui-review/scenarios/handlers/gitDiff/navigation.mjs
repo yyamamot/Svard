@@ -156,6 +156,7 @@ export async function applyGitDiffNavigationScenario(context) {
     await page
       .locator('[data-review-id="git-diff-change-ruler"]')
       .getByRole("button", { name: "Go to change 1", exact: true })
+      .first()
       .click();
     await page.waitForFunction(() => {
       try {
@@ -214,6 +215,7 @@ export async function applyGitDiffNavigationScenario(context) {
     await page
       .locator('[data-review-id="git-diff-change-ruler"]')
       .getByRole("button", { name: "Go to change 2", exact: true })
+      .first()
       .click();
     await page.waitForFunction(() => {
       try {

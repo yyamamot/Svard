@@ -317,6 +317,8 @@
   padding: 0;
   background: color-mix(in srgb, #d9970e 70%, var(--reader-border));
   cursor: pointer;
+  opacity: 0.38;
+  transition: opacity 120ms ease;
 }
 
 .git-diff-change-ruler-marker.added {
@@ -339,12 +341,18 @@
   right: 0;
   left: 1px;
   min-height: 6px;
+  opacity: 1;
   z-index: 1;
+}
+
+.git-diff-change-ruler-marker:hover {
+  opacity: 0.75;
 }
 
 .git-diff-change-ruler-marker:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  opacity: 1;
 }
 
 .git-diff-overview {

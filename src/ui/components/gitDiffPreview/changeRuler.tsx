@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState, type RefObject } from "react";
 import type { RenderedDiffNavigationTarget } from "../../lib/gitRenderedDiff";
+import {
+  resolveChangeTargetInPane,
+  resolveRenderedChangeAnchor,
+} from "./renderedChangeAnchor";
 import type { DiffView } from "./types";
 
 export type DiffChangeRulerMarkerKind =
@@ -14,6 +18,8 @@ export interface DiffChangeRulerMarker {
   kind: DiffChangeRulerMarkerKind;
   topPercent: number;
 }
+
+export type DiffChangeRulerRenderedSide = "left" | "right";
 
 export function clampRulerPercent(value: number) {
   if (!Number.isFinite(value)) {
@@ -50,13 +56,6 @@ export function changeRulerTargetAnchorTop({
     container.scrollTop +
     targetRect.height / 2
   );
-}
-
-export function resolveChangeTargetInPane(
-  pane: HTMLElement | null | undefined,
-  index: number,
-) {
-  return pane?.querySelector<HTMLElement>(`[data-change-index="${index}"]`);
 }
 
 function changeRulerEnabled(view: DiffView) {
@@ -110,20 +109,43 @@ function measureMarker(
   return null;
 }
 
-function renderedPanesForTarget({
+export function renderedPanesForChangeRulerTarget({
   left,
   right,
+  renderedSide,
   target,
 }: {
   left: HTMLDivElement | null;
   right: HTMLDivElement | null;
+  renderedSide?: DiffChangeRulerRenderedSide;
   target: RenderedDiffNavigationTarget | undefined;
 }): HTMLDivElement[] {
-  const primary = target?.primarySide === "left" ? left : right;
-  const secondary = target?.primarySide === "left" ? right : left;
-  return [primary, secondary].filter((pane): pane is HTMLDivElement =>
-    Boolean(pane),
-  );
+  void target;
+  if (renderedSide) {
+    const pane = renderedSide === "left" ? left : right;
+    return pane ? [pane] : [];
+  }
+  return [right, left].filter((pane): pane is HTMLDivElement => Boolean(pane));
+}
+
+export function isRulerMarkerActive({
+  activeChangeIndex,
+  markerIndex,
+  renderedSide,
+  target,
+}: {
+  activeChangeIndex: number;
+  markerIndex: number;
+  renderedSide?: DiffChangeRulerRenderedSide;
+  target: RenderedDiffNavigationTarget | undefined;
+}) {
+  if (markerIndex !== activeChangeIndex) {
+    return false;
+  }
+  if (!renderedSide) {
+    return true;
+  }
+  return target?.side === "both" || target?.side === renderedSide;
 }
 
 function measureRenderedMarker(
@@ -131,8 +153,26 @@ function measureRenderedMarker(
   target: RenderedDiffNavigationTarget | undefined,
   left: HTMLDivElement | null,
   right: HTMLDivElement | null,
+  renderedSide?: DiffChangeRulerRenderedSide,
 ): DiffChangeRulerMarker | null {
-  return measureMarker(index, renderedPanesForTarget({ left, right, target }));
+  const anchor = resolveRenderedChangeAnchor({
+    changeIndex: index,
+    leftPane: left,
+    navigationTarget: target,
+    renderedSide,
+    rightPane: right,
+  });
+  if (!anchor) {
+    return null;
+  }
+  return {
+    index,
+    kind: markerKind(anchor.semanticTarget),
+    topPercent: changeRulerMarkerTopPercent({
+      scrollHeight: anchor.markerScrollHeight,
+      targetTop: anchor.anchorTop,
+    }),
+  };
 }
 
 export function DiffChangeRuler({
@@ -143,6 +183,7 @@ export function DiffChangeRuler({
   renderedLeftRef,
   renderedNavigationTargets,
   renderedRightRef,
+  renderedSide,
   rightRef,
   view,
 }: {
@@ -153,6 +194,7 @@ export function DiffChangeRuler({
   renderedLeftRef: RefObject<HTMLDivElement | null>;
   renderedNavigationTargets: readonly RenderedDiffNavigationTarget[];
   renderedRightRef: RefObject<HTMLDivElement | null>;
+  renderedSide?: DiffChangeRulerRenderedSide;
   rightRef: RefObject<HTMLDivElement | null>;
   view: DiffView;
 }) {
@@ -161,8 +203,12 @@ export function DiffChangeRuler({
     () =>
       view === "source"
         ? ([rightRef, leftRef] as const)
+        : renderedSide === "left"
+          ? ([renderedLeftRef] as const)
+          : renderedSide === "right"
+            ? ([renderedRightRef] as const)
         : ([renderedRightRef, renderedLeftRef] as const),
-    [leftRef, renderedLeftRef, renderedRightRef, rightRef, view],
+    [leftRef, renderedLeftRef, renderedRightRef, renderedSide, rightRef, view],
   );
 
   useEffect(() => {
@@ -189,6 +235,7 @@ export function DiffChangeRuler({
               renderedNavigationTargets[index],
               renderedLeft,
               renderedRight,
+              renderedSide,
             ),
       ).filter((marker): marker is DiffChangeRulerMarker => Boolean(marker));
       setMarkers(nextMarkers);
@@ -227,6 +274,7 @@ export function DiffChangeRuler({
     renderedLeftRef,
     renderedNavigationTargets,
     renderedRightRef,
+    renderedSide,
     view,
   ]);
 
@@ -236,20 +284,35 @@ export function DiffChangeRuler({
 
   return (
     <div
-      className="git-diff-change-ruler"
+      className={`git-diff-change-ruler${
+        renderedSide ? ` rendered-side ${renderedSide}` : ""
+      }`}
       data-review-id="git-diff-change-ruler"
-      aria-label="Diff change ruler"
+      data-ruler-side={renderedSide ?? "single"}
+      aria-label={
+        renderedSide
+          ? `${renderedSide === "left" ? "Left" : "Right"} diff change ruler`
+          : "Diff change ruler"
+      }
     >
       {markers.map((marker) => (
         <button
           key={`change-ruler-marker:${marker.index}`}
           type="button"
           className={`git-diff-change-ruler-marker ${marker.kind} ${
-            marker.index === activeChangeIndex ? "active" : ""
+            isRulerMarkerActive({
+              activeChangeIndex,
+              markerIndex: marker.index,
+              renderedSide,
+              target: renderedNavigationTargets[marker.index],
+            })
+              ? "active"
+              : ""
           }`}
           style={{ top: `${marker.topPercent}%` }}
           data-review-id="git-diff-change-ruler-marker"
           data-change-index={marker.index}
+          data-ruler-side={renderedSide ?? "single"}
           aria-label={`Go to change ${marker.index + 1}`}
           onClick={() => onSelectChange(marker.index)}
         />

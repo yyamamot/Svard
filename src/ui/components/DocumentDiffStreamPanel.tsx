@@ -57,9 +57,9 @@ import { createDiffPreviewContextMenuHandler } from "./gitDiffPreview/contextMen
 import {
   changeRulerMarkerTopPercent,
   changeRulerTargetAnchorTop,
-  resolveChangeTargetInPane,
   type DiffChangeRulerMarkerKind,
 } from "./gitDiffPreview/changeRuler";
+import { resolveChangeTargetInPane } from "./gitDiffPreview/renderedChangeAnchor";
 import { shouldIgnoreDiffMouseGestureTarget } from "./gitDiffPreview/diffPreviewInteractionEvents";
 import { dispatchDiffPreviewMouseGestureCommand } from "./gitDiffPreview/mouseGestures";
 import type {

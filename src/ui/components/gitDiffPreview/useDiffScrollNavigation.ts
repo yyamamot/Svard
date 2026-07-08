@@ -6,7 +6,10 @@ import {
 } from "react";
 import { resolveAnchoredScrollTop } from "../../lib/diffScrollSync";
 import type { RenderedDiffNavigationTarget } from "../../lib/gitRenderedDiff";
-import { resolveChangeTargetInPane } from "./changeRuler";
+import {
+  resolveChangeTargetInPane,
+  resolveRenderedChangeAnchor,
+} from "./renderedChangeAnchor";
 import type { DiffView } from "./types";
 
 export function useDiffScrollNavigation({
@@ -247,6 +250,22 @@ export function useDiffScrollNavigation({
     if (changeCount === 0) {
       return;
     }
+    if (view === "preview" || view === "rendered") {
+      const visualOrder = renderedVisualChangeOrder({
+        changeCount,
+        leftPane: renderedLeftRef.current,
+        navigationTargets: renderedNavigationTargets,
+        rightPane: renderedRightRef.current,
+      });
+      const currentVisualIndex = visualOrder.indexOf(activeChangeIndex);
+      if (currentVisualIndex >= 0) {
+        const nextVisualIndex =
+          (currentVisualIndex + offset + visualOrder.length) %
+          visualOrder.length;
+        selectChange(visualOrder[nextVisualIndex] ?? activeChangeIndex);
+        return;
+      }
+    }
     selectChange((activeChangeIndex + offset + changeCount) % changeCount);
   }
 
@@ -263,6 +282,38 @@ export function useDiffScrollNavigation({
     syncDirectScroll,
     syncRenderedScroll,
   };
+}
+
+export function renderedVisualChangeOrder({
+  changeCount,
+  leftPane,
+  navigationTargets,
+  rightPane,
+}: {
+  changeCount: number;
+  leftPane: HTMLDivElement | null;
+  navigationTargets: readonly RenderedDiffNavigationTarget[];
+  rightPane: HTMLDivElement | null;
+}) {
+  const scored = Array.from({ length: changeCount }, (_, index) => {
+    const anchor = resolveRenderedChangeAnchor({
+      changeIndex: index,
+      leftPane,
+      navigationTarget: navigationTargets[index],
+      rightPane,
+    });
+    const center = anchor?.anchorTop ?? Number.POSITIVE_INFINITY;
+    return { center, index };
+  });
+
+  return scored
+    .sort((left, right) => {
+      if (left.center !== right.center) {
+        return left.center - right.center;
+      }
+      return left.index - right.index;
+    })
+    .map((item) => item.index);
 }
 
 export function renderedTargetHorizontalScrollLeft(

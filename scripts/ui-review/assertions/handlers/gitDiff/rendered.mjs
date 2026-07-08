@@ -1,3 +1,20 @@
+async function hasConsistentActiveRulerMarker(page) {
+  return page.evaluate(() => {
+    const markers = Array.from(
+      document.querySelectorAll(
+        '[data-review-id="git-diff-change-ruler-marker"].active',
+      ),
+    );
+    if (markers.length === 0) {
+      return false;
+    }
+    const indexes = new Set(
+      markers.map((marker) => marker.getAttribute("data-change-index")),
+    );
+    return indexes.size === 1;
+  });
+}
+
 export async function buildGitDiffRenderedAssertions(context, samples) {
   const scenario = context.scenario;
   const page = context.page;
@@ -186,18 +203,16 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
         ? (await page
             .locator('[data-review-id="git-diff-change-ruler-marker"]')
             .count()) > 0 &&
+          (await hasConsistentActiveRulerMarker(page)) &&
           (await page
-            .locator('[data-review-id="git-diff-change-ruler-marker"].active')
-            .count()) === 1 &&
-          (await page
-            .locator('[data-review-id="git-diff-change-ruler"]')
+            .locator(
+              '[data-review-id="git-diff-change-ruler"][data-ruler-side="single"]',
+            )
             .count()) === 1 &&
           (await page
             .locator('[data-review-id="git-diff-change-ruler-marker"]')
             .count()) > 0 &&
-          (await page
-            .locator('[data-review-id="git-diff-change-ruler-marker"].active')
-            .count()) === 1
+          (await hasConsistentActiveRulerMarker(page))
         : true,
     hasRenderedVisualDiffSectionOutline:
       scenario === "viewer-rendered-visual-diff-section-outline"

@@ -6,6 +6,7 @@
 - Added an All diffs stream for reviewing Markdown and AsciiDoc Source Control changes together.
 - Added review watch refresh for changed document streams and active Diff Preview stale states.
 - Improved Change Ruler alignment with active Diff Preview and All diffs change targets.
+- Improved Diff Preview Change Ruler positioning by projecting rendered markers onto the right pane.
 - Fixed Markdown table rendering for compact GFM separators and wide technical tables.
 - Improved MkDocs, Zensical, and Antora document order views with Git change counts, and fixed root-based Zensical navigation.
 

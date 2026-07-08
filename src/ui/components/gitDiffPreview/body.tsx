@@ -95,6 +95,20 @@ export function DiffPreviewBody({
 }: DiffPreviewBodyProps) {
   const activeTable = tableSummary.renderedTables[activeTableIndex];
   const tableChangeIndexes = tableCellIndexes(activeTable);
+  const renderRenderedChangeRuler = () =>
+    showChangeRuler ? (
+      <DiffChangeRuler
+        activeChangeIndex={activeChangeIndex}
+        changeCount={changeCount}
+        leftRef={leftRef}
+        onSelectChange={selectChange}
+        renderedLeftRef={renderedLeftRef}
+        renderedNavigationTargets={renderedPresentation.navigationTargets}
+        renderedRightRef={renderedRightRef}
+        rightRef={rightRef}
+        view={view}
+      />
+    ) : null;
 
   if (hasDiff && view === "overview") {
     return (
@@ -258,19 +272,7 @@ export function DiffPreviewBody({
             }
           />
         </div>
-        {showChangeRuler && (
-          <DiffChangeRuler
-            activeChangeIndex={activeChangeIndex}
-            changeCount={changeCount}
-            leftRef={leftRef}
-            onSelectChange={selectChange}
-            renderedLeftRef={renderedLeftRef}
-            renderedNavigationTargets={renderedPresentation.navigationTargets}
-            renderedRightRef={renderedRightRef}
-            rightRef={rightRef}
-            view={view}
-          />
-        )}
+        {renderRenderedChangeRuler()}
       </div>
     );
   }
@@ -377,19 +379,7 @@ export function DiffPreviewBody({
             }
           />
         </div>
-        {showChangeRuler && (
-          <DiffChangeRuler
-            activeChangeIndex={activeChangeIndex}
-            changeCount={changeCount}
-            leftRef={leftRef}
-            onSelectChange={selectChange}
-            renderedLeftRef={renderedLeftRef}
-            renderedNavigationTargets={renderedPresentation.navigationTargets}
-            renderedRightRef={renderedRightRef}
-            rightRef={rightRef}
-            view={view}
-          />
-        )}
+        {renderRenderedChangeRuler()}
       </div>
     );
   }

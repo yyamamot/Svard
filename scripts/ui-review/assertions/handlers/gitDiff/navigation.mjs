@@ -1,3 +1,20 @@
+async function hasConsistentActiveRulerMarker(page) {
+  return page.evaluate(() => {
+    const markers = Array.from(
+      document.querySelectorAll(
+        '[data-review-id="git-diff-change-ruler-marker"].active',
+      ),
+    );
+    if (markers.length === 0) {
+      return false;
+    }
+    const indexes = new Set(
+      markers.map((marker) => marker.getAttribute("data-change-index")),
+    );
+    return indexes.size === 1;
+  });
+}
+
 export async function buildGitDiffNavigationAssertions(context) {
   const scenario = context.scenario;
   const page = context.page;
@@ -27,9 +44,7 @@ export async function buildGitDiffNavigationAssertions(context) {
         ? (await page
             .locator('[data-review-id="git-diff-full-preview-view"]')
             .getAttribute("aria-pressed")) === "true" &&
-          (await page
-            .locator('[data-review-id="git-diff-change-ruler-marker"].active')
-            .count()) === 1 &&
+          (await hasConsistentActiveRulerMarker(page)) &&
           (await page
             .locator('[data-review-id="git-full-preview-diff"]')
             .count()) === 1
@@ -71,8 +86,11 @@ export async function buildGitDiffNavigationAssertions(context) {
     hasDiffChangeNavigation:
       scenario === "viewer-diff-change-navigation"
         ? bodyText.includes("changes") &&
+          (await hasConsistentActiveRulerMarker(page)) &&
           (await page
-            .locator('[data-review-id="git-diff-change-ruler-marker"].active')
+            .locator(
+              '[data-review-id="git-diff-change-ruler"][data-ruler-side="single"]',
+            )
             .count()) === 1 &&
           (await page
             .locator('[data-review-id="git-full-preview-block"].change-target')
