@@ -24,15 +24,13 @@ import { useContextMenuState } from "./hooks/useContextMenuState";
 import { useMouseGestures } from "./hooks/useMouseGestures";
 import { useMarkdownWorkerWarmupProbe } from "./hooks/useMarkdownWorkerWarmupProbe";
 import { useNativeAppMenu } from "./hooks/useNativeAppMenu";
-import {
-  type ActivateTabForHistory,
-  useNavigationHistory,
-} from "./hooks/useNavigationHistory";
+import { type ActivateTabForHistory, useNavigationHistory } from "./hooks/useNavigationHistory";
 import { useOpenFileReloadStates } from "./hooks/useOpenFileReloadStates";
 import { useOpenFileActions } from "./hooks/useOpenFileActions";
 import { useQuickOpenCandidates } from "./hooks/useQuickOpenCandidates";
 import { useQuickOpenActions } from "./hooks/useQuickOpenActions";
 import { useQuickOpenShellState } from "./hooks/useQuickOpenShellState";
+import { useDiffOverlayCommandRefs } from "./hooks/useDiffOverlayCommandRefs";
 import { useRecentWorkspaceActions } from "./hooks/useRecentWorkspaceActions";
 import { useSearchQueryForPath } from "./hooks/useSearchQueryForPath";
 import { useSearchState } from "./hooks/useSearchState";
@@ -52,8 +50,6 @@ import { useWorkspaceTabLayoutState } from "./hooks/useWorkspaceTabLayoutState";
 import { useWorkspaceTabActions } from "./hooks/useWorkspaceTabActions";
 import { useZenModeActions } from "./hooks/useZenModeActions";
 import { MAIN_WINDOW_SESSION_ID } from "./lib/config";
-import type { ContentCursorCommandHandler } from "./lib/contentCursor";
-import type { DocumentDiffStreamCommandBridge } from "./lib/documentDiffStreamCommands";
 import { saveAppConfig } from "./lib/saveAppConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
@@ -67,13 +63,7 @@ import type {
   SmartScrollAnchor,
 } from "./types";
 import { createHostAdapter } from "../adapters/createHostAdapter";
-import type {
-  AppConfig,
-  DocumentDiffPreview,
-  DocumentPayload,
-  RenderResult,
-  WorkspaceEnvironment,
-} from "../core/types";
+import type { AppConfig, DocumentDiffPreview, DocumentPayload, RenderResult, WorkspaceEnvironment } from "../core/types";
 const host = createHostAdapter();
 export function App() {
   const viewerRef = useRef<HTMLElement | null>(null);
@@ -83,22 +73,11 @@ export function App() {
   const openFilesFilterInputRef = useRef<HTMLInputElement | null>(null);
   const quickOpenInputRef = useRef<HTMLInputElement | null>(null);
   const closeTabRef = useRef<((path: string) => void) | null>(null);
-  const diffContentCursorCommandRef =
-    useRef<ContentCursorCommandHandler | null>(null);
-  const diffContentCursorClearRef = useRef<(() => void) | null>(null);
-  const diffStreamCommandRef =
-    useRef<DocumentDiffStreamCommandBridge | null>(null);
-  const [documentPayload, setDocumentPayload] =
-    useState<DocumentPayload | null>(null);
-  const [navigationBackStack, setNavigationBackStack] = useState<
-    NavigationLocation[]
-  >([]);
-  const [navigationForwardStack, setNavigationForwardStack] = useState<
-    NavigationLocation[]
-  >([]);
-  const [recentlyVisitedLocations, setRecentlyVisitedLocations] = useState<
-    RecentlyVisitedLocation[]
-  >([]);
+  const diffOverlayCommandRefs = useDiffOverlayCommandRefs();
+  const [documentPayload, setDocumentPayload] = useState<DocumentPayload | null>(null);
+  const [navigationBackStack, setNavigationBackStack] = useState<NavigationLocation[]>([]);
+  const [navigationForwardStack, setNavigationForwardStack] = useState<NavigationLocation[]>([]);
+  const [recentlyVisitedLocations, setRecentlyVisitedLocations] = useState<RecentlyVisitedLocation[]>([]);
   const [renderResult, setRenderResult] = useState<RenderResult | null>(null);
   const [documentRenderRevision, setDocumentRenderRevision] = useState(0);
   const [documentHtml, setDocumentHtml] = useState(emptySafeHtml);
@@ -641,8 +620,10 @@ export function App() {
     viewerRef,
     documentDiffPreview,
     documentDiffStreamPreview,
-    diffContentCursorCommandRef,
-    diffContentCursorClearRef,
+    diffContentCursorCommandRef:
+      diffOverlayCommandRefs.diffContentCursorCommandRef,
+    diffContentCursorClearRef:
+      diffOverlayCommandRefs.diffContentCursorClearRef,
   });
   const {
     activeTitle,
@@ -758,7 +739,7 @@ export function App() {
       void sourceControl.setSidebarTab("files");
       antoraContextSelection.openSelector();
     },
-    diffStreamCommandRef,
+    diffStreamCommandRef: diffOverlayCommandRefs.diffStreamCommandRef,
     documentDiffStreamActive: Boolean(documentDiffStreamPreview),
     onActivateDocumentWorkspaceTab:
       workspaceTabActions.activateDocumentWorkspaceTab,
@@ -1147,9 +1128,7 @@ export function App() {
         confirmExternalLink,
         copyText: documentLinks.copyText,
         diagramPreview,
-        diffContentCursorClearRef,
-        diffContentCursorCommandRef,
-        diffStreamCommandRef,
+        ...diffOverlayCommandRefs,
         documentDiffPreview,
         documentDiffStreamPreview,
         diffPreviewWatchState: activeDiffPreviewWatchPath
