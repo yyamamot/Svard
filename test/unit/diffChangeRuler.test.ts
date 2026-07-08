@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -56,5 +58,28 @@ describe("diff change ruler helpers", () => {
       }) as DOMRect;
 
     expect(changeRulerTargetAnchorTop({ container, target })).toBe(400);
+  });
+
+  it("keeps ruler marker colors semantic while active only changes weight", () => {
+    const css = readFileSync(
+      join(process.cwd(), "src/ui/styles/diff-preview/shell.css"),
+      "utf8",
+    );
+    const markerRule =
+      /\.git-diff-change-ruler-marker\s*\{(?<body>[^}]+)\}/.exec(css)?.groups
+        ?.body ?? "";
+    const activeRule =
+      /\.git-diff-change-ruler-marker\.active\s*\{(?<body>[^}]+)\}/.exec(css)
+        ?.groups?.body ?? "";
+
+    expect(markerRule).toContain("min-height: 4px");
+    expect(markerRule).toContain("left: 3px");
+    expect(markerRule).toContain("right: 1px");
+    expect(markerRule).toContain("border-radius: 2px");
+    expect(activeRule).toContain("min-height: 6px");
+    expect(activeRule).toContain("left: 1px");
+    expect(activeRule).toContain("right: 0");
+    expect(activeRule).toContain("z-index: 1");
+    expect(activeRule).not.toContain("background:");
   });
 });

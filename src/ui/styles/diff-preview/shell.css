@@ -308,12 +308,12 @@
 
 .git-diff-change-ruler-marker {
   position: absolute;
-  right: 2px;
-  left: 2px;
+  right: 1px;
+  left: 3px;
   transform: translateY(-50%);
   border: 0;
-  border-radius: 999px;
-  min-height: 16px;
+  border-radius: 2px;
+  min-height: 4px;
   padding: 0;
   background: color-mix(in srgb, #d9970e 70%, var(--reader-border));
   cursor: pointer;
@@ -336,10 +336,10 @@
 }
 
 .git-diff-change-ruler-marker.active {
-  right: 3px;
-  left: 3px;
-  min-height: 18px;
-  background: #2f806f;
+  right: 0;
+  left: 1px;
+  min-height: 6px;
+  z-index: 1;
 }
 
 .git-diff-change-ruler-marker:focus-visible {
