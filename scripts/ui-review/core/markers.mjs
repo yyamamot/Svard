@@ -97,6 +97,7 @@ export function markerCompletenessForScenario(scenario, geometry) {
   if (
     scenario.includes("search") ||
     scenario === "viewer-copy-actions" ||
+    scenario === "viewer-copy-location-reference" ||
     scenario === "viewer-code-block-actions" ||
     scenario === "viewer-asciidoc-code-highlight" ||
     scenario === "viewer-section-collapse-search-auto-expand"

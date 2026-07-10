@@ -55,6 +55,15 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             );
           })
         : true,
+    hasDiffLocationReference:
+      scenario === "viewer-diff-context-menu-location-reference"
+        ? await page.evaluate(() =>
+            Boolean(
+              window.__SVARD_DIFF_LOCATION_REFERENCE_CHECK__
+                ?.concreteSideCopied,
+            ),
+          )
+        : true,
     hasGitDiffRenderedAsciiDoc:
       scenario === "viewer-git-diff-rendered-asciidoc"
         ? bodyText.includes("Git Rendered AsciiDoc Diff Fixture") &&

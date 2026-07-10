@@ -27,6 +27,7 @@ export function addSelectionItems(
   selection: string,
   table: HTMLTableElement | null,
   copyText: CopyText,
+  locationReference?: string,
 ) {
   items.push({
     id: "copy-selection",
@@ -34,9 +35,25 @@ export function addSelectionItems(
     icon: menuIcon(Copy),
     onSelect: () => copyText("Selection", selection),
   });
+  if (locationReference) {
+    addLocationReferenceItem(items, locationReference, copyText);
+  }
   if (table) {
     addTableItems(items, table, copyText);
   }
+}
+
+export function addLocationReferenceItem(
+  items: ContextMenuItem[],
+  locationReference: string,
+  copyText: CopyText,
+) {
+  items.push({
+    id: "copy-location-reference",
+    label: "Copy Location Reference",
+    icon: menuIcon(Copy),
+    onSelect: () => copyText("Location reference", locationReference),
+  });
 }
 
 export function addDiagramItems(

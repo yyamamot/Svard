@@ -439,7 +439,7 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
     "const product",
   );
 
-  await page.getByTestId("source-copy-button").click();
+  await page.getByTestId("source-copy-button").dispatchEvent("click");
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
     "Source block copied",
   );
@@ -448,7 +448,7 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
     'const product = "Svard";',
   );
 
-  await page.getByTestId("source-reference-copy-button").click();
+  await page.getByTestId("source-reference-copy-button").dispatchEvent("click");
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
     "Source reference copied",
   );
@@ -486,6 +486,35 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
     'const product = "Svard";',
   );
 
+  await sourceBlock.selectText();
+  const locationSelectionPoint = await page.evaluate(() => {
+    const selection = window.getSelection();
+    const rect = selection?.rangeCount
+      ? selection.getRangeAt(0).getClientRects()[0]
+      : null;
+    return rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : null;
+  });
+  expect(locationSelectionPoint).not.toBeNull();
+  await page.mouse.click(locationSelectionPoint!.x, locationSelectionPoint!.y, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Copy Location Reference" }).click();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Location reference copied",
+  );
+  const locationReference = await page.evaluate(() =>
+    navigator.clipboard.readText(),
+  );
+  expect(locationReference).toContain(
+    "File: /workspace/docs/copy-actions.adoc:5",
+  );
+  expect(locationReference).toContain("Section: Code");
+  expect(locationReference).toContain(
+    'Selected text:\nconst product = "Svard";',
+  );
+
   await page.evaluate(() => window.getSelection()?.removeAllRanges());
   await page
     .getByTestId("document-body")
@@ -511,6 +540,16 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     "/workspace/docs/copy-actions.adoc:1#_code",
   );
+
+  await codeTocItem.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy Location Reference" }).click();
+  const headingLocationReference = await page.evaluate(() =>
+    navigator.clipboard.readText(),
+  );
+  expect(headingLocationReference).toContain(
+    "File: /workspace/docs/copy-actions.adoc:1",
+  );
+  expect(headingLocationReference).toContain("Section: Code");
 
   await page.getByRole("link", { name: "External link" }).click();
   await expect(

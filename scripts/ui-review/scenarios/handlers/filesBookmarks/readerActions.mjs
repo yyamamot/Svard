@@ -79,6 +79,42 @@ export async function applyReaderActionsScenario(context) {
       .locator('[data-review-id="lightweight-action-feedback"]')
       .filter({ hasText: "Heading link copied" })
       .waitFor();
+  } else if (scenario === "viewer-copy-location-reference") {
+    await page.locator("text=copy-actions.adoc").click();
+    await page.locator("text=Copy Actions").waitFor();
+    const sourceBlock = page.locator(".source-block-frame pre");
+    await sourceBlock.scrollIntoViewIfNeeded();
+    await sourceBlock.selectText();
+    const selectionPoint = await page.evaluate(() => {
+      const selection = window.getSelection();
+      const rect = selection?.rangeCount
+        ? selection.getRangeAt(0).getClientRects()[0]
+        : null;
+      return rect
+        ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        : null;
+    });
+    if (!selectionPoint) {
+      throw new Error("Location reference selection was not visible");
+    }
+    await page.mouse.click(selectionPoint.x, selectionPoint.y, {
+      button: "right",
+    });
+    await page
+      .locator('[data-review-id="context-menu-item-copy-location-reference"]')
+      .waitFor();
+    await page
+      .locator('[data-review-id="context-menu-item-copy-location-reference"]')
+      .click();
+    await page
+      .locator('[data-review-id="lightweight-action-feedback"]')
+      .filter({ hasText: "Location reference copied" })
+      .waitFor();
+    await page.evaluate(() => {
+      window.__SVARD_LOCATION_REFERENCE_CHECK__ = {
+        selectionReferenceCopied: true,
+      };
+    });
   } else if (scenario === "viewer-code-block-actions") {
     await page.locator("text=copy-actions.adoc").click();
     await page.locator("text=Copy Actions").waitFor();

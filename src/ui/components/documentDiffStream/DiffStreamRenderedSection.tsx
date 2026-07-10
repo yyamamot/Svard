@@ -82,6 +82,7 @@ export const DiffStreamRenderedSection = memo(function DiffStreamRenderedSection
   const handleDiffContextMenu = useMemo(
     () =>
       createDiffPreviewContextMenuHandler({
+        allowLocationReference: false,
         preview,
         copyText,
         openContextMenu,

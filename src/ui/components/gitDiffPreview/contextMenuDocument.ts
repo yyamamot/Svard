@@ -34,11 +34,28 @@ export function diffPreviewDocumentPath(
 }
 
 export function diffPreviewDocumentPayload(path: string): DocumentPayload {
+  return diffPreviewDocumentPayloadWithWorkspace(path);
+}
+
+export function diffPreviewDocumentPayloadWithWorkspace(
+  path: string,
+  workspaceRoot?: string | null,
+): DocumentPayload {
+  const basePath = path.replace(/[\\/][^\\/]*$/u, "") || path;
   return {
     path,
-    basePath: path.replace(/[\\/][^\\/]*$/u, "") || path,
+    basePath,
     format: documentFormatForPath(path),
     source: "",
     updatedAt: "",
+    ...(workspaceRoot
+      ? {
+          resourceContext: {
+            workspaceRoot,
+            documentDir: basePath,
+            resourceRoots: [workspaceRoot],
+          },
+        }
+      : {}),
   };
 }

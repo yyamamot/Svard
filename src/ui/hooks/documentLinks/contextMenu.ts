@@ -1,5 +1,11 @@
 import type { MouseEvent, RefObject } from "react";
 import type { ContextMenuItem } from "../../types";
+import {
+  isLocationReferenceTarget,
+  locationReferenceForElement,
+  locationReferenceForSelection,
+  locationReferenceTargetLabel,
+} from "../../lib/locationReference";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
 import { documentSelectionAtPoint } from "./shared";
 import {
@@ -8,6 +14,7 @@ import {
   addHeadingItems,
   addImageItems,
   addLinkItems,
+  addLocationReferenceItem,
   addSelectionItems,
   addSourceItems,
 } from "./contextMenuItems";
@@ -79,7 +86,20 @@ export function createArticleContextMenuHandler({
     });
 
     if (selection) {
-      addSelectionItems(items, selection, table, copyText);
+      addSelectionItems(
+        items,
+        selection,
+        table,
+        copyText,
+        documentPayload
+          ? locationReferenceForSelection({
+              article: articleRef.current,
+              document: documentPayload,
+              renderResult,
+              selection,
+            })
+          : undefined,
+      );
     } else {
       addDiagramItems(items, target, {
         copyText,
@@ -104,6 +124,18 @@ export function createArticleContextMenuHandler({
         renderResult,
         includeSectionCopy: true,
       });
+      if (documentPayload && isLocationReferenceTarget(target)) {
+        const locationReference = locationReferenceForElement({
+          article: articleRef.current,
+          document: documentPayload,
+          element: target,
+          renderResult,
+          targetLabel: locationReferenceTargetLabel(target),
+        });
+        if (locationReference) {
+          addLocationReferenceItem(items, locationReference, copyText);
+        }
+      }
       addDocumentItems(items, documentPayload, {
         copyText,
         onCompareGitRef,

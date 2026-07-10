@@ -10,6 +10,7 @@ export type DiffSide = "left" | "right";
 export type DiffSurface = "rendered" | "source" | "table";
 
 export interface DiffPreviewContextMenuOptions {
+  allowLocationReference?: boolean;
   preview: DocumentDiffPreview;
   copyText: CopyText;
   openContextMenu: (

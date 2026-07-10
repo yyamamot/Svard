@@ -105,6 +105,62 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     await page.getByRole("button", { name: "Changes Only" }).click();
     await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
     return true;
+  } else if (scenario === "viewer-diff-context-menu-location-reference") {
+    await page.locator("text=git-rendered-markdown.md").click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Git Rendered Markdown Diff Fixture" })
+      .waitFor();
+    await page.evaluate(() =>
+      window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+    );
+    await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
+    await page.getByRole("button", { name: "Changes Only" }).click();
+    await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+    const selectionPoint = await page.evaluate(() => {
+      const paragraph = Array.from(
+        document.querySelectorAll(
+          '[data-review-id="git-rendered-right-pane"] p',
+        ),
+      ).find((node) =>
+        node.textContent?.includes("This rendered Markdown paragraph changed"),
+      );
+      if (!paragraph) {
+        return null;
+      }
+      const range = document.createRange();
+      range.selectNodeContents(paragraph);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      const rect = selection?.rangeCount
+        ? selection.getRangeAt(0).getClientRects()[0]
+        : null;
+      return rect
+        ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        : null;
+    });
+    if (!selectionPoint) {
+      throw new Error("Diff location reference selection was not visible");
+    }
+    await page.mouse.click(selectionPoint.x, selectionPoint.y, {
+      button: "right",
+    });
+    await page
+      .locator('[data-review-id="context-menu-item-copy-location-reference"]')
+      .waitFor();
+    await page
+      .locator('[data-review-id="context-menu-item-copy-location-reference"]')
+      .click();
+    await page
+      .locator('[data-review-id="lightweight-action-feedback"]')
+      .filter({ hasText: "Location reference copied" })
+      .waitFor();
+    await page.evaluate(() => {
+      window.__SVARD_DIFF_LOCATION_REFERENCE_CHECK__ = {
+        concreteSideCopied: true,
+      };
+    });
   } else if (
     scenario === "viewer-git-diff-rendered-markdown" ||
     scenario === "viewer-diff-context-menu-rendered"

@@ -112,7 +112,11 @@ describe("diff preview context menu", () => {
         </div>`,
         { selector: "pre" },
       ),
-    ).toEqual(["Copy Source", "Copy Source Reference"]);
+    ).toEqual([
+      "Copy Source",
+      "Copy Source Reference",
+      "Copy Location Reference",
+    ]);
   });
 
   it("uses source actions for extracted rendered diff pre blocks", () => {
@@ -121,7 +125,11 @@ describe("diff preview context menu", () => {
         `<pre data-source-reference="/workspace/docs/guide.md:5">const value = 1;</pre>`,
         { selector: "pre" },
       ),
-    ).toEqual(["Copy Source", "Copy Source Reference"]);
+    ).toEqual([
+      "Copy Source",
+      "Copy Source Reference",
+      "Copy Location Reference",
+    ]);
   });
 
   it("uses rendered table copy actions from the viewer menu", () => {
@@ -139,7 +147,11 @@ describe("diff preview context menu", () => {
         `<h2 id="overview" data-source-reference="/workspace/docs/guide.md:1#overview">Overview</h2>`,
         { selector: "h2" },
       ),
-    ).toEqual(["Copy Heading Link", "Copy Source Reference"]);
+    ).toEqual([
+      "Copy Heading Link",
+      "Copy Source Reference",
+      "Copy Location Reference",
+    ]);
   });
 
   it("offers image preview actions in rendered panes", () => {
@@ -285,6 +297,100 @@ describe("diff preview context menu", () => {
     });
 
     selection?.removeAllRanges();
+    container.remove();
+    expect(items.map((item) => item.label)).toEqual(["Copy Selection"]);
+  });
+
+  it("copies a rendered selection with its concrete diff side and revision", async () => {
+    const container = document.createElement("div");
+    container.innerHTML = `<h2 id="overview" data-source-reference="/workspace/docs/guide.md:3#overview">Overview</h2><p>Selected sentence.</p>`;
+    document.body.append(container);
+    const paragraph = container.querySelector("p")!;
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.getClientRects = () =>
+      [
+        {
+          left: 0,
+          right: 200,
+          top: 0,
+          bottom: 20,
+        } as DOMRect,
+      ] as unknown as DOMRectList;
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const copyText = vi.fn();
+
+    const items = diffPreviewContextMenuItems({
+      container,
+      event: { clientX: 10, clientY: 10 },
+      target: paragraph,
+      side: "right",
+      surface: "rendered",
+      preview: basePreview,
+      copyText,
+      openDocument: vi.fn(),
+      openPathInEditor: vi.fn(),
+      resolveDocumentLink: vi.fn(),
+      confirmExternalLink: vi.fn().mockResolvedValue(true),
+      openExternalUrl: vi.fn(),
+      onOpenDiagramPreview: vi.fn(),
+      showInlineNotice: vi.fn(),
+    });
+
+    await items
+      .find((item) => item.id === "copy-location-reference")
+      ?.onSelect();
+    selection?.removeAllRanges();
+    container.remove();
+    expect(copyText).toHaveBeenCalledWith(
+      "Location reference",
+      expect.stringContaining("Revision: Working Tree (right)"),
+    );
+    expect(copyText).toHaveBeenCalledWith(
+      "Location reference",
+      expect.stringContaining("File: /workspace/docs/guide.md"),
+    );
+  });
+
+  it("does not offer a location reference for a virtual diff side", () => {
+    const container = document.createElement("div");
+    container.innerHTML = `<h2 id="overview">Overview</h2><p>Selected sentence.</p>`;
+    document.body.append(container);
+    const paragraph = container.querySelector("p")!;
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.getClientRects = () =>
+      [
+        {
+          left: 0,
+          right: 200,
+          top: 0,
+          bottom: 20,
+        } as DOMRect,
+      ] as unknown as DOMRectList;
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    const items = diffPreviewContextMenuItems({
+      container,
+      event: { clientX: 10, clientY: 10 },
+      target: paragraph,
+      side: "left",
+      surface: "rendered",
+      preview: basePreview,
+      copyText: vi.fn(),
+      openDocument: vi.fn(),
+      openPathInEditor: vi.fn(),
+      resolveDocumentLink: vi.fn(),
+      confirmExternalLink: vi.fn().mockResolvedValue(true),
+      openExternalUrl: vi.fn(),
+      onOpenDiagramPreview: vi.fn(),
+      showInlineNotice: vi.fn(),
+    });
+
+    window.getSelection()?.removeAllRanges();
     container.remove();
     expect(items.map((item) => item.label)).toEqual(["Copy Selection"]);
   });

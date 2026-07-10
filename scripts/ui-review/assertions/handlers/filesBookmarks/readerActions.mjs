@@ -18,6 +18,17 @@ export async function buildReaderActionsAssertions(context) {
             .count()) > 0 &&
           (await page.locator('[data-review-id="inline-notice"]').count()) === 0
         : true,
+    hasLocationReference:
+      scenario === "viewer-copy-location-reference"
+        ? bodyText.includes("Copy Actions") &&
+          (await page.evaluate(() =>
+            Boolean(
+              window.__SVARD_LOCATION_REFERENCE_CHECK__
+                ?.selectionReferenceCopied,
+            ),
+          )) &&
+          geometryReviewIds.has("lightweight-action-feedback")
+        : true,
     hasCodeBlockActions:
       scenario === "viewer-code-block-actions"
         ? bodyText.includes("Copy Actions") &&

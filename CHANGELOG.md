@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added compact Location Reference copy for handing selected document context to LLMs and editors.
 - Added a runtime review session for changed documents in Documents and Source Control views.
 - Added an All diffs stream for reviewing Markdown and AsciiDoc Source Control changes together.
 - Added review watch refresh for changed document streams and active Diff Preview stale states.

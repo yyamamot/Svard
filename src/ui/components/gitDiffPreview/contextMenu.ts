@@ -1,4 +1,10 @@
 import type { MouseEvent } from "react";
+import {
+  isLocationReferenceTarget,
+  locationReferenceForElement,
+  locationReferenceForSelection,
+  locationReferenceTargetLabel,
+} from "../../lib/locationReference";
 import { isExternalUrl } from "../../lib/path";
 import type { ContextMenuItem } from "../../types";
 import {
@@ -6,6 +12,7 @@ import {
   addHeadingItems,
   addImageItems,
   addLinkItems,
+  addLocationReferenceItem,
   addSelectionItems,
   addSourceItems,
 } from "../../hooks/documentLinks/contextMenuItems";
@@ -21,6 +28,7 @@ import {
 import {
   diffPreviewDocumentPath,
   diffPreviewDocumentPayload,
+  diffPreviewDocumentPayloadWithWorkspace,
 } from "./contextMenuDocument";
 import {
   addCopyPaneTextItem,
@@ -43,6 +51,7 @@ export { openDiffLinkElement } from "./contextMenuActions";
 export { diffPreviewDocumentPath } from "./contextMenuDocument";
 
 export function createDiffPreviewContextMenuHandler({
+  allowLocationReference,
   preview,
   copyText,
   openContextMenu,
@@ -77,6 +86,7 @@ export function createDiffPreviewContextMenuHandler({
       openExternalUrl,
       onOpenDiagramPreview,
       showInlineNotice,
+      allowLocationReference,
     });
     const opened = openContextMenu(
       event,
@@ -106,6 +116,7 @@ export function diffPreviewContextMenuItems({
   openExternalUrl,
   onOpenDiagramPreview,
   showInlineNotice,
+  allowLocationReference = true,
 }: Omit<DiffPreviewContextMenuOptions, "openContextMenu"> & {
   container: HTMLElement;
   event: Pick<MouseEvent<HTMLElement>, "clientX" | "clientY">;
@@ -116,7 +127,10 @@ export function diffPreviewContextMenuItems({
   const items: ContextMenuItem[] = [];
   const documentPath = diffPreviewDocumentPath(preview, side);
   const documentPayload = documentPath
-    ? diffPreviewDocumentPayload(documentPath)
+    ? diffPreviewDocumentPayloadWithWorkspace(
+        documentPath,
+        preview.repositoryRoot,
+      )
     : null;
   const selection = documentSelectionAtPoint(
     container,
@@ -131,7 +145,23 @@ export function diffPreviewContextMenuItems({
   });
 
   if (selection) {
-    addSelectionItems(items, selection, table, copyText);
+    addSelectionItems(
+      items,
+      selection,
+      table,
+      copyText,
+      allowLocationReference && surface === "rendered" && documentPayload
+        ? locationReferenceForSelection({
+            article: container,
+            document: documentPayload,
+            selection,
+            revision: {
+              label: side === "left" ? preview.leftLabel : preview.rightLabel,
+              side,
+            },
+          })
+        : undefined,
+    );
     return items;
   }
 
@@ -150,6 +180,8 @@ export function diffPreviewContextMenuItems({
       openExternalUrl,
       onOpenDiagramPreview,
       showInlineNotice,
+      side,
+      allowLocationReference,
     });
   } else if (surface === "table" && table) {
     addTableItems(items, table, copyText);
@@ -183,12 +215,16 @@ function addRenderedSurfaceItems(
     openExternalUrl,
     onOpenDiagramPreview,
     showInlineNotice,
+    side,
+    allowLocationReference,
   }: Omit<DiffPreviewContextMenuOptions, "preview" | "openContextMenu"> & {
     preview: DiffPreviewContextMenuOptions["preview"];
     target: HTMLElement;
     table: HTMLTableElement | null;
     documentPath: string | null;
     documentPayload: ReturnType<typeof diffPreviewDocumentPayload> | null;
+    side: DiffSide;
+    allowLocationReference: boolean;
   },
 ) {
   addDiagramItems(items, target, {
@@ -257,4 +293,23 @@ function addRenderedSurfaceItems(
       }),
   });
   addHeadingItems(items, target, documentPayload, copyText);
+  if (
+    allowLocationReference &&
+    documentPayload &&
+    isLocationReferenceTarget(target)
+  ) {
+    const locationReference = locationReferenceForElement({
+      article: target.closest<HTMLElement>(".git-rendered-pane"),
+      document: documentPayload,
+      element: target,
+      revision: {
+        label: side === "left" ? preview.leftLabel : preview.rightLabel,
+        side,
+      },
+      targetLabel: locationReferenceTargetLabel(target),
+    });
+    if (locationReference) {
+      addLocationReferenceItem(items, locationReference, copyText);
+    }
+  }
 }

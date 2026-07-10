@@ -24,6 +24,7 @@ import type {
 } from "../../core/types";
 import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
 import { emptyDocumentReviewSessionControls } from "../lib/documentReviewSession";
+import { locationReferenceForHeading } from "../lib/locationReference";
 import { fileName } from "../lib/path";
 import type { ContextMenuItem } from "../types";
 
@@ -394,6 +395,9 @@ export function useShellContextMenu({
       }
     } else if (contextMenuKind === "toc-item" && headingId) {
       const sourceReference = sourceReferenceForHeading(headingId);
+      const heading = renderResult?.headings.find(
+        (item) => item.id === headingId,
+      );
       items.push({
         id: "open-heading",
         label: "Open Heading",
@@ -412,6 +416,19 @@ export function useShellContextMenu({
           label: "Copy Source Reference",
           icon: menuIcon(Copy),
           onSelect: () => copyText("Source reference", sourceReference),
+        });
+      }
+      if (documentPayload && heading) {
+        const locationReference = locationReferenceForHeading({
+          document: documentPayload,
+          heading,
+          renderResult,
+        });
+        items.push({
+          id: "copy-location-reference",
+          label: "Copy Location Reference",
+          icon: menuIcon(Copy),
+          onSelect: () => copyText("Location reference", locationReference),
         });
       }
     }
