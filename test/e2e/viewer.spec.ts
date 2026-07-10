@@ -461,6 +461,9 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   await expect(page.getByTestId("path-copy")).toHaveCount(0);
   const sourceBlock = page.locator(".source-block-frame pre");
   await sourceBlock.scrollIntoViewIfNeeded();
+  await expect(
+    sourceBlock.locator("xpath=..").locator(".source-block-toolbar"),
+  ).toHaveCSS("user-select", "none");
   await sourceBlock.selectText();
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(
     'const product = "Svard";',
