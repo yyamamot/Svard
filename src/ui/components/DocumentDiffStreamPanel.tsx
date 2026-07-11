@@ -93,7 +93,6 @@ export function DocumentDiffStreamPanel({
     useDocumentDiffStreamLoader({
       config,
       confirmedRemoteDiagramKeys,
-      documentReviewSession,
       getGitDiffPreview,
       getGitBranchFileDiff,
       getGitFileCommitDiff,
@@ -175,6 +174,38 @@ export function DocumentDiffStreamPanel({
     );
   }, [fileFilter, preview.items]);
   const currentFile = preview.items[activeFileIndex] ?? preview.items[0];
+
+  useEffect(() => {
+    if (!supportsReviewSession || !currentFile || currentFile.kind !== "document") {
+      return;
+    }
+    const documentPath = currentFile.documentPath;
+    const key = currentFile.documentPath ?? currentFile.path;
+    const reviewState = documentPath
+      ? (documentReviewSession.stateByPath[documentPath] ?? "unreviewed")
+      : "unreviewed";
+    if (
+      !documentPath ||
+      !expandedPaths.has(key) ||
+      loadStates[key]?.status !== "ready" ||
+      reviewState !== "unreviewed"
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if ((documentReviewSession.stateByPath[documentPath] ?? "unreviewed") === "unreviewed") {
+        markViewed(documentPath);
+      }
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [
+    currentFile,
+    documentReviewSession.stateByPath,
+    expandedPaths,
+    loadStates,
+    markViewed,
+    supportsReviewSession,
+  ]);
 
   const syncActiveFileToViewport = useCallback(() => {
     const body = streamBodyRef.current;

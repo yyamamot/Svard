@@ -9,14 +9,12 @@ import type {
   LocalImageResolveContext,
   LocalImageResult,
 } from "../../../core/types";
-import type { DocumentReviewSessionControls } from "../../lib/documentReviewSession";
 import { deriveGitRenderedDiffSummary } from "../../lib/gitRenderedDiff";
 import type { DiffStreamLoadReason, SectionLoadState } from "./types";
 
 export function useDocumentDiffStreamLoader({
   config,
   confirmedRemoteDiagramKeys,
-  documentReviewSession,
   getGitDiffPreview,
   getGitBranchFileDiff,
   getGitFileCommitDiff,
@@ -29,7 +27,6 @@ export function useDocumentDiffStreamLoader({
 }: {
   config: AppConfig | null;
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;
-  documentReviewSession: DocumentReviewSessionControls;
   getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
   getGitBranchFileDiff?: (
     path: string,
@@ -133,9 +130,6 @@ export function useDocumentDiffStreamLoader({
             loadStatesRef.current = next;
             return next;
           });
-          if (preview.source === "git-changes-stream") {
-            documentReviewSession.markViewed(documentPath);
-          }
         })
         .catch((error) => {
           if (requestIds.current[key] !== requestId) {
@@ -164,7 +158,6 @@ export function useDocumentDiffStreamLoader({
   }, [
     config,
     confirmedRemoteDiagramKeys,
-    documentReviewSession,
     getGitDiffPreview,
     getGitBranchFileDiff,
     getGitFileCommitDiff,

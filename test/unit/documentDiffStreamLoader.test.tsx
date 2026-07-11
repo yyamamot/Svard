@@ -17,7 +17,7 @@ import {
 describe("DocumentDiffStreamPanel loader", () => {
   const test = setupDocumentDiffStreamPanelTest();
 
-  it("loads document sections and marks only loaded documents viewed", async () => {
+  it("loads document sections without marking preloaded documents viewed", async () => {
     const markViewed = vi.fn();
     const preview = diffPreview("/workspace/docs/guide.md");
     const getGitDiffPreview = vi.fn().mockResolvedValue(preview);
@@ -48,13 +48,51 @@ describe("DocumentDiffStreamPanel loader", () => {
 
     expect(getGitDiffPreview).toHaveBeenCalledWith("/workspace/docs/guide.md");
     expect(getGitDiffPreview).toHaveBeenCalledWith("/workspace/docs/second.md");
-    expect(markViewed).toHaveBeenCalledWith("/workspace/docs/guide.md");
-    expect(markViewed).toHaveBeenCalledWith("/workspace/docs/second.md");
+    expect(markViewed).not.toHaveBeenCalled();
     expect(
       test.container.querySelector('[data-review-id="diff-stream-file-section"]'),
     ).not.toBeNull();
     expect(test.container.textContent).not.toContain("Loading rendered diff");
     expect(test.container.textContent).not.toContain("Preview failed");
+  });
+
+  it("marks only the current loaded section viewed after the reading delay", async () => {
+    vi.useFakeTimers();
+    const markViewed = vi.fn();
+    try {
+      await test.render({
+        config: null,
+        preview: {
+          source: "git-changes-stream",
+          items: [
+            documentStreamItem("docs/guide.md"),
+            documentStreamItem("docs/second.md"),
+          ],
+        },
+        documentReviewSession: {
+          stateByPath: {},
+          summary: { total: 2, reviewed: 0, needsAttention: 0 },
+          markViewed,
+          markNeedsAttention: vi.fn(),
+          reset: vi.fn(),
+        },
+        getGitDiffPreview: vi.fn().mockResolvedValue(diffPreview("/workspace/docs/guide.md")),
+        ...requiredDiffStreamProps(),
+        onClose: vi.fn(),
+      });
+
+      await flushPreviewLoad();
+      expect(markViewed).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(700);
+      });
+
+      expect(markViewed).toHaveBeenCalledTimes(1);
+      expect(markViewed).toHaveBeenCalledWith("/workspace/docs/guide.md");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not fetch every document when All diffs opens", async () => {
