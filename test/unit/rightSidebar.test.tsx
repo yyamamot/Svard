@@ -244,6 +244,12 @@ describe("RightSidebar diagram inspector panel", () => {
     expect(
       harness.byReviewId("diagram-inspector-details").textContent,
     ).toContain("renderMs: 42");
+    expect(
+      harness.byReviewId("diagram-inspector-details").textContent,
+    ).toContain("Copy Image");
+    expect(
+      harness.byReviewId("diagram-inspector-details").textContent,
+    ).not.toContain("Copy SVG");
 
     act(() => {
       const items = harness.container.querySelectorAll<HTMLButtonElement>(

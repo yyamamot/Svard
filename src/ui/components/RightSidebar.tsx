@@ -39,6 +39,7 @@ interface RightSidebarProps {
   onActivateWorkspaceSearchResult: (index: number) => void;
   onClearSearch: () => void;
   onCopyText: (label: string, content?: string) => Promise<void>;
+  onSaveSvg?: (fileName: string, svg: string) => Promise<boolean>;
   onDispatchCommand: (commandId: CommandId) => void;
   onNavigateSourceLine: (line: number) => void;
   onNavigateHeading: (headingId: string) => void;
@@ -80,6 +81,7 @@ export function RightSidebar({
   onActivateWorkspaceSearchResult,
   onClearSearch,
   onCopyText,
+  onSaveSvg,
   onDispatchCommand,
   onNavigateSourceLine,
   onNavigateHeading,
@@ -179,7 +181,7 @@ export function RightSidebar({
             items={diagramInspectorItems}
             selectedDiagramId={selectedDiagramId}
             onCopyText={onCopyText}
-            onNavigateSourceLine={onNavigateSourceLine}
+            onSaveSvg={onSaveSvg}
             onOpenPreview={(item) => {
               if (!item.svg) {
                 return;

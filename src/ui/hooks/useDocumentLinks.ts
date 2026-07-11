@@ -15,6 +15,7 @@ import { createDiagramActions } from "./documentLinks/diagramActions";
 import { createNavigationActions } from "./documentLinks/navigation";
 import { createArticleDoubleClickHandler } from "./documentLinks/previewDoubleClick";
 import type { UseDocumentLinksOptions } from "./documentLinks/types";
+import { copyImageToClipboard } from "../lib/imageClipboard";
 
 export function useDocumentLinks({
   activeHeadingId,
@@ -42,6 +43,7 @@ export function useDocumentLinks({
   setActiveHeadingId,
   showInlineNotice,
   showLightweightActionFeedback,
+  saveSvgFile,
 }: UseDocumentLinksOptions) {
   const lastDocumentSelectionRef = useRef("");
   const linkPreviewTimerRef = useRef<number | null>(null);
@@ -97,6 +99,15 @@ export function useDocumentLinks({
     }
   }
 
+  async function copyImage(source: HTMLImageElement | SVGElement) {
+    try {
+      await copyImageToClipboard(source);
+      showLightweightActionFeedback("Image copied");
+    } catch {
+      showInlineNotice("Image could not be copied", { tone: "warning" });
+    }
+  }
+
   const {
     copyHeadingLink,
     navigateToHeading,
@@ -121,6 +132,7 @@ export function useDocumentLinks({
       documentPayload,
       onOpenDiagramPreview,
       showInlineNotice,
+      saveSvgFile,
     });
   const handleArticleClick = createArticleClickHandler({
     onConfirmKrokiRender,
@@ -150,6 +162,7 @@ export function useDocumentLinks({
     onCompareGitRef,
     onShowGitDiff,
     copyText,
+    copyImage,
   });
 
   function clearLinkPreview() {
@@ -265,6 +278,7 @@ export function useDocumentLinks({
   return {
     copyHeadingLink,
     copyText,
+    copyImage,
     handleArticleContextMenu,
     handleArticleClick,
     handleArticleDoubleClick,

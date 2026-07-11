@@ -6,6 +6,7 @@ import {
   locationReferenceTargetLabel,
 } from "../../lib/locationReference";
 import { isExternalUrl } from "../../lib/path";
+import { copyImageToClipboard } from "../../lib/imageClipboard";
 import {
   diffReferenceForTarget,
   originalDiffTextReferenceForSelection,
@@ -246,6 +247,14 @@ function addRenderedSurfaceItems(
     allowLocationReference: boolean;
   },
 ) {
+  const copyImage = async (source: HTMLImageElement | SVGElement) => {
+    try {
+      await copyImageToClipboard(source);
+      showInlineNotice("Image copied", { tone: "success" });
+    } catch {
+      showInlineNotice("Image could not be copied", { tone: "warning" });
+    }
+  };
   addDiagramItems(items, target, {
     copyText,
     prepareDiagramPreview: (svg) =>
@@ -271,8 +280,13 @@ function addRenderedSurfaceItems(
       saveDiffDiagramSvg({
         svg,
         documentPath,
+        sourceReference:
+          svg.closest<HTMLElement>(".diagram-inline-image")?.getAttribute(
+            "data-source-reference",
+          ) ?? undefined,
         showInlineNotice,
       }),
+    copyImage,
   });
   addSourceItems(items, target, copyText);
   if (items.length === 0) {
@@ -310,6 +324,7 @@ function addRenderedSurfaceItems(
         onOpenDiagramPreview,
         showInlineNotice,
       }),
+    copyImage,
   });
   addHeadingItems(items, target, documentPayload, copyText);
   const diffReference = diffReferenceForTarget({

@@ -7,6 +7,7 @@ import {
 } from "../../lib/imagePreview";
 import { isExternalUrl, splitPathAndHash } from "../../lib/path";
 import type { DiagramPreviewState } from "../../types";
+import { diagramSvgFileName } from "../../lib/diagramFileName";
 
 export async function openDiffLinkElement({
   link,
@@ -320,10 +321,12 @@ export function openDiffImagePreview({
 export async function saveDiffDiagramSvg({
   svg,
   documentPath,
+  sourceReference,
   showInlineNotice,
 }: {
   svg: SVGElement;
   documentPath: string | null;
+  sourceReference?: string;
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
@@ -335,12 +338,9 @@ export async function saveDiffDiagramSvg({
   const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-  const stem = (documentPath?.split(/[\\/]/u).at(-1) ?? "diagram").replace(
-    /\.[^.]+$/u,
-    "",
-  );
+  const diagramType = svg.closest<HTMLElement>("[data-review-id$='-render']")?.dataset.reviewId?.replace(/-render$/u, "");
   anchor.href = url;
-  anchor.download = `${stem}-diagram.svg`;
+  anchor.download = diagramSvgFileName({ documentPath, diagramType, sourceReference });
   anchor.rel = "noopener";
   document.body.append(anchor);
   anchor.click();

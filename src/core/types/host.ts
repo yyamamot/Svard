@@ -114,6 +114,7 @@ export interface HostAdapter {
   searchWorkspace(input: WorkspaceSearchInput): Promise<WorkspaceSearchResult>;
   loadConfig(): Promise<AppConfig>;
   saveConfig(config: AppConfig): Promise<void>;
+  saveSvgFile(fileName: string, svg: string): Promise<boolean>;
   setWindowTheme(theme: AppConfig["theme"]): Promise<void>;
   watchDocument(
     path: string,

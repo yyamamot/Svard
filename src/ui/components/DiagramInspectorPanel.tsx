@@ -1,11 +1,13 @@
-import { Copy, ExternalLink, FileCode2, Image, Save } from "lucide-react";
+import { Copy, FileCode2, Image, MoreHorizontal, Save } from "lucide-react";
 import type { DiagramInspectorItem } from "../lib/diagramInspector";
+import { copySvgToClipboard } from "../lib/imageClipboard";
+import { diagramSvgFileName } from "../lib/diagramFileName";
 
 interface DiagramInspectorPanelProps {
   items: DiagramInspectorItem[];
   selectedDiagramId: string | null;
   onCopyText: (label: string, content?: string) => Promise<void>;
-  onNavigateSourceLine: (line: number) => void;
+  onSaveSvg?: (fileName: string, svg: string) => Promise<boolean>;
   onOpenPreview: (item: DiagramInspectorItem) => void;
   onSelectDiagram: (id: string) => void;
   onShowNotice: (
@@ -18,7 +20,7 @@ export function DiagramInspectorPanel({
   items,
   selectedDiagramId,
   onCopyText,
-  onNavigateSourceLine,
+  onSaveSvg,
   onOpenPreview,
   onSelectDiagram,
   onShowNotice,
@@ -76,7 +78,7 @@ export function DiagramInspectorPanel({
         <DiagramInspectorDetails
           item={selectedItem}
           onCopyText={onCopyText}
-          onNavigateSourceLine={onNavigateSourceLine}
+          onSaveSvg={onSaveSvg}
           onOpenPreview={onOpenPreview}
           onShowNotice={onShowNotice}
         />
@@ -88,13 +90,13 @@ export function DiagramInspectorPanel({
 function DiagramInspectorDetails({
   item,
   onCopyText,
-  onNavigateSourceLine,
+  onSaveSvg,
   onOpenPreview,
   onShowNotice,
 }: {
   item: DiagramInspectorItem;
   onCopyText: DiagramInspectorPanelProps["onCopyText"];
-  onNavigateSourceLine: DiagramInspectorPanelProps["onNavigateSourceLine"];
+  onSaveSvg: DiagramInspectorPanelProps["onSaveSvg"];
   onOpenPreview: DiagramInspectorPanelProps["onOpenPreview"];
   onShowNotice: DiagramInspectorPanelProps["onShowNotice"];
 }) {
@@ -102,6 +104,17 @@ function DiagramInspectorDetails({
     if (!item.svg) {
       onShowNotice("Diagram SVG is not available", { tone: "warning" });
       return;
+    }
+    if (onSaveSvg) {
+      try {
+        if (await onSaveSvg(diagramSvgFileName({ documentPath: item.sourceLocation?.sourcePath, diagramType: item.diagramType, sourceReference: item.sourceReference }), item.svg)) {
+          onShowNotice("Diagram SVG saved", { tone: "success" });
+          return;
+        }
+      } catch {
+        onShowNotice("Diagram SVG could not be saved", { tone: "warning" });
+        return;
+      }
     }
     const blob = new Blob([item.svg], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -116,6 +129,16 @@ function DiagramInspectorDetails({
     onShowNotice("Diagram SVG saved", { tone: "success" });
   }
 
+  async function copyImage() {
+    if (!item.svg) return;
+    try {
+      await copySvgToClipboard(item.svg);
+      onShowNotice("Image copied", { tone: "success" });
+    } catch {
+      onShowNotice("Image could not be copied", { tone: "warning" });
+    }
+  }
+
   return (
     <div
       className="diagram-inspector-details"
@@ -127,7 +150,6 @@ function DiagramInspectorDetails({
         <InspectorFact label="Render path" value={item.renderPath} />
         <InspectorFact label="Status" value={item.status} />
         <InspectorFact label="Cache" value={item.cacheStatus} />
-        <InspectorFact label="Source" value={item.sourceReference} />
       </dl>
       {item.message ? (
         <p className="diagram-inspector-message">{item.message}</p>
@@ -152,62 +174,25 @@ function DiagramInspectorDetails({
             Open Preview
           </button>
         ) : null}
-        {item.sourceReference ? (
-          <button
-            type="button"
-            onClick={() =>
-              onCopyText("Diagram reference", item.sourceReference)
-            }
-          >
-            <Copy size={14} />
-            Copy Reference
-          </button>
-        ) : null}
-        {item.source ? (
-          <button
-            type="button"
-            onClick={() => onCopyText("Diagram source", item.source)}
-          >
-            <FileCode2 size={14} />
-            Copy Source
-          </button>
-        ) : null}
         {item.svg ? (
           <button
             type="button"
-            onClick={() => onCopyText("Diagram SVG", item.svg)}
+            data-review-id="diagram-inspector-copy-image"
+            onClick={() => void copyImage()}
           >
             <Copy size={14} />
-            Copy SVG
+            Copy Image
           </button>
         ) : null}
-        {item.svg ? (
-          <button
-            type="button"
-            data-review-id="diagram-inspector-save-svg"
-            onClick={() => void saveSvg()}
-          >
-            <Save size={14} />
-            Save SVG
-          </button>
-        ) : null}
-        {item.sourceLocation?.line ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (item.sourceLocation?.sourcePath) {
-                void onCopyText("Diagram reference", item.sourceReference);
-                onShowNotice("Diagram source reference copied", {
-                  tone: "info",
-                });
-                return;
-              }
-              onNavigateSourceLine(item.sourceLocation!.line!);
-            }}
-          >
-            <ExternalLink size={14} />
-            Open Source Line
-          </button>
+        {item.sourceReference || item.source || item.svg ? (
+          <details className="diagram-inspector-more">
+            <summary aria-label="More diagram actions"><MoreHorizontal size={16} /></summary>
+            <div>
+              {item.sourceReference ? <button type="button" onClick={() => onCopyText("Diagram reference", item.sourceReference)}><Copy size={14} />Copy Reference</button> : null}
+              {item.source ? <button type="button" onClick={() => onCopyText("Diagram source", item.source)}><FileCode2 size={14} />Copy Source</button> : null}
+              {item.svg ? <button type="button" data-review-id="diagram-inspector-save-svg" onClick={() => void saveSvg()}><Save size={14} />Save SVG</button> : null}
+            </div>
+          </details>
         ) : null}
       </div>
     </div>

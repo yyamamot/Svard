@@ -11,6 +11,7 @@ use std::{
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
 use tauri::{Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder, window::Color};
+use tauri_plugin_dialog::DialogExt;
 
 mod antora_order;
 mod antora_playbook;
@@ -59,6 +60,19 @@ use workspace_paths::*;
 
 const CONFIG_FILE_NAME: &str = "config.json";
 static VIEWER_WINDOW_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+#[tauri::command]
+async fn save_svg_file(app: tauri::AppHandle, file_name: String, svg: String) -> Result<bool, AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = app.dialog().file().add_filter("SVG image", &["svg"]).set_file_name(&file_name).blocking_save_file() else {
+            return Ok(false);
+        };
+        let path = path.as_path().ok_or_else(|| AppError::from("failed to resolve SVG save path"))?;
+        std::fs::write(path, svg)
+            .map_err(|error| AppError::from(format!("failed to write SVG file: {error}")))?;
+        Ok(true)
+    }).await.map_err(|error| AppError::from(format!("failed to save SVG file: {error}")))?
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -891,6 +905,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             open_document,
+            save_svg_file,
             search_workspace,
             open_path_in_editor,
             open_new_window,

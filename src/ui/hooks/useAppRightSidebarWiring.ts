@@ -54,6 +54,7 @@ interface UseAppRightSidebarWiringOptions {
   setSearchScope: (scope: SearchScope) => void;
   showInlineNotice: AppRightSidebarProps["onShowInlineNotice"];
   copyText: AppRightSidebarProps["onCopyText"];
+  saveSvgFile?: AppRightSidebarProps["onSaveSvg"];
   navigateToSourceLine: AppRightSidebarProps["onNavigateSourceLine"];
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
   updateSearchQuery: (query: string) => void;
@@ -94,6 +95,7 @@ export function useAppRightSidebarWiring({
   setSearchScope,
   showInlineNotice,
   copyText,
+  saveSvgFile,
   navigateToSourceLine,
   onOpenDiagramPreview,
   updateSearchQuery,
@@ -155,6 +157,7 @@ export function useAppRightSidebarWiring({
       void activateWorkspaceSearchResult(index),
     onClearSearch: handleSearchClear,
     onCopyText: copyText,
+    onSaveSvg: saveSvgFile,
     onDispatchCommand: (commandId) => void dispatchCommand(commandId),
     onNavigateSourceLine: navigateToSourceLine,
     onNavigateHeading: (headingId) => {

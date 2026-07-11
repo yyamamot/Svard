@@ -49,6 +49,10 @@ import type {
 import { searchMockWorkspace } from "../core/workspaceSearch";
 
 export class MockHostAdapter implements HostAdapter {
+  saveSvgFile(_fileName: string, _svg: string): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   private readonly documents = createMockDocumentFacade();
   private readonly newWindowOpenRequests: ViewerWindowOpenRequest[] = [];
 

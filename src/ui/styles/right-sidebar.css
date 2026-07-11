@@ -650,6 +650,44 @@
   background: #f4f8f7;
 }
 
+.diagram-inspector-more {
+  position: relative;
+}
+
+.diagram-inspector-more summary {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid #bdcbd1;
+  border-radius: 7px;
+  color: #314249;
+  cursor: pointer;
+  list-style: none;
+}
+
+.diagram-inspector-more summary::-webkit-details-marker { display: none; }
+
+.diagram-inspector-more[open] > div {
+  display: grid;
+  flex-basis: 100%;
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px;
+  border: 1px solid #bdcbd1;
+  border-radius: 7px;
+  background: var(--reader-surface);
+}
+
+.diagram-inspector-more[open] {
+  flex-basis: 100%;
+}
+
+.diagram-inspector-more[open] button {
+  justify-content: flex-start;
+  border-color: transparent;
+}
+
 .diagram-inspector-jump-highlight {
   outline: 3px solid #2f9f8f;
   outline-offset: 4px;

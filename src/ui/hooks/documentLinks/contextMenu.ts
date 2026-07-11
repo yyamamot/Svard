@@ -44,6 +44,7 @@ export function createArticleContextMenuHandler({
   onCompareGitRef,
   onShowGitDiff,
   copyText,
+  copyImage,
 }: Pick<
   UseDocumentLinksOptions,
   | "articleRef"
@@ -65,6 +66,7 @@ export function createArticleContextMenuHandler({
   openImagePreview: (image: HTMLImageElement) => void;
   saveDiagramSvg: (svg: SVGElement) => Promise<void>;
   copyText: CopyText;
+  copyImage: (source: HTMLImageElement | SVGElement) => Promise<void>;
 }) {
   return function handleArticleContextMenu(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement;
@@ -121,6 +123,7 @@ export function createArticleContextMenuHandler({
         copyText,
         openDiagramPreview,
         saveDiagramSvg,
+        copyImage,
       });
       addSourceItems(items, target, copyText);
       if (items.length === 0 && table) {
@@ -135,7 +138,7 @@ export function createArticleContextMenuHandler({
         resolveDocumentLink,
         showInlineNotice,
       });
-      addImageItems(items, target, { copyText, openImagePreview });
+      addImageItems(items, target, { copyText, openImagePreview, copyImage });
       addHeadingItems(items, target, documentPayload, copyText, {
         renderResult,
         includeSectionCopy: true,

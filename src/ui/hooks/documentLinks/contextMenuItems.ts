@@ -22,6 +22,8 @@ import { isSupportedDocumentHref, menuIcon } from "./shared";
 import { addTableItems } from "./tableActions";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
 
+type CopyImage = (source: HTMLImageElement | SVGElement) => Promise<void>;
+
 export interface OriginalTextReference {
   value: string;
 }
@@ -95,7 +97,8 @@ export function addDiagramItems(
       svg: SVGElement,
       sourceReference: string | undefined,
     ) => DiagramPreviewState | undefined;
-    saveDiagramSvg: (svg: SVGElement) => Promise<void>;
+    saveDiagramSvg: (svg: SVGElement, sourceReference?: string) => Promise<void>;
+    copyImage: CopyImage;
   },
 ) {
   const diagram = target.closest<HTMLElement>(".diagram-inline-image");
@@ -118,10 +121,16 @@ export function addDiagramItems(
         ),
     });
     items.push({
+      id: "copy-image",
+      label: "Copy Image",
+      icon: menuIcon(Image),
+      onSelect: () => actions.copyImage(svg),
+    });
+    items.push({
       id: "save-diagram-svg",
       label: "Save SVG",
       icon: menuIcon(Download),
-      onSelect: () => actions.saveDiagramSvg(svg),
+      onSelect: () => actions.saveDiagramSvg(svg, diagramReference ?? undefined),
     });
     if (diagramReference) {
       items.push({
@@ -281,6 +290,7 @@ export function addImageItems(
   actions: {
     copyText: CopyText;
     openImagePreview: (image: HTMLImageElement) => void;
+    copyImage: CopyImage;
   },
 ) {
   const image = target.closest("img") as HTMLImageElement | null;
@@ -295,6 +305,12 @@ export function addImageItems(
     label: "Open Preview",
     icon: menuIcon(Maximize2),
     onSelect: () => actions.openImagePreview(image),
+  });
+  items.push({
+    id: "copy-image",
+    label: "Copy Image",
+    icon: menuIcon(Image),
+    onSelect: () => actions.copyImage(image),
   });
   if (imageReference) {
     items.push({

@@ -56,6 +56,7 @@ export interface UseDocumentLinksOptions {
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
   showLightweightActionFeedback: (message: string) => void;
+  saveSvgFile?: (fileName: string, svg: string) => Promise<boolean>;
 }
 
 export type CopyText = (label: string, content?: string) => Promise<void>;

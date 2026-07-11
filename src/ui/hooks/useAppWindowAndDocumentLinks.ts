@@ -123,6 +123,7 @@ export function useAppWindowAndDocumentLinks({
     setActiveHeadingId,
     showInlineNotice,
     showLightweightActionFeedback,
+    saveSvgFile: (fileName, svg) => host.saveSvgFile(fileName, svg),
   });
 
   return { documentLinks, windowActions };

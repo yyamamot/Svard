@@ -912,6 +912,7 @@ export function App() {
     setSearchScope,
     showInlineNotice,
     copyText: documentLinks.copyText,
+    saveSvgFile: (fileName, svg) => host.saveSvgFile(fileName, svg),
     navigateToSourceLine,
     onOpenDiagramPreview: setDiagramPreview,
     updateSearchQuery,

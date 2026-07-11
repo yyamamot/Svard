@@ -6,12 +6,14 @@ import {
   svgSourceFromImageSrc,
 } from "../../lib/imagePreview";
 import { fileName } from "../../lib/path";
+import { diagramSvgFileName } from "../../lib/diagramFileName";
 import type { DiagramPreviewState } from "../../types";
 
 export function createDiagramActions({
   documentPayload,
   onOpenDiagramPreview,
   showInlineNotice,
+  saveSvgFile,
 }: {
   documentPayload: DocumentPayload | null;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
@@ -19,17 +21,30 @@ export function createDiagramActions({
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
+  saveSvgFile?: (fileName: string, svg: string) => Promise<boolean>;
 }) {
-  async function saveDiagramSvg(svg: SVGElement) {
+  async function saveDiagramSvg(svg: SVGElement, sourceReference?: string) {
     const clone = svg.cloneNode(true) as SVGElement;
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     const source = new XMLSerializer().serializeToString(clone);
+    const diagramType = svg.closest<HTMLElement>("[data-review-id$='-render']")?.dataset.reviewId?.replace(/-render$/u, "");
+    const name = diagramSvgFileName({ documentPath: documentPayload?.path, diagramType, sourceReference });
+    if (saveSvgFile) {
+      try {
+        if (await saveSvgFile(name, source)) {
+          showInlineNotice("Diagram SVG saved", { tone: "success" });
+          return;
+        }
+      } catch {
+        showInlineNotice("Diagram SVG could not be saved", { tone: "warning" });
+        return;
+      }
+    }
     const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    const stem = documentPayload ? fileName(documentPayload.path) : "diagram";
     anchor.href = url;
-    anchor.download = `${stem.replace(/\.[^.]+$/, "")}-diagram.svg`;
+    anchor.download = name;
     anchor.rel = "noopener";
     document.body.append(anchor);
     anchor.click();

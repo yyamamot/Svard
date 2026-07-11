@@ -523,6 +523,13 @@
   background: #203039;
 }
 
+.theme-dark .diagram-inspector-more summary,
+.theme-dark .diagram-inspector-more[open] > div {
+  border-color: #33434c;
+  color: #dce8e5;
+  background: #151f24;
+}
+
 .theme-dark .diagram-inspector-jump-highlight {
   outline-color: #5ad2c1;
   box-shadow: 0 0 0 6px rgba(90, 210, 193, 0.2);

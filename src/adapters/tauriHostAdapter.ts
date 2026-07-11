@@ -127,6 +127,10 @@ async function invokeCommand<T>(
 }
 
 export class TauriHostAdapter implements HostAdapter {
+  saveSvgFile(fileName: string, svg: string): Promise<boolean> {
+    return invokeCommand("save_svg_file", { fileName, svg });
+  }
+
   async pickDocument(): Promise<string | null> {
     const selected = await open({
       multiple: false,

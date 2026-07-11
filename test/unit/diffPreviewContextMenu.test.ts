@@ -160,7 +160,7 @@ describe("diff preview context menu", () => {
         `<img src="data:image/svg+xml;charset=utf-8,%3Csvg%3E%3Ctext%3ELabel%3C%2Ftext%3E%3C%2Fsvg%3E" data-image-path="assets/sample.svg" data-image-reference="docs/guide.md:4" alt="Sample SVG">`,
         { selector: "img" },
       ),
-    ).toEqual(["Open Preview", "Copy Image Reference", "Copy Path"]);
+    ).toEqual(["Open Preview", "Copy Image", "Copy Image Reference", "Copy Path"]);
   });
 
   it("opens a before/after diagram comparison for matched rendered diagram blocks", () => {
