@@ -70,8 +70,16 @@ function renderedBlocksEqual(
     left.kind === right.kind &&
     left.tagName === right.tagName &&
     left.text === right.text &&
-    left.html === right.html
+    renderedHtmlForComparison(left.html) ===
+      renderedHtmlForComparison(right.html)
   );
+}
+
+function renderedHtmlForComparison(html: string): string {
+  // Source metadata is used by location and clipboard actions after the diff is
+  // rendered. Its generated IDs and line ranges can legitimately shift when a
+  // preceding block is inserted, so it must not affect visual diff equality.
+  return html.replace(/\sdata-source-[\w-]+(?:="[^"]*")?/gu, "");
 }
 
 function stableRenderedBlockSignature(block: RenderedBlock): string | null {

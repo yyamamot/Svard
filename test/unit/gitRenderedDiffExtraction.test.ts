@@ -30,6 +30,23 @@ describe("git rendered diff extraction", () => {
     expect(blocks[2]?.html).toContain("<ul>");
   });
 
+  it("keeps identical paragraphs unchanged when generated source IDs shift", () => {
+    const left = blocksFromHtml(
+      renderMarkdownCore(`Before.\n\nAppendix:`).html,
+    );
+    const right = blocksFromHtml(
+      renderMarkdownCore(`Inserted.\n\nBefore.\n\nAppendix:`).html,
+    );
+
+    const diff = compareRenderedBlocks(left, right);
+
+    expect(diff.map((block) => [block.kind, block.right?.text ?? block.left?.text])).toEqual([
+      ["added", "Inserted."],
+      ["unchanged", "Before."],
+      ["unchanged", "Appendix:"],
+    ]);
+  });
+
   it("extracts rendered math blocks as diffable content blocks", () => {
     const blocks = blocksFromHtml(`<div class="stemblock">
 <div class="content math-block" data-review-id="math-block"><span class="katex">E=mc2</span></div>
