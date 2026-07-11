@@ -122,6 +122,7 @@ interface AppOverlaysProps {
     details: GitCommitDetails,
     path: string,
   ) => Promise<void>;
+  onOpenAllDiffs: (preview: DocumentDiffStreamPreview) => void;
   onOpenGitRefDiff: (ref: GitRefItem) => Promise<void>;
   onLoadMoreGitRefs: () => Promise<void>;
   onReloadGitRefs: (query: string) => Promise<void>;
@@ -184,6 +185,7 @@ export function AppOverlays({
   onOpenDiagramPreview,
   onOpenDocument,
   onOpenGitCommitDetailsFile,
+  onOpenAllDiffs,
   onOpenGitRefDiff,
   onLoadMoreGitRefs,
   onReloadGitRefs,
@@ -251,6 +253,7 @@ export function AppOverlays({
           onOpenFile={(path) =>
             void onOpenGitCommitDetailsFile(gitCommitDetails, path)
           }
+          onOpenAllDiffs={onOpenAllDiffs}
         />
       )}
 
@@ -303,6 +306,8 @@ export function AppOverlays({
           preview={documentDiffStreamPreview}
           config={config}
           getGitDiffPreview={(path) => host.getGitDiffPreview(path)}
+          getGitBranchFileDiff={(path, input) => host.getGitBranchFileDiff(path, input)}
+          getGitFileCommitDiff={(path, revision) => host.getGitFileCommitDiff(path, revision)}
           copyText={copyText}
           openContextMenu={openContextMenu}
           openDocument={onOpenDocument}

@@ -64,6 +64,14 @@ export interface DocumentDiffStreamPanelProps {
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;
   krokiFallbackDiagramKeys?: ReadonlySet<string>;
   getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
+  getGitBranchFileDiff?: (
+    path: string,
+    input: { baseRef: string; headRef?: string | null; path: string; oldPath?: string | null },
+  ) => Promise<DocumentDiffPreview>;
+  getGitFileCommitDiff?: (
+    path: string,
+    revision: string,
+  ) => Promise<DocumentDiffPreview>;
   copyText: CopyText;
   openContextMenu: (
     event: MouseEvent<HTMLElement>,

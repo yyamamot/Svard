@@ -21,6 +21,8 @@ export function DocumentDiffStreamPanel({
   confirmedRemoteDiagramKeys,
   krokiFallbackDiagramKeys,
   getGitDiffPreview,
+  getGitBranchFileDiff,
+  getGitFileCommitDiff,
   copyText,
   openContextMenu,
   openDocument,
@@ -79,6 +81,8 @@ export function DocumentDiffStreamPanel({
       confirmedRemoteDiagramKeys,
       documentReviewSession,
       getGitDiffPreview,
+      getGitBranchFileDiff,
+      getGitFileCommitDiff,
       krokiFallbackDiagramKeys,
       loadDocumentContext,
       preview,
@@ -122,6 +126,7 @@ export function DocumentDiffStreamPanel({
     setLastMouseGesture,
   });
 
+  const supportsReviewSession = preview.source === "git-changes-stream";
   const markNeedsAttention = useCallback(
     (path: string) => documentReviewSession.markNeedsAttention(path),
     [documentReviewSession],
@@ -179,6 +184,7 @@ export function DocumentDiffStreamPanel({
           <div className="git-diff-title">
             <span>All diffs</span>
             <small>{preview.items.length} document diffs</small>
+            {preview.comparisonLabel ? <small>{preview.comparisonLabel}</small> : null}
           </div>
           <div
             className="git-diff-navigation"
@@ -196,7 +202,7 @@ export function DocumentDiffStreamPanel({
                     : "Stale"}
               </span>
             ) : null}
-            {onRefresh ? (
+            {preview.source === "git-changes-stream" && onRefresh ? (
               <button
                 type="button"
                 className="git-diff-refresh-preview-button"
@@ -275,13 +281,14 @@ export function DocumentDiffStreamPanel({
                 onOpenDiagramPreview={onOpenDiagramPreview}
                 showInlineNotice={showInlineNotice}
                 reviewState={
-                  item.documentPath
+                  supportsReviewSession && item.documentPath
                     ? documentReviewSession.stateByPath[item.documentPath]
                     : undefined
                 }
-                onMarkNeedsAttention={markNeedsAttention}
-                onMarkViewed={markViewed}
-                onResetReview={resetReview}
+                reviewEnabled={supportsReviewSession}
+                onMarkNeedsAttention={supportsReviewSession ? markNeedsAttention : () => {}}
+                onMarkViewed={supportsReviewSession ? markViewed : () => {}}
+                onResetReview={supportsReviewSession ? resetReview : () => {}}
                 onToggle={toggleSection}
               />
             ))}

@@ -143,6 +143,7 @@ export type DocumentDiffPreview = GitDiffPreview;
 
 export interface GitCommitChangedFile {
   path: string;
+  oldPath?: string | null;
   status: GitDiffStatus;
   documentPath?: string | null;
 }
@@ -164,7 +165,10 @@ export interface GitChanges {
   message?: string | null;
 }
 
-export type DocumentDiffStreamSource = "git-changes-stream";
+export type DocumentDiffStreamSource =
+  | "git-changes-stream"
+  | "git-branch-stream"
+  | "git-commit-stream";
 
 export type DocumentDiffStreamItemKind = "document" | "blocker";
 
@@ -176,6 +180,7 @@ export type DocumentDiffStreamWatchStatus =
 
 export interface DocumentDiffStreamItem {
   path: string;
+  oldPath?: string | null;
   status: GitDiffStatus;
   documentPath?: string | null;
   kind: DocumentDiffStreamItemKind;
@@ -189,6 +194,11 @@ export interface DocumentDiffStreamPreview {
   activePath?: string | null;
   watchStatus?: DocumentDiffStreamWatchStatus;
   message?: string | null;
+  baseRef?: string | null;
+  headRef?: string | null;
+  revision?: string | null;
+  parentRevision?: string | null;
+  comparisonLabel?: string | null;
 }
 
 export type GitBranchDiffStatus = "ok" | "not-in-repo" | "no-history" | "error";

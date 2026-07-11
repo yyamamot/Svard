@@ -30,6 +30,7 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   onOpenDiagramPreview,
   showInlineNotice,
   reviewState,
+  reviewEnabled = true,
   onMarkNeedsAttention,
   onMarkViewed,
   onResetReview,
@@ -61,6 +62,7 @@ export const DiffStreamSection = memo(function DiffStreamSection({
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
   reviewState?: DocumentReviewState;
+  reviewEnabled?: boolean;
   onMarkNeedsAttention: (path: string) => void;
   onMarkViewed: (path: string) => void;
   onResetReview: (path: string) => void;
@@ -94,7 +96,7 @@ export const DiffStreamSection = memo(function DiffStreamSection({
             {formatLabel ? `${formatLabel} - ${item.status}` : item.status}
           </span>
         </div>
-        {item.kind === "document" && item.documentPath ? (
+        {reviewEnabled && item.kind === "document" && item.documentPath ? (
           <div className="diff-stream-review-actions">
             <span
               className={`document-review-state document-review-state-${reviewState ?? "unreviewed"}`}

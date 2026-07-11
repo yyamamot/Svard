@@ -1,6 +1,8 @@
 import type {
   DocumentDiffStreamItem,
   GitChangeEntry,
+  GitBranchDiffEntry,
+  GitCommitChangedFile,
   GitDiffStatus,
 } from "../../core/types";
 import { isSupportedDocumentPath } from "../../core/documentFormat";
@@ -13,7 +15,7 @@ const blockerStatuses = new Set<GitDiffStatus>([
 ]);
 
 export function buildDocumentDiffStreamItems(
-  changes: readonly GitChangeEntry[],
+  changes: readonly (GitChangeEntry | GitBranchDiffEntry | GitCommitChangedFile)[],
   options: { repositoryRoot?: string | null } = {},
 ): DocumentDiffStreamItem[] {
   const seen = new Set<string>();
@@ -34,6 +36,7 @@ export function buildDocumentDiffStreamItems(
       !blockerStatuses.has(change.status);
     items.push({
       path: change.path,
+      oldPath: "oldPath" in change ? change.oldPath : null,
       status: change.status,
       documentPath,
       kind: supported ? "document" : "blocker",

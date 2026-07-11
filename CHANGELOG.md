@@ -5,6 +5,7 @@
 - Added LLM-ready text, original source, and diff references with file, line, and section context.
 - Added a runtime review session for changed documents in Documents and Source Control views.
 - Added an All diffs stream for reviewing Markdown and AsciiDoc Source Control changes together.
+- Extended All diffs to Branch Diff and Repo Graph commit reviews.
 - Added review watch refresh for changed document streams and active Diff Preview stale states.
 - Improved Change Ruler alignment with active Diff Preview and All diffs change targets.
 - Improved Diff Preview Change Ruler positioning by projecting rendered markers onto the right pane.

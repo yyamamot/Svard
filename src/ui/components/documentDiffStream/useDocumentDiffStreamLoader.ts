@@ -18,6 +18,8 @@ export function useDocumentDiffStreamLoader({
   confirmedRemoteDiagramKeys,
   documentReviewSession,
   getGitDiffPreview,
+  getGitBranchFileDiff,
+  getGitFileCommitDiff,
   krokiFallbackDiagramKeys,
   loadDocumentContext,
   preview,
@@ -29,6 +31,11 @@ export function useDocumentDiffStreamLoader({
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;
   documentReviewSession: DocumentReviewSessionControls;
   getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
+  getGitBranchFileDiff?: (
+    path: string,
+    input: { baseRef: string; headRef?: string | null; path: string; oldPath?: string | null },
+  ) => Promise<DocumentDiffPreview>;
+  getGitFileCommitDiff?: (path: string, revision: string) => Promise<DocumentDiffPreview>;
   krokiFallbackDiagramKeys?: ReadonlySet<string>;
   loadDocumentContext?: (
     documentPath: string,
@@ -88,7 +95,14 @@ export function useDocumentDiffStreamLoader({
         loadStatesRef.current = next;
         return next;
       });
-      getGitDiffPreview(documentPath)
+      loadDiffPreview({
+        documentPath,
+        getGitBranchFileDiff,
+        getGitDiffPreview,
+        getGitFileCommitDiff,
+        item,
+        preview,
+      })
         .then(async (diffPreview) => {
           const normalizedPreview = {
             ...diffPreview,
@@ -119,7 +133,9 @@ export function useDocumentDiffStreamLoader({
             loadStatesRef.current = next;
             return next;
           });
-          documentReviewSession.markViewed(documentPath);
+          if (preview.source === "git-changes-stream") {
+            documentReviewSession.markViewed(documentPath);
+          }
         })
         .catch((error) => {
           if (requestIds.current[key] !== requestId) {
@@ -150,8 +166,11 @@ export function useDocumentDiffStreamLoader({
     confirmedRemoteDiagramKeys,
     documentReviewSession,
     getGitDiffPreview,
+    getGitBranchFileDiff,
+    getGitFileCommitDiff,
     krokiFallbackDiagramKeys,
     loadDocumentContext,
+    preview,
     preview.items,
     renderDiagram,
     resolveLocalImage,
@@ -226,4 +245,36 @@ export function useDocumentDiffStreamLoader({
     loadStates,
     loadStatesRef,
   };
+}
+
+function loadDiffPreview({
+  documentPath,
+  getGitBranchFileDiff,
+  getGitDiffPreview,
+  getGitFileCommitDiff,
+  item,
+  preview,
+}: {
+  documentPath: string;
+  getGitBranchFileDiff?: (
+    path: string,
+    input: { baseRef: string; headRef?: string | null; path: string; oldPath?: string | null },
+  ) => Promise<DocumentDiffPreview>;
+  getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
+  getGitFileCommitDiff?: (path: string, revision: string) => Promise<DocumentDiffPreview>;
+  item: DocumentDiffStreamPreview["items"][number];
+  preview: DocumentDiffStreamPreview;
+}) {
+  if (preview.source === "git-branch-stream" && preview.baseRef && getGitBranchFileDiff) {
+    return getGitBranchFileDiff(preview.repositoryRoot ?? documentPath, {
+      baseRef: preview.baseRef,
+      headRef: preview.headRef,
+      path: item.path,
+      oldPath: item.oldPath,
+    });
+  }
+  if (preview.source === "git-commit-stream" && preview.revision && getGitFileCommitDiff) {
+    return getGitFileCommitDiff(documentPath, preview.revision);
+  }
+  return getGitDiffPreview(documentPath);
 }

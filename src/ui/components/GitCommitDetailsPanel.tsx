@@ -1,13 +1,17 @@
 import type { GitCommitDetails } from "../../core/types";
+import { buildDocumentDiffStreamItems } from "../lib/documentDiffStream";
+import type { DocumentDiffStreamPreview } from "../../core/types";
 
 export function GitCommitDetailsPanel({
   details,
   onClose,
   onOpenFile,
+  onOpenAllDiffs,
 }: {
   details: GitCommitDetails;
   onClose: () => void;
   onOpenFile: (path: string) => void;
+  onOpenAllDiffs: (preview: DocumentDiffStreamPreview) => void;
 }) {
   return (
     <div className="modal-backdrop git-commit-details-backdrop">
@@ -27,6 +31,21 @@ export function GitCommitDetailsPanel({
               {formatCommitDetailsDate(details.date)}
             </span>
           </div>
+          <button
+            type="button"
+            data-review-id="git-commit-details-all-diffs"
+            onClick={() => {
+              onOpenAllDiffs({
+                source: "git-commit-stream",
+                items: buildDocumentDiffStreamItems(details.files),
+                revision: details.revision,
+                comparisonLabel: `Parent → ${details.shortHash}`,
+              });
+              onClose();
+            }}
+          >
+            All diffs
+          </button>
           <button
             type="button"
             className="icon-button"

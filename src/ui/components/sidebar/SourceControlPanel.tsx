@@ -230,6 +230,7 @@ export function SourceControlPanel({
           branchDiff={branchDiff}
           loading={branchDiffLoading}
           onSelectBaseRef={onSelectBranchDiffBase}
+          onOpenAllDiffs={onOpenAllDiffs}
           onOpenItem={onOpenBranchDiffItem}
           onItemContextMenu={onBranchDiffContextMenu}
         />
@@ -410,7 +411,6 @@ function ChangesPanel({
             documentReviewSession={documentReviewSession}
             item={item}
             onOpenReviewChange={openReviewChange}
-            onOpenChange={onOpenChange}
             onItemContextMenu={onItemContextMenu}
           />
         ))}
@@ -423,13 +423,11 @@ function ChangeRow({
   documentReviewSession,
   item,
   onOpenReviewChange,
-  onOpenChange,
   onItemContextMenu,
 }: {
   documentReviewSession: DocumentReviewSessionControls;
   item: GitChangeEntry;
   onOpenReviewChange: (path: string) => void;
-  onOpenChange: (path: string | null | undefined) => void | Promise<void>;
   onItemContextMenu: (
     event: ReactMouseEvent<HTMLElement>,
     item: GitChangeEntry,
@@ -502,12 +500,14 @@ function BranchDiffPanel({
   branchDiff,
   loading,
   onSelectBaseRef,
+  onOpenAllDiffs,
   onOpenItem,
   onItemContextMenu,
 }: {
   branchDiff: GitBranchDiff | null;
   loading: boolean;
   onSelectBaseRef: (baseRef: string) => void;
+  onOpenAllDiffs: (preview: DocumentDiffStreamPreview) => void;
   onOpenItem: (item: GitBranchDiffEntry) => void | Promise<void>;
   onItemContextMenu: (
     event: ReactMouseEvent<HTMLElement>,
@@ -576,6 +576,26 @@ function BranchDiffPanel({
       <span className="source-control-branch-diff-range">
         {activeBase || "base"}...{branchDiff?.headRef ?? "HEAD"}
       </span>
+      <button
+        type="button"
+        data-review-id="source-control-branch-all-diffs"
+        disabled={branchDiff?.status !== "ok" || !activeBase}
+        onClick={() => {
+          if (!branchDiff || !activeBase) return;
+          onOpenAllDiffs({
+            source: "git-branch-stream",
+            repositoryRoot: branchDiff.repositoryRoot,
+            baseRef: activeBase,
+            headRef: branchDiff.headRef ?? "HEAD",
+            comparisonLabel: `${activeBase}...${branchDiff.headRef ?? "HEAD"}`,
+            items: buildDocumentDiffStreamItems(branchDiff.items, {
+              repositoryRoot: branchDiff.repositoryRoot,
+            }),
+          });
+        }}
+      >
+        All diffs
+      </button>
       {unavailableProviderOptions.length > 0 ? (
         <span
           className="source-control-branch-diff-warning"

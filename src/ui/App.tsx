@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppMainShell } from "./components/AppMainShell";
 import { useActiveHeadingTracking } from "./hooks/useActiveHeadingTracking";
 import { useBookmarksState } from "./hooks/useBookmarksState";
@@ -1170,6 +1170,7 @@ export function App() {
         onOpenDiagramPreview: setDiagramPreview,
         onOpenDocument: openDocument,
         onOpenGitCommitDetailsFile: sourceControl.openGitCommitDetailsFile,
+        onOpenAllDiffs: openSourceControlAllDiffs,
         onOpenGitRefDiff: sourceControl.openGitRefDiff,
         onLoadMoreGitRefs: sourceControl.loadMoreGitRefs,
         onReloadGitRefs: sourceControl.reloadGitRefs,

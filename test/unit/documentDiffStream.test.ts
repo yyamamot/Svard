@@ -72,4 +72,24 @@ describe("document diff stream", () => {
       }),
     ]);
   });
+
+  it("keeps a renamed branch document's old path for its preview", () => {
+    const [item] = buildDocumentDiffStreamItems(
+      [
+        {
+          path: "docs/current.md",
+          oldPath: "docs/previous.md",
+          documentPath: "/workspace/docs/current.md",
+          status: "renamed",
+        },
+      ],
+      { repositoryRoot: "/workspace" },
+    );
+
+    expect(item).toMatchObject({
+      kind: "document",
+      oldPath: "docs/previous.md",
+      path: "docs/current.md",
+    });
+  });
 });
