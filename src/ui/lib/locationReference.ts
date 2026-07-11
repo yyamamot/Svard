@@ -10,9 +10,10 @@ export interface LocationReferenceTarget {
   document: DocumentPayload;
   element?: HTMLElement | null;
   heading?: Heading | null;
-  selection?: string;
+  text?: string;
   sourceReference?: string | null;
   targetLabel?: string | null;
+  section?: string;
   renderResult?: Pick<RenderResult, "headings"> | null;
   revision?: LocationReferenceRevision | null;
 }
@@ -28,16 +29,15 @@ export function buildLocationReference({
   document,
   element,
   heading: explicitHeading,
-  selection,
+  text,
   sourceReference,
   targetLabel,
+  section: explicitSection,
   renderResult,
   revision,
 }: LocationReferenceTarget): string | undefined {
-  const heading =
-    explicitHeading ?? nearestHeading(article, element, renderResult?.headings);
   const source = sourceLocationForElement(element, sourceReference);
-  const hasLocation = Boolean(selection || heading || source || targetLabel);
+  const hasLocation = Boolean(text || source || targetLabel);
   if (!hasLocation) {
     return undefined;
   }
@@ -45,18 +45,17 @@ export function buildLocationReference({
   const lines = [
     `File: ${source ? formatSourceLocation(source) : document.path}`,
   ];
-  if (heading) {
-    const section = sectionLabel(heading, renderResult?.headings);
-    lines.push(`Section: ${section}`);
-  }
   if (revision) {
     lines.push(`Revision: ${revision.label} (${revision.side})`);
   }
-  if (targetLabel) {
-    lines.push(`Target: ${targetLabel}`);
+  const section = explicitSection ?? (explicitHeading
+    ? sectionLabel(explicitHeading, renderResult?.headings)
+    : sectionLabelForElement(article, element, renderResult?.headings));
+  if (section) {
+    lines.push(`Section: ${section}`);
   }
-  if (selection) {
-    lines.push("Selected text:", selection);
+  if (text ?? targetLabel) {
+    lines.push("Text:", text ?? targetLabel!);
   }
   return lines.join("\n");
 }
@@ -66,12 +65,14 @@ export function locationReferenceForSelection({
   document,
   renderResult,
   selection,
+  sourceReference: explicitSourceReference,
   revision,
 }: {
   article: HTMLElement | null;
   document: DocumentPayload;
   renderResult?: Pick<RenderResult, "headings"> | null;
   selection: string;
+  sourceReference?: string;
   revision?: LocationReferenceRevision | null;
 }): string | undefined {
   const range = window.getSelection()?.rangeCount
@@ -85,11 +86,20 @@ export function locationReferenceForSelection({
     article,
     document,
     element: anchorElement,
-    selection,
+    text: selection,
     sourceReference:
-      sourceElement?.getAttribute("data-source-reference") ?? undefined,
+      explicitSourceReference ??
+      sourceElement?.getAttribute("data-source-reference") ??
+      undefined,
     renderResult,
     revision,
+    section: range
+      ? sectionLabelForRange({
+          article,
+          range,
+          headings: renderResult?.headings,
+        })
+      : undefined,
   });
 }
 
@@ -112,7 +122,7 @@ export function locationReferenceForElement({
         ?.closest<HTMLElement>("[data-source-reference]")
         ?.getAttribute("data-source-reference") ?? undefined,
     renderResult,
-    targetLabel,
+    text: textForElement(element, targetLabel),
     revision,
   });
 }
@@ -132,7 +142,32 @@ export function locationReferenceForHeading({
     heading,
     sourceReference: sourceReferenceForHeading(document, heading),
     renderResult,
+    text: heading.text,
   })!;
+}
+
+export function sectionLabelForRange({
+  article,
+  range,
+  headings,
+}: {
+  article: HTMLElement | null;
+  range: Range;
+  headings?: Heading[];
+}): string | undefined {
+  const start = headingElementFor(article, elementForNode(range.startContainer));
+  const end = headingElementFor(article, elementForNode(range.endContainer));
+  if (!start || start !== end) return undefined;
+  return sectionLabelForHeadingElement(article, start, headings);
+}
+
+export function sectionLabelForElement(
+  article: HTMLElement | null,
+  element: HTMLElement | null | undefined,
+  headings?: Heading[],
+): string | undefined {
+  const heading = headingElementFor(article, element);
+  return heading ? sectionLabelForHeadingElement(article, heading, headings) : undefined;
 }
 
 export function isLocationReferenceTarget(element: HTMLElement): boolean {
@@ -227,6 +262,45 @@ function nearestHeading(
   );
 }
 
+function headingElementFor(
+  article: HTMLElement | null,
+  element: HTMLElement | null | undefined,
+) {
+  if (!article || !element) return null;
+  return (
+    Array.from(article.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6"))
+      .filter(
+        (candidate) =>
+          candidate.contains(element) ||
+          Boolean(
+            candidate.compareDocumentPosition(element) &
+              Node.DOCUMENT_POSITION_FOLLOWING,
+          ),
+      )
+      .at(-1) ?? null
+  );
+}
+
+function sectionLabelForHeadingElement(
+  article: HTMLElement | null,
+  element: HTMLElement,
+  headings?: Heading[],
+) {
+  const rendered = headings?.find((heading) => heading.id === element.id);
+  if (rendered) return sectionLabel(rendered, headings);
+  const elements = article
+    ? Array.from(article.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6"))
+    : [];
+  const index = elements.indexOf(element);
+  if (index < 0) return undefined;
+  const domHeadings = elements.map((candidate, candidateIndex) => ({
+    id: candidate.id || `dom-heading-${candidateIndex}`,
+    level: Number(candidate.tagName.slice(1)),
+    text: candidate.textContent?.trim() || `Section ${candidateIndex + 1}`,
+  }));
+  return sectionLabel(domHeadings[index], domHeadings);
+}
+
 function sectionLabel(heading: Heading, headings?: Heading[]) {
   const headingList = headings ?? [];
   if (headingList.length === 0) {
@@ -269,4 +343,20 @@ function elementForNode(node: Node): HTMLElement | null {
 
 function formatSourceLocation(source: SourceLocationReference) {
   return `${source.path}:${source.line}`;
+}
+
+function textForElement(element: HTMLElement | null | undefined, fallback?: string | null) {
+  const source = element?.closest<HTMLElement>(".source-block-frame")?.querySelector("pre");
+  if (source?.textContent?.trim()) {
+    return source.textContent.trim();
+  }
+  const heading = element?.closest<HTMLElement>("h1,h2,h3,h4,h5,h6");
+  if (heading?.textContent?.trim()) {
+    return heading.textContent.trim();
+  }
+  const table = element?.closest<HTMLTableElement>("table");
+  if (table?.textContent?.trim()) {
+    return table.textContent.trim();
+  }
+  return fallback ?? undefined;
 }

@@ -20,6 +20,7 @@ import {
   transformSimpleAdmonitions,
 } from "./enhancements";
 import { splitFrontmatter } from "./frontmatter";
+import { extractSourceSelectionBlocks } from "../sourceSelectionBlocks";
 import { markdown } from "./markdownIt";
 import {
   fallbackSourceLocation,
@@ -34,6 +35,7 @@ import type {
   RenderDiagnostic,
   RenderResult,
   SourceBlock,
+  SourceTextBlock,
 } from "../types";
 
 function perfNow(): number {
@@ -92,6 +94,7 @@ export function renderMarkdownDocument(source: string): RenderResult {
   const metadataStartedAt = perfNow();
   const headings: Heading[] = [];
   const sourceBlocks: SourceBlock[] = [];
+  const sourceTextBlocks: SourceTextBlock[] = [];
   const diagnostics: RenderDiagnostic[] = [];
   const diagramSlots: DiagramSlot[] = [];
   const markdownDiagramSlots: MarkdownDiagramSlot[] = [];
@@ -105,6 +108,18 @@ export function renderMarkdownDocument(source: string): RenderResult {
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
+
+    if (token.type === "paragraph_open" && token.level === 0 && token.map) {
+      const block: SourceTextBlock = {
+        id: `text-${sourceTextBlocks.length + 1}`,
+        kind: "paragraph",
+        startLine: token.map[0] + lineOffset + 1,
+        endLine: token.map[1] + lineOffset,
+      };
+      token.attrSet("data-source-text-block-id", block.id);
+      sourceTextBlocks.push(block);
+      continue;
+    }
 
     if (token.type === "heading_open") {
       const level = Number(token.tag.replace(/^h/, ""));
@@ -195,6 +210,8 @@ export function renderMarkdownDocument(source: string): RenderResult {
     html,
     headings,
     sourceBlocks,
+    sourceTextBlocks,
+    sourceSelectionBlocks: extractSourceSelectionBlocks(source, "markdown"),
     diagnostics,
     diagramSlots,
     perf,

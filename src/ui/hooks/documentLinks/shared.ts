@@ -36,5 +36,45 @@ export function documentSelectionAtPoint(
       clientY >= rect.top &&
       clientY <= rect.bottom,
   );
-  return insideSelection ? text : "";
+  if (insideSelection) {
+    return text;
+  }
+  let clicked = document.elementFromPoint(clientX, clientY);
+  while (clicked && article.contains(clicked)) {
+    try {
+      if (range.intersectsNode(clicked)) {
+        return text;
+      }
+    } catch {
+      return "";
+    }
+    if (clicked === article) break;
+    clicked = clicked.parentElement;
+  }
+  return "";
+}
+
+export function sourceRangeForSelection() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || selection.isCollapsed) {
+    return undefined;
+  }
+  const range = selection.getRangeAt(0);
+  const sourceBlock = sourcePreForNode(range.commonAncestorContainer);
+  if (
+    !sourceBlock ||
+    sourceBlock.closest(".source-block-frame.source-block-collapsed")
+  ) {
+    return undefined;
+  }
+  const source = range.cloneContents().textContent ?? "";
+  return source || undefined;
+}
+
+function sourcePreForNode(node: Node) {
+  const element =
+    node.nodeType === Node.ELEMENT_NODE
+      ? (node as HTMLElement)
+      : node.parentElement;
+  return element?.closest<HTMLPreElement>(".source-block-frame pre") ?? null;
 }

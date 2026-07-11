@@ -255,7 +255,10 @@ export async function prepareDocumentHtml(
   html: string,
   document: DocumentPayload,
   config: DocumentHtmlConfig,
-  renderResult?: Pick<RenderResult, "headings" | "sourceBlocks"> &
+  renderResult?: Pick<
+    RenderResult,
+    "headings" | "sourceBlocks" | "sourceTextBlocks" | "sourceSelectionBlocks"
+  > &
     Partial<Pick<RenderResult, "diagnostics">>,
   options: PrepareDocumentHtmlOptions = {},
 ): Promise<SafeHtml> {
@@ -320,6 +323,7 @@ export async function prepareDocumentHtml(
       collapseButton.className = "section-collapse-toggle";
       collapseButton.setAttribute("data-review-id", "section-collapse-toggle");
       collapseButton.setAttribute("data-section-collapse-toggle", "true");
+      collapseButton.setAttribute("data-selection-exclude", "true");
       collapseButton.setAttribute("aria-label", "Toggle section collapse");
       collapseButton.setAttribute("aria-expanded", "true");
       collapseButton.textContent = "";
@@ -398,6 +402,7 @@ export async function prepareDocumentHtml(
       const toolbar = doc.createElement("div");
       toolbar.className = "source-block-toolbar";
       toolbar.setAttribute("data-review-id", "source-block-toolbar");
+      toolbar.setAttribute("data-selection-exclude", "true");
 
       const languageLabel = doc.createElement("span");
       languageLabel.className = "source-block-language";
@@ -475,6 +480,69 @@ export async function prepareDocumentHtml(
     count: sourceBlockCount,
     skipped: !shouldProcessSourceBlocks,
     durationMs: perfDuration(sourceBlocksStartedAt),
+  });
+
+  const sourceTextBlocksStartedAt = perfNow();
+  if (document.format === "asciidoc") {
+    const paragraphs = Array.from(
+      doc.querySelectorAll<HTMLElement>("div.paragraph > p"),
+    );
+    const sourceTextBlocks = renderResult?.sourceTextBlocks ?? [];
+    if (paragraphs.length === sourceTextBlocks.length) {
+      paragraphs.forEach((paragraph, index) => {
+        paragraph.setAttribute(
+          "data-source-text-block-id",
+          sourceTextBlocks[index].id,
+        );
+      });
+    }
+  }
+  tracePerf("render.prepareDocumentHtml.sourceTextBlocks", {
+    basename,
+    format: document.format,
+    count: renderResult?.sourceTextBlocks?.length ?? 0,
+    durationMs: perfDuration(sourceTextBlocksStartedAt),
+  });
+
+  const selectionBlocksStartedAt = perfNow();
+  const selectionBlocks = renderResult?.sourceSelectionBlocks ?? [];
+  const attachSelectionBlocks = (selector: string, kind: string) => {
+    const elements = Array.from(doc.querySelectorAll<HTMLElement>(selector));
+    const blocks = selectionBlocks.filter((block) => block.kind === kind);
+    if (elements.length !== blocks.length) return;
+    elements.forEach((element, index) => {
+      const block = blocks[index];
+      element.setAttribute("data-source-selection-block-id", block.id);
+      element.setAttribute("data-source-selection-start", String(block.startLine));
+      element.setAttribute("data-source-selection-end", String(block.endLine));
+      if (block.sourceLocation?.sourcePath) {
+        element.setAttribute(
+          "data-source-selection-source-path",
+          block.sourceLocation.sourcePath,
+        );
+      }
+    });
+  };
+  attachSelectionBlocks("h1,h2,h3,h4,h5,h6", "heading");
+  attachSelectionBlocks("p[data-source-text-block-id]", "paragraph");
+  attachSelectionBlocks(".source-block-frame", "code");
+  doc.querySelectorAll<HTMLElement>(".source-block-frame").forEach((frame) => {
+    const id = frame.getAttribute("data-source-selection-block-id");
+    const pre = frame.querySelector("pre");
+    if (!id || !pre) return;
+    ["data-source-selection-block-id", "data-source-selection-start", "data-source-selection-end", "data-source-selection-source-path"].forEach((name) => {
+      const value = frame.getAttribute(name);
+      if (value) pre.setAttribute(name, value);
+    });
+  });
+  attachSelectionBlocks("ul,ol", "list");
+  attachSelectionBlocks("table", "table");
+  attachSelectionBlocks(".diagram-slot", "diagram");
+  tracePerf("render.prepareDocumentHtml.sourceSelectionBlocks", {
+    basename,
+    format: document.format,
+    count: selectionBlocks.length,
+    durationMs: perfDuration(selectionBlocksStartedAt),
   });
 
   const tablesStartedAt = perfNow();

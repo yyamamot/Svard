@@ -6,13 +6,17 @@ import {
   locationReferenceTargetLabel,
 } from "../../lib/locationReference";
 import { isExternalUrl } from "../../lib/path";
+import {
+  diffReferenceForTarget,
+  originalDiffTextReferenceForSelection,
+} from "../../lib/diffReference";
 import type { ContextMenuItem } from "../../types";
 import {
   addDiagramItems,
   addHeadingItems,
   addImageItems,
   addLinkItems,
-  addLocationReferenceItem,
+  addTextReferenceItem,
   addSelectionItems,
   addSourceItems,
 } from "../../hooks/documentLinks/contextMenuItems";
@@ -147,7 +151,6 @@ export function diffPreviewContextMenuItems({
   if (selection) {
     addSelectionItems(
       items,
-      selection,
       table,
       copyText,
       allowLocationReference && surface === "rendered" && documentPayload
@@ -159,6 +162,22 @@ export function diffPreviewContextMenuItems({
               label: side === "left" ? preview.leftLabel : preview.rightLabel,
               side,
             },
+          })
+        : undefined,
+      surface === "rendered"
+        ? diffReferenceForTarget({
+            target,
+            preview,
+            leftPath: diffPreviewDocumentPath(preview, "left"),
+            rightPath: diffPreviewDocumentPath(preview, "right"),
+        })
+        : undefined,
+      surface === "rendered"
+        ? originalDiffTextReferenceForSelection({
+            target,
+            preview,
+            path: documentPath ?? diffPreviewDocumentPath(preview, "right"),
+            side,
           })
         : undefined,
     );
@@ -293,6 +312,19 @@ function addRenderedSurfaceItems(
       }),
   });
   addHeadingItems(items, target, documentPayload, copyText);
+  const diffReference = diffReferenceForTarget({
+    target,
+    preview,
+    leftPath: diffPreviewDocumentPath(preview, "left"),
+    rightPath: diffPreviewDocumentPath(preview, "right"),
+  });
+  if (diffReference) {
+    items.push({
+      id: "copy-diff-reference",
+      label: "Copy Diff Reference",
+      onSelect: () => copyText("Diff reference", diffReference.value),
+    });
+  }
   if (
     allowLocationReference &&
     documentPayload &&
@@ -309,7 +341,7 @@ function addRenderedSurfaceItems(
       targetLabel: locationReferenceTargetLabel(target),
     });
     if (locationReference) {
-      addLocationReferenceItem(items, locationReference, copyText);
+      addTextReferenceItem(items, locationReference, copyText);
     }
   }
 }

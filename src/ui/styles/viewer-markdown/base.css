@@ -646,6 +646,11 @@
   isolation: isolate;
 }
 
+[data-selection-exclude] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .source-block-toolbar {
   position: absolute;
   top: 8px;
@@ -661,8 +666,6 @@
   background: var(--reader-surface);
   box-shadow: 0 1px 4px rgb(0 0 0 / 8%);
   font-size: 12px;
-  user-select: none;
-  -webkit-user-select: none;
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;

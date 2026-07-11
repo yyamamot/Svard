@@ -425,10 +425,10 @@ export function useShellContextMenu({
           renderResult,
         });
         items.push({
-          id: "copy-location-reference",
-          label: "Copy Location Reference",
+          id: "copy-text-reference",
+          label: "Copy Text Reference",
           icon: menuIcon(Copy),
-          onSelect: () => copyText("Location reference", locationReference),
+          onSelect: () => copyText("Text reference", locationReference),
         });
       }
     }

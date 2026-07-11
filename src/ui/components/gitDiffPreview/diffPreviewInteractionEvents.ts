@@ -3,7 +3,10 @@ import type {
   DocumentDiffPreview,
   DocumentLinkResolution,
 } from "../../../core/types";
-import { isSupportedDocumentHref } from "../../hooks/documentLinks/shared";
+import {
+  documentSelectionAtPoint,
+  isSupportedDocumentHref,
+} from "../../hooks/documentLinks/shared";
 import { isExternalUrl } from "../../lib/path";
 import { diffPreviewDocumentPath, openDiffLinkElement } from "./contextMenu";
 import type { createDiffPreviewContextMenuHandler } from "./contextMenu";
@@ -20,6 +23,18 @@ export function shouldOpenDeferredSourceContextMenuImmediately(
   target: EventTarget | null,
 ) {
   return target instanceof HTMLElement && Boolean(target.closest("pre"));
+}
+
+export function hasRenderedDiffSelectionAtPoint(
+  target: HTMLElement,
+  clientX: number,
+  clientY: number,
+) {
+  const context = diffContextForTarget(target);
+  return Boolean(
+    context?.surface === "rendered" &&
+      documentSelectionAtPoint(context.container, clientX, clientY),
+  );
 }
 
 export function handleDiffPanelContextMenu({

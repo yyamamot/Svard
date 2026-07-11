@@ -12,6 +12,8 @@ import {
 import { extractAsciiDocDocumentAttributes } from "./asciidocAttributes";
 import { expandAsciiDocIncludes } from "./asciidocInclude";
 import { extractHeadings, extractSourceBlocks } from "./asciidocSourceMap";
+import { extractAsciiDocParagraphSourceBlocks } from "./sourceTextBlocks";
+import { extractSourceSelectionBlocks } from "./sourceSelectionBlocks";
 import type {
   AsciiDocIncludeFile,
   AsciiDocRenderContext,
@@ -42,7 +44,9 @@ self.onmessage = (
       payload.includeFiles ?? [],
       { attributes: payload.asciidocContext?.attributes ?? {} },
     );
-    const documentAttributes = extractAsciiDocDocumentAttributes(payload.source);
+    const documentAttributes = extractAsciiDocDocumentAttributes(
+      payload.source,
+    );
     const source = expanded.source;
     const renderSource = replaceDiagramBlocksWithPlaceholders(source);
     const renderedHtml = asciidoctor.convert(renderSource, {
@@ -61,6 +65,15 @@ self.onmessage = (
       html,
       headings: extractHeadings(html, source, expanded.lineOrigins),
       sourceBlocks: extractSourceBlocks(source, expanded.lineOrigins),
+      sourceTextBlocks: extractAsciiDocParagraphSourceBlocks(
+        source,
+        expanded.lineOrigins,
+      ),
+      sourceSelectionBlocks: extractSourceSelectionBlocks(
+        source,
+        "asciidoc",
+        expanded.lineOrigins,
+      ),
       diagnostics: [
         ...expanded.diagnostics,
         ...detectDiagramDiagnostics(source, expanded.lineOrigins),

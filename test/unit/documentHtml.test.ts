@@ -49,6 +49,11 @@ describe("prepareDocumentHtml", () => {
       doc.querySelector("[data-review-id='source-block-toolbar']"),
     ).not.toBeNull();
     expect(
+      doc
+        .querySelector("[data-review-id='source-block-toolbar']")
+        ?.getAttribute("data-selection-exclude"),
+    ).toBe("true");
+    expect(
       doc.querySelector("[data-review-id='source-block-language']")
         ?.textContent,
     ).toBe("ts");

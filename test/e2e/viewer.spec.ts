@@ -481,12 +481,106 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   await page.mouse.click(selectionPoint!.x, selectionPoint!.y, {
     button: "right",
   });
-  await page.getByRole("menuitem", { name: "Copy Selection" }).click();
+  await page.getByRole("menuitem", { name: "Copy Text Reference" }).click();
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
-    "Selection copied",
+    "Text reference copied",
   );
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    'const product = "Svard";',
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    'Text:\nconst product = "Svard";',
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    "Section:",
+  );
+
+  const sourceParagraph = page.getByText(
+    "A source paragraph for copy actions.",
+  );
+  await sourceParagraph.selectText();
+  const sourceBlockSelectionPoint = await page.evaluate(() => {
+    const selection = window.getSelection();
+    const rect = selection?.rangeCount
+      ? selection.getRangeAt(0).getClientRects()[0]
+      : null;
+    return rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : null;
+  });
+  expect(sourceBlockSelectionPoint).not.toBeNull();
+  await page.mouse.click(
+    sourceBlockSelectionPoint!.x,
+    sourceBlockSelectionPoint!.y,
+    { button: "right" },
+  );
+  await page.getByRole("menuitem", { name: "Copy Original Text Reference" }).click();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Original text reference copied",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    "Original text:\nA *source* paragraph for copy actions.",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    "Section:",
+  );
+
+  await sourceBlock.selectText();
+  const sourceRangeSelectionPoint = await page.evaluate(() => {
+    const selection = window.getSelection();
+    const rect = selection?.rangeCount
+      ? selection.getRangeAt(0).getClientRects()[0]
+      : null;
+    return rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : null;
+  });
+  expect(sourceRangeSelectionPoint).not.toBeNull();
+  await page.mouse.click(
+    sourceRangeSelectionPoint!.x,
+    sourceRangeSelectionPoint!.y,
+    {
+      button: "right",
+    },
+  );
+  await expect(
+    page.getByRole("menuitem", { name: "Copy Text Reference" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Copy Original Text Reference" }),
+  ).toBeVisible();
+  await page.getByRole("menuitem", { name: "Copy Original Text Reference" }).click();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Original text reference copied",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    '[source,ts]\n----\nconst product = "Svard";\n----',
+  );
+
+  await page.evaluate(() => {
+    const pre = document.querySelector(".source-block-frame pre")!;
+    const paragraph = Array.from(
+      document.querySelectorAll("p[data-source-text-block-id]"),
+    ).find((element) => element.textContent?.includes("source paragraph"))!;
+    const range = document.createRange();
+    range.setStart(pre, 0);
+    range.setEnd(paragraph, paragraph.childNodes.length);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  const crossBlockSelectionPoint = await page.evaluate(() => {
+    const rect = window.getSelection()?.getRangeAt(0).getClientRects()[0];
+    return rect ? { x: rect.left + 8, y: rect.top + 8 } : null;
+  });
+  expect(crossBlockSelectionPoint).not.toBeNull();
+  await page.mouse.click(crossBlockSelectionPoint!.x, crossBlockSelectionPoint!.y, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Copy Original Text Reference" }).click();
+  const crossBlockOriginal = await page.evaluate(() => navigator.clipboard.readText());
+  expect(crossBlockOriginal).toContain(
+    '[source,ts]\n----\nconst product = "Svard";\n----\n\nA *source* paragraph for copy actions.',
+  );
+  expect(crossBlockOriginal).toContain(
+    "File: /workspace/docs/copy-actions.adoc:5-10",
   );
 
   await sourceBlock.selectText();
@@ -503,9 +597,9 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   await page.mouse.click(locationSelectionPoint!.x, locationSelectionPoint!.y, {
     button: "right",
   });
-  await page.getByRole("menuitem", { name: "Copy Location Reference" }).click();
+  await page.getByRole("menuitem", { name: "Copy Text Reference" }).click();
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
-    "Location reference copied",
+    "Text reference copied",
   );
   const locationReference = await page.evaluate(() =>
     navigator.clipboard.readText(),
@@ -513,9 +607,8 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   expect(locationReference).toContain(
     "File: /workspace/docs/copy-actions.adoc:5",
   );
-  expect(locationReference).toContain("Section: Code");
   expect(locationReference).toContain(
-    'Selected text:\nconst product = "Svard";',
+    'Text:\nconst product = "Svard";',
   );
 
   await page.evaluate(() => window.getSelection()?.removeAllRanges());
@@ -545,14 +638,14 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   );
 
   await codeTocItem.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Copy Location Reference" }).click();
+  await page.getByRole("menuitem", { name: "Copy Text Reference" }).click();
   const headingLocationReference = await page.evaluate(() =>
     navigator.clipboard.readText(),
   );
   expect(headingLocationReference).toContain(
     "File: /workspace/docs/copy-actions.adoc:1",
   );
-  expect(headingLocationReference).toContain("Section: Code");
+  expect(headingLocationReference).toContain("Text:\nCode");
 
   await page.getByRole("link", { name: "External link" }).click();
   await expect(
@@ -839,8 +932,10 @@ test("viewer-open-in-editor exposes document editor actions", async ({
 });
 
 test("viewer-git-diff-preview opens modified preview from command palette and context menu", async ({
+  context,
   page,
 }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
 
   await page.getByText("git-modified.md").click();
@@ -857,6 +952,40 @@ test("viewer-git-diff-preview opens modified preview from command palette and co
     })
     .click();
   await expect(page.getByTestId("git-diff-preview-panel")).toBeVisible();
+  const changedText = page.getByText(
+    "The document now explains two-pane Git diff preview.",
+  );
+  await changedText.selectText();
+  const selectionPoint = await page.evaluate(() => {
+    const rect = window.getSelection()?.getRangeAt(0).getClientRects()[0];
+    return rect ? { x: rect.left + 4, y: rect.top + 4 } : null;
+  });
+  expect(selectionPoint).not.toBeNull();
+  await page.mouse.click(selectionPoint!.x, selectionPoint!.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Copy Diff Reference" }).click();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Diff reference copied",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    "Before (HEAD):",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    "After (Working Tree):",
+  );
+  await changedText.selectText();
+  await page.mouse.click(selectionPoint!.x, selectionPoint!.y, { button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Copy Original Text Reference" })
+    .click();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Original text reference copied",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    "Revision: Working Tree (right)",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    "Section: Git Diff",
+  );
   await page.getByTestId("git-diff-source-view").click();
   await expect(page.getByTestId("git-diff-left-pane")).toContainText("HEAD");
   await expect(page.getByTestId("git-diff-right-pane")).toContainText(

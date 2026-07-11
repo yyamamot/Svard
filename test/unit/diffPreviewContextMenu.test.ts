@@ -115,7 +115,7 @@ describe("diff preview context menu", () => {
     ).toEqual([
       "Copy Source",
       "Copy Source Reference",
-      "Copy Location Reference",
+      "Copy Text Reference",
     ]);
   });
 
@@ -128,7 +128,7 @@ describe("diff preview context menu", () => {
     ).toEqual([
       "Copy Source",
       "Copy Source Reference",
-      "Copy Location Reference",
+      "Copy Text Reference",
     ]);
   });
 
@@ -150,7 +150,7 @@ describe("diff preview context menu", () => {
     ).toEqual([
       "Copy Heading Link",
       "Copy Source Reference",
-      "Copy Location Reference",
+      "Copy Text Reference",
     ]);
   });
 
@@ -298,7 +298,7 @@ describe("diff preview context menu", () => {
 
     selection?.removeAllRanges();
     container.remove();
-    expect(items.map((item) => item.label)).toEqual(["Copy Selection"]);
+    expect(items.map((item) => item.label)).toEqual([]);
   });
 
   it("copies a rendered selection with its concrete diff side and revision", async () => {
@@ -340,18 +340,117 @@ describe("diff preview context menu", () => {
     });
 
     await items
-      .find((item) => item.id === "copy-location-reference")
+      .find((item) => item.id === "copy-text-reference")
       ?.onSelect();
     selection?.removeAllRanges();
     container.remove();
     expect(copyText).toHaveBeenCalledWith(
-      "Location reference",
+      "Text reference",
       expect.stringContaining("Revision: Working Tree (right)"),
     );
     expect(copyText).toHaveBeenCalledWith(
-      "Location reference",
+      "Text reference",
       expect.stringContaining("File: /workspace/docs/guide.md"),
     );
+  });
+
+  it("copies a paired diff reference from the selected concrete side", async () => {
+    const container = document.createElement("div");
+    container.className = "git-diff-body-with-ruler";
+    container.innerHTML = `<article class="git-rendered-block left-side" data-sync-index="1" data-change-index="0"><p data-source-selection-start="1" data-source-selection-end="1">Selected sentence.</p></article><article class="git-rendered-block right-side" data-sync-index="1" data-change-index="0"><p data-source-selection-start="1" data-source-selection-end="1">Selected sentence.</p></article>`;
+    document.body.append(container);
+    const paragraph = container.querySelector("p")!;
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.getClientRects = () => [{ left: 0, right: 200, top: 0, bottom: 20 } as DOMRect] as unknown as DOMRectList;
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    const copyText = vi.fn();
+    const items = diffPreviewContextMenuItems({
+      container,
+      event: { clientX: 10, clientY: 10 },
+      target: paragraph,
+      side: "right",
+      surface: "rendered",
+      preview: { ...basePreview, leftText: "Selected sentence.\n", rightText: "Selected *sentence*.\n" },
+      copyText,
+      openDocument: vi.fn(),
+      openPathInEditor: vi.fn(),
+      resolveDocumentLink: vi.fn(),
+      confirmExternalLink: vi.fn().mockResolvedValue(true),
+      openExternalUrl: vi.fn(),
+      onOpenDiagramPreview: vi.fn(),
+      showInlineNotice: vi.fn(),
+    });
+
+    expect(items.map((item) => item.label)).toEqual([
+      "Copy Text Reference",
+      "Copy Diff Reference",
+      "Copy Original Text Reference",
+    ]);
+    await items.find((item) => item.id === "copy-diff-reference")?.onSelect();
+    window.getSelection()?.removeAllRanges();
+    container.remove();
+    expect(copyText).toHaveBeenCalledWith(
+      "Diff reference",
+      expect.stringContaining("Before (HEAD):\nFile: /workspace/docs/guide.md:1-1"),
+    );
+  });
+
+  it("offers a diff reference from a changed block without selection", () => {
+    const { cleanup, items } = menuItemsFor(
+      `<div class="git-diff-body-with-ruler"><article class="git-rendered-block left-side" data-sync-index="1" data-change-index="0"><p data-source-selection-start="1" data-source-selection-end="1">Before.</p></article><article class="git-rendered-block right-side" data-sync-index="1" data-change-index="0"><p data-source-selection-start="1" data-source-selection-end="1">After.</p></article></div>`,
+      {
+        selector: ".right-side p",
+        preview: { ...basePreview, leftText: "Before.\n", rightText: "After.\n" },
+      },
+    );
+    expect(items.map((item) => item.label)).toContain("Copy Diff Reference");
+    cleanup();
+  });
+
+  it("offers only text and original references for an unchanged selected block", async () => {
+    const container = document.createElement("div");
+    container.className = "git-diff-body-with-ruler";
+    container.innerHTML = `<article class="git-rendered-block left-side" data-sync-index="1"><p data-source-selection-start="1" data-source-selection-end="1">Unchanged sentence.</p></article><article class="git-rendered-block right-side" data-sync-index="1"><p data-source-selection-start="1" data-source-selection-end="1">Unchanged sentence.</p></article>`;
+    document.body.append(container);
+    const paragraph = container.querySelector<HTMLElement>(".right-side p")!;
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.getClientRects = () =>
+      [{ left: 0, right: 200, top: 0, bottom: 20 } as DOMRect] as unknown as DOMRectList;
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    const copyText = vi.fn();
+
+    const items = diffPreviewContextMenuItems({
+      container,
+      event: { clientX: 10, clientY: 10 },
+      target: paragraph,
+      side: "right",
+      surface: "rendered",
+      preview: { ...basePreview, leftText: "Unchanged sentence.\n", rightText: "Unchanged *sentence*.\n" },
+      copyText,
+      openDocument: vi.fn(),
+      openPathInEditor: vi.fn(),
+      resolveDocumentLink: vi.fn(),
+      confirmExternalLink: vi.fn().mockResolvedValue(true),
+      openExternalUrl: vi.fn(),
+      onOpenDiagramPreview: vi.fn(),
+      showInlineNotice: vi.fn(),
+    });
+
+    expect(items.map((item) => item.label)).toEqual([
+      "Copy Text Reference",
+      "Copy Original Text Reference",
+    ]);
+    await items.find((item) => item.id === "copy-original-text-reference")?.onSelect();
+    expect(copyText).toHaveBeenCalledWith(
+      "Original text reference",
+      expect.stringContaining("Revision: Working Tree (right)\nOriginal text:\nUnchanged *sentence*."),
+    );
+    window.getSelection()?.removeAllRanges();
+    container.remove();
   });
 
   it("does not offer a location reference for a virtual diff side", () => {
@@ -392,7 +491,7 @@ describe("diff preview context menu", () => {
 
     window.getSelection()?.removeAllRanges();
     container.remove();
-    expect(items.map((item) => item.label)).toEqual(["Copy Selection"]);
+    expect(items.map((item) => item.label)).toEqual([]);
   });
 
   it("uses path or pane text fallback for Source view background", () => {

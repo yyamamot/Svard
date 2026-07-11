@@ -20,6 +20,7 @@ import { createDiffPreviewContextMenuHandler } from "./contextMenu";
 import {
   handleDiffPanelClick,
   handleDiffPanelContextMenu,
+  hasRenderedDiffSelectionAtPoint,
   shouldIgnoreDiffMouseGestureTarget,
   shouldOpenDeferredSourceContextMenuImmediately,
 } from "./diffPreviewInteractionEvents";
@@ -209,6 +210,11 @@ export function useDiffPreviewInteractions({
 
   function handleDiffMouseGestureContextMenu(event: MouseEvent<HTMLElement>) {
     if (shouldIgnoreDiffMouseGestureTarget(event.target)) {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (hasRenderedDiffSelectionAtPoint(target, event.clientX, event.clientY)) {
+      handlePanelContextMenu(event, true);
       return;
     }
     const result = handleMouseGestureContextMenu(event);

@@ -1350,6 +1350,8 @@ digraph G { A -> }
 const product = "Svard";
 ----
 
+A *source* paragraph for copy actions.
+
 image::diagram.svg[]
 
 https://example.com[External link]

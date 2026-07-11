@@ -34,7 +34,7 @@ export async function applyReaderActionsScenario(context) {
     });
   } else if (scenario === "viewer-copy-actions") {
     await page.locator("text=copy-actions.adoc").click();
-    await page.locator("text=Copy Actions").waitFor();
+    await page.getByRole("heading", { name: "Copy Actions", exact: true }).waitFor();
     await page.locator('[data-review-id="source-copy-button"]').click();
     await page
       .locator('[data-review-id="lightweight-action-feedback"]')
@@ -81,7 +81,9 @@ export async function applyReaderActionsScenario(context) {
       .waitFor();
   } else if (scenario === "viewer-copy-location-reference") {
     await page.locator("text=copy-actions.adoc").click();
-    await page.locator("text=Copy Actions").waitFor();
+    await page
+      .getByRole("heading", { name: "Copy Actions", exact: true })
+      .waitFor();
     const sourceBlock = page.locator(".source-block-frame pre");
     await sourceBlock.scrollIntoViewIfNeeded();
     await sourceBlock.selectText();
@@ -101,14 +103,14 @@ export async function applyReaderActionsScenario(context) {
       button: "right",
     });
     await page
-      .locator('[data-review-id="context-menu-item-copy-location-reference"]')
+      .locator('[data-review-id="context-menu-item-copy-text-reference"]')
       .waitFor();
     await page
-      .locator('[data-review-id="context-menu-item-copy-location-reference"]')
+      .locator('[data-review-id="context-menu-item-copy-text-reference"]')
       .click();
     await page
       .locator('[data-review-id="lightweight-action-feedback"]')
-      .filter({ hasText: "Location reference copied" })
+      .filter({ hasText: "Text reference copied" })
       .waitFor();
     await page.evaluate(() => {
       window.__SVARD_LOCATION_REFERENCE_CHECK__ = {

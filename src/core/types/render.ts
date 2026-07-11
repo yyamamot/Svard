@@ -42,6 +42,8 @@ export interface RenderResult {
   html: string;
   headings: Heading[];
   sourceBlocks: SourceBlock[];
+  sourceTextBlocks?: SourceTextBlock[];
+  sourceSelectionBlocks?: SourceSelectionBlock[];
   diagnostics: RenderDiagnostic[];
   missingAsciiDocIncludes?: MissingAsciiDocInclude[];
   diagramSlots: DiagramSlot[];
@@ -62,6 +64,22 @@ export interface RenderPerfStage {
 export interface SourceBlock {
   id: string;
   language?: string;
+  sourceLocation?: SourceLocation;
+}
+
+export interface SourceTextBlock {
+  id: string;
+  kind: "paragraph";
+  startLine: number;
+  endLine: number;
+  sourceLocation?: SourceLocation;
+}
+
+export interface SourceSelectionBlock {
+  id: string;
+  kind: "heading" | "paragraph" | "list" | "table" | "code" | "diagram";
+  startLine: number;
+  endLine: number;
   sourceLocation?: SourceLocation;
 }
 

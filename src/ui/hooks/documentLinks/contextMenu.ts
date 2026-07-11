@@ -6,6 +6,10 @@ import {
   locationReferenceForSelection,
   locationReferenceTargetLabel,
 } from "../../lib/locationReference";
+import {
+  originalTextReferenceForSelection,
+  sourceReferenceForSelection,
+} from "../../lib/sourceTextCopy";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
 import { documentSelectionAtPoint } from "./shared";
 import {
@@ -14,7 +18,7 @@ import {
   addHeadingItems,
   addImageItems,
   addLinkItems,
-  addLocationReferenceItem,
+  addTextReferenceItem,
   addSelectionItems,
   addSourceItems,
 } from "./contextMenuItems";
@@ -88,7 +92,6 @@ export function createArticleContextMenuHandler({
     if (selection) {
       addSelectionItems(
         items,
-        selection,
         table,
         copyText,
         documentPayload
@@ -97,6 +100,19 @@ export function createArticleContextMenuHandler({
               document: documentPayload,
               renderResult,
               selection,
+              sourceReference: sourceReferenceForSelection({
+                article: articleRef.current,
+                document: documentPayload,
+                renderResult,
+              }),
+            })
+          : undefined,
+        undefined,
+        documentPayload
+          ? originalTextReferenceForSelection({
+              article: articleRef.current,
+              document: documentPayload,
+              renderResult,
             })
           : undefined,
       );
@@ -133,7 +149,7 @@ export function createArticleContextMenuHandler({
           targetLabel: locationReferenceTargetLabel(target),
         });
         if (locationReference) {
-          addLocationReferenceItem(items, locationReference, copyText);
+          addTextReferenceItem(items, locationReference, copyText);
         }
       }
       addDocumentItems(items, documentPayload, {

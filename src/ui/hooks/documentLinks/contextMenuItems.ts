@@ -22,37 +22,62 @@ import { isSupportedDocumentHref, menuIcon } from "./shared";
 import { addTableItems } from "./tableActions";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
 
+export interface OriginalTextReference {
+  value: string;
+}
+
+export interface DiffReference {
+  value: string;
+}
+
 export function addSelectionItems(
   items: ContextMenuItem[],
-  selection: string,
   table: HTMLTableElement | null,
   copyText: CopyText,
-  locationReference?: string,
+  textReference?: string,
+  diffReference?: DiffReference,
+  originalTextReference?: OriginalTextReference,
 ) {
-  items.push({
-    id: "copy-selection",
-    label: "Copy Selection",
-    icon: menuIcon(Copy),
-    onSelect: () => copyText("Selection", selection),
-  });
-  if (locationReference) {
-    addLocationReferenceItem(items, locationReference, copyText);
+  if (textReference) {
+    items.push({
+      id: "copy-text-reference",
+      label: "Copy Text Reference",
+      icon: menuIcon(Copy),
+      onSelect: () => copyText("Text reference", textReference),
+    });
+  }
+  if (diffReference) {
+    items.push({
+      id: "copy-diff-reference",
+      label: "Copy Diff Reference",
+      icon: menuIcon(Copy),
+      onSelect: () => copyText("Diff reference", diffReference.value),
+    });
+  }
+  if (originalTextReference) {
+    items.push({
+      id: "copy-original-text-reference",
+      label: "Copy Original Text Reference",
+      icon: menuIcon(Copy),
+      onSelect: () =>
+        copyText("Original text reference", originalTextReference.value),
+    });
   }
   if (table) {
     addTableItems(items, table, copyText);
   }
 }
 
-export function addLocationReferenceItem(
+export function addTextReferenceItem(
   items: ContextMenuItem[],
   locationReference: string,
   copyText: CopyText,
 ) {
   items.push({
-    id: "copy-location-reference",
-    label: "Copy Location Reference",
+    id: "copy-text-reference",
+    label: "Copy Text Reference",
     icon: menuIcon(Copy),
-    onSelect: () => copyText("Location reference", locationReference),
+    onSelect: () => copyText("Text reference", locationReference),
   });
 }
 

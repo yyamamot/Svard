@@ -42,11 +42,11 @@ describe("location reference", () => {
         heading: headings[1],
         sourceReference: "/workspace/includes/overview.md:12:3",
         renderResult: { headings },
-        selection: "A selected sentence.",
+        text: "A selected sentence.",
       }),
     ).toBe(`File: /workspace/includes/overview.md:12
 Section: Guide > Overview
-Selected text:
+Text:
 A selected sentence.`);
   });
 
@@ -69,10 +69,10 @@ A selected sentence.`);
 
     window.getSelection()?.removeAllRanges();
     article.remove();
-    expect(value).toContain("Section: Guide > Overview");
     expect(value).toContain("File: /workspace/docs/guide.md");
+    expect(value).toContain("Section: Guide > Overview");
     expect(value).not.toContain(":12");
-    expect(value).toContain("Selected text:\nA selected sentence.");
+    expect(value).toContain("Text:\nA selected sentence.");
   });
 
   it("omits source location for a selection that spans multiple source blocks", () => {
@@ -97,5 +97,29 @@ A selected sentence.`);
     article.remove();
     expect(value).toContain("File: /workspace/docs/guide.md");
     expect(value).not.toContain(":4");
+    expect(value).toContain("Section: Guide > Overview");
+  });
+
+  it("omits the section when a selection crosses headings", () => {
+    const article = document.createElement("article");
+    article.innerHTML = `<h1 id="guide">Guide</h1><p>First.</p><h2 id="overview">Overview</h2><p>Second.</p>`;
+    const paragraphs = article.querySelectorAll("p");
+    document.body.append(article);
+    const range = document.createRange();
+    range.setStart(paragraphs[0].firstChild!, 0);
+    range.setEnd(paragraphs[1].firstChild!, 7);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    const value = locationReferenceForSelection({
+      article,
+      document: documentPayload,
+      renderResult: { headings },
+      selection: "First.Second.",
+    });
+
+    window.getSelection()?.removeAllRanges();
+    article.remove();
+    expect(value).not.toContain("Section:");
   });
 });
