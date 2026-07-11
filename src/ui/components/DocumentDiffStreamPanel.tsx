@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import {
   emptyDocumentReviewSessionControls,
@@ -43,6 +43,8 @@ export function DocumentDiffStreamPanel({
 }: DocumentDiffStreamPanelProps) {
   const panelRef = useRef<HTMLElement | null>(null);
   const streamBodyRef = useRef<HTMLDivElement | null>(null);
+  const filesPickerRef = useRef<HTMLDivElement | null>(null);
+  const filesButtonRef = useRef<HTMLButtonElement | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
     () =>
       new Set(
@@ -52,6 +54,9 @@ export function DocumentDiffStreamPanel({
       ),
   );
   const [viewMode, setViewMode] = useState<DiffStreamViewMode>("full");
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [fileFilter, setFileFilter] = useState("");
+  const [activeFileIndex, setActiveFileIndex] = useState(0);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -63,6 +68,15 @@ export function DocumentDiffStreamPanel({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!filesOpen) return;
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!filesPickerRef.current?.contains(event.target as Node)) setFilesOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutside);
+    return () => document.removeEventListener("mousedown", closeOnOutside);
+  }, [filesOpen]);
 
   const expandSection = useCallback((key: string) => {
     setExpandedPaths((current) => {
@@ -154,6 +168,52 @@ export function DocumentDiffStreamPanel({
     },
     [ensureSectionLoaded],
   );
+  const filteredFiles = useMemo(() => {
+    const query = fileFilter.trim().toLowerCase();
+    return preview.items.map((item, index) => ({ item, index })).filter(({ item }) =>
+      !query || item.path.toLowerCase().includes(query),
+    );
+  }, [fileFilter, preview.items]);
+  const currentFile = preview.items[activeFileIndex] ?? preview.items[0];
+
+  const syncActiveFileToViewport = useCallback(() => {
+    const body = streamBodyRef.current;
+    if (!body) return;
+    const sections = Array.from(
+      body.querySelectorAll<HTMLElement>("[data-stream-index]"),
+    );
+    const bodyTop = body.getBoundingClientRect().top;
+    const current = sections.reduce(
+      (best, section) =>
+        Math.abs(section.getBoundingClientRect().top - bodyTop) <
+        Math.abs((best?.getBoundingClientRect().top ?? Infinity) - bodyTop)
+          ? section
+          : best,
+      sections[0],
+    );
+    const index = Number(current?.dataset.streamIndex);
+    if (Number.isInteger(index)) setActiveFileIndex(index);
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(syncActiveFileToViewport);
+    return () => window.cancelAnimationFrame(frame);
+  }, [expandedPaths, loadStates, preview.items, syncActiveFileToViewport]);
+
+  const selectFile = useCallback((index: number) => {
+    const item = preview.items[index];
+    if (!item) return;
+    const key = item.documentPath ?? item.path;
+    setActiveFileIndex(index);
+    expandSection(key);
+    if (item.kind === "document") ensureSectionLoaded(key, "navigation");
+    const section = streamBodyRef.current?.querySelector<HTMLElement>(
+      `[data-stream-index="${index}"]`,
+    );
+    section?.scrollIntoView({ block: "center" });
+    setFilesOpen(false);
+    filesButtonRef.current?.focus();
+  }, [ensureSectionLoaded, expandSection, preview.items]);
 
   return (
     <div
@@ -181,10 +241,30 @@ export function DocumentDiffStreamPanel({
       >
         <MouseGestureTrail points={mouseGestureTrail} />
         <header className="git-diff-toolbar diff-stream-toolbar">
-          <div className="git-diff-title">
-            <span>All diffs</span>
-            <small>{preview.items.length} document diffs</small>
-            {preview.comparisonLabel ? <small>{preview.comparisonLabel}</small> : null}
+          <div className="diff-stream-title-group">
+            <div className="git-diff-title">
+              <span>All diffs</span>
+              <small>{preview.items.length} document diffs</small>
+              {preview.comparisonLabel ? <small>{preview.comparisonLabel}</small> : null}
+            </div>
+            <div className="diff-stream-files-picker" ref={filesPickerRef}>
+              <button ref={filesButtonRef} type="button" data-review-id="diff-stream-files-picker" aria-expanded={filesOpen} onClick={() => setFilesOpen((open) => !open)}>
+                Files ({preview.items.length})
+              </button>
+              {filesOpen ? <div className="diff-stream-files-popover" role="dialog" aria-label="All diffs files" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); setFilesOpen(false); filesButtonRef.current?.focus(); } }}>
+                <input autoFocus value={fileFilter} onChange={(event) => setFileFilter(event.currentTarget.value)} placeholder="Filter files" aria-label="Filter all diffs files" />
+                <div role="listbox">{filteredFiles.map(({ item, index }) => <button key={`${item.path}:${index}`} type="button" role="option" aria-selected={activeFileIndex === index} className={activeFileIndex === index ? "active" : ""} onClick={() => selectFile(index)}><strong>{item.path}</strong><small>{item.kind === "blocker" ? item.reason ?? item.status : item.status}</small></button>)}</div>
+              </div> : null}
+            </div>
+            {currentFile ? (
+              <div
+                className="diff-stream-current-file"
+                data-review-id="diff-stream-current-file"
+                title={currentFile.path}
+              >
+                <span>Current:</span> <strong>{currentFile.path}</strong>
+              </div>
+            ) : null}
           </div>
           <div
             className="git-diff-navigation"
@@ -257,7 +337,11 @@ export function DocumentDiffStreamPanel({
           </div>
         </header>
         <div className="diff-stream-body-with-ruler">
-          <div ref={streamBodyRef} className="diff-stream-body">
+          <div
+            ref={streamBodyRef}
+            className="diff-stream-body"
+            onScroll={syncActiveFileToViewport}
+          >
             {preview.items.map((item, index) => (
               <DiffStreamSection
                 key={`${item.status}:${item.documentPath ?? item.path}`}
