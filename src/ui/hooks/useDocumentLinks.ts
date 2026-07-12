@@ -17,6 +17,7 @@ import { createArticleDoubleClickHandler } from "./documentLinks/previewDoubleCl
 import type { UseDocumentLinksOptions } from "./documentLinks/types";
 import { copyImageToClipboard } from "../lib/imageClipboard";
 import {
+  captureAreaFailureNotice,
   captureAreaReferenceForRect,
   copyCaptureAreaToClipboard,
   type CaptureAreaRect,
@@ -122,7 +123,7 @@ export function useDocumentLinks({
   ) {
     const article = captureTarget;
     if (!article) {
-      showInlineNotice("Image could not be copied", { tone: "warning" });
+      showInlineNotice(captureAreaFailureNotice, { tone: "warning" });
       return;
     }
     try {
@@ -132,10 +133,12 @@ export function useDocumentLinks({
           : undefined;
       await copyCaptureAreaToClipboard(article, rect, referenceText);
       showLightweightActionFeedback(
-        variant === "reference" ? "Image with reference copied" : "Image copied",
+        variant === "reference"
+          ? "Image with reference copied"
+          : "Image copied",
       );
     } catch {
-      showInlineNotice("Image could not be copied", { tone: "warning" });
+      showInlineNotice(captureAreaFailureNotice, { tone: "warning" });
     }
   }
 

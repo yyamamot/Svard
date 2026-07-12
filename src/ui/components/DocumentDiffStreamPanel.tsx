@@ -13,6 +13,7 @@ import { useDocumentDiffStreamLoader } from "./documentDiffStream/useDocumentDif
 import { useDocumentDiffStreamNavigation } from "./documentDiffStream/useDocumentDiffStreamNavigation";
 import { CaptureAreaOverlay } from "./CaptureAreaOverlay";
 import {
+  captureAreaFailureNotice,
   captureAreaReferenceForRect,
   copyCaptureAreaToClipboard,
   type CaptureAreaRect,
@@ -183,7 +184,7 @@ export function DocumentDiffStreamPanel({
             : "Image copied",
         );
       } catch {
-        showInlineNotice("Image could not be copied", { tone: "warning" });
+        showInlineNotice(captureAreaFailureNotice, { tone: "warning" });
       }
     },
     [showInlineNotice, showLightweightActionFeedback],

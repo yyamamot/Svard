@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   captureAreaBackground,
+  captureAreaCompositeLayout,
+  captureAreaFailureNotice,
   captureAreaImageSize,
   captureAreaReferenceForRect,
   clampCaptureArea,
@@ -52,6 +54,29 @@ describe("capture area geometry", () => {
       width: 4096,
       height: 2048,
     });
+  });
+
+  it("keeps content and reference footer proportions in the composed PNG", () => {
+    expect(
+      captureAreaCompositeLayout({ width: 1000, height: 500 }, 100, 2),
+    ).toEqual({
+      width: 2000,
+      height: 1200,
+      contentHeight: 1000,
+      footerHeight: 200,
+    });
+    expect(
+      captureAreaCompositeLayout({ width: 3000, height: 1500 }, 300, 2),
+    ).toEqual({
+      width: 4096,
+      height: 2458,
+      contentHeight: 2048,
+      footerHeight: 410,
+    });
+  });
+
+  it("states that a failed capture leaves the previous clipboard unchanged", () => {
+    expect(captureAreaFailureNotice).toContain("clipboard was not changed");
   });
 
   it("uses the nearest opaque reader surface as the PNG background", () => {
@@ -124,7 +149,10 @@ describe("capture area geometry", () => {
     left.classList.add("git-rendered-pane");
     left.dataset.captureRevisionLabel = "HEAD";
     left.dataset.captureSide = "left";
-    const right = captureRoot("/workspace/docs/guide.md", rect(260, 0, 240, 300));
+    const right = captureRoot(
+      "/workspace/docs/guide.md",
+      rect(260, 0, 240, 300),
+    );
     right.classList.add("git-rendered-pane");
     right.dataset.captureRevisionLabel = "Working Tree";
     right.dataset.captureSide = "right";

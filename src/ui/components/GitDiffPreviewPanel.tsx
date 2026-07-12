@@ -13,6 +13,7 @@ import type {
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
 import type { DiffPreviewWatchState } from "../lib/diffPreviewWatch";
 import {
+  captureAreaFailureNotice,
   captureAreaReferenceForRect,
   copyCaptureAreaToClipboard,
   type CaptureAreaCommandHandler,
@@ -199,21 +200,21 @@ export function DocumentDiffPreviewPanel({
   const closeWithHandoff = useCallback(() => {
     onClose({ preview, renderedPresentation });
   }, [onClose, preview, renderedPresentation]);
-  const beginCaptureArea = useCallback((
-    container?: HTMLElement,
-    variant: CaptureAreaVariant = "plain",
-  ) => {
-    const renderedPane =
-      container ?? renderedRightRef.current ?? renderedLeftRef.current;
-    const article = renderedPane?.closest<HTMLElement>(
-      ".git-rendered-diff-body",
-    );
-    if (!article) {
-      return false;
-    }
-    setCaptureAreaState({ article, variant });
-    return true;
-  }, []);
+  const beginCaptureArea = useCallback(
+    (container?: HTMLElement, variant: CaptureAreaVariant = "plain") => {
+      const renderedPane =
+        container ?? renderedRightRef.current ?? renderedLeftRef.current;
+      const article = renderedPane?.closest<HTMLElement>(
+        ".git-rendered-diff-body",
+      );
+      if (!article) {
+        return false;
+      }
+      setCaptureAreaState({ article, variant });
+      return true;
+    },
+    [],
+  );
   const copyCapturedArea = useCallback(
     async (
       article: HTMLElement,
@@ -232,10 +233,10 @@ export function DocumentDiffPreviewPanel({
             : "Image copied",
         );
       } catch {
-        showLightweightActionFeedback?.("Image could not be copied");
+        showInlineNotice(captureAreaFailureNotice, { tone: "warning" });
       }
     },
-    [showLightweightActionFeedback],
+    [showInlineNotice, showLightweightActionFeedback],
   );
   const {
     handleContextMenuCapture,

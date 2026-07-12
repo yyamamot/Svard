@@ -13,7 +13,9 @@ export interface CaptureAreaRect {
 }
 
 export type CaptureAreaVariant = "plain" | "reference";
-export type CaptureAreaCommandHandler = (variant?: CaptureAreaVariant) => boolean;
+export type CaptureAreaCommandHandler = (
+  variant?: CaptureAreaVariant,
+) => boolean;
 
 export interface CaptureAreaRequest {
   id: number;
@@ -21,6 +23,10 @@ export interface CaptureAreaRequest {
 }
 
 export const minimumCaptureAreaSize = 8;
+export const captureAreaFailureNotice =
+  "Image could not be copied; clipboard was not changed";
+
+const activeCaptureTargets = new WeakSet<HTMLElement>();
 
 export function clampCaptureArea(
   startX: number,
@@ -62,12 +68,48 @@ export function captureAreaImageSize(
   return imageClipboardSize(rect.width * pixelRatio, rect.height * pixelRatio);
 }
 
+export function captureAreaCompositeLayout(
+  rect: Pick<CaptureAreaRect, "width" | "height">,
+  footerHeight: number,
+  pixelRatio = window.devicePixelRatio || 1,
+) {
+  const totalHeight = rect.height + footerHeight;
+  const size = captureAreaImageSize(
+    { width: rect.width, height: totalHeight },
+    pixelRatio,
+  );
+  const contentHeight = Math.max(
+    1,
+    Math.min(
+      size.height - 1,
+      Math.round((size.height * rect.height) / totalHeight),
+    ),
+  );
+  return {
+    width: size.width,
+    height: size.height,
+    contentHeight,
+    footerHeight: size.height - contentHeight,
+  };
+}
+
 export function copyCaptureAreaToClipboard(
   article: HTMLElement,
   rect: CaptureAreaRect,
   referenceText?: string,
 ): Promise<void> {
-  return copyPngToClipboard(captureArticleArea(article, rect, referenceText));
+  if (activeCaptureTargets.has(article)) {
+    return Promise.reject(new Error("Image capture is already in progress"));
+  }
+  activeCaptureTargets.add(article);
+  try {
+    return copyPngToClipboard(
+      captureArticleArea(article, rect, referenceText),
+    ).finally(() => activeCaptureTargets.delete(article));
+  } catch (error) {
+    activeCaptureTargets.delete(article);
+    return Promise.reject(error);
+  }
 }
 
 interface CaptureReferenceUnit {
@@ -157,7 +199,7 @@ function captureReferenceFragmentsForRoot(
         revision,
         side,
         section: anchor
-          ? sectionLabelForElement(root, anchor) ?? undefined
+          ? (sectionLabelForElement(root, anchor) ?? undefined)
           : undefined,
       },
     ];
@@ -260,23 +302,81 @@ async function captureArticleArea(
     throw new Error("Document has no visible area");
   }
 
-  const frame = document.createElement("div");
-  const clone = article.cloneNode(true) as HTMLElement;
-  const offsetX = rect.left - articleRect.left;
-  const offsetY = rect.top - articleRect.top;
   const background = captureAreaBackground(article);
+  const contentFrame = createCaptureFrame(rect.width, rect.height, background);
+  const clone = createCaptureClone(article, articleRect, rect);
+  contentFrame.appendChild(clone);
+  document.body.appendChild(contentFrame);
+  copyScrollOffsets(article, clone);
 
+  try {
+    if (!referenceText) {
+      const size = captureAreaImageSize(rect);
+      return await rasterizeCaptureFrame(contentFrame, size.width, size.height);
+    }
+
+    const footerFrame = createCaptureFrame(rect.width, 1, background);
+    const footer = createCaptureAreaReferenceFooter(
+      article,
+      referenceText,
+      rect.width,
+    );
+    footer.style.top = "0";
+    footerFrame.appendChild(footer);
+    document.body.appendChild(footerFrame);
+    const footerHeight = Math.ceil(
+      footer.getBoundingClientRect().height ||
+        footer.scrollHeight ||
+        estimateReferenceFooterHeight(referenceText, rect.width),
+    );
+    footer.style.height = `${footerHeight}px`;
+    footerFrame.style.height = `${footerHeight}px`;
+
+    try {
+      const layout = captureAreaCompositeLayout(rect, footerHeight);
+      const [content, footerImage] = await Promise.all([
+        rasterizeCaptureFrame(contentFrame, layout.width, layout.contentHeight),
+        rasterizeCaptureFrame(footerFrame, layout.width, layout.footerHeight),
+      ]);
+      return composeCaptureImages(
+        content,
+        footerImage,
+        layout.width,
+        layout.contentHeight,
+        layout.footerHeight,
+      );
+    } finally {
+      footerFrame.remove();
+    }
+  } finally {
+    contentFrame.remove();
+  }
+}
+
+function createCaptureFrame(width: number, height: number, background: string) {
+  const frame = document.createElement("div");
   Object.assign(frame.style, {
     position: "fixed",
     left: "0",
     top: "0",
-    width: `${rect.width}px`,
-    height: `${rect.height}px`,
+    width: `${width}px`,
+    height: `${height}px`,
     overflow: "hidden",
     pointerEvents: "none",
     zIndex: "-1",
     background,
   });
+  return frame;
+}
+
+function createCaptureClone(
+  article: HTMLElement,
+  articleRect: DOMRect,
+  rect: CaptureAreaRect,
+) {
+  const clone = article.cloneNode(true) as HTMLElement;
+  const offsetX = rect.left - articleRect.left;
+  const offsetY = rect.top - articleRect.top;
   Object.assign(clone.style, {
     position: "absolute",
     left: `${-offsetX - article.scrollLeft}px`,
@@ -287,52 +387,74 @@ async function captureArticleArea(
   });
   preserveCaptureLayout(article, clone);
   removeMediaOutsideCapture(article, clone, rect);
-  frame.appendChild(clone);
-  document.body.appendChild(frame);
-  copyScrollOffsets(article, clone);
+  return clone;
+}
 
-  let captureHeight = rect.height;
-  if (referenceText) {
-    const footer = createCaptureAreaReferenceFooter(
-      article,
-      referenceText,
-      rect.width,
-    );
-    footer.style.top = `${rect.height}px`;
-    frame.appendChild(footer);
-    const measuredHeight = Math.ceil(
-      footer.getBoundingClientRect().height ||
-        footer.scrollHeight ||
-        estimateReferenceFooterHeight(referenceText, rect.width),
-    );
-    footer.style.height = `${measuredHeight}px`;
-    captureHeight += measuredHeight;
-    frame.style.height = `${captureHeight}px`;
-  }
+async function rasterizeCaptureFrame(
+  frame: HTMLElement,
+  width: number,
+  height: number,
+) {
+  const blob = await toBlob(frame, {
+    canvasWidth: width,
+    canvasHeight: height,
+    pixelRatio: 1,
+    skipAutoScale: true,
+    filter: (node) =>
+      !(node instanceof Element) ||
+      (!node.hasAttribute("data-selection-exclude") &&
+        !node.classList.contains("source-block-toolbar") &&
+        !node.classList.contains("capture-area-overlay")),
+  });
+  if (!blob) throw new Error("PNG conversion failed");
+  return blob;
+}
 
+async function composeCaptureImages(
+  content: Blob,
+  footer: Blob,
+  width: number,
+  contentHeight: number,
+  footerHeight: number,
+) {
+  const [contentImage, footerImage] = await Promise.all([
+    loadCaptureImage(content),
+    loadCaptureImage(footer),
+  ]);
   try {
-    const { width, height } = captureAreaImageSize({
-      width: rect.width,
-      height: captureHeight,
-    });
-    const blob = await toBlob(frame, {
-      canvasWidth: width,
-      canvasHeight: height,
-      pixelRatio: 1,
-      skipAutoScale: true,
-      filter: (node) =>
-        !(node instanceof Element) ||
-        (!node.hasAttribute("data-selection-exclude") &&
-          !node.classList.contains("source-block-toolbar") &&
-          !node.classList.contains("capture-area-overlay")),
-    });
-    if (!blob) {
-      throw new Error("PNG conversion failed");
-    }
-    return blob;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = contentHeight + footerHeight;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas is not available");
+    context.drawImage(contentImage.image, 0, 0, width, contentHeight);
+    context.drawImage(footerImage.image, 0, contentHeight, width, footerHeight);
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (blob) =>
+          blob ? resolve(blob) : reject(new Error("PNG conversion failed")),
+        "image/png",
+      ),
+    );
   } finally {
-    frame.remove();
+    URL.revokeObjectURL(contentImage.url);
+    URL.revokeObjectURL(footerImage.url);
   }
+}
+
+function loadCaptureImage(blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  return new Promise<{ image: HTMLImageElement; url: string }>(
+    (resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve({ image, url });
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("PNG could not be decoded"));
+      };
+      image.src = url;
+    },
+  );
 }
 
 export function createCaptureAreaReferenceFooter(
@@ -365,10 +487,13 @@ export function createCaptureAreaReferenceFooter(
 
 function estimateReferenceFooterHeight(referenceText: string, width: number) {
   const charactersPerLine = Math.max(12, Math.floor((width - 24) / 7.2));
-  const lines = referenceText.split("\n").reduce(
-    (count, line) => count + Math.max(1, Math.ceil(line.length / charactersPerLine)),
-    0,
-  );
+  const lines = referenceText
+    .split("\n")
+    .reduce(
+      (count, line) =>
+        count + Math.max(1, Math.ceil(line.length / charactersPerLine)),
+      0,
+    );
   return 21 + lines * 17;
 }
 

@@ -789,7 +789,13 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
   const copiedImage = await page.evaluate(async () => {
     const [item] = await navigator.clipboard.read();
     if (!item?.types.includes("image/png")) {
-      return { types: item?.types ?? [], colorCount: 0, width: 0, height: 0 };
+      return {
+        types: item?.types ?? [],
+        colorCount: 0,
+        contentHash: 0,
+        width: 0,
+        height: 0,
+      };
     }
     const blob = await item!.getType("image/png");
     const bitmap = await createImageBitmap(blob);
@@ -805,12 +811,16 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
       canvas.height,
     ).data;
     const colors = new Set<string>();
+    let contentHash = 2166136261;
     for (let index = 0; pixels && index < pixels.length; index += 16) {
       colors.add(`${pixels[index]},${pixels[index + 1]},${pixels[index + 2]}`);
+      contentHash ^= pixels[index] ?? 0;
+      contentHash = Math.imul(contentHash, 16777619);
     }
     return {
       types: item.types,
       colorCount: colors.size,
+      contentHash: contentHash >>> 0,
       width: bitmap.width,
       height: bitmap.height,
     };
@@ -831,7 +841,7 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
     "Image with reference copied",
   );
-  const referencedSize = await page.evaluate(async () => {
+  const referencedSize = await page.evaluate(async (contentHeight) => {
     const [item] = await navigator.clipboard.read();
     const bitmap = await createImageBitmap(await item!.getType("image/png"));
     const canvas = document.createElement("canvas");
@@ -843,6 +853,12 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
       context?.getImageData(0, 0, canvas.width, canvas.height).data ??
       new Uint8ClampedArray();
     let footerInkPixels = 0;
+    let contentHash = 2166136261;
+    const contentPixelLength = contentHeight * canvas.width * 4;
+    for (let index = 0; index < contentPixelLength; index += 16) {
+      contentHash ^= pixels[index] ?? 0;
+      contentHash = Math.imul(contentHash, 16777619);
+    }
     for (let y = Math.floor(canvas.height * 0.72); y < canvas.height; y += 3) {
       for (let x = 0; x < canvas.width; x += 3) {
         const index = (y * canvas.width + x) * 4;
@@ -859,12 +875,34 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
     return {
       width: bitmap.width,
       height: bitmap.height,
+      contentHash: contentHash >>> 0,
       footerInkPixels,
     };
-  });
+  }, copiedImage.height);
   expect(referencedSize.width).toBe(copiedImage.width);
   expect(referencedSize.height).toBeGreaterThan(copiedImage.height);
+  expect(referencedSize.contentHash).toBe(copiedImage.contentHash);
   expect(referencedSize.footerInkPixels).toBeGreaterThan(10);
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, "write", {
+      configurable: true,
+      value: () => Promise.reject(new Error("clipboard denied")),
+    });
+  });
+  await page.mouse.click(box.x + box.width - 12, box.y + 24, {
+    button: "right",
+  });
+  await page
+    .getByRole("menuitem", { name: "Capture Area with Reference…" })
+    .click();
+  await page.mouse.move(box.x + 24, box.y + 48);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 260, box.y + 190);
+  await page.mouse.up();
+  await expect(page.getByTestId("inline-notice")).toContainText(
+    "Image could not be copied; clipboard was not changed",
+  );
 });
 
 test("viewer Diff Preview Capture Area spans both rendered panes", async ({
