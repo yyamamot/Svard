@@ -66,7 +66,12 @@ export interface DocumentDiffStreamPanelProps {
   getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
   getGitBranchFileDiff?: (
     path: string,
-    input: { baseRef: string; headRef?: string | null; path: string; oldPath?: string | null },
+    input: {
+      baseRef: string;
+      headRef?: string | null;
+      path: string;
+      oldPath?: string | null;
+    },
   ) => Promise<DocumentDiffPreview>;
   getGitFileCommitDiff?: (
     path: string,
@@ -91,6 +96,7 @@ export interface DocumentDiffStreamPanelProps {
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
+  showLightweightActionFeedback?: (message: string) => void;
   loadDocumentContext?: (
     documentPath: string,
   ) => Promise<Pick<

@@ -316,6 +316,8 @@ export async function buildGitDiffSourceControlAssertions(context) {
               sample?.contextMenuVisible === true &&
               sample?.contextMenuSourceReviewId !== "" &&
               sample?.contextMenuItemCount > 0 &&
+              sample?.contextMenuHasCaptureArea === true &&
+              sample?.contextMenuHasReferencedCapture === true &&
               sample?.assetVisible === false &&
               sample?.navigationVisible === true &&
               sample?.refreshVisible === true

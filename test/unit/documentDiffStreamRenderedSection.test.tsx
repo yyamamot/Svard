@@ -1,6 +1,7 @@
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { setupDocumentDiffStreamPanelTest } from "./documentDiffStreamPanelHarness";
+import type { ContextMenuItem } from "../../src/ui/types";
 import {
   diffPreview,
   documentStreamItem,
@@ -39,7 +40,9 @@ describe("DocumentDiffStreamPanel rendered section", () => {
         new MouseEvent("click", { bubbles: true }),
       );
     });
-    expect(test.container.querySelector(".git-rendered-block-meta")).not.toBeNull();
+    expect(
+      test.container.querySelector(".git-rendered-block-meta"),
+    ).not.toBeNull();
 
     const fullPreviewButton = test.container.querySelector<HTMLButtonElement>(
       '[data-review-id="diff-stream-full-preview-view"]',
@@ -109,7 +112,7 @@ describe("DocumentDiffStreamPanel rendered section", () => {
     const getGitDiffPreview = vi
       .fn()
       .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
-    const openContextMenu = vi.fn(() => true);
+    const openContextMenu = vi.fn((..._args: unknown[]) => true);
 
     await test.render({
       config: null,
@@ -142,5 +145,52 @@ describe("DocumentDiffStreamPanel rendered section", () => {
       );
     });
     expect(openContextMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers capture actions from a loaded rendered section", async () => {
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
+    const openContextMenu = vi.fn((..._args: unknown[]) => true);
+
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-changes-stream",
+        items: [documentStreamItem("docs/guide.md")],
+      },
+      getGitDiffPreview,
+      ...requiredDiffStreamProps(),
+      openContextMenu,
+      onClose: vi.fn(),
+    });
+
+    await flushPreviewLoad();
+    const rightPane = test.container.querySelector<HTMLElement>(
+      '[data-review-id="diff-stream-right-pane"]',
+    );
+    expect(rightPane).not.toBeNull();
+
+    await act(async () => {
+      rightPane!.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          button: 2,
+          buttons: 0,
+          clientX: 12,
+          clientY: 18,
+        }),
+      );
+    });
+
+    const items = openContextMenu.mock.calls[0]?.[1] as ContextMenuItem[];
+    expect(items.map((item) => item.label)).toEqual(
+      expect.arrayContaining(["Capture Area…", "Capture Area with Reference…"]),
+    );
+    expect(rightPane?.dataset.captureDocumentPath).toBe(
+      "/workspace/docs/guide.md",
+    );
+    expect(rightPane?.dataset.captureRevisionLabel).toBe("Working Tree");
+    expect(rightPane?.dataset.captureSide).toBe("right");
   });
 });

@@ -137,6 +137,19 @@ describe("DocumentDiffStreamPanel navigation", () => {
   });
 
   it("routes content cursor and shortcut commands to the stream", async () => {
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 640,
+        bottom: 480,
+        width: 640,
+        height: 480,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(renderedDiffSummary(2));
     const getGitDiffPreview = vi
       .fn()
@@ -164,6 +177,29 @@ describe("DocumentDiffStreamPanel navigation", () => {
 
     await flushPreviewLoad();
     await flushRulerMeasure();
+
+    expect(streamCommandRef.current?.isEnabled("viewer.captureArea")).toBe(
+      true,
+    );
+    expect(
+      streamCommandRef.current?.isEnabled("viewer.captureAreaWithReference"),
+    ).toBe(true);
+
+    await act(async () => {
+      expect(streamCommandRef.current?.dispatch("viewer.captureArea")).toBe(
+        true,
+      );
+    });
+    expect(
+      test.container.querySelector('[data-review-id="capture-area-overlay"]'),
+    ).not.toBeNull();
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(
+      test.container.querySelector('[data-review-id="capture-area-overlay"]'),
+    ).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
 
     const markers = () =>
       Array.from(
@@ -205,5 +241,41 @@ describe("DocumentDiffStreamPanel navigation", () => {
       expect(streamCommandRef.current?.dispatch("tab.close")).toBe(true);
     });
     expect(onClose).toHaveBeenCalledTimes(1);
+    rectSpy.mockRestore();
+  });
+
+  it("disables capture for a blocker current section", async () => {
+    const streamCommandRef: {
+      current: DocumentDiffStreamCommandBridge | null;
+    } = { current: null };
+
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-changes-stream",
+        items: [
+          {
+            kind: "blocker",
+            path: "assets/logo.png",
+            status: "modified",
+            reason: "Unsupported",
+          },
+        ],
+      },
+      getGitDiffPreview: vi.fn(),
+      streamCommandRef,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    });
+
+    expect(streamCommandRef.current?.isEnabled("viewer.captureArea")).toBe(
+      false,
+    );
+    expect(streamCommandRef.current?.dispatch("viewer.captureArea")).toBe(
+      false,
+    );
+    expect(
+      test.container.querySelector('[data-review-id="capture-area-overlay"]'),
+    ).toBeNull();
   });
 });

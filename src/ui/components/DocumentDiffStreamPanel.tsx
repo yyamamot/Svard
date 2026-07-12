@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
-import {
-  emptyDocumentReviewSessionControls,
-} from "../lib/documentReviewSession";
+import { emptyDocumentReviewSessionControls } from "../lib/documentReviewSession";
 import { MouseGestureTrail } from "./MouseGestureTrail";
 import { DiffStreamChangeRuler } from "./documentDiffStream/DiffStreamChangeRuler";
 import { DiffStreamSection } from "./documentDiffStream/DiffStreamSection";
@@ -13,6 +11,13 @@ import type {
 import { useDocumentDiffStreamGestures } from "./documentDiffStream/useDocumentDiffStreamGestures";
 import { useDocumentDiffStreamLoader } from "./documentDiffStream/useDocumentDiffStreamLoader";
 import { useDocumentDiffStreamNavigation } from "./documentDiffStream/useDocumentDiffStreamNavigation";
+import { CaptureAreaOverlay } from "./CaptureAreaOverlay";
+import {
+  captureAreaReferenceForRect,
+  copyCaptureAreaToClipboard,
+  type CaptureAreaRect,
+  type CaptureAreaVariant,
+} from "../lib/captureArea";
 
 export function DocumentDiffStreamPanel({
   config,
@@ -32,6 +37,7 @@ export function DocumentDiffStreamPanel({
   openExternalUrl,
   onOpenDiagramPreview,
   showInlineNotice,
+  showLightweightActionFeedback = () => undefined,
   loadDocumentContext,
   renderDiagram,
   resolveLocalImage,
@@ -57,22 +63,32 @@ export function DocumentDiffStreamPanel({
   const [filesOpen, setFilesOpen] = useState(false);
   const [fileFilter, setFileFilter] = useState("");
   const [activeFileIndex, setActiveFileIndex] = useState(0);
+  const [captureAreaState, setCaptureAreaState] = useState<{
+    index: number;
+    target: HTMLElement;
+    variant: CaptureAreaVariant;
+  } | null>(null);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
+        if (captureAreaState) {
+          setCaptureAreaState(null);
+          return;
+        }
         onClose();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [captureAreaState, onClose]);
 
   useEffect(() => {
     if (!filesOpen) return;
     const closeOnOutside = (event: MouseEvent) => {
-      if (!filesPickerRef.current?.contains(event.target as Node)) setFilesOpen(false);
+      if (!filesPickerRef.current?.contains(event.target as Node))
+        setFilesOpen(false);
     };
     document.addEventListener("mousedown", closeOnOutside);
     return () => document.removeEventListener("mousedown", closeOnOutside);
@@ -104,6 +120,75 @@ export function DocumentDiffStreamPanel({
       streamBodyRef,
     });
 
+  const captureTargetForIndex = useCallback(
+    (index: number) => {
+      const item = preview.items[index];
+      if (!item || item.kind !== "document") return null;
+      const key = item.documentPath ?? item.path;
+      if (!expandedPaths.has(key) || loadStates[key]?.status !== "ready") {
+        return null;
+      }
+      return (
+        streamBodyRef.current
+          ?.querySelector<HTMLElement>(`[data-stream-index="${index}"]`)
+          ?.querySelector<HTMLElement>(".diff-stream-rendered-body") ?? null
+      );
+    },
+    [expandedPaths, loadStates, preview.items],
+  );
+
+  const canCaptureCurrentArea = useCallback(
+    () => Boolean(captureTargetForIndex(activeFileIndex)),
+    [activeFileIndex, captureTargetForIndex],
+  );
+
+  const beginCurrentCaptureArea = useCallback(
+    (variant: CaptureAreaVariant) => {
+      const target = captureTargetForIndex(activeFileIndex);
+      if (!target) return false;
+      setCaptureAreaState({ index: activeFileIndex, target, variant });
+      return true;
+    },
+    [activeFileIndex, captureTargetForIndex],
+  );
+
+  const beginSectionCaptureArea = useCallback(
+    (target: HTMLElement, variant: CaptureAreaVariant) => {
+      const section = target.closest<HTMLElement>("[data-stream-index]");
+      const index = Number(section?.dataset.streamIndex);
+      if (!Number.isInteger(index) || captureTargetForIndex(index) !== target) {
+        return;
+      }
+      setActiveFileIndex(index);
+      setCaptureAreaState({ index, target, variant });
+    },
+    [captureTargetForIndex],
+  );
+
+  const copyCapturedArea = useCallback(
+    async (
+      target: HTMLElement,
+      rect: CaptureAreaRect,
+      variant: CaptureAreaVariant,
+    ) => {
+      try {
+        const referenceText =
+          variant === "reference"
+            ? captureAreaReferenceForRect(target, rect)
+            : undefined;
+        await copyCaptureAreaToClipboard(target, rect, referenceText);
+        showLightweightActionFeedback(
+          variant === "reference"
+            ? "Image with reference copied"
+            : "Image copied",
+        );
+      } catch {
+        showInlineNotice("Image could not be copied", { tone: "warning" });
+      }
+    },
+    [showInlineNotice, showLightweightActionFeedback],
+  );
+
   const {
     activeTarget,
     loadedTargets,
@@ -121,7 +206,21 @@ export function DocumentDiffStreamPanel({
     preview,
     streamBodyRef,
     streamCommandRef,
+    beginCaptureArea: beginCurrentCaptureArea,
+    canCaptureArea: canCaptureCurrentArea,
   });
+
+  useEffect(() => {
+    if (!captureAreaState) return;
+    const currentTarget = captureTargetForIndex(captureAreaState.index);
+    if (
+      captureAreaState.index !== activeFileIndex ||
+      currentTarget !== captureAreaState.target ||
+      !captureAreaState.target.isConnected
+    ) {
+      setCaptureAreaState(null);
+    }
+  }, [activeFileIndex, captureAreaState, captureTargetForIndex]);
 
   const {
     handleStreamContextMenu,
@@ -169,14 +268,18 @@ export function DocumentDiffStreamPanel({
   );
   const filteredFiles = useMemo(() => {
     const query = fileFilter.trim().toLowerCase();
-    return preview.items.map((item, index) => ({ item, index })).filter(({ item }) =>
-      !query || item.path.toLowerCase().includes(query),
-    );
+    return preview.items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !query || item.path.toLowerCase().includes(query));
   }, [fileFilter, preview.items]);
   const currentFile = preview.items[activeFileIndex] ?? preview.items[0];
 
   useEffect(() => {
-    if (!supportsReviewSession || !currentFile || currentFile.kind !== "document") {
+    if (
+      !supportsReviewSession ||
+      !currentFile ||
+      currentFile.kind !== "document"
+    ) {
       return;
     }
     const documentPath = currentFile.documentPath;
@@ -193,7 +296,10 @@ export function DocumentDiffStreamPanel({
       return;
     }
     const timer = window.setTimeout(() => {
-      if ((documentReviewSession.stateByPath[documentPath] ?? "unreviewed") === "unreviewed") {
+      if (
+        (documentReviewSession.stateByPath[documentPath] ?? "unreviewed") ===
+        "unreviewed"
+      ) {
         markViewed(documentPath);
       }
     }, 700);
@@ -231,20 +337,23 @@ export function DocumentDiffStreamPanel({
     return () => window.cancelAnimationFrame(frame);
   }, [expandedPaths, loadStates, preview.items, syncActiveFileToViewport]);
 
-  const selectFile = useCallback((index: number) => {
-    const item = preview.items[index];
-    if (!item) return;
-    const key = item.documentPath ?? item.path;
-    setActiveFileIndex(index);
-    expandSection(key);
-    if (item.kind === "document") ensureSectionLoaded(key, "navigation");
-    const section = streamBodyRef.current?.querySelector<HTMLElement>(
-      `[data-stream-index="${index}"]`,
-    );
-    section?.scrollIntoView({ block: "center" });
-    setFilesOpen(false);
-    filesButtonRef.current?.focus();
-  }, [ensureSectionLoaded, expandSection, preview.items]);
+  const selectFile = useCallback(
+    (index: number) => {
+      const item = preview.items[index];
+      if (!item) return;
+      const key = item.documentPath ?? item.path;
+      setActiveFileIndex(index);
+      expandSection(key);
+      if (item.kind === "document") ensureSectionLoaded(key, "navigation");
+      const section = streamBodyRef.current?.querySelector<HTMLElement>(
+        `[data-stream-index="${index}"]`,
+      );
+      section?.scrollIntoView({ block: "center" });
+      setFilesOpen(false);
+      filesButtonRef.current?.focus();
+    },
+    [ensureSectionLoaded, expandSection, preview.items],
+  );
 
   return (
     <div
@@ -276,16 +385,63 @@ export function DocumentDiffStreamPanel({
             <div className="git-diff-title">
               <span>All diffs</span>
               <small>{preview.items.length} document diffs</small>
-              {preview.comparisonLabel ? <small>{preview.comparisonLabel}</small> : null}
+              {preview.comparisonLabel ? (
+                <small>{preview.comparisonLabel}</small>
+              ) : null}
             </div>
             <div className="diff-stream-files-picker" ref={filesPickerRef}>
-              <button ref={filesButtonRef} type="button" data-review-id="diff-stream-files-picker" aria-expanded={filesOpen} onClick={() => setFilesOpen((open) => !open)}>
+              <button
+                ref={filesButtonRef}
+                type="button"
+                data-review-id="diff-stream-files-picker"
+                aria-expanded={filesOpen}
+                onClick={() => setFilesOpen((open) => !open)}
+              >
                 Files ({preview.items.length})
               </button>
-              {filesOpen ? <div className="diff-stream-files-popover" role="dialog" aria-label="All diffs files" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); setFilesOpen(false); filesButtonRef.current?.focus(); } }}>
-                <input autoFocus value={fileFilter} onChange={(event) => setFileFilter(event.currentTarget.value)} placeholder="Filter files" aria-label="Filter all diffs files" />
-                <div role="listbox">{filteredFiles.map(({ item, index }) => <button key={`${item.path}:${index}`} type="button" role="option" aria-selected={activeFileIndex === index} className={activeFileIndex === index ? "active" : ""} onClick={() => selectFile(index)}><strong>{item.path}</strong><small>{item.kind === "blocker" ? item.reason ?? item.status : item.status}</small></button>)}</div>
-              </div> : null}
+              {filesOpen ? (
+                <div
+                  className="diff-stream-files-popover"
+                  role="dialog"
+                  aria-label="All diffs files"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setFilesOpen(false);
+                      filesButtonRef.current?.focus();
+                    }
+                  }}
+                >
+                  <input
+                    autoFocus
+                    value={fileFilter}
+                    onChange={(event) =>
+                      setFileFilter(event.currentTarget.value)
+                    }
+                    placeholder="Filter files"
+                    aria-label="Filter all diffs files"
+                  />
+                  <div role="listbox">
+                    {filteredFiles.map(({ item, index }) => (
+                      <button
+                        key={`${item.path}:${index}`}
+                        type="button"
+                        role="option"
+                        aria-selected={activeFileIndex === index}
+                        className={activeFileIndex === index ? "active" : ""}
+                        onClick={() => selectFile(index)}
+                      >
+                        <strong>{item.path}</strong>
+                        <small>
+                          {item.kind === "blocker"
+                            ? (item.reason ?? item.status)
+                            : item.status}
+                        </small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
             {currentFile ? (
               <div
@@ -362,7 +518,11 @@ export function DocumentDiffStreamPanel({
             >
               Next
             </button>
-            <button type="button" aria-label="Close all diffs" onClick={onClose}>
+            <button
+              type="button"
+              aria-label="Close all diffs"
+              onClick={onClose}
+            >
               <X size={14} />
             </button>
           </div>
@@ -394,6 +554,7 @@ export function DocumentDiffStreamPanel({
                 confirmExternalLink={confirmExternalLink}
                 openExternalUrl={openExternalUrl}
                 onOpenDiagramPreview={onOpenDiagramPreview}
+                onBeginCaptureArea={beginSectionCaptureArea}
                 showInlineNotice={showInlineNotice}
                 reviewState={
                   supportsReviewSession && item.documentPath
@@ -401,7 +562,9 @@ export function DocumentDiffStreamPanel({
                     : undefined
                 }
                 reviewEnabled={supportsReviewSession}
-                onMarkNeedsAttention={supportsReviewSession ? markNeedsAttention : () => {}}
+                onMarkNeedsAttention={
+                  supportsReviewSession ? markNeedsAttention : () => {}
+                }
                 onMarkViewed={supportsReviewSession ? markViewed : () => {}}
                 onResetReview={supportsReviewSession ? resetReview : () => {}}
                 onToggle={toggleSection}
@@ -415,6 +578,20 @@ export function DocumentDiffStreamPanel({
             onSelectTarget={selectTarget}
           />
         </div>
+        {captureAreaState && streamBodyRef.current ? (
+          <CaptureAreaOverlay
+            article={captureAreaState.target}
+            viewer={streamBodyRef.current}
+            onCapture={(rect) =>
+              void copyCapturedArea(
+                captureAreaState.target,
+                rect,
+                captureAreaState.variant,
+              )
+            }
+            onClose={() => setCaptureAreaState(null)}
+          />
+        ) : null}
       </section>
     </div>
   );

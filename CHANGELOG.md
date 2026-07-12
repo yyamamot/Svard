@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added LLM-ready text, original source, and diff references with file, line, and section context.
+- Added LLM-ready image copying for images, diagrams, and captured Viewer and Diff areas with optional source references.
 - Added a runtime review session for changed documents in Documents and Source Control views.
 - Added an All diffs stream for reviewing Markdown and AsciiDoc Source Control changes together.
 - Extended All diffs to Branch Diff and Repo Graph commit reviews.

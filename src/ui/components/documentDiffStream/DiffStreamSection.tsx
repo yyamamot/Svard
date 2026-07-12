@@ -11,6 +11,7 @@ import {
 } from "../../lib/documentReviewSession";
 import type { ContextMenuItem, DiagramPreviewState } from "../../types";
 import type { DiffStreamViewMode, SectionLoadState } from "./types";
+import type { CaptureAreaVariant } from "../../lib/captureArea";
 import { DiffStreamRenderedSection } from "./DiffStreamRenderedSection";
 
 export const DiffStreamSection = memo(function DiffStreamSection({
@@ -28,6 +29,7 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   confirmExternalLink,
   openExternalUrl,
   onOpenDiagramPreview,
+  onBeginCaptureArea,
   showInlineNotice,
   reviewState,
   reviewEnabled = true,
@@ -57,6 +59,10 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   confirmExternalLink: (url: string) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<void>;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
+  onBeginCaptureArea: (
+    target: HTMLElement,
+    variant: CaptureAreaVariant,
+  ) => void;
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
@@ -87,7 +93,11 @@ export const DiffStreamSection = memo(function DiffStreamSection({
       data-load-status={loadState?.status ?? "idle"}
     >
       <header className="diff-stream-file-header">
-        <button type="button" onClick={() => onToggle(key)} aria-expanded={expanded}>
+        <button
+          type="button"
+          onClick={() => onToggle(key)}
+          aria-expanded={expanded}
+        >
           {expanded ? "-" : "+"}
         </button>
         <div className="diff-stream-file-title">
@@ -104,7 +114,10 @@ export const DiffStreamSection = memo(function DiffStreamSection({
             >
               {stateLabel}
             </span>
-            <button type="button" onClick={() => onMarkViewed(item.documentPath!)}>
+            <button
+              type="button"
+              onClick={() => onMarkViewed(item.documentPath!)}
+            >
               Mark viewed
             </button>
             <button
@@ -141,15 +154,14 @@ export const DiffStreamSection = memo(function DiffStreamSection({
             confirmExternalLink={confirmExternalLink}
             openExternalUrl={openExternalUrl}
             onOpenDiagramPreview={onOpenDiagramPreview}
+            onBeginCaptureArea={onBeginCaptureArea}
             showInlineNotice={showInlineNotice}
           />
         ) : loadState?.status === "blocked" ? (
           <p className="diff-stream-blocker-message">{loadState.message}</p>
         ) : loadState?.status === "loading" ? (
           <p className="diff-stream-loading">Loading rendered diff</p>
-        ) : (
-          null
-        )
+        ) : null
       ) : null}
     </section>
   );

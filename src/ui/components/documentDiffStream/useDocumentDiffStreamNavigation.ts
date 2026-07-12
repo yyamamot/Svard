@@ -10,10 +10,9 @@ import type { CommandId } from "../../../core/commands";
 import type { DocumentDiffStreamPreview } from "../../../core/types";
 import type { ContentCursorCommandHandler } from "../../lib/contentCursor";
 import type { DocumentDiffStreamCommandBridge } from "../../lib/documentDiffStreamCommands";
+import type { CaptureAreaVariant } from "../../lib/captureArea";
 import { buildRenderedDiffPresentation } from "../../lib/gitRenderedDiff";
-import type {
-  DiffPreviewMouseGestureScrollAction,
-} from "../gitDiffPreview/mouseGestures";
+import type { DiffPreviewMouseGestureScrollAction } from "../gitDiffPreview/mouseGestures";
 import type {
   DiffStreamLoadReason,
   DiffStreamTarget,
@@ -32,6 +31,8 @@ export function useDocumentDiffStreamNavigation({
   preview,
   streamBodyRef,
   streamCommandRef,
+  beginCaptureArea,
+  canCaptureArea,
 }: {
   contentCursorCommandRef?: RefObject<ContentCursorCommandHandler | null>;
   ensureSectionLoaded: (key: string, reason: DiffStreamLoadReason) => boolean;
@@ -43,6 +44,8 @@ export function useDocumentDiffStreamNavigation({
   preview: DocumentDiffStreamPreview;
   streamBodyRef: RefObject<HTMLDivElement | null>;
   streamCommandRef?: RefObject<DocumentDiffStreamCommandBridge | null>;
+  beginCaptureArea: (variant: CaptureAreaVariant) => boolean;
+  canCaptureArea: () => boolean;
 }) {
   const [activeTarget, setActiveTarget] = useState<{
     fileIndex: number;
@@ -108,7 +111,8 @@ export function useDocumentDiffStreamNavigation({
   const moveToUnloadedDocument = useCallback(
     (direction: 1 | -1) => {
       const startIndex =
-        activeTarget?.fileIndex ?? (direction === 1 ? -1 : preview.items.length);
+        activeTarget?.fileIndex ??
+        (direction === 1 ? -1 : preview.items.length);
       for (
         let index = startIndex + direction;
         index >= 0 && index < preview.items.length;
@@ -236,11 +240,24 @@ export function useDocumentDiffStreamNavigation({
           return scrollStream("top");
         case "viewer.bottom":
           return scrollStream("bottom");
+        case "viewer.captureArea":
+          return beginCaptureArea("plain");
+        case "viewer.captureAreaWithReference":
+          return beginCaptureArea("reference");
         default:
           return false;
       }
     },
-    [moveTarget, onClose, scrollStream],
+    [beginCaptureArea, moveTarget, onClose, scrollStream],
+  );
+
+  const isStreamCommandEnabled = useCallback(
+    (commandId: CommandId) =>
+      commandId === "viewer.captureArea" ||
+      commandId === "viewer.captureAreaWithReference"
+        ? canCaptureArea()
+        : true,
+    [canCaptureArea],
   );
 
   useEffect(() => {
@@ -251,6 +268,7 @@ export function useDocumentDiffStreamNavigation({
     if (streamCommandRef) {
       streamCommandRef.current = {
         dispatch: dispatchStreamCommand,
+        isEnabled: isStreamCommandEnabled,
       };
     }
     return () => {
@@ -264,6 +282,7 @@ export function useDocumentDiffStreamNavigation({
   }, [
     contentCursorCommandRef,
     dispatchStreamCommand,
+    isStreamCommandEnabled,
     moveTarget,
     streamCommandRef,
   ]);

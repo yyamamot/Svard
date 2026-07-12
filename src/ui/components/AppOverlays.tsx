@@ -313,8 +313,12 @@ export function AppOverlays({
           preview={documentDiffStreamPreview}
           config={config}
           getGitDiffPreview={(path) => host.getGitDiffPreview(path)}
-          getGitBranchFileDiff={(path, input) => host.getGitBranchFileDiff(path, input)}
-          getGitFileCommitDiff={(path, revision) => host.getGitFileCommitDiff(path, revision)}
+          getGitBranchFileDiff={(path, input) =>
+            host.getGitBranchFileDiff(path, input)
+          }
+          getGitFileCommitDiff={(path, revision) =>
+            host.getGitFileCommitDiff(path, revision)
+          }
           copyText={copyText}
           openContextMenu={openContextMenu}
           openDocument={onOpenDocument}
@@ -324,6 +328,7 @@ export function AppOverlays({
           openExternalUrl={openDiffExternalUrl}
           onOpenDiagramPreview={onOpenDiagramPreview}
           showInlineNotice={showInlineNotice}
+          showLightweightActionFeedback={showLightweightActionFeedback}
           resolveLocalImage={resolveDiffLocalImage}
           loadDocumentContext={loadDiffDocumentContext}
           renderDiagram={renderDiffDiagram}

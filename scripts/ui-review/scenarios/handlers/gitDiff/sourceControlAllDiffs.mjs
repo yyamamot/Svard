@@ -114,10 +114,18 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     .locator('[data-review-id="diff-stream-right-pane"]')
     .first()
     .scrollIntoViewIfNeeded();
-  await page
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  const contextPane = page
     .locator('[data-review-id="diff-stream-right-pane"]')
-    .first()
-    .click({ button: "right" });
+    .first();
+  const contextPaneBox = await contextPane.boundingBox();
+  if (!contextPaneBox) {
+    throw new Error("All diffs context pane is not visible");
+  }
+  await contextPane.click({
+    button: "right",
+    position: { x: contextPaneBox.width - 4, y: 4 },
+  });
   await page.locator('[data-review-id="context-menu"]').waitFor();
   await page.evaluate(() => {
     const panel = document.querySelector(
@@ -171,6 +179,9 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     const renderedScrollStyle = firstRenderedScroll
       ? window.getComputedStyle(firstRenderedScroll)
       : null;
+    const contextMenuLabels = Array.from(
+      document.querySelectorAll('[data-review-id^="context-menu-item-"]'),
+    ).map((item) => item.textContent?.trim() ?? "");
     window.__SVARD_ALL_DIFFS_STREAM_SAMPLE__ = {
       panelVisible: panel !== null,
       fileSections: document.querySelectorAll(
@@ -229,6 +240,10 @@ export async function applySourceControlAllDiffsScenario(page, context) {
       contextMenuItemCount: document.querySelectorAll(
         '[data-review-id^="context-menu-item-"]',
       ).length,
+      contextMenuHasCaptureArea: contextMenuLabels.includes("Capture Area…"),
+      contextMenuHasReferencedCapture: contextMenuLabels.includes(
+        "Capture Area with Reference…",
+      ),
       blockerRows: document.querySelectorAll(
         '[data-review-id="diff-stream-blocker-row"]',
       ).length,

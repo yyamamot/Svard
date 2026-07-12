@@ -981,7 +981,9 @@ test("viewer split Capture Area spans both document panes", async ({
         const index = (y * canvas.width + x) * 4;
         if (
           pixels[index + 3] === 255 &&
-          (pixels[index] < 180 || pixels[index + 1] < 180 || pixels[index + 2] < 180)
+          (pixels[index] < 180 ||
+            pixels[index + 1] < 180 ||
+            pixels[index + 2] < 180)
         ) {
           count += 1;
         }
@@ -1426,6 +1428,79 @@ test("viewer-source-control-changes lists changed files and opens supported diff
   ).toContainText("git-modified.md");
   await page.getByTestId("source-control-change-item").first().click();
   await expect(page.getByTestId("git-diff-preview-panel")).toBeVisible();
+});
+
+test("viewer-source-control-all-diffs supports LLM reference and Current file capture", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.getByTestId("sidebar-tab-source-control").click();
+  await page.getByTestId("source-control-all-diffs").click();
+
+  const panel = page.getByTestId("source-control-all-diffs-panel");
+  const rightPane = page.getByTestId("diff-stream-right-pane").first();
+  await expect(panel).toBeVisible();
+  await expect(rightPane).toBeVisible();
+  const changedParagraph = rightPane.locator("p").first();
+  await expect(changedParagraph).toBeVisible();
+
+  await changedParagraph.click({ button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: "Copy Diff Reference" }),
+  ).toBeVisible();
+  await page.getByRole("menuitem", { name: "Copy Diff Reference" }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain("Before (HEAD):");
+
+  await rightPane.evaluate((pane) => {
+    const rect = pane.getBoundingClientRect();
+    pane.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        button: 2,
+        buttons: 0,
+        clientX: rect.right - 4,
+        clientY: rect.top + 4,
+      }),
+    );
+  });
+  await expect(
+    page.getByRole("menuitem", { name: "Capture Area…" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Capture Area with Reference…" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.evaluate(() =>
+    window.__SVARD_COMMANDS__?.dispatch("viewer.captureArea"),
+  );
+  const overlay = page.getByTestId("capture-area-overlay");
+  await expect(overlay).toBeVisible();
+  const overlayBox = await overlay.boundingBox();
+  expect(overlayBox).not.toBeNull();
+  if (!overlayBox) return;
+  await page.mouse.move(overlayBox.x + 24, overlayBox.y + 32);
+  await page.mouse.down();
+  await page.mouse.move(
+    overlayBox.x + Math.min(280, overlayBox.width - 24),
+    overlayBox.y + Math.min(180, overlayBox.height - 24),
+  );
+  await page.mouse.up();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Image copied",
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const [item] = await navigator.clipboard.read();
+        return item?.types.includes("image/png") ?? false;
+      }),
+    )
+    .toBe(true);
 });
 
 test("viewer-source-control-branch-diff lists branch changes and opens supported diffs", async ({

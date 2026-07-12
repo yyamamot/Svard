@@ -55,7 +55,9 @@ function isDocumentDiffStreamCommand(commandId: CommandId) {
     commandId === "viewer.pageDown" ||
     commandId === "viewer.pageUp" ||
     commandId === "viewer.top" ||
-    commandId === "viewer.bottom"
+    commandId === "viewer.bottom" ||
+    commandId === "viewer.captureArea" ||
+    commandId === "viewer.captureAreaWithReference"
   );
 }
 
@@ -233,7 +235,7 @@ export function useCommandDispatcher({
 
   function isCommandEnabled(commandId: CommandId): boolean {
     if (documentDiffStreamActive && isDocumentDiffStreamCommand(commandId)) {
-      return true;
+      return diffStreamCommandRef?.current?.isEnabled(commandId) ?? false;
     }
     if (commandId === "tab.restoreClosed") {
       return lastClosedTabs.length > 0;
@@ -356,12 +358,13 @@ export function useCommandDispatcher({
 
     setLastCommand(commandId);
 
-    if (
-      documentDiffStreamActive &&
-      isDocumentDiffStreamCommand(commandId) &&
-      diffStreamCommandRef?.current?.dispatch(commandId)
-    ) {
-      return { status: "handled", commandId };
+    if (documentDiffStreamActive && isDocumentDiffStreamCommand(commandId)) {
+      return {
+        status: diffStreamCommandRef?.current?.dispatch(commandId)
+          ? "handled"
+          : "disabled",
+        commandId,
+      };
     }
 
     switch (commandId) {
