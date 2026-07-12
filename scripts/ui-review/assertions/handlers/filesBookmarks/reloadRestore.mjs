@@ -2,10 +2,6 @@ export async function buildReloadRestoreAssertions(context) {
   const scenario = context.scenario;
   const page = context.page;
   const bodyText = context.bodyText;
-  const commandAutomation = context.commandAutomation;
-  const contextMenuText = context.contextMenuText;
-  const editorOpenRequests = context.editorOpenRequests;
-  const geometryReviewIds = context.geometryReviewIds;
   return {
     hasReloadWatch:
       scenario === "viewer-reload-watch"
@@ -20,7 +16,11 @@ export async function buildReloadRestoreAssertions(context) {
         ? (await page.evaluate(
             () =>
               window.__SVARD_SMART_SCROLL_RESTORE_CHECK__
-                ?.restoredNearTarget === true,
+                ?.restoredNearTarget === true &&
+              window.__SVARD_SMART_SCROLL_RESTORE_CHECK__?.articleRemounted ===
+                true &&
+              window.__SVARD_SMART_SCROLL_RESTORE_CHECK__
+                ?.sourceBlockDoesNotOverlapParagraph === true,
           )) && bodyText.includes("Prepended update before target")
         : true,
     hasSessionRestore:

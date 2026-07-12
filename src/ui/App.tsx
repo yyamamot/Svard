@@ -101,6 +101,7 @@ export function App() {
   const [renderResult, setRenderResult] = useState<RenderResult | null>(null);
   const [documentRenderRevision, setDocumentRenderRevision] = useState(0);
   const [documentHtml, setDocumentHtml] = useState(emptySafeHtml);
+  const [documentHtmlRevision, setDocumentHtmlRevision] = useState(0);
   const [confirmedRemoteDiagramKeys, setConfirmedRemoteDiagramKeys] = useState<
     ReadonlySet<string>
   >(new Set());
@@ -408,6 +409,7 @@ export function App() {
     renderRevision: documentRenderRevision,
     setError,
     setDocumentHtml,
+    setDocumentHtmlRevision,
     setDiagramRenderSnapshot,
     setRenderResult,
   });
@@ -418,6 +420,7 @@ export function App() {
       articleRef,
       documentHtml,
       documentPayload,
+      documentRenderRevision: documentHtmlRevision,
       navigationBackStack,
       navigationForwardStack,
       pendingNavigationLocation,
@@ -1126,6 +1129,7 @@ export function App() {
         centeredContentWidth,
         hideStatusFeedback: zenModeApplies && zenModeConfig.hideStatusBar,
         documentPayload,
+        documentRenderRevision: documentHtmlRevision,
         renderResult,
         documentHtml,
         captureAreaRequest,

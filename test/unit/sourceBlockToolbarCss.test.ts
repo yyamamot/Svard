@@ -23,4 +23,10 @@ describe("source block toolbar CSS", () => {
     );
     expect(sourceBlockCss).toContain("@media (hover: none)");
   });
+
+  it("contains source block margins and overflow layout inside the frame", () => {
+    expect(sourceBlockCss).toMatch(
+      /\.source-block-frame\s*\{[^}]*display: flow-root;/s,
+    );
+  });
 });

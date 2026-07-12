@@ -79,6 +79,7 @@ interface UseDocumentRenderOptions {
   host: RenderHost;
   krokiFallbackDiagramKeys: ReadonlySet<string>;
   renderRevision: number;
+  setDocumentHtmlRevision: (revision: number) => void;
   setError: (message: string | null) => void;
   setDocumentHtml: (html: SafeHtml) => void;
   setDiagramRenderSnapshot: (snapshot: DiagramRenderSnapshot | null) => void;
@@ -156,6 +157,7 @@ export function useDocumentRender({
   host,
   krokiFallbackDiagramKeys,
   renderRevision,
+  setDocumentHtmlRevision,
   setError,
   setDocumentHtml,
   setDiagramRenderSnapshot,
@@ -286,6 +288,7 @@ export function useDocumentRender({
           });
           setRenderResult(result);
           setDocumentHtml(placeholderHtml);
+          setDocumentHtmlRevision(renderRevision);
           if (
             result.graphvizDiagrams.length > 0 &&
             diagramConfig.graphvizRenderer === "local"
@@ -615,6 +618,7 @@ export function useDocumentRender({
             const diagramSvgApplyStartedAt = perfNow();
             setDiagramRenderSnapshot(diagramRenderSnapshot);
             setDocumentHtml(finalHtml);
+            setDocumentHtmlRevision(renderRevision);
             tracePerf("render.diagramSvgApply", {
               basename,
               format: documentPayload.format,
@@ -637,6 +641,7 @@ export function useDocumentRender({
             setRenderResult(result);
             setDiagramRenderSnapshot(diagramRenderSnapshot);
             setDocumentHtml(finalHtml);
+            setDocumentHtmlRevision(renderRevision);
             tracePerf("render.stateCommit.queued", {
               basename,
               format: documentPayload.format,

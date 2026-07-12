@@ -661,6 +661,7 @@
 }
 
 .source-block-frame {
+  display: flow-root;
   position: relative;
   isolation: isolate;
 }

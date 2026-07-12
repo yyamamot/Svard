@@ -71,6 +71,7 @@ interface ViewerPaneProps {
   centeredContentWidth?: number | null;
   hideStatusFeedback?: boolean;
   documentPayload: DocumentPayload | null;
+  documentRenderRevision?: number;
   renderResult: ViewerPaneSnapshot["renderResult"];
   documentHtml: SafeHtml;
   postDiffGitMarkers: ViewerPostDiffGitMarkerContext | null;
@@ -129,6 +130,7 @@ export function ViewerPane({
   centeredContentWidth,
   hideStatusFeedback = false,
   documentPayload,
+  documentRenderRevision = 0,
   renderResult,
   documentHtml,
   postDiffGitMarkers,
@@ -167,6 +169,9 @@ export function ViewerPane({
   const payload = isFocused ? documentPayload : snapshot.documentPayload;
   const result = isFocused ? renderResult : snapshot.renderResult;
   const html = isFocused ? documentHtml : snapshot.documentHtml;
+  const articleRenderIdentity = isFocused
+    ? String(documentRenderRevision)
+    : (payload?.updatedAt ?? "snapshot");
   const paneTitle = payload ? fileName(payload.path) : "Empty";
   const asciidocThemeClass =
     payload?.format === "asciidoc"
@@ -260,6 +265,7 @@ export function ViewerPane({
     });
     setElementSafeHtml(article, html);
     article.dataset.renderedDocumentPath = documentPath;
+    article.dataset.renderRevision = articleRenderIdentity;
     tracePerf("render.articleInnerHtmlCommit", {
       basename: perfBasename(documentPath),
       format: documentFormat,
@@ -281,7 +287,13 @@ export function ViewerPane({
     return () => {
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [documentFormat, documentPath, hasRenderResult, html]);
+  }, [
+    articleRenderIdentity,
+    documentFormat,
+    documentPath,
+    hasRenderResult,
+    html,
+  ]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -507,6 +519,7 @@ export function ViewerPane({
       )}
       {result && payload && (
         <article
+          key={`${paneId}:${documentPath ?? "empty"}:${articleRenderIdentity}`}
           ref={setArticleNode}
           className={`document-body markup-document format-${payload.format}${payload.format === "markdown" ? " markdown-body" : ""}${asciidocThemeClass}`}
           data-review-id={

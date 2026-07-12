@@ -141,22 +141,20 @@ export function useDocumentLifecycle({
 
   function captureReloadAnchor(path: string) {
     if (path !== activePathRef.current) {
-      return;
+      return null;
     }
-    const anchor = captureSmartScrollAnchor({
+    return captureSmartScrollAnchor({
       activeHeadingId: activeHeadingIdRef.current,
       article: articleRef.current,
       path,
       viewer: viewerRef.current,
     });
-    if (anchor) {
-      setPendingSmartScrollAnchor(anchor);
-    }
   }
 
   useEffect(() => {
     let disposed = false;
     const watchHandles: WatchHandle[] = [];
+    const reloadGenerationByPath = new Map<string, number>();
 
     function markReloadState(path: string, state: OpenFileReloadState) {
       setOpenFileReloadStates((current) => ({
@@ -174,19 +172,24 @@ export function useDocumentLifecycle({
     }
 
     async function reloadWatchedDocument(path: string) {
+      const generation = (reloadGenerationByPath.get(path) ?? 0) + 1;
+      reloadGenerationByPath.set(path, generation);
       markReloadState(path, {
         status: "reloading",
         updatedAt: new Date().toISOString(),
       });
       try {
         await clearDocumentLinkCache(path, "watch-document");
-        captureReloadAnchor(path);
+        const reloadAnchor = captureReloadAnchor(path);
         const nextDocument = await host.openDocument(path);
-        if (disposed) {
+        if (disposed || reloadGenerationByPath.get(path) !== generation) {
           return;
         }
         const isActive = activePathRef.current === nextDocument.path;
         if (isActive) {
+          if (reloadAnchor) {
+            setPendingSmartScrollAnchor(reloadAnchor);
+          }
           setDocumentPayload(nextDocument);
           bumpDocumentRenderRevision();
           showInlineNotice(`${fileName(nextDocument.path)} reloaded`, {
@@ -200,7 +203,7 @@ export function useDocumentLifecycle({
         );
         clearReloadState(nextDocument.path);
       } catch (reloadError) {
-        if (disposed) {
+        if (disposed || reloadGenerationByPath.get(path) !== generation) {
           return;
         }
         const message =
@@ -320,10 +323,11 @@ export function useDocumentLifecycle({
 
     setIsLoading(true);
     setError(null);
+    let reloadAnchor: SmartScrollAnchor | null = null;
     try {
       if (options.clearDocumentLinkCache) {
         await clearDocumentLinkCache(path, "manual-reload");
-        captureReloadAnchor(path);
+        reloadAnchor = captureReloadAnchor(path);
       }
       const hostStartedAt = perfNow();
       const nextDocument = await host.openDocument(path, {
@@ -353,6 +357,9 @@ export function useDocumentLifecycle({
       }
       setDocumentPayload(nextDocument);
       if (options.clearDocumentLinkCache) {
+        if (reloadAnchor) {
+          setPendingSmartScrollAnchor(reloadAnchor);
+        }
         bumpDocumentRenderRevision();
       }
       setQuery(searchQueryForPath(nextDocument.path));

@@ -20,6 +20,7 @@ interface UseNavigationHistoryOptions {
   articleRef: React.RefObject<HTMLElement | null>;
   documentHtml: SafeHtml;
   documentPayload: DocumentPayload | null;
+  documentRenderRevision: number;
   navigationBackStack: NavigationLocation[];
   navigationForwardStack: NavigationLocation[];
   pendingNavigationLocation: NavigationLocation | null;
@@ -45,6 +46,7 @@ export function useNavigationHistory({
   articleRef,
   documentHtml,
   documentPayload,
+  documentRenderRevision,
   navigationBackStack,
   navigationForwardStack,
   pendingNavigationLocation,
@@ -104,6 +106,12 @@ export function useNavigationHistory({
     }
 
     requestAnimationFrame(() => {
+      if (
+        articleRef.current?.dataset.renderRevision !==
+        String(documentRenderRevision)
+      ) {
+        return;
+      }
       restoreSmartScrollAnchor({
         anchor: pendingSmartScrollAnchor,
         article: articleRef.current,
@@ -112,7 +120,12 @@ export function useNavigationHistory({
       });
       setPendingSmartScrollAnchor(null);
     });
-  }, [documentHtml, documentPayload?.path, pendingSmartScrollAnchor]);
+  }, [
+    documentHtml,
+    documentPayload?.path,
+    documentRenderRevision,
+    pendingSmartScrollAnchor,
+  ]);
 
   useEffect(() => {
     if (

@@ -41,9 +41,11 @@ describe("render commit perf trace", () => {
       ) + 3,
     );
 
-    expect(layoutEffectBody).toContain(
-      "[documentFormat, documentPath, hasRenderResult, html]",
-    );
+    expect(layoutEffectBody).toContain("articleRenderIdentity");
+    expect(layoutEffectBody).toContain("documentFormat");
+    expect(layoutEffectBody).toContain("documentPath");
+    expect(layoutEffectBody).toContain("hasRenderResult");
+    expect(layoutEffectBody).toContain("html");
     expect(layoutEffectBody).not.toContain("tracePerf(\"render.articleRefReady\", {\n      html");
     expect(layoutEffectBody).not.toContain("tracePerf(\"render.postCommitAnimationFrame\", {\n        html");
     expect(layoutEffectBody).not.toContain("source");

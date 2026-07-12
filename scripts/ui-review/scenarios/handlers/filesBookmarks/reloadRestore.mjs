@@ -27,6 +27,18 @@ ${"Top filler paragraph.\n\n".repeat(16)}
 
 This is the smart scroll restoration target.
 
+\`\`\`console
+$ ssh vm2 "sudo python3 ~/learning-spdk-custom-bdev/call_rpc.py bdev_logging_delete '{\\"name\\":\\"Logging0\\"}'"
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": true,
+  "detail": "initial render keeps a taller overflow scroller"
+}
+\`\`\`
+
+Paragraph immediately after the wide source block.
+
 ${"Target filler paragraph.\n\n".repeat(18)}
 
 ## Tail Section
@@ -46,6 +58,17 @@ ${"Top filler paragraph.\n\n".repeat(16)}
 ## Target Section
 
 This is the smart scroll restoration target.
+
+\`\`\`console
+$ ssh vm2 "sudo python3 ~/learning-spdk-custom-bdev/call_rpc.py bdev_logging_delete '{\\"name\\":\\"Logging0\\"}'"
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": true
+}
+\`\`\`
+
+Paragraph immediately after the wide source block.
 
 ${"Target filler paragraph.\n\n".repeat(18)}
 
@@ -97,6 +120,7 @@ Tail content.
           (heading) => heading.textContent?.trim() === "Target Section",
         );
         window.__SVARD_SMART_SCROLL_RESTORE_BEFORE__ = {
+          article: document.querySelector('[data-review-id="document-body"]'),
           scrollTop: viewer?.scrollTop ?? 0,
           targetTop: target?.getBoundingClientRect().top ?? null,
         };
@@ -121,8 +145,22 @@ Tail content.
       );
       const viewerRect = viewer?.getBoundingClientRect();
       const targetRect = target?.getBoundingClientRect();
+      const article = document.querySelector(
+        '[data-review-id="document-body"]',
+      );
+      const sourceFrame = article?.querySelector(".source-block-frame");
+      const sourceBlock =
+        sourceFrame?.closest(".listingblock, .literalblock") ?? sourceFrame;
+      const paragraphAfterSource = sourceBlock?.nextElementSibling;
+      const sourceFrameRect = sourceFrame?.getBoundingClientRect();
+      const paragraphRect = paragraphAfterSource?.getBoundingClientRect();
       window.__SVARD_SMART_SCROLL_RESTORE_CHECK__ = {
         before: window.__SVARD_SMART_SCROLL_RESTORE_BEFORE__,
+        articleRemounted:
+          window.__SVARD_SMART_SCROLL_RESTORE_BEFORE__?.article !== article,
+        sourceBlockDoesNotOverlapParagraph:
+          Boolean(sourceFrameRect && paragraphRect) &&
+          sourceFrameRect.bottom <= paragraphRect.top,
         restoredNearTarget:
           Boolean(viewerRect && targetRect) &&
           targetRect.top >= viewerRect.top - 24 &&

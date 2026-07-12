@@ -96,6 +96,7 @@ describe("ViewerPane", () => {
       },
     },
     documentPayload = payload("asciidoc"),
+    documentRenderRevision = 0,
     documentHtml = markSafeHtml("<p>Preview</p>"),
     error = null,
     isLoading = false,
@@ -110,6 +111,7 @@ describe("ViewerPane", () => {
   }: {
     config?: AppConfig;
     documentPayload?: DocumentPayload | null;
+    documentRenderRevision?: number;
     documentHtml?: ReturnType<typeof markSafeHtml>;
     error?: string | null;
     isLoading?: boolean;
@@ -139,6 +141,7 @@ describe("ViewerPane", () => {
         splitEnabled={false}
         focusedPaneId="left"
         documentPayload={documentPayload}
+        documentRenderRevision={documentRenderRevision}
         renderResult={nextRenderResult}
         documentHtml={documentHtml}
         postDiffGitMarkers={postDiffGitMarkers}
@@ -192,6 +195,23 @@ describe("ViewerPane", () => {
 
     expect(markdownArticle?.classList.contains("format-markdown")).toBe(true);
     expect(markdownArticle?.className).not.toContain("asciidoc-theme-");
+  });
+
+  it("remounts the article and recommits unchanged HTML for a new render revision", async () => {
+    const documentHtml = markSafeHtml("<pre>wide source block</pre>");
+    await act(async () =>
+      renderPane({ documentHtml, documentRenderRevision: 1 }),
+    );
+    const firstArticle = container.querySelector("article");
+
+    await act(async () =>
+      renderPane({ documentHtml, documentRenderRevision: 2 }),
+    );
+    const secondArticle = container.querySelector("article");
+
+    expect(secondArticle).not.toBe(firstArticle);
+    expect(secondArticle?.innerHTML).toBe("<pre>wide source block</pre>");
+    expect(secondArticle?.dataset.renderRevision).toBe("2");
   });
 
   it("cancels Capture Area when the focused pane switches documents", async () => {
