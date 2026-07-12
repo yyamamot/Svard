@@ -13,9 +13,11 @@ import type {
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
 import type { DiffPreviewWatchState } from "../lib/diffPreviewWatch";
 import {
+  captureAreaReferenceForRect,
   copyCaptureAreaToClipboard,
   type CaptureAreaCommandHandler,
   type CaptureAreaRect,
+  type CaptureAreaVariant,
 } from "../lib/captureArea";
 import { diffPreviewIdentityKey } from "../lib/diffPreviewWatch";
 import type { RenderedDiffPresentation } from "../lib/gitRenderedDiff";
@@ -126,8 +128,10 @@ export function DocumentDiffPreviewPanel({
   const [syncScrollEnabled, setSyncScrollEnabled] = useState(true);
   const [activeChangeIndex, setActiveChangeIndex] = useState(0);
   const [activeTableIndex, setActiveTableIndex] = useState(0);
-  const [captureAreaArticle, setCaptureAreaArticle] =
-    useState<HTMLElement | null>(null);
+  const [captureAreaState, setCaptureAreaState] = useState<{
+    article: HTMLElement;
+    variant: CaptureAreaVariant;
+  } | null>(null);
   const previewIdentityKey = diffPreviewIdentityKey(preview);
   const autoRefreshKeyRef = useRef<string | null>(null);
   const {
@@ -195,7 +199,10 @@ export function DocumentDiffPreviewPanel({
   const closeWithHandoff = useCallback(() => {
     onClose({ preview, renderedPresentation });
   }, [onClose, preview, renderedPresentation]);
-  const beginCaptureArea = useCallback((container?: HTMLElement) => {
+  const beginCaptureArea = useCallback((
+    container?: HTMLElement,
+    variant: CaptureAreaVariant = "plain",
+  ) => {
     const renderedPane =
       container ?? renderedRightRef.current ?? renderedLeftRef.current;
     const article = renderedPane?.closest<HTMLElement>(
@@ -204,14 +211,26 @@ export function DocumentDiffPreviewPanel({
     if (!article) {
       return false;
     }
-    setCaptureAreaArticle(article);
+    setCaptureAreaState({ article, variant });
     return true;
   }, []);
   const copyCapturedArea = useCallback(
-    async (article: HTMLElement, rect: CaptureAreaRect) => {
+    async (
+      article: HTMLElement,
+      rect: CaptureAreaRect,
+      variant: CaptureAreaVariant,
+    ) => {
       try {
-        await copyCaptureAreaToClipboard(article, rect);
-        showLightweightActionFeedback?.("Image copied");
+        const referenceText =
+          variant === "reference"
+            ? captureAreaReferenceForRect(article, rect)
+            : undefined;
+        await copyCaptureAreaToClipboard(article, rect, referenceText);
+        showLightweightActionFeedback?.(
+          variant === "reference"
+            ? "Image with reference copied"
+            : "Image copied",
+        );
       } catch {
         showLightweightActionFeedback?.("Image could not be copied");
       }
@@ -236,8 +255,8 @@ export function DocumentDiffPreviewPanel({
     onClearRenderedContentCursor: clearRenderedContentCursor,
     onClose: closeWithHandoff,
     onOpenDiagramPreview,
-    onBeginCaptureArea: (container) => {
-      beginCaptureArea(container);
+    onBeginCaptureArea: (container, variant) => {
+      beginCaptureArea(container, variant);
     },
     openContextMenu,
     openDocument,
@@ -278,7 +297,8 @@ export function DocumentDiffPreviewPanel({
     if (!captureAreaCommandRef) {
       return;
     }
-    captureAreaCommandRef.current = () => beginCaptureArea();
+    captureAreaCommandRef.current = (variant) =>
+      beginCaptureArea(undefined, variant);
     return () => {
       captureAreaCommandRef.current = null;
     };
@@ -309,9 +329,9 @@ export function DocumentDiffPreviewPanel({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && captureAreaArticle) {
+      if (event.key === "Escape" && captureAreaState) {
         event.preventDefault();
-        setCaptureAreaArticle(null);
+        setCaptureAreaState(null);
         return;
       }
       if (event.key === "Escape") {
@@ -321,7 +341,7 @@ export function DocumentDiffPreviewPanel({
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [captureAreaArticle, closeWithHandoff]);
+  }, [captureAreaState, closeWithHandoff]);
 
   return (
     <div
@@ -405,14 +425,18 @@ export function DocumentDiffPreviewPanel({
           syncDirectScroll={syncDirectScroll}
           syncRenderedScroll={syncRenderedScroll}
         />
-        {captureAreaArticle && (
+        {captureAreaState && (
           <CaptureAreaOverlay
-            article={captureAreaArticle}
-            viewer={captureAreaArticle}
+            article={captureAreaState.article}
+            viewer={captureAreaState.article}
             onCapture={(rect) =>
-              void copyCapturedArea(captureAreaArticle, rect)
+              void copyCapturedArea(
+                captureAreaState.article,
+                rect,
+                captureAreaState.variant,
+              )
             }
-            onClose={() => setCaptureAreaArticle(null)}
+            onClose={() => setCaptureAreaState(null)}
           />
         )}
       </section>

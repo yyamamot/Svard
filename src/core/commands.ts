@@ -51,6 +51,7 @@ export const commandIds = [
   "viewer.reloadForce",
   "viewer.showShortcuts",
   "viewer.captureArea",
+  "viewer.captureAreaWithReference",
   "git.showDiff",
   "git.showFileHistory",
   "git.compareWithBranch",
@@ -177,6 +178,11 @@ export const commandDefinitions: CommandDefinition[] = [
     context: "viewer",
   },
   { id: "viewer.captureArea", title: "Capture Area", context: "viewer" },
+  {
+    id: "viewer.captureAreaWithReference",
+    title: "Capture Area with Reference",
+    context: "viewer",
+  },
   { id: "git.showDiff", title: "Show Git Diff", context: "viewer" },
   { id: "git.showFileHistory", title: "Show File History", context: "viewer" },
   {

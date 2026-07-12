@@ -221,7 +221,11 @@ export function diffPreviewContextMenuItems({
     addCopyPaneTextItem(items, container, copyText);
   }
   if (surface === "rendered" && onBeginCaptureArea) {
-    addCaptureAreaItem(items, () => onBeginCaptureArea(container));
+    addCaptureAreaItem(
+      items,
+      () => onBeginCaptureArea(container, "plain"),
+      () => onBeginCaptureArea(container, "reference"),
+    );
   }
   return items;
 }

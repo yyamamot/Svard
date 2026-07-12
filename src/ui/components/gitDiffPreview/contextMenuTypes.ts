@@ -4,6 +4,7 @@ import type {
   DocumentLinkResolution,
 } from "../../../core/types";
 import type { CopyText } from "../../hooks/documentLinks/types";
+import type { CaptureAreaVariant } from "../../lib/captureArea";
 import type { ContextMenuItem, DiagramPreviewState } from "../../types";
 
 export type DiffSide = "left" | "right";
@@ -27,7 +28,10 @@ export interface DiffPreviewContextMenuOptions {
   confirmExternalLink: (url: string) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<void>;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
-  onBeginCaptureArea?: (container: HTMLElement) => void;
+  onBeginCaptureArea?: (
+    container: HTMLElement,
+    variant?: CaptureAreaVariant,
+  ) => void;
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },

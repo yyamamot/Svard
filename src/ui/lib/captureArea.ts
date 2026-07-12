@@ -1,5 +1,9 @@
 import { toBlob } from "html-to-image";
 import { copyPngToClipboard, imageClipboardSize } from "./imageClipboard";
+import {
+  sectionLabelForElement,
+  sectionLabelForRange,
+} from "./locationReference";
 
 export interface CaptureAreaRect {
   left: number;
@@ -8,7 +12,13 @@ export interface CaptureAreaRect {
   height: number;
 }
 
-export type CaptureAreaCommandHandler = () => boolean;
+export type CaptureAreaVariant = "plain" | "reference";
+export type CaptureAreaCommandHandler = (variant?: CaptureAreaVariant) => boolean;
+
+export interface CaptureAreaRequest {
+  id: number;
+  variant: CaptureAreaVariant;
+}
 
 export const minimumCaptureAreaSize = 8;
 
@@ -55,13 +65,195 @@ export function captureAreaImageSize(
 export function copyCaptureAreaToClipboard(
   article: HTMLElement,
   rect: CaptureAreaRect,
+  referenceText?: string,
 ): Promise<void> {
-  return copyPngToClipboard(captureArticleArea(article, rect));
+  return copyPngToClipboard(captureArticleArea(article, rect, referenceText));
+}
+
+interface CaptureReferenceUnit {
+  element: HTMLElement;
+  path: string;
+  startLine: number;
+  endLine: number;
+}
+
+interface CaptureReferenceFragment {
+  path: string;
+  startLine?: number;
+  endLine?: number;
+  revision?: string;
+  side?: "left" | "right";
+  section?: string;
+}
+
+const captureReferenceRootSelector =
+  ".viewer-pane[data-capture-document-path],.git-rendered-pane[data-capture-document-path]";
+
+export function captureAreaReferenceForRect(
+  article: HTMLElement,
+  rect: CaptureAreaRect,
+): string | undefined {
+  const roots = captureReferenceRoots(article).filter((root) =>
+    rectsIntersect(root.getBoundingClientRect(), rect),
+  );
+  const fragments = roots.flatMap((root) =>
+    captureReferenceFragmentsForRoot(root, rect),
+  );
+  if (!fragments.length) {
+    return undefined;
+  }
+  return fragments
+    .map((fragment) => {
+      const lineRange =
+        fragment.startLine === undefined || fragment.endLine === undefined
+          ? ""
+          : `:${fragment.startLine === fragment.endLine ? fragment.startLine : `${fragment.startLine}-${fragment.endLine}`}`;
+      return [
+        `File: ${fragment.path}${lineRange}`,
+        fragment.revision && fragment.side
+          ? `Revision: ${fragment.revision} (${fragment.side})`
+          : undefined,
+        fragment.section ? `Section: ${fragment.section}` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n\n");
+}
+
+function captureReferenceRoots(article: HTMLElement) {
+  if (article.matches(captureReferenceRootSelector)) {
+    return [article];
+  }
+  const inside = Array.from(
+    article.querySelectorAll<HTMLElement>(captureReferenceRootSelector),
+  );
+  if (inside.length) {
+    return inside;
+  }
+  const closest = article.closest<HTMLElement>(captureReferenceRootSelector);
+  return closest ? [closest] : [];
+}
+
+function captureReferenceFragmentsForRoot(
+  root: HTMLElement,
+  rect: CaptureAreaRect,
+): CaptureReferenceFragment[] {
+  const rootPath = root.dataset.captureDocumentPath;
+  if (!rootPath) {
+    return [];
+  }
+  const revision = root.dataset.captureRevisionLabel;
+  const side =
+    root.dataset.captureSide === "left" || root.dataset.captureSide === "right"
+      ? root.dataset.captureSide
+      : undefined;
+  const units = captureReferenceUnits(root, rect, rootPath);
+  if (!units.length) {
+    const anchor = firstIntersectingContentElement(root, rect);
+    return [
+      {
+        path: rootPath,
+        revision,
+        side,
+        section: anchor
+          ? sectionLabelForElement(root, anchor) ?? undefined
+          : undefined,
+      },
+    ];
+  }
+
+  const groups: CaptureReferenceUnit[][] = [];
+  for (const unit of units) {
+    const current = groups.at(-1);
+    if (!current || current[0]?.path !== unit.path) {
+      groups.push([unit]);
+    } else {
+      current.push(unit);
+    }
+  }
+  return groups.map((group) => ({
+    path: group[0].path,
+    startLine: group[0].startLine,
+    endLine: group.at(-1)!.endLine,
+    revision,
+    side,
+    section: commonSectionForUnits(root, group),
+  }));
+}
+
+function captureReferenceUnits(
+  root: HTMLElement,
+  rect: CaptureAreaRect,
+  rootPath: string,
+) {
+  const seen = new Set<string>();
+  const units: CaptureReferenceUnit[] = [];
+  const candidates = root.querySelectorAll<HTMLElement>(
+    "[data-source-selection-block-id][data-source-selection-start][data-source-selection-end]",
+  );
+  for (const element of candidates) {
+    if (
+      element.closest(".source-block-collapsed") ||
+      !rectsIntersect(element.getBoundingClientRect(), rect)
+    ) {
+      continue;
+    }
+    const id = element.dataset.sourceSelectionBlockId;
+    const startLine = Number(element.dataset.sourceSelectionStart);
+    const endLine = Number(element.dataset.sourceSelectionEnd);
+    const path = element.dataset.sourceSelectionSourcePath || rootPath;
+    const key = `${id}\u0000${path}\u0000${startLine}\u0000${endLine}`;
+    if (
+      !id ||
+      !Number.isInteger(startLine) ||
+      !Number.isInteger(endLine) ||
+      startLine < 1 ||
+      endLine < startLine ||
+      seen.has(key)
+    ) {
+      continue;
+    }
+    seen.add(key);
+    units.push({ element, path, startLine, endLine });
+  }
+  return units;
+}
+
+function commonSectionForUnits(
+  root: HTMLElement,
+  units: CaptureReferenceUnit[],
+) {
+  const first = units[0]?.element;
+  const last = units.at(-1)?.element;
+  if (!first || !last) {
+    return undefined;
+  }
+  try {
+    const range = document.createRange();
+    range.setStartBefore(first);
+    range.setEndAfter(last);
+    return sectionLabelForRange({ article: root, range }) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function firstIntersectingContentElement(
+  root: HTMLElement,
+  rect: CaptureAreaRect,
+) {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      "h1,h2,h3,h4,h5,h6,p,pre,li,table,.diagram-slot,.diagram-inline",
+    ),
+  ).find((element) => rectsIntersect(element.getBoundingClientRect(), rect));
 }
 
 async function captureArticleArea(
   article: HTMLElement,
   rect: CaptureAreaRect,
+  referenceText?: string,
 ): Promise<Blob> {
   const articleRect = article.getBoundingClientRect();
   if (articleRect.width <= 0 || articleRect.height <= 0) {
@@ -99,8 +291,30 @@ async function captureArticleArea(
   document.body.appendChild(frame);
   copyScrollOffsets(article, clone);
 
+  let captureHeight = rect.height;
+  if (referenceText) {
+    const footer = createCaptureAreaReferenceFooter(
+      article,
+      referenceText,
+      rect.width,
+    );
+    footer.style.top = `${rect.height}px`;
+    frame.appendChild(footer);
+    const measuredHeight = Math.ceil(
+      footer.getBoundingClientRect().height ||
+        footer.scrollHeight ||
+        estimateReferenceFooterHeight(referenceText, rect.width),
+    );
+    footer.style.height = `${measuredHeight}px`;
+    captureHeight += measuredHeight;
+    frame.style.height = `${captureHeight}px`;
+  }
+
   try {
-    const { width, height } = captureAreaImageSize(rect);
+    const { width, height } = captureAreaImageSize({
+      width: rect.width,
+      height: captureHeight,
+    });
     const blob = await toBlob(frame, {
       canvasWidth: width,
       canvasHeight: height,
@@ -119,6 +333,43 @@ async function captureArticleArea(
   } finally {
     frame.remove();
   }
+}
+
+export function createCaptureAreaReferenceFooter(
+  article: HTMLElement,
+  referenceText: string,
+  width: number,
+) {
+  const footer = document.createElement("div");
+  footer.dataset.captureReferenceFooter = "true";
+  footer.textContent = referenceText;
+  const computed = getComputedStyle(article);
+  Object.assign(footer.style, {
+    position: "absolute",
+    left: "0",
+    width: `${width}px`,
+    boxSizing: "border-box",
+    padding: "10px 12px",
+    borderTop: "1px solid rgba(127, 127, 127, 0.45)",
+    background: captureAreaBackground(article),
+    color: computed.color || "rgb(31, 35, 40)",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontSize: "12px",
+    lineHeight: "17px",
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+  });
+  return footer;
+}
+
+function estimateReferenceFooterHeight(referenceText: string, width: number) {
+  const charactersPerLine = Math.max(12, Math.floor((width - 24) / 7.2));
+  const lines = referenceText.split("\n").reduce(
+    (count, line) => count + Math.max(1, Math.ceil(line.length / charactersPerLine)),
+    0,
+  );
+  return 21 + lines * 17;
 }
 
 function preserveCaptureLayout(article: HTMLElement, clone: HTMLElement) {

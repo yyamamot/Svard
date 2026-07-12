@@ -11,6 +11,7 @@ import type {
 } from "../../../core/types";
 import type { CopyText } from "../../hooks/documentLinks/types";
 import { useMouseGestures } from "../../hooks/useMouseGestures";
+import type { CaptureAreaVariant } from "../../lib/captureArea";
 import type {
   ContextMenuItem,
   DiagramPreviewState,
@@ -38,7 +39,10 @@ interface UseDiffPreviewInteractionsOptions {
   onClearRenderedContentCursor: () => void;
   onClose: () => void;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
-  onBeginCaptureArea?: (container: HTMLElement) => void;
+  onBeginCaptureArea?: (
+    container: HTMLElement,
+    variant?: CaptureAreaVariant,
+  ) => void;
   openContextMenu: (
     event: MouseEvent<HTMLElement>,
     items: ContextMenuItem[],

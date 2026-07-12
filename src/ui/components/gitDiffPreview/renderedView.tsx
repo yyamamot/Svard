@@ -172,6 +172,7 @@ export function hiddenRenderedGroupPlaceholderLabel(
 
 export function RenderedDiffPane({
   label,
+  documentPath,
   entries,
   side,
   reviewId,
@@ -194,6 +195,7 @@ export function RenderedDiffPane({
   paneRef,
 }: {
   label: string;
+  documentPath?: string | null;
   entries: RenderedDiffPresentationEntry[];
   side: "left" | "right";
   reviewId: string;
@@ -410,6 +412,9 @@ export function RenderedDiffPane({
     <section
       className="git-rendered-pane"
       data-review-id={reviewId}
+      data-capture-document-path={documentPath ?? undefined}
+      data-capture-revision-label={label}
+      data-capture-side={side}
       onContextMenu={onContextMenu}
     >
       <header>{label}</header>

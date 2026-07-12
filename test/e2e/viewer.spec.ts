@@ -770,7 +770,7 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
   const copiedImage = await page.evaluate(async () => {
     const [item] = await navigator.clipboard.read();
     if (!item?.types.includes("image/png")) {
-      return { types: item?.types ?? [], colorCount: 0 };
+      return { types: item?.types ?? [], colorCount: 0, width: 0, height: 0 };
     }
     const blob = await item!.getType("image/png");
     const bitmap = await createImageBitmap(blob);
@@ -789,10 +789,63 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
     for (let index = 0; pixels && index < pixels.length; index += 16) {
       colors.add(`${pixels[index]},${pixels[index + 1]},${pixels[index + 2]}`);
     }
-    return { types: item.types, colorCount: colors.size };
+    return {
+      types: item.types,
+      colorCount: colors.size,
+      width: bitmap.width,
+      height: bitmap.height,
+    };
   });
   expect(copiedImage.types).toContain("image/png");
   expect(copiedImage.colorCount).toBeGreaterThan(1);
+
+  await page.mouse.click(box.x + box.width - 12, box.y + 24, {
+    button: "right",
+  });
+  await page
+    .getByRole("menuitem", { name: "Capture Area with Reference…" })
+    .click();
+  await page.mouse.move(box.x + 24, box.y + 48);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 260, box.y + 190);
+  await page.mouse.up();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Image with reference copied",
+  );
+  const referencedSize = await page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read();
+    const bitmap = await createImageBitmap(await item!.getType("image/png"));
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    context?.drawImage(bitmap, 0, 0);
+    const pixels =
+      context?.getImageData(0, 0, canvas.width, canvas.height).data ??
+      new Uint8ClampedArray();
+    let footerInkPixels = 0;
+    for (let y = Math.floor(canvas.height * 0.72); y < canvas.height; y += 3) {
+      for (let x = 0; x < canvas.width; x += 3) {
+        const index = (y * canvas.width + x) * 4;
+        if (
+          pixels[index + 3] === 255 &&
+          pixels[index] < 180 &&
+          pixels[index + 1] < 180 &&
+          pixels[index + 2] < 180
+        ) {
+          footerInkPixels += 1;
+        }
+      }
+    }
+    return {
+      width: bitmap.width,
+      height: bitmap.height,
+      footerInkPixels,
+    };
+  });
+  expect(referencedSize.width).toBe(copiedImage.width);
+  expect(referencedSize.height).toBeGreaterThan(copiedImage.height);
+  expect(referencedSize.footerInkPixels).toBeGreaterThan(10);
 });
 
 test("viewer Diff Preview Capture Area spans both rendered panes", async ({
@@ -823,7 +876,9 @@ test("viewer Diff Preview Capture Area spans both rendered panes", async ({
   await page.mouse.click(paragraphBox.x + 12, paragraphBox.y + 12, {
     button: "right",
   });
-  await page.getByRole("menuitem", { name: "Capture Area…" }).click();
+  await page
+    .getByRole("menuitem", { name: "Capture Area with Reference…" })
+    .click();
   const overlay = page.getByTestId("capture-area-overlay");
   await expect(overlay).toBeVisible();
   const overlayBox = await overlay.boundingBox();
@@ -838,7 +893,7 @@ test("viewer Diff Preview Capture Area spans both rendered panes", async ({
   await page.mouse.up();
   await expect(
     page.getByTestId("lightweight-action-feedback").filter({
-      hasText: "Image copied",
+      hasText: "Image with reference copied",
     }),
   ).toHaveCount(1);
   await expect
@@ -880,7 +935,9 @@ test("viewer split Capture Area spans both document panes", async ({
   await page.mouse.click(articleBox.x + 24, articleBox.y + 40, {
     button: "right",
   });
-  await page.getByRole("menuitem", { name: "Capture Area…" }).click();
+  await page
+    .getByRole("menuitem", { name: "Capture Area with Reference…" })
+    .click();
 
   const overlay = page.getByTestId("capture-area-overlay");
   await expect(overlay).toBeVisible();
@@ -896,7 +953,7 @@ test("viewer split Capture Area spans both document panes", async ({
   await page.mouse.up();
   await expect(
     page.getByTestId("lightweight-action-feedback").filter({
-      hasText: "Image copied",
+      hasText: "Image with reference copied",
     }),
   ).toHaveCount(1);
   await expect

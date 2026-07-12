@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   captureAreaBackground,
   captureAreaImageSize,
+  captureAreaReferenceForRect,
   clampCaptureArea,
+  createCaptureAreaReferenceFooter,
   minimumCaptureAreaSize,
   visibleCaptureBounds,
 } from "../../src/ui/lib/captureArea";
@@ -63,4 +65,132 @@ describe("capture area geometry", () => {
     expect(captureAreaBackground(inner)).toBe("rgb(247, 248, 249)");
     outer.remove();
   });
+
+  it("resolves intersecting source blocks and removes nested duplicates", () => {
+    const pane = captureRoot("/workspace/docs/guide.md", rect(0, 0, 500, 400));
+    const first = mappedBlock("paragraph-1", 10, 12, rect(20, 20, 300, 40));
+    const code = mappedBlock("code-1", 14, 20, rect(20, 80, 300, 100));
+    const nested = mappedBlock("code-1", 14, 20, rect(30, 90, 280, 80));
+    code.append(nested);
+    pane.append(first, code);
+    document.body.append(pane);
+
+    expect(
+      captureAreaReferenceForRect(pane, {
+        left: 10,
+        top: 10,
+        width: 350,
+        height: 190,
+      }),
+    ).toBe("File: /workspace/docs/guide.md:10-20");
+    pane.remove();
+  });
+
+  it("keeps include origin fragments in document order", () => {
+    const pane = captureRoot("/workspace/docs/root.md", rect(0, 0, 500, 400));
+    pane.append(
+      mappedBlock("root-1", 4, 5, rect(20, 20, 300, 30)),
+      mappedBlock(
+        "include-1",
+        8,
+        11,
+        rect(20, 60, 300, 50),
+        "/workspace/docs/include.md",
+      ),
+      mappedBlock("root-2", 7, 9, rect(20, 120, 300, 50)),
+    );
+    document.body.append(pane);
+
+    expect(
+      captureAreaReferenceForRect(pane, {
+        left: 10,
+        top: 10,
+        width: 350,
+        height: 180,
+      }),
+    ).toBe(
+      [
+        "File: /workspace/docs/root.md:4-5",
+        "File: /workspace/docs/include.md:8-11",
+        "File: /workspace/docs/root.md:7-9",
+      ].join("\n\n"),
+    );
+    pane.remove();
+  });
+
+  it("uses available root and revision information without source mapping", () => {
+    const surface = document.createElement("div");
+    const left = captureRoot("/workspace/docs/guide.md", rect(0, 0, 240, 300));
+    left.classList.add("git-rendered-pane");
+    left.dataset.captureRevisionLabel = "HEAD";
+    left.dataset.captureSide = "left";
+    const right = captureRoot("/workspace/docs/guide.md", rect(260, 0, 240, 300));
+    right.classList.add("git-rendered-pane");
+    right.dataset.captureRevisionLabel = "Working Tree";
+    right.dataset.captureSide = "right";
+    surface.append(left, right);
+    document.body.append(surface);
+
+    expect(
+      captureAreaReferenceForRect(surface, {
+        left: 0,
+        top: 0,
+        width: 500,
+        height: 200,
+      }),
+    ).toBe(
+      [
+        "File: /workspace/docs/guide.md\nRevision: HEAD (left)",
+        "File: /workspace/docs/guide.md\nRevision: Working Tree (right)",
+      ].join("\n\n"),
+    );
+    surface.remove();
+  });
+
+  it("creates an opaque monospace footer below the captured content", () => {
+    const article = document.createElement("div");
+    article.style.backgroundColor = "rgb(20, 24, 28)";
+    article.style.color = "rgb(240, 242, 244)";
+    document.body.append(article);
+
+    const footer = createCaptureAreaReferenceFooter(
+      article,
+      "File: /workspace/docs/guide.md:10-20",
+      640,
+    );
+    expect(footer.dataset.captureReferenceFooter).toBe("true");
+    expect(footer.style.width).toBe("640px");
+    expect(footer.style.background).toBe("rgb(20, 24, 28)");
+    expect(footer.style.fontFamily).toContain("ui-monospace");
+    expect(footer.textContent).toContain("guide.md:10-20");
+    article.remove();
+  });
 });
+
+function rect(left: number, top: number, width: number, height: number) {
+  return new DOMRect(left, top, width, height);
+}
+
+function captureRoot(path: string, bounds: DOMRect) {
+  const root = document.createElement("section");
+  root.className = "viewer-pane";
+  root.dataset.captureDocumentPath = path;
+  root.getBoundingClientRect = () => bounds;
+  return root;
+}
+
+function mappedBlock(
+  id: string,
+  start: number,
+  end: number,
+  bounds: DOMRect,
+  sourcePath?: string,
+) {
+  const block = document.createElement("div");
+  block.dataset.sourceSelectionBlockId = id;
+  block.dataset.sourceSelectionStart = String(start);
+  block.dataset.sourceSelectionEnd = String(end);
+  if (sourcePath) block.dataset.sourceSelectionSourcePath = sourcePath;
+  block.getBoundingClientRect = () => bounds;
+  return block;
+}

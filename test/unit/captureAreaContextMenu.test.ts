@@ -13,13 +13,18 @@ describe("Capture Area context menu item", () => {
       },
     ];
 
-    addCaptureAreaItem(items, beginCapture);
+    const beginReferencedCapture = vi.fn();
+    addCaptureAreaItem(items, beginCapture, beginReferencedCapture);
 
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(3);
     expect(items[1]?.id).toBe("capture-area");
     expect(items[1]?.label).toBe("Capture Area…");
     expect(items[1]?.separatorBefore).toBe(true);
     items[1]?.onSelect();
     expect(beginCapture).toHaveBeenCalledOnce();
+    expect(items[2]?.id).toBe("capture-area-with-reference");
+    expect(items[2]?.label).toBe("Capture Area with Reference…");
+    items[2]?.onSelect();
+    expect(beginReferencedCapture).toHaveBeenCalledOnce();
   });
 });

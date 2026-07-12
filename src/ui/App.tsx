@@ -57,6 +57,10 @@ import { saveAppConfig } from "./lib/saveAppConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
 import type {
+  CaptureAreaRequest,
+  CaptureAreaVariant,
+} from "./lib/captureArea";
+import type {
   DiagramPreviewState,
   MouseGestureAutomation,
   NavigationLocation,
@@ -193,7 +197,13 @@ export function App() {
     useLightweightActionFeedback();
   const { contextMenu, closeContextMenu, openContextMenu } =
     useContextMenuState();
-  const [captureAreaRequest, setCaptureAreaRequest] = useState(0);
+  const [captureAreaRequest, setCaptureAreaRequest] =
+    useState<CaptureAreaRequest | null>(null);
+  const beginViewerCaptureArea = (variant: CaptureAreaVariant = "plain") =>
+    setCaptureAreaRequest((request) => ({
+      id: (request?.id ?? 0) + 1,
+      variant,
+    }));
   const {
     clearKrokiCache,
     clearPlantUmlSvgCache,
@@ -548,7 +558,7 @@ export function App() {
     openContextMenu,
     openDocument,
     openPathInEditor,
-    onBeginCaptureArea: () => setCaptureAreaRequest((request) => request + 1),
+    onBeginCaptureArea: beginViewerCaptureArea,
     openPreferencesTab,
     orderedTabs,
     paneSnapshots,
@@ -721,12 +731,12 @@ export function App() {
     onCloseSplitView: closeSplitView,
     onCloseTab: openFileActions.closeTab,
     onCopyHeadingLink: documentLinks.copyHeadingLink,
-    onBeginCaptureArea: () => {
+    onBeginCaptureArea: (variant = "plain") => {
       if (documentDiffPreview) {
-        diffOverlayCommandRefs.diffCaptureAreaCommandRef.current?.();
+        diffOverlayCommandRefs.diffCaptureAreaCommandRef.current?.(variant);
         return;
       }
-      setCaptureAreaRequest((request) => request + 1);
+      beginViewerCaptureArea(variant);
     },
     onClearContentCursor: contentCursor.clearActiveContentCursor,
     onFocusPane: focusPane,

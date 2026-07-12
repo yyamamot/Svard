@@ -57,7 +57,7 @@ export interface UseDocumentLinksOptions {
   ) => void;
   showLightweightActionFeedback: (message: string) => void;
   saveSvgFile?: (fileName: string, svg: string) => Promise<boolean>;
-  onBeginCaptureArea: () => void;
+  onBeginCaptureArea: (variant?: "plain" | "reference") => void;
 }
 
 export type CopyText = (label: string, content?: string) => Promise<void>;

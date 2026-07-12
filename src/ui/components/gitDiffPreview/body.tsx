@@ -25,6 +25,7 @@ import {
 import { statusLabel } from "./toolbar";
 import { DiffChangeRuler } from "./changeRuler";
 import type { DiffView } from "./types";
+import { diffPreviewDocumentPath } from "./contextMenuDocument";
 
 interface DiffPreviewBodyProps {
   activeChangeIndex: number;
@@ -179,6 +180,7 @@ export function DiffPreviewBody({
         >
           <RenderedDiffPane
             label={preview.leftLabel}
+            documentPath={diffPreviewDocumentPath(preview, "left")}
             entries={renderedPresentation.entries}
             side="left"
             paneRef={renderedLeftRef}
@@ -226,6 +228,7 @@ export function DiffPreviewBody({
           />
           <RenderedDiffPane
             label={preview.rightLabel}
+            documentPath={diffPreviewDocumentPath(preview, "right")}
             entries={renderedPresentation.entries}
             side="right"
             paneRef={renderedRightRef}
@@ -286,6 +289,7 @@ export function DiffPreviewBody({
         >
           <RenderedDiffPane
             label={preview.leftLabel}
+            documentPath={diffPreviewDocumentPath(preview, "left")}
             entries={renderedChangedEntries}
             side="left"
             paneRef={renderedLeftRef}
@@ -333,6 +337,7 @@ export function DiffPreviewBody({
           />
           <RenderedDiffPane
             label={preview.rightLabel}
+            documentPath={diffPreviewDocumentPath(preview, "right")}
             entries={renderedChangedEntries}
             side="right"
             paneRef={renderedRightRef}

@@ -147,6 +147,7 @@ const commandIdsWithNativeAccelerators = new Set<CommandId>([
   "viewer.reload",
   "viewer.reloadForce",
   "viewer.captureArea",
+  "viewer.captureAreaWithReference",
   "zoom.in",
   "zoom.out",
   "zoom.reset",
@@ -325,6 +326,10 @@ export function buildAppMenuModel({
         },
         separator(),
         command("Capture Area…", "viewer.captureArea"),
+        command(
+          "Capture Area with Reference…",
+          "viewer.captureAreaWithReference",
+        ),
         separator(),
         command("Find in Page...", "search.focus"),
         command("Next Match", "search.next"),

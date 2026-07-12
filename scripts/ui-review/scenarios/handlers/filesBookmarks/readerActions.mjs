@@ -92,17 +92,22 @@ export async function applyReaderActionsScenario(context) {
     await page.mouse.click(box.x + box.width - 12, box.y + 24, {
       button: "right",
     });
-    await page
-      .locator('[data-review-id="context-menu-item-capture-area"]')
-      .click();
+    const referenceAction = page.locator(
+      '[data-review-id="context-menu-item-capture-area-with-reference"]',
+    );
+    const referenceActionVisible = await referenceAction.isVisible();
+    await referenceAction.click();
     await page.locator('[data-review-id="capture-area-overlay"]').waitFor();
     await page.mouse.move(box.x + 24, box.y + 48);
     await page.mouse.down();
     await page.mouse.move(box.x + 260, box.y + 190);
     await page.locator('[data-review-id="capture-area-selection"]').waitFor();
-    await page.evaluate(() => {
-      window.__SVARD_CAPTURE_AREA_CHECK__ = { selectionVisible: true };
-    });
+    await page.evaluate((referenceActionVisible) => {
+      window.__SVARD_CAPTURE_AREA_CHECK__ = {
+        selectionVisible: true,
+        referenceActionVisible,
+      };
+    }, referenceActionVisible);
   } else if (scenario === "viewer-copy-location-reference") {
     await page.locator("text=copy-actions.adoc").click();
     await page

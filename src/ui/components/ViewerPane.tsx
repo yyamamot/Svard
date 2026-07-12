@@ -29,7 +29,11 @@ import {
 import { setElementSafeHtml, unwrapSafeHtml } from "../lib/safeHtml";
 import type { SafeHtml } from "../lib/safeHtml";
 import type { CommandId } from "../../core/commands";
-import type { CaptureAreaRect } from "../lib/captureArea";
+import type {
+  CaptureAreaRect,
+  CaptureAreaRequest,
+  CaptureAreaVariant,
+} from "../lib/captureArea";
 import type {
   AppConfig,
   BookmarkEntry,
@@ -70,7 +74,7 @@ interface ViewerPaneProps {
   renderResult: ViewerPaneSnapshot["renderResult"];
   documentHtml: SafeHtml;
   postDiffGitMarkers: ViewerPostDiffGitMarkerContext | null;
-  captureAreaRequest?: number;
+  captureAreaRequest?: CaptureAreaRequest | null;
   query: string;
   searchHits: SearchHitSummary[];
   searchIndex: number;
@@ -85,6 +89,7 @@ interface ViewerPaneProps {
   onCaptureArea?: (
     rect: CaptureAreaRect,
     captureTarget?: HTMLElement,
+    variant?: CaptureAreaVariant,
   ) => Promise<void>;
   onClearContentCursor: () => void;
   onDismissInlineNotice: () => void;
@@ -127,7 +132,7 @@ export function ViewerPane({
   renderResult,
   documentHtml,
   postDiffGitMarkers,
-  captureAreaRequest = 0,
+  captureAreaRequest = null,
   query,
   searchHits,
   searchIndex,
@@ -180,6 +185,8 @@ export function ViewerPane({
   const wheelZoomDeltaRef = useRef(0);
   const handledCaptureAreaRequestRef = useRef(0);
   const [captureAreaActive, setCaptureAreaActive] = useState(false);
+  const [captureAreaVariant, setCaptureAreaVariant] =
+    useState<CaptureAreaVariant>("plain");
   const platform = useMemo(() => detectPlatform(), []);
   const setArticleNode = useCallback(
     (node: HTMLElement | null) => {
@@ -364,15 +371,16 @@ export function ViewerPane({
 
   useEffect(() => {
     if (
-      captureAreaRequest === 0 ||
-      captureAreaRequest === handledCaptureAreaRequestRef.current ||
+      !captureAreaRequest ||
+      captureAreaRequest.id === handledCaptureAreaRequestRef.current ||
       !isFocused ||
       !payload ||
       !result
     ) {
       return;
     }
-    handledCaptureAreaRequestRef.current = captureAreaRequest;
+    handledCaptureAreaRequestRef.current = captureAreaRequest.id;
+    setCaptureAreaVariant(captureAreaRequest.variant);
     setCaptureAreaActive(true);
   }, [captureAreaRequest, isFocused, payload, result]);
 
@@ -386,6 +394,7 @@ export function ViewerPane({
         isFocused ? "document-viewer" : "document-viewer-secondary"
       }
       data-pane-id={paneId}
+      data-capture-document-path={payload?.path}
       tabIndex={0}
       onFocus={() => onFocusPane(paneId)}
       onPointerDown={(event) => {
@@ -553,7 +562,9 @@ export function ViewerPane({
             <CaptureAreaOverlay
               article={captureTarget}
               viewer={captureTarget}
-              onCapture={(rect) => void onCaptureArea(rect, captureTarget)}
+              onCapture={(rect) =>
+                void onCaptureArea(rect, captureTarget, captureAreaVariant)
+              }
               onClose={() => setCaptureAreaActive(false)}
             />
           ) : null;

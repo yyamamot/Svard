@@ -457,6 +457,7 @@ export function addDocumentItems(
 export function addCaptureAreaItem(
   items: ContextMenuItem[],
   onBeginCaptureArea: () => void,
+  onBeginCaptureAreaWithReference?: () => void,
 ) {
   items.push({
     id: "capture-area",
@@ -465,4 +466,12 @@ export function addCaptureAreaItem(
     separatorBefore: items.length > 0,
     onSelect: onBeginCaptureArea,
   });
+  if (onBeginCaptureAreaWithReference) {
+    items.push({
+      id: "capture-area-with-reference",
+      label: "Capture Area with Reference…",
+      icon: menuIcon(Crop),
+      onSelect: onBeginCaptureAreaWithReference,
+    });
+  }
 }

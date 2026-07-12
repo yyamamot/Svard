@@ -43,6 +43,15 @@ describe("keybindings", () => {
     );
   });
 
+  it("does not reserve a default shortcut for referenced area capture", () => {
+    expect(
+      defaultKeybindingMappings("native").some(
+        (binding) =>
+          binding.commandId === "viewer.captureAreaWithReference",
+      ),
+    ).toBe(false);
+  });
+
   it("resolves native search focus", () => {
     const result = resolveKeybinding({
       preset: "native",

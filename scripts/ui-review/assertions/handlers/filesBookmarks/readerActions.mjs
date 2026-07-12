@@ -22,7 +22,10 @@ export async function buildReaderActionsAssertions(context) {
       scenario === "viewer-capture-area"
         ? bodyText.includes("Copy Actions") &&
           (await page.evaluate(() =>
-            Boolean(window.__SVARD_CAPTURE_AREA_CHECK__?.selectionVisible),
+            Boolean(
+              window.__SVARD_CAPTURE_AREA_CHECK__?.selectionVisible &&
+                window.__SVARD_CAPTURE_AREA_CHECK__?.referenceActionVisible,
+            ),
           )) &&
           geometryReviewIds.has("capture-area-overlay") &&
           geometryReviewIds.has("capture-area-selection")

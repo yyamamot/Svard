@@ -19,6 +19,7 @@ import {
   subscribeDocumentsPanelCommandBridge,
 } from "../lib/documentsPanelCommandBridge";
 import type { DocumentDiffStreamCommandBridge } from "../lib/documentDiffStreamCommands";
+import type { CaptureAreaVariant } from "../lib/captureArea";
 import { fileName, isEditableTarget } from "../lib/path";
 import type {
   MouseGestureAutomation,
@@ -88,7 +89,7 @@ export interface UseCommandDispatcherOptions {
   onCompareGitRef: (kind: GitRefKind, path?: string) => void | Promise<void>;
   onComparePickedDocuments: () => void | Promise<void>;
   onCopyHeadingLink: () => void | Promise<void>;
-  onBeginCaptureArea?: () => void;
+  onBeginCaptureArea?: (variant?: CaptureAreaVariant) => void;
   onClearContentCursor: () => void;
   onFocusPane: (paneId: PaneId) => void;
   onMoveContentCursor: (direction: "next" | "previous") => boolean;
@@ -265,7 +266,10 @@ export function useCommandDispatcher({
     if (commandId === "heading.copyLink") {
       return Boolean(documentPayload);
     }
-    if (commandId === "viewer.captureArea") {
+    if (
+      commandId === "viewer.captureArea" ||
+      commandId === "viewer.captureAreaWithReference"
+    ) {
       return Boolean(documentPayload) || documentDiffPreviewActive;
     }
     if (commandId === "navigation.back") {
@@ -481,7 +485,11 @@ export function useCommandDispatcher({
         break;
       case "viewer.captureArea":
         onClearContentCursor();
-        onBeginCaptureArea?.();
+        onBeginCaptureArea?.("plain");
+        break;
+      case "viewer.captureAreaWithReference":
+        onClearContentCursor();
+        onBeginCaptureArea?.("reference");
         break;
       case "help.openWebsite":
         try {

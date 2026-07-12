@@ -69,7 +69,7 @@ export function createArticleContextMenuHandler({
   saveDiagramSvg: (svg: SVGElement) => Promise<void>;
   copyText: CopyText;
   copyImage: (source: HTMLImageElement | SVGElement) => Promise<void>;
-  onBeginCaptureArea: () => void;
+  onBeginCaptureArea: (variant?: "plain" | "reference") => void;
 }) {
   return function handleArticleContextMenu(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement;
@@ -173,7 +173,11 @@ export function createArticleContextMenuHandler({
         },
       );
       if (documentPayload && isDocumentBackground) {
-        addCaptureAreaItem(items, onBeginCaptureArea);
+        addCaptureAreaItem(
+          items,
+          () => onBeginCaptureArea("plain"),
+          () => onBeginCaptureArea("reference"),
+        );
       }
     }
 

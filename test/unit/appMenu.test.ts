@@ -163,6 +163,11 @@ describe("app menu model", () => {
           shortcutDisplay: "⌘⇧C",
           accelerator: "CmdOrCtrl+Shift+C",
         }),
+        expect.objectContaining({
+          type: "command",
+          label: "Capture Area with Reference…",
+          commandId: "viewer.captureAreaWithReference",
+        }),
       ]),
     );
   });

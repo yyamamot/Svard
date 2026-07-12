@@ -106,7 +106,7 @@ describe("ViewerPane", () => {
     searchHits = [],
     searchIndex = 0,
     postDiffGitMarkers = null,
-    captureAreaRequest = 0,
+    captureAreaRequest = null,
   }: {
     config?: AppConfig;
     documentPayload?: DocumentPayload | null;
@@ -122,7 +122,9 @@ describe("ViewerPane", () => {
     postDiffGitMarkers?: Parameters<
       typeof ViewerPane
     >[0]["postDiffGitMarkers"];
-    captureAreaRequest?: number;
+    captureAreaRequest?: Parameters<
+      typeof ViewerPane
+    >[0]["captureAreaRequest"];
   } = {}) {
     root.render(
       <ViewerPane
@@ -205,14 +207,16 @@ describe("ViewerPane", () => {
       toJSON: () => ({}),
     } as DOMRect);
 
-    await act(async () => renderPane({ captureAreaRequest: 1 }));
+    await act(async () =>
+      renderPane({ captureAreaRequest: { id: 1, variant: "plain" } }),
+    );
     expect(
       container.querySelector('[data-review-id="capture-area-overlay"]'),
     ).not.toBeNull();
 
     await act(async () =>
       renderPane({
-        captureAreaRequest: 1,
+        captureAreaRequest: { id: 1, variant: "plain" },
         documentPayload: {
           ...payload("markdown"),
           path: "/workspace/docs/another.md",

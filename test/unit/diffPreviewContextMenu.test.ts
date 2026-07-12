@@ -287,9 +287,12 @@ describe("diff preview context menu", () => {
       "Open in Editor",
       "Copy Document Path",
       "Capture Area…",
+      "Capture Area with Reference…",
     ]);
+    items.at(-2)?.onSelect();
+    expect(beginCaptureArea).toHaveBeenCalledWith(container, "plain");
     items.at(-1)?.onSelect();
-    expect(beginCaptureArea).toHaveBeenCalledWith(container);
+    expect(beginCaptureArea).toHaveBeenCalledWith(container, "reference");
     container.remove();
   });
 
