@@ -178,6 +178,7 @@ export function ViewerPane({
     searchIndex: number;
   } | null>(null);
   const wheelZoomDeltaRef = useRef(0);
+  const handledCaptureAreaRequestRef = useRef(0);
   const [captureAreaActive, setCaptureAreaActive] = useState(false);
   const platform = useMemo(() => detectPlatform(), []);
   const setArticleNode = useCallback(
@@ -355,9 +356,23 @@ export function ViewerPane({
   }, [handleArticleWheel, isFocused, html]);
 
   useEffect(() => {
-    if (captureAreaRequest === 0 || !isFocused || !payload || !result) {
+    // Capture applies to the document that was visible when the command was
+    // issued. Do not leave the mode active when the focused pane loads a
+    // different file from the tree or another navigation action.
+    setCaptureAreaActive(false);
+  }, [payload?.path]);
+
+  useEffect(() => {
+    if (
+      captureAreaRequest === 0 ||
+      captureAreaRequest === handledCaptureAreaRequestRef.current ||
+      !isFocused ||
+      !payload ||
+      !result
+    ) {
       return;
     }
+    handledCaptureAreaRequestRef.current = captureAreaRequest;
     setCaptureAreaActive(true);
   }, [captureAreaRequest, isFocused, payload, result]);
 

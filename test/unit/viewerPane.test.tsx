@@ -106,6 +106,7 @@ describe("ViewerPane", () => {
     searchHits = [],
     searchIndex = 0,
     postDiffGitMarkers = null,
+    captureAreaRequest = 0,
   }: {
     config?: AppConfig;
     documentPayload?: DocumentPayload | null;
@@ -121,6 +122,7 @@ describe("ViewerPane", () => {
     postDiffGitMarkers?: Parameters<
       typeof ViewerPane
     >[0]["postDiffGitMarkers"];
+    captureAreaRequest?: number;
   } = {}) {
     root.render(
       <ViewerPane
@@ -138,6 +140,7 @@ describe("ViewerPane", () => {
         renderResult={nextRenderResult}
         documentHtml={documentHtml}
         postDiffGitMarkers={postDiffGitMarkers}
+        captureAreaRequest={captureAreaRequest}
         query={query}
         searchHits={searchHits}
         searchIndex={searchIndex}
@@ -187,6 +190,38 @@ describe("ViewerPane", () => {
 
     expect(markdownArticle?.classList.contains("format-markdown")).toBe(true);
     expect(markdownArticle?.className).not.toContain("asciidoc-theme-");
+  });
+
+  it("cancels Capture Area when the focused pane switches documents", async () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 640,
+      bottom: 480,
+      width: 640,
+      height: 480,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    await act(async () => renderPane({ captureAreaRequest: 1 }));
+    expect(
+      container.querySelector('[data-review-id="capture-area-overlay"]'),
+    ).not.toBeNull();
+
+    await act(async () =>
+      renderPane({
+        captureAreaRequest: 1,
+        documentPayload: {
+          ...payload("markdown"),
+          path: "/workspace/docs/another.md",
+        },
+      }),
+    );
+    expect(
+      container.querySelector('[data-review-id="capture-area-overlay"]'),
+    ).toBeNull();
   });
 
   it("delays the loading message to avoid flicker", async () => {
