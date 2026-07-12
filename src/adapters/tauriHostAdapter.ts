@@ -24,6 +24,7 @@ import type {
   GitCommitDetails,
   GitFileHistory,
   GitDiffPreview,
+  GitDiffResourceSource,
   GitRefItem,
   GitRefKind,
   GitRefList,
@@ -454,6 +455,24 @@ export class TauriHostAdapter implements HostAdapter {
       path: source,
       documentPath,
       context,
+    });
+  }
+
+  resolveGitDiffLocalImage(input: {
+    source: string;
+    documentPath: string;
+    repositoryRoot: string;
+    resourceSource: GitDiffResourceSource;
+    context?:
+      | DocumentPayload["asciidocContext"]
+      | DocumentPayload["resourceContext"];
+  }): Promise<LocalImageResult> {
+    return invoke("resolve_git_diff_local_image", {
+      path: input.source,
+      documentPath: input.documentPath,
+      repositoryRoot: input.repositoryRoot,
+      resourceSource: input.resourceSource,
+      ...(input.context ? { context: input.context } : {}),
     });
   }
 

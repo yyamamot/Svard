@@ -19,6 +19,7 @@ import type {
   PlantUmlDiagram,
   PlantUmlRenderResult,
   RenderResult,
+  GitDiffResourceSource,
 } from "../../../core/types";
 import { applyInlineDiagramsToHtml } from "../diagramHtml";
 import { prepareDocumentHtml } from "../documentHtml";
@@ -101,6 +102,10 @@ async function renderBlocksFromSource(
   format: DocumentFormat,
   documentPath: string | null,
   options: GitRenderedDiffSummaryOptions,
+  resourceContext?: {
+    repositoryRoot: string;
+    source: GitDiffResourceSource;
+  } | null,
 ): Promise<RenderedBlock[]> {
   if (!source) {
     return [];
@@ -140,6 +145,7 @@ async function renderBlocksFromSource(
     document,
     result,
     options,
+    resourceContext,
   });
   return extractRenderedBlocksFromHtml(htmlWithDiagrams, {
     diagramSignatures,
@@ -150,12 +156,10 @@ async function renderBlocksFromSource(
 async function loadDiffDocumentContext(
   documentPath: string,
   options: GitRenderedDiffSummaryOptions,
-): Promise<
-  Pick<
-    DocumentPayload,
-    "includeFiles" | "resourceContext" | "asciidocContext"
-  > | null
-> {
+): Promise<Pick<
+  DocumentPayload,
+  "includeFiles" | "resourceContext" | "asciidocContext"
+> | null> {
   try {
     return (await options.loadDocumentContext?.(documentPath)) ?? null;
   } catch {
@@ -167,10 +171,15 @@ async function renderDiffDocumentHtml({
   document,
   result,
   options,
+  resourceContext,
 }: {
   document: DocumentPayload;
   result: RenderResult;
   options: GitRenderedDiffSummaryOptions;
+  resourceContext?: {
+    repositoryRoot: string;
+    source: GitDiffResourceSource;
+  } | null;
 }): Promise<string> {
   const effectiveConfig = options.config ?? defaultConfig;
   // Keep external image src in the in-memory diff HTML so signature comparison
@@ -186,14 +195,24 @@ async function renderDiffDocumentHtml({
             showExternalImages: true,
           },
         };
+  const resolveLocalImage = options.resolveLocalImage;
 
   const html = await prepareDocumentHtml(
     result.html,
     document,
     diffPreparationConfig,
     result,
-    options.resolveLocalImage
-      ? { resolveLocalImage: options.resolveLocalImage }
+    resolveLocalImage
+      ? {
+          resolveLocalImage: (source, documentPath, context) =>
+            resolveGitRenderedDiffLocalImage(
+              resolveLocalImage,
+              source,
+              documentPath,
+              context,
+              resourceContext,
+            ),
+        }
       : {},
   );
   const renderedDiagrams = await renderDiffDiagrams({
@@ -211,6 +230,27 @@ async function renderDiffDocumentHtml({
     krokiDiagrams: renderedDiagrams.kroki,
     krokiMode: effectiveConfig.kroki.mode,
   });
+}
+
+export function resolveGitRenderedDiffLocalImage(
+  resolver: NonNullable<GitRenderedDiffSummaryOptions["resolveLocalImage"]>,
+  source: string,
+  documentPath: string,
+  context: Parameters<
+    NonNullable<GitRenderedDiffSummaryOptions["resolveLocalImage"]>
+  >[2],
+  resourceContext?: {
+    repositoryRoot: string;
+    source: GitDiffResourceSource;
+  } | null,
+) {
+  return resolver(
+    source,
+    documentPath,
+    context,
+    resourceContext?.repositoryRoot,
+    resourceContext?.source,
+  );
 }
 
 async function renderDiffDiagrams({
@@ -386,9 +426,23 @@ export async function deriveGitRenderedDiffSummary(
       `diff-preview.${format === "markdown" ? "md" : "adoc"}`;
     const leftPath = diffPreviewDocumentPath(preview, "left") ?? fallbackPath;
     const rightPath = diffPreviewDocumentPath(preview, "right") ?? fallbackPath;
+    const leftResourceContext = diffPreviewResourceContext(preview, "left");
+    const rightResourceContext = diffPreviewResourceContext(preview, "right");
     const [leftBlocks, rightBlocks] = await Promise.all([
-      renderBlocksFromSource(preview.leftText, format, leftPath, options),
-      renderBlocksFromSource(preview.rightText, format, rightPath, options),
+      renderBlocksFromSource(
+        preview.leftText,
+        format,
+        leftPath,
+        options,
+        leftResourceContext,
+      ),
+      renderBlocksFromSource(
+        preview.rightText,
+        format,
+        rightPath,
+        options,
+        rightResourceContext,
+      ),
     ]);
     return {
       blocks: compareRenderedBlocks(leftBlocks, rightBlocks),
@@ -419,8 +473,20 @@ function diffPreviewDocumentPath(
   }
   return joinRepositoryRelativePath(
     preview.repositoryRoot,
-    preview.relativePath,
+    (side === "left" ? preview.leftRelativePath : preview.rightRelativePath) ??
+      preview.relativePath,
   );
+}
+
+function diffPreviewResourceContext(
+  preview: DocumentDiffPreview,
+  side: "left" | "right",
+): { repositoryRoot: string; source: GitDiffResourceSource } | null {
+  const source =
+    side === "left" ? preview.leftResourceSource : preview.rightResourceSource;
+  return preview.repositoryRoot && source
+    ? { repositoryRoot: preview.repositoryRoot, source }
+    : null;
 }
 
 function joinRepositoryRelativePath(

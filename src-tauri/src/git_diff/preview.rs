@@ -1,5 +1,25 @@
 use super::*;
 
+fn commit_resource_source(commit: &gix::Commit<'_>) -> GitDiffResourceSource {
+    GitDiffResourceSource::Commit {
+        revision: commit.id().to_string(),
+    }
+}
+
+fn with_resource_sources(
+    mut preview: GitDiffPreview,
+    left_relative_path: Option<String>,
+    right_relative_path: Option<String>,
+    left_resource_source: Option<GitDiffResourceSource>,
+    right_resource_source: Option<GitDiffResourceSource>,
+) -> GitDiffPreview {
+    preview.left_relative_path = left_relative_path;
+    preview.right_relative_path = right_relative_path;
+    preview.left_resource_source = left_resource_source;
+    preview.right_resource_source = right_resource_source;
+    preview
+}
+
 pub fn git_branch_file_diff_for_path(
     path: &str,
     base_ref: &str,
@@ -49,6 +69,15 @@ pub fn git_branch_file_diff_for_path(
         right,
         "Document is not present in the selected Branch Diff range.",
     )
+    .map(|preview| {
+        with_resource_sources(
+            preview,
+            Some(repo_relative_path(&left_path)),
+            Some(repo_relative_path(&right_path)),
+            Some(commit_resource_source(&base_commit)),
+            Some(commit_resource_source(&head_commit)),
+        )
+    })
 }
 
 pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
@@ -91,6 +120,9 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
     };
     let relative_path_display = repo_relative_path(&relative_path);
     let repository_root = Some(path_string(&workdir));
+    let head_resource_source = resolve_commit(&repo, "HEAD")
+        .ok()
+        .map(|commit| commit_resource_source(&commit));
     let head_bytes = head_blob_bytes(&repo, &relative_path)?;
     let index_bytes = index_blob_bytes(&repo, &relative_path_display)?;
     let worktree_bytes = match fs::read(&absolute_path) {
@@ -103,32 +135,41 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
         let right = index_bytes.clone().unwrap_or_default();
         return build_text_preview_with_labels(
             repository_root,
-            relative_path_display,
+            relative_path_display.clone(),
             status,
             "HEAD".to_string(),
             "Index".to_string(),
             left,
             right,
-        );
+        )
+        .map(|preview| {
+            with_resource_sources(
+                preview,
+                Some(relative_path_display.clone()),
+                Some(relative_path_display.clone()),
+                head_resource_source.clone(),
+                Some(GitDiffResourceSource::Index),
+            )
+        });
     }
 
-    match (head_bytes, worktree_bytes) {
+    let preview = match (head_bytes, worktree_bytes) {
         (Some(left), Some(right)) if left == right => Ok(empty_preview(
             GitDiffStatus::Clean,
             repository_root,
-            Some(relative_path_display),
+            Some(relative_path_display.clone()),
             Some("No working tree changes for this document.".to_string()),
         )),
         (Some(left), Some(right)) => build_text_preview(
             repository_root,
-            relative_path_display,
+            relative_path_display.clone(),
             GitDiffStatus::Modified,
             left,
             right,
         ),
         (Some(left), None) => build_text_preview(
             repository_root,
-            relative_path_display,
+            relative_path_display.clone(),
             GitDiffStatus::Deleted,
             left,
             Vec::new(),
@@ -141,7 +182,7 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
             };
             build_text_preview(
                 repository_root,
-                relative_path_display,
+                relative_path_display.clone(),
                 status,
                 Vec::new(),
                 right,
@@ -150,10 +191,33 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
         (None, None) => Ok(empty_preview(
             GitDiffStatus::Error,
             repository_root,
-            Some(relative_path_display),
+            Some(relative_path_display.clone()),
             Some("Document is not present in HEAD or the working tree.".to_string()),
         )),
-    }
+    }?;
+    let left_source = if matches!(
+        preview.status,
+        GitDiffStatus::Added | GitDiffStatus::Untracked
+    ) {
+        None
+    } else {
+        head_resource_source
+    };
+    let right_source = if matches!(
+        preview.status,
+        GitDiffStatus::Deleted | GitDiffStatus::Error
+    ) {
+        None
+    } else {
+        Some(GitDiffResourceSource::Worktree)
+    };
+    Ok(with_resource_sources(
+        preview,
+        Some(relative_path_display.clone()),
+        Some(relative_path_display),
+        left_source,
+        right_source,
+    ))
 }
 
 pub fn git_file_revision_diff_for_path(
@@ -186,6 +250,7 @@ pub fn git_file_revision_diff_for_path(
         Err(error) => return Err(format!("failed to read worktree file: {error}")),
     };
     let short_hash = short_id_for_commit(&commit)?;
+    let resource_relative_path = context.relative_path_display.clone();
     let status = match (&left, &right) {
         (Some(left), Some(right)) if left == right => GitDiffStatus::Clean,
         (Some(_), Some(_)) => GitDiffStatus::Modified,
@@ -197,12 +262,12 @@ pub fn git_file_revision_diff_for_path(
         (Some(left), Some(right)) if left == right => empty_preview(
             GitDiffStatus::Clean,
             Some(path_string(&context.workdir)),
-            Some(context.relative_path_display),
+            Some(context.relative_path_display.clone()),
             Some("No changes between this commit and the working tree.".to_string()),
         ),
         (Some(left), Some(right)) => build_text_preview_with_labels(
             Some(path_string(&context.workdir)),
-            context.relative_path_display,
+            context.relative_path_display.clone(),
             status,
             short_hash.clone(),
             "Working Tree".to_string(),
@@ -211,7 +276,7 @@ pub fn git_file_revision_diff_for_path(
         )?,
         (Some(left), None) => build_text_preview_with_labels(
             Some(path_string(&context.workdir)),
-            context.relative_path_display,
+            context.relative_path_display.clone(),
             status,
             short_hash.clone(),
             "Working Tree".to_string(),
@@ -220,7 +285,7 @@ pub fn git_file_revision_diff_for_path(
         )?,
         (None, Some(right)) => build_text_preview_with_labels(
             Some(path_string(&context.workdir)),
-            context.relative_path_display,
+            context.relative_path_display.clone(),
             status,
             short_hash.clone(),
             "Working Tree".to_string(),
@@ -230,7 +295,7 @@ pub fn git_file_revision_diff_for_path(
         (None, None) => empty_preview(
             GitDiffStatus::Error,
             Some(path_string(&context.workdir)),
-            Some(context.relative_path_display),
+            Some(context.relative_path_display.clone()),
             Some(
                 "Document is not present in the selected revision or the working tree.".to_string(),
             ),
@@ -238,7 +303,13 @@ pub fn git_file_revision_diff_for_path(
     };
     preview.left_label = short_hash;
     preview.right_label = "Working Tree".to_string();
-    Ok(preview)
+    Ok(with_resource_sources(
+        preview,
+        Some(resource_relative_path.clone()),
+        Some(resource_relative_path),
+        Some(commit_resource_source(&commit)),
+        Some(GitDiffResourceSource::Worktree),
+    ))
 }
 
 pub fn git_file_commit_diff_for_path(path: &str, revision: &str) -> Result<GitDiffPreview, String> {
@@ -256,23 +327,33 @@ pub fn git_file_commit_diff_for_path(path: &str, revision: &str) -> Result<GitDi
     let commit = resolve_commit(&context.repo, revision)?;
     let right_label = short_id_for_commit(&commit)?;
     let parent = first_parent_commit(&commit);
-    let (left_label, left) = match parent {
+    let (left_label, left, left_resource_source) = match parent {
         Some(parent) => (
             short_id_for_commit(&parent)?,
             blob_bytes_at_commit(&parent, &context.relative_path)?,
+            Some(commit_resource_source(&parent)),
         ),
-        None => ("Previous".to_string(), None),
+        None => ("Previous".to_string(), None, None),
     };
     let right = blob_bytes_at_commit(&commit, &context.relative_path)?;
     build_revision_preview(
         Some(path_string(&context.workdir)),
-        context.relative_path_display,
+        context.relative_path_display.clone(),
         left_label,
         right_label,
         left,
         right,
         "Document is not present in this commit or its previous revision.",
     )
+    .map(|preview| {
+        with_resource_sources(
+            preview,
+            Some(context.relative_path_display.clone()),
+            Some(context.relative_path_display.clone()),
+            left_resource_source,
+            Some(commit_resource_source(&commit)),
+        )
+    })
 }
 
 pub fn git_file_revision_pair_diff_for_path(
@@ -299,13 +380,22 @@ pub fn git_file_revision_pair_diff_for_path(
     let right = blob_bytes_at_commit(&right_commit, &context.relative_path)?;
     build_revision_preview(
         Some(path_string(&context.workdir)),
-        context.relative_path_display,
+        context.relative_path_display.clone(),
         left_label,
         right_label,
         left,
         right,
         "Document is not present in either selected revision.",
     )
+    .map(|preview| {
+        with_resource_sources(
+            preview,
+            Some(context.relative_path_display.clone()),
+            Some(context.relative_path_display.clone()),
+            Some(commit_resource_source(&left_commit)),
+            Some(commit_resource_source(&right_commit)),
+        )
+    })
 }
 
 pub fn git_file_ref_diff_for_path(
@@ -337,13 +427,22 @@ pub fn git_file_ref_diff_for_path(
     };
     build_revision_preview(
         Some(path_string(&context.workdir)),
-        context.relative_path_display,
+        context.relative_path_display.clone(),
         left_label,
         "Working Tree".to_string(),
         left,
         right,
         "Document is not present in the selected Git ref or the working tree.",
     )
+    .map(|preview| {
+        with_resource_sources(
+            preview,
+            Some(context.relative_path_display.clone()),
+            Some(context.relative_path_display.clone()),
+            Some(commit_resource_source(&commit)),
+            Some(GitDiffResourceSource::Worktree),
+        )
+    })
 }
 
 pub(super) fn build_revision_preview(
@@ -465,6 +564,10 @@ pub(super) fn build_text_preview_with_labels(
         message: None,
         left_text: Some(left_text),
         right_text: Some(right_text),
+        left_relative_path: None,
+        right_relative_path: None,
+        left_resource_source: None,
+        right_resource_source: None,
     })
 }
 
@@ -484,6 +587,10 @@ pub(super) fn empty_preview(
         message,
         left_text: None,
         right_text: None,
+        left_relative_path: None,
+        right_relative_path: None,
+        left_resource_source: None,
+        right_resource_source: None,
     }
 }
 

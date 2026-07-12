@@ -113,7 +113,10 @@ describe("TauriHostAdapter.watchDocument", () => {
           message: "No matches",
         });
       }
-      if (command === "resolve_local_image") {
+      if (
+        command === "resolve_local_image" ||
+        command === "resolve_git_diff_local_image"
+      ) {
         return Promise.resolve({
           status: "resolved",
           mediaType: "image/png",
@@ -446,6 +449,27 @@ describe("TauriHostAdapter.watchDocument", () => {
       path: "assets/sample.png",
       documentPath: "/tmp/docs/guide.adoc",
     });
+  });
+
+  it("resolves Git diff images with an explicit side resource source", async () => {
+    const adapter = new TauriHostAdapter();
+
+    await adapter.resolveGitDiffLocalImage({
+      source: "/images/sample.png",
+      documentPath: "/tmp/repo/docs/guide.md",
+      repositoryRoot: "/tmp/repo",
+      resourceSource: { kind: "commit", revision: "abc123" },
+    });
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "resolve_git_diff_local_image",
+      {
+        path: "/images/sample.png",
+        documentPath: "/tmp/repo/docs/guide.md",
+        repositoryRoot: "/tmp/repo",
+        resourceSource: { kind: "commit", revision: "abc123" },
+      },
+    );
   });
 
   it("delegates PlantUML SVG cache operations to native commands", async () => {

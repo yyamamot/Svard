@@ -4,6 +4,7 @@ import type {
   DocumentDiffPreview,
   DocumentLinkResolution,
   DocumentPayload,
+  GitDiffResourceSource,
   KrokiRequest,
   KrokiResult,
   LocalImageResolveContext,
@@ -23,6 +24,13 @@ interface DiffPreviewHost {
     documentPath: string,
     context: LocalImageResolveContext | null | undefined,
   ): Promise<LocalImageResult>;
+  resolveGitDiffLocalImage(input: {
+    source: string;
+    documentPath: string;
+    repositoryRoot: string;
+    resourceSource: GitDiffResourceSource;
+    context?: LocalImageResolveContext | null;
+  }): Promise<LocalImageResult>;
   openExternalUrl(url: string): Promise<void>;
 }
 
@@ -41,8 +49,20 @@ export function useDiffPreviewHostCallbacks(host: DiffPreviewHost) {
       source: string,
       documentPath: string,
       context: LocalImageResolveContext | null | undefined,
-    ): Promise<LocalImageResult> =>
-      host.resolveLocalImage(source, documentPath, context),
+      repositoryRoot?: string | null,
+      resourceSource?: GitDiffResourceSource | null,
+    ): Promise<LocalImageResult> => {
+      if (repositoryRoot && resourceSource) {
+        return host.resolveGitDiffLocalImage({
+          source,
+          documentPath,
+          repositoryRoot,
+          resourceSource,
+          context,
+        });
+      }
+      return host.resolveLocalImage(source, documentPath, context);
+    },
     [host],
   );
   const loadDiffDocumentContext = useCallback(
@@ -67,7 +87,8 @@ export function useDiffPreviewHostCallbacks(host: DiffPreviewHost) {
     [host],
   );
   const getGitDiffPreview = useCallback(
-    (path: string): Promise<DocumentDiffPreview> => host.getGitDiffPreview(path),
+    (path: string): Promise<DocumentDiffPreview> =>
+      host.getGitDiffPreview(path),
     [host],
   );
 

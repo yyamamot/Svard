@@ -14,6 +14,14 @@ fn modified_file_returns_head_to_worktree_hunk_without_git_cli_at_read_time() {
     assert_eq!(preview.relative_path.as_deref(), Some("docs/sample.md"));
     assert_eq!(preview.left_label, "HEAD");
     assert_eq!(preview.right_label, "Working Tree");
+    assert!(matches!(
+        preview.left_resource_source,
+        Some(GitDiffResourceSource::Commit { .. })
+    ));
+    assert_eq!(
+        preview.right_resource_source,
+        Some(GitDiffResourceSource::Worktree)
+    );
     assert!(
         preview.hunks[0]
             .lines

@@ -12,6 +12,22 @@ pub struct GitDiffPreview {
     pub message: Option<String>,
     pub left_text: Option<String>,
     pub right_text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_relative_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right_relative_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_resource_source: Option<GitDiffResourceSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right_resource_source: Option<GitDiffResourceSource>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum GitDiffResourceSource {
+    Worktree,
+    Index,
+    Commit { revision: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

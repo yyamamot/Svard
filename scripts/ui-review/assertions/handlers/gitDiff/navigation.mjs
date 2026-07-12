@@ -357,7 +357,8 @@ export async function buildGitDiffNavigationAssertions(context) {
             .count()) >= 1
         : true,
     hasDiffLocalImagePreview:
-      scenario === "viewer-diff-local-image-preview"
+      scenario === "viewer-diff-local-image-preview" ||
+      scenario === "viewer-diff-same-path-image-revision"
         ? (await page
             .locator(
               '[data-review-id="git-full-preview-diff"] img[data-image-path]',
@@ -384,7 +385,22 @@ export async function buildGitDiffNavigationAssertions(context) {
               );
             });
           })) &&
-          bodyText.includes("Local image: missing-diff-image.png")
+          bodyText.includes("Local image: missing-diff-image.png") &&
+          (await page.evaluate(() => {
+            const imageForSide = (reviewId) =>
+              document.querySelector(
+                `[data-review-id="${reviewId}"] img[data-image-path$="diff-same-path-image.svg"]`,
+              );
+            const left = imageForSide("git-full-preview-left-pane");
+            const right = imageForSide("git-full-preview-right-pane");
+            return Boolean(
+              left instanceof HTMLImageElement &&
+              right instanceof HTMLImageElement &&
+              left.src.startsWith("data:image/svg+xml") &&
+              right.src.startsWith("data:image/svg+xml") &&
+              left.src !== right.src,
+            );
+          }))
         : true,
     hasDiffImagePreview:
       scenario === "viewer-diff-image-preview"

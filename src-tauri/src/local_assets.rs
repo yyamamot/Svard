@@ -1,4 +1,4 @@
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -8,6 +8,7 @@ use crate::backend_types::{AllowedRoots, LocalImageResolveContext, LocalImageRes
 #[cfg(test)]
 use crate::backend_types::{AsciiDocRenderContext, DocumentResourceContext};
 use crate::document_io::build_document_resource_context;
+use crate::git_diff::{git_resource_bytes, GitDiffResourceSource};
 use crate::path_policy::{
     antora_module_root_for_page, ensure_path_allowed, normalize_path, resolve_existing_file_path,
 };
@@ -99,6 +100,62 @@ pub(crate) fn resolve_local_image_from_path_with_local_context(
         Ok(bytes) => bytes,
         Err(_) => return Ok(blocked_local_image("Local image is not available.")),
     };
+    resolved_local_image_from_bytes(bytes, media_type)
+}
+
+pub(crate) fn resolve_git_diff_local_image_from_source(
+    source: &str,
+    document_path: &str,
+    repository_root: &str,
+    resource_source: &GitDiffResourceSource,
+    roots: &AllowedRoots,
+    context: Option<&LocalImageResolveContext>,
+) -> Result<LocalImageResult, String> {
+    let requested_repository_root = normalize_path(PathBuf::from(repository_root));
+    ensure_path_allowed(&requested_repository_root, roots)?;
+    let repository_root = requested_repository_root
+        .canonicalize()
+        .map_err(|_| "Git diff resource repository is not available.".to_string())?;
+    let requested_document_path = normalize_path(PathBuf::from(document_path));
+    let Ok(document_relative_path) =
+        requested_document_path.strip_prefix(&requested_repository_root)
+    else {
+        return Ok(blocked_local_image(
+            "Git diff image is outside the current repository.",
+        ));
+    };
+    let document_path = normalize_path(repository_root.join(document_relative_path));
+    let Some(candidates) = resolve_local_image_candidates(source, &document_path, context, roots)
+    else {
+        return Ok(blocked_local_image("Local image URL is not allowed."));
+    };
+    for candidate in candidates {
+        let candidate = normalize_path(candidate);
+        let Ok(relative_path) = candidate.strip_prefix(&repository_root) else {
+            continue;
+        };
+        if relative_path.as_os_str().is_empty() {
+            continue;
+        }
+        let Some(media_type) = local_image_media_type(&candidate) else {
+            continue;
+        };
+        let Some(bytes) = git_resource_bytes(&repository_root, relative_path, resource_source)?
+        else {
+            continue;
+        };
+        if bytes.len() as u64 > LOCAL_IMAGE_MAX_BYTES {
+            return Ok(blocked_local_image("Local image is too large."));
+        }
+        return resolved_local_image_from_bytes(bytes, media_type);
+    }
+    Ok(blocked_local_image("Local image is not available."))
+}
+
+fn resolved_local_image_from_bytes(
+    bytes: Vec<u8>,
+    media_type: &str,
+) -> Result<LocalImageResult, String> {
     let (content, encoding) = if media_type == "image/svg+xml" {
         match String::from_utf8(bytes) {
             Ok(source) => (source, "utf8"),

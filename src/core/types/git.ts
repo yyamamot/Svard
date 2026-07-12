@@ -124,12 +124,21 @@ export interface GitDiffHunk {
   lines: GitDiffLine[];
 }
 
+export type GitDiffResourceSource =
+  | { kind: "worktree" }
+  | { kind: "index" }
+  | { kind: "commit"; revision: string };
+
 export interface GitDiffPreview {
   source?: DocumentDiffSource;
   repositoryRoot?: string | null;
   relativePath?: string | null;
   leftPath?: string | null;
   rightPath?: string | null;
+  leftRelativePath?: string | null;
+  rightRelativePath?: string | null;
+  leftResourceSource?: GitDiffResourceSource | null;
+  rightResourceSource?: GitDiffResourceSource | null;
   status: GitDiffStatus;
   leftLabel: string;
   rightLabel: string;

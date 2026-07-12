@@ -18,6 +18,7 @@ import type {
   GitCommitGraph,
   GitCommitGraphScope,
   GitDiffPreview,
+  GitDiffResourceSource,
   GitFileHistory,
   GitRefItem,
   GitRefKind,
@@ -169,6 +170,18 @@ export class MockHostAdapter implements HostAdapter {
       | DocumentPayload["resourceContext"],
   ): Promise<LocalImageResult> {
     return this.documents.resolveLocalImage(source, documentPath, context);
+  }
+
+  resolveGitDiffLocalImage(input: {
+    source: string;
+    documentPath: string;
+    repositoryRoot: string;
+    resourceSource: GitDiffResourceSource;
+    context?:
+      | DocumentPayload["asciidocContext"]
+      | DocumentPayload["resourceContext"];
+  }): Promise<LocalImageResult> {
+    return this.documents.resolveGitDiffLocalImage(input);
   }
 
   renderDiagram(input: KrokiRequest): Promise<KrokiResult> {

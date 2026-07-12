@@ -13,6 +13,7 @@ import {
   clearDocumentLinkCache,
   resolveDroppedDocumentPath,
   resolveLocalImage,
+  resolveGitDiffLocalImage,
   resolveWorkspacePaths,
   saveConfig,
 } from "./files";
@@ -33,6 +34,7 @@ export type MockDocumentFacade = Pick<
   | "resolveDocumentLink"
   | "clearDocumentLinkCache"
   | "resolveLocalImage"
+  | "resolveGitDiffLocalImage"
   | "openExternalUrl"
   | "openPathInEditor"
   | "openNewWindow"
@@ -56,6 +58,7 @@ export function createMockDocumentFacade(): MockDocumentFacade {
     resolveDocumentLink,
     clearDocumentLinkCache,
     resolveLocalImage,
+    resolveGitDiffLocalImage,
     openExternalUrl,
     openPathInEditor,
     openNewWindow: async (_request) => undefined,

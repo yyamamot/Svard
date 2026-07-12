@@ -44,3 +44,32 @@ use status::*;
 
 const MAX_TEXT_DIFF_BYTES: usize = 1_048_576;
 const MAX_HISTORY_ITEMS: usize = 50;
+
+pub(crate) fn git_resource_bytes(
+    repository_root: &Path,
+    relative_path: &Path,
+    source: &GitDiffResourceSource,
+) -> Result<Option<Vec<u8>>, String> {
+    let repo = gix::discover(repository_root)
+        .map_err(|_| "Git diff resource repository is not available.".to_string())?;
+    let workdir = repo_workdir(&repo)
+        .ok_or_else(|| "Git diff resource repository is not available.".to_string())?;
+    let canonical_root = canonicalize_path(repository_root)
+        .map_err(|_| "Git diff resource repository is not available.".to_string())?;
+    if canonicalize_path(&workdir).ok().as_ref() != Some(&canonical_root) {
+        return Err("Git diff resource repository does not match the worktree.".to_string());
+    }
+    let relative_display = repo_relative_path(relative_path);
+    match source {
+        GitDiffResourceSource::Worktree => match fs::read(workdir.join(relative_path)) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(_) => Err("Git diff worktree resource is not available.".to_string()),
+        },
+        GitDiffResourceSource::Index => index_blob_bytes(&repo, &relative_display),
+        GitDiffResourceSource::Commit { revision } => {
+            let commit = resolve_commit(&repo, revision)?;
+            blob_bytes_at_commit(&commit, relative_path)
+        }
+    }
+}

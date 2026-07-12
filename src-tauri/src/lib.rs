@@ -47,8 +47,8 @@ use config::*;
 use desktop_open::*;
 use document_io::*;
 pub use git_diff::{
-    GitFileHistory, GitFileHistoryCacheState, GitFileHistoryCacheStatus, GitFileHistoryMetrics,
-    GitFileHistoryStatus, git_file_history_for_path_with_cache,
+    GitDiffResourceSource, GitFileHistory, GitFileHistoryCacheState, GitFileHistoryCacheStatus,
+    GitFileHistoryMetrics, GitFileHistoryStatus, git_file_history_for_path_with_cache,
 };
 use kroki::*;
 use local_assets::*;
@@ -633,6 +633,25 @@ fn resolve_local_image(
 }
 
 #[tauri::command]
+fn resolve_git_diff_local_image(
+    path: String,
+    document_path: String,
+    repository_root: String,
+    resource_source: GitDiffResourceSource,
+    context: Option<LocalImageResolveContext>,
+    roots: tauri::State<AllowedRoots>,
+) -> Result<LocalImageResult, String> {
+    resolve_git_diff_local_image_from_source(
+        &path,
+        &document_path,
+        &repository_root,
+        &resource_source,
+        &roots,
+        context.as_ref(),
+    )
+}
+
+#[tauri::command]
 fn load_config(app: tauri::AppHandle) -> Result<AppConfig, AppError> {
     load_config_from_path(&config_file_path(&app).map_err(AppError::from)?)
 }
@@ -942,6 +961,7 @@ pub fn run() {
             clear_obsidian_vault_cache,
             frontend_perf_log,
             resolve_local_image,
+            resolve_git_diff_local_image,
             list_directory,
             load_config,
             save_config,

@@ -166,7 +166,9 @@ export function markerCompletenessForScenario(scenario, geometry) {
           "diagram-inline-image",
         );
       }
-    } else if (scenario === "viewer-git-diff-large-markdown-table-row-addition") {
+    } else if (
+      scenario === "viewer-git-diff-large-markdown-table-row-addition"
+    ) {
       scenarioMarkers.push(
         "git-diff-rendered-view",
         "git-rendered-diff",
@@ -345,6 +347,7 @@ export function markerCompletenessForScenario(scenario, geometry) {
       scenario === "viewer-diff-scroll-anchor-sync" ||
       scenario === "viewer-diff-preview-expand" ||
       scenario === "viewer-diff-local-image-preview" ||
+      scenario === "viewer-diff-same-path-image-revision" ||
       scenario === "viewer-diff-diagram-unchanged-with-image-change" ||
       scenario === "viewer-diff-image-placeholder-source-change" ||
       scenario === "viewer-diff-external-images-security-policy" ||

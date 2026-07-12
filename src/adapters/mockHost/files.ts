@@ -38,6 +38,7 @@ import type {
   DocumentOrderLoadOptions,
   DocumentPayload,
   GitDiffPreview,
+  GitDiffResourceSource,
   LocalImageResolveContext,
   LocalImageResult,
   OpenDocumentOptions,
@@ -456,6 +457,25 @@ export async function resolveLocalImage(
     status: "blocked",
     placeholderText: `Local image: ${pathBasename(source)}`,
   };
+}
+
+export async function resolveGitDiffLocalImage(input: {
+  source: string;
+  documentPath: string;
+  repositoryRoot: string;
+  resourceSource: GitDiffResourceSource;
+  context?: LocalImageResolveContext | null;
+}): Promise<LocalImageResult> {
+  if (input.source.endsWith("diff-same-path-image.svg")) {
+    const side = input.resourceSource.kind === "worktree" ? "right" : "left";
+    return {
+      status: "resolved",
+      mediaType: "image/svg+xml",
+      content: `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="80"><rect width="160" height="80" fill="${side === "left" ? "#b42318" : "#067647"}"/><text x="16" y="46" fill="white">${side}</text></svg>`,
+      encoding: "utf8",
+    };
+  }
+  return resolveLocalImage(input.source, input.documentPath, input.context);
 }
 
 function mockAsciiDocContext(

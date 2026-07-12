@@ -526,3 +526,84 @@ fn local_image_resolver_uses_document_imagesdir_for_manual_pages() {
         Some("Local image is not available.")
     );
 }
+
+#[test]
+fn git_diff_local_image_resolver_reads_commit_and_worktree_versions_separately() {
+    let dir = tempdir().expect("temp dir");
+    let project = dir.path().join("project");
+    let docs = project.join("docs");
+    let images = project.join("images");
+    let document = docs.join("guide.md");
+    let image = images.join("diagram.svg");
+    fs::create_dir_all(&docs).expect("create docs");
+    fs::create_dir_all(&images).expect("create images");
+    fs::write(&document, "# Guide\n\n![Diagram](/images/diagram.svg)\n").expect("write document");
+    fs::write(&image, "<svg><text>before</text></svg>").expect("write image");
+    git(&project, &["init"]);
+    git(&project, &["config", "user.email", "fixture@example.com"]);
+    git(&project, &["config", "user.name", "Fixture"]);
+    git(&project, &["add", "."]);
+    git(&project, &["commit", "-m", "initial"]);
+    let revision = "HEAD".to_string();
+    fs::write(&image, "<svg><text>after</text></svg>").expect("update image");
+
+    let roots = AllowedRoots::default();
+    register_allowed_root(&project.canonicalize().unwrap(), &roots).expect("register root");
+    let commit = resolve_git_diff_local_image_from_source(
+        "/images/diagram.svg",
+        &document.to_string_lossy(),
+        &project.to_string_lossy(),
+        &GitDiffResourceSource::Commit { revision },
+        &roots,
+        None,
+    )
+    .expect("commit image");
+    let worktree = resolve_git_diff_local_image_from_source(
+        "/images/diagram.svg",
+        &document.to_string_lossy(),
+        &project.to_string_lossy(),
+        &GitDiffResourceSource::Worktree,
+        &roots,
+        None,
+    )
+    .expect("worktree image");
+    git(&project, &["add", "images/diagram.svg"]);
+    fs::write(&image, "<svg><text>latest</text></svg>").expect("update image again");
+    let index = resolve_git_diff_local_image_from_source(
+        "/images/diagram.svg",
+        &document.to_string_lossy(),
+        &project.to_string_lossy(),
+        &GitDiffResourceSource::Index,
+        &roots,
+        None,
+    )
+    .expect("index image");
+    let latest_worktree = resolve_git_diff_local_image_from_source(
+        "/images/diagram.svg",
+        &document.to_string_lossy(),
+        &project.to_string_lossy(),
+        &GitDiffResourceSource::Worktree,
+        &roots,
+        None,
+    )
+    .expect("latest worktree image");
+
+    assert_eq!(commit.status, "resolved", "{commit:?}");
+    assert!(commit
+        .content
+        .as_deref()
+        .is_some_and(|value| value.contains("before")));
+    assert!(worktree
+        .content
+        .as_deref()
+        .is_some_and(|value| value.contains("after")));
+    assert_ne!(commit.content, worktree.content);
+    assert!(index
+        .content
+        .as_deref()
+        .is_some_and(|value| value.contains("after")));
+    assert!(latest_worktree
+        .content
+        .as_deref()
+        .is_some_and(|value| value.contains("latest")));
+}

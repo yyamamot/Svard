@@ -4,6 +4,7 @@ import type {
   KrokiRequest,
   KrokiResult,
   LocalImageResolveContext,
+  GitDiffResourceSource,
   LocalImageResult,
 } from "../../../core/types";
 
@@ -98,10 +99,7 @@ export interface RenderedStructuredChildSnapshot {
   textLength: number;
 }
 
-export type RenderedStructuredChildChangeKind =
-  | "added"
-  | "removed"
-  | "changed";
+export type RenderedStructuredChildChangeKind = "added" | "removed" | "changed";
 
 export type RenderedStructuredChildChangeSide = "left" | "right" | "both";
 
@@ -312,6 +310,8 @@ export interface GitRenderedDiffSummaryOptions {
     source: string,
     documentPath: string,
     context: LocalImageResolveContext | null | undefined,
+    repositoryRoot?: string | null,
+    resourceSource?: GitDiffResourceSource | null,
   ) => Promise<LocalImageResult>;
   renderDiagram?: (request: KrokiRequest) => Promise<KrokiResult>;
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;

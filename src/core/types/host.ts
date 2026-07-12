@@ -31,6 +31,7 @@ import type {
   GitCommitGraph,
   GitCommitGraphScope,
   GitDiffPreview,
+  GitDiffResourceSource,
   GitFileHistory,
   GitRefItem,
   GitRefKind,
@@ -143,6 +144,13 @@ export interface HostAdapter {
     documentPath: string,
     context?: LocalImageResolveContext | null,
   ): Promise<LocalImageResult>;
+  resolveGitDiffLocalImage(input: {
+    source: string;
+    documentPath: string;
+    repositoryRoot: string;
+    resourceSource: GitDiffResourceSource;
+    context?: LocalImageResolveContext | null;
+  }): Promise<LocalImageResult>;
   renderDiagram(input: KrokiRequest): Promise<KrokiResult>;
   renderExternalPlantUml(
     input: ExternalPlantUmlRenderInput,

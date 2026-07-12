@@ -18,6 +18,7 @@ export async function applyGitDiffRichPreviewScenario(context) {
       .waitFor();
   } else if (
     scenario === "viewer-diff-local-image-preview" ||
+    scenario === "viewer-diff-same-path-image-revision" ||
     scenario === "viewer-diff-image-preview"
   ) {
     await page.locator("text=git-rendered-images.adoc").click();
