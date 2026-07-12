@@ -169,10 +169,14 @@ function lineRange(startLine: number, endLine: number) {
 }
 
 function selectionCandidates(article: HTMLElement) {
-  return Array.from(
+  const all = Array.from(
     article.querySelectorAll<HTMLElement>(
       "h1,h2,h3,h4,h5,h6,p,.source-block-frame,pre[data-source-selection-block-id],ul,ol,table,.diagram-slot,.diagram-inline,.diagram-inline-image,.diagram-inline-diagnostic,blockquote,dl,.dlist,.admonitionblock,.admonition,.markdown-alert,.imageblock,img",
     ),
+  );
+  return all.filter(
+    (element) =>
+      !all.some((other) => other !== element && other.contains(element)),
   );
 }
 
@@ -181,11 +185,10 @@ function selectionBlockElement(node: Node) {
     node.nodeType === Node.ELEMENT_NODE
       ? (node as HTMLElement)
       : node.parentElement;
-  return (
-    element?.closest<HTMLElement>(
-      "h1,h2,h3,h4,h5,h6,p,.source-block-frame,pre[data-source-selection-block-id],ul,ol,table,.diagram-slot,.diagram-inline,.diagram-inline-image,.diagram-inline-diagnostic,blockquote,dl,.dlist,.admonitionblock,.admonition,.markdown-alert,.imageblock,img",
-    ) ?? null
+  const unit = element?.closest<HTMLElement>(
+    "h1,h2,h3,h4,h5,h6,p,.source-block-frame,pre[data-source-selection-block-id],ul,ol,table,.diagram-slot,.diagram-inline,.diagram-inline-image,.diagram-inline-diagnostic,blockquote,dl,.dlist,.admonitionblock,.admonition,.markdown-alert,.imageblock,img",
   );
+  return unit?.closest<HTMLElement>(".source-block-frame") ?? unit ?? null;
 }
 
 function selectionBlockForElement(

@@ -82,6 +82,15 @@ function sourceSliceForUnit(
     length,
   );
   if (!selectedText) return undefined;
+  if (unit.kind !== "code" && selectedText === renderedTextForUnit(unit)) {
+    return selectionSlice(
+      unit,
+      blockStart,
+      blockEnd,
+      blockStart,
+      blockEnd,
+    );
+  }
   const blockText = unit.source.slice(blockStart, blockEnd);
   const relativeStart = blockText.indexOf(selectedText);
   if (
@@ -99,6 +108,14 @@ function sourceSliceForUnit(
     blockStart,
     blockEnd,
   );
+}
+
+function renderedTextForUnit(unit: SourceMappedSelectionUnit) {
+  const element =
+    unit.kind === "code" && unit.element.matches(".source-block-frame")
+      ? unit.element.querySelector("pre")
+      : unit.element;
+  return element?.textContent ?? "";
 }
 
 function selectedTextWithinUnit(

@@ -230,6 +230,107 @@ describe("sourceTextBlockForSelection", () => {
     article.remove();
   });
 
+  it("copies a paragraph-code-paragraph range from the rendered selection mapping", () => {
+    const markdownDocument = {
+      ...documentPayload,
+      path: "/workspace/docs/steps.md",
+      format: "markdown" as const,
+      source: "Before text.\n\n```text\n$ run\n```\n\nAfter text.\n",
+    };
+    const article = document.createElement("article");
+    article.innerHTML = `<p data-source-selection-block-id="selection-paragraph-1">Before text.</p><div class="source-block-frame" data-source-selection-block-id="selection-code-1"><pre data-source-selection-block-id="selection-code-1">$ run</pre></div><p data-source-selection-block-id="selection-paragraph-2">After text.</p>`;
+    const paragraphs = article.querySelectorAll("p");
+    document.body.append(article);
+    const range = document.createRange();
+    range.setStart(paragraphs[0].firstChild!, 7);
+    range.setEnd(paragraphs[1].firstChild!, 5);
+    window.getSelection()?.addRange(range);
+
+    expect(
+      originalTextReferenceForSelection({
+        article,
+        document: markdownDocument,
+        renderResult: {
+          sourceTextBlocks: [],
+          sourceSelectionBlocks: [
+            {
+              id: "selection-paragraph-1",
+              kind: "paragraph",
+              startLine: 1,
+              endLine: 1,
+            },
+            {
+              id: "selection-code-1",
+              kind: "code",
+              startLine: 3,
+              endLine: 5,
+            },
+            {
+              id: "selection-paragraph-2",
+              kind: "paragraph",
+              startLine: 7,
+              endLine: 7,
+            },
+          ],
+        },
+      })?.value,
+    ).toBe(
+      "File: /workspace/docs/steps.md:1-7\nOriginal text:\ntext.\n\n```text\n$ run\n```\n\nAfter",
+    );
+    article.remove();
+  });
+
+  it("copies full mapped boundary blocks when inline markup prevents a literal match", () => {
+    const markdownDocument = {
+      ...documentPayload,
+      path: "/workspace/docs/steps.md",
+      format: "markdown" as const,
+      source:
+        "Before `checksum(A)`.\n\n```text\n$ run\n```\n\nAfter **verification**.\n",
+    };
+    const article = document.createElement("article");
+    article.innerHTML = `<p data-source-selection-block-id="selection-paragraph-1">Before <code>checksum(A)</code>.</p><div class="source-block-frame" data-source-selection-block-id="selection-code-1"><pre data-source-selection-block-id="selection-code-1">$ run</pre></div><p data-source-selection-block-id="selection-paragraph-2">After <strong>verification</strong>.</p>`;
+    const paragraphs = article.querySelectorAll("p");
+    document.body.append(article);
+    const range = document.createRange();
+    range.setStart(paragraphs[0], 0);
+    range.setEnd(paragraphs[1], paragraphs[1].childNodes.length);
+    window.getSelection()?.addRange(range);
+
+    expect(
+      originalTextReferenceForSelection({
+        article,
+        document: markdownDocument,
+        renderResult: {
+          sourceTextBlocks: [],
+          sourceSelectionBlocks: [
+            {
+              id: "selection-paragraph-1",
+              kind: "paragraph",
+              startLine: 1,
+              endLine: 1,
+            },
+            {
+              id: "selection-code-1",
+              kind: "code",
+              startLine: 3,
+              endLine: 5,
+            },
+            {
+              id: "selection-paragraph-2",
+              kind: "paragraph",
+              startLine: 7,
+              endLine: 7,
+            },
+          ],
+        },
+      })?.value,
+    ).toBe(
+      "File: /workspace/docs/steps.md:1-7\nOriginal text:\nBefore `checksum(A)`.\n\n```text\n$ run\n```\n\nAfter **verification**.",
+    );
+    article.remove();
+  });
+
   it("copies consecutive AsciiDoc paragraph and code units with attributes", () => {
     const asciidocDocument = {
       ...documentPayload,
@@ -344,7 +445,7 @@ describe("sourceTextBlockForSelection", () => {
     article.remove();
   });
 
-  it("does not resolve repeated or inline-marked source text", () => {
+  it("rejects repeated partial text but resolves a fully selected marked block", () => {
     const article = document.createElement("article");
     article.innerHTML = `<p data-source-text-block-id="text-1">same same</p>`;
     const paragraph = article.querySelector("p")!;
@@ -379,8 +480,10 @@ describe("sourceTextBlockForSelection", () => {
             { id: "text-1", kind: "paragraph", startLine: 1, endLine: 1 },
           ],
         },
-      }),
-    ).toBeUndefined();
+      })?.value,
+    ).toBe(
+      "File: /workspace/docs/main.adoc:1\nOriginal text:\n*marked*",
+    );
     article.remove();
   });
 });
