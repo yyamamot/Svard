@@ -62,6 +62,7 @@ interface UseDocumentLifecycleOptions {
   setQuery: Dispatch<SetStateAction<string>>;
   setRenderResult: Dispatch<SetStateAction<RenderResult | null>>;
   bumpDocumentRenderRevision: () => void;
+  documentRenderRevision?: number;
   setOpenFileReloadStates: Dispatch<
     SetStateAction<Record<string, OpenFileReloadState>>
   >;
@@ -104,6 +105,7 @@ export function useDocumentLifecycle({
   setQuery,
   setRenderResult,
   bumpDocumentRenderRevision,
+  documentRenderRevision = 0,
   setOpenFileReloadStates,
   setRootDirectory,
   setTabs,
@@ -143,12 +145,18 @@ export function useDocumentLifecycle({
     if (path !== activePathRef.current) {
       return null;
     }
-    return captureSmartScrollAnchor({
+    const anchor = captureSmartScrollAnchor({
       activeHeadingId: activeHeadingIdRef.current,
       article: articleRef.current,
       path,
       viewer: viewerRef.current,
     });
+    return anchor
+      ? {
+          ...anchor,
+          expectedRenderRevision: documentRenderRevision + 1,
+        }
+      : null;
   }
 
   useEffect(() => {

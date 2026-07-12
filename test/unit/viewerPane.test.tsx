@@ -121,12 +121,8 @@ describe("ViewerPane", () => {
     query?: string;
     searchHits?: ViewerPaneSnapshot["searchHits"];
     searchIndex?: number;
-    postDiffGitMarkers?: Parameters<
-      typeof ViewerPane
-    >[0]["postDiffGitMarkers"];
-    captureAreaRequest?: Parameters<
-      typeof ViewerPane
-    >[0]["captureAreaRequest"];
+    postDiffGitMarkers?: Parameters<typeof ViewerPane>[0]["postDiffGitMarkers"];
+    captureAreaRequest?: Parameters<typeof ViewerPane>[0]["captureAreaRequest"];
   } = {}) {
     root.render(
       <ViewerPane
@@ -197,7 +193,7 @@ describe("ViewerPane", () => {
     expect(markdownArticle?.className).not.toContain("asciidoc-theme-");
   });
 
-  it("remounts the article and recommits unchanged HTML for a new render revision", async () => {
+  it("preserves the article and recommits unchanged HTML for a new render revision", async () => {
     const documentHtml = markSafeHtml("<pre>wide source block</pre>");
     await act(async () =>
       renderPane({ documentHtml, documentRenderRevision: 1 }),
@@ -209,7 +205,7 @@ describe("ViewerPane", () => {
     );
     const secondArticle = container.querySelector("article");
 
-    expect(secondArticle).not.toBe(firstArticle);
+    expect(secondArticle).toBe(firstArticle);
     expect(secondArticle?.innerHTML).toBe("<pre>wide source block</pre>");
     expect(secondArticle?.dataset.renderRevision).toBe("2");
   });

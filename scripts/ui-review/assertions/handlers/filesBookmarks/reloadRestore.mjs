@@ -17,11 +17,13 @@ export async function buildReloadRestoreAssertions(context) {
             () =>
               window.__SVARD_SMART_SCROLL_RESTORE_CHECK__
                 ?.restoredNearTarget === true &&
-              window.__SVARD_SMART_SCROLL_RESTORE_CHECK__?.articleRemounted ===
+              window.__SVARD_SMART_SCROLL_RESTORE_CHECK__?.articlePreserved ===
                 true &&
+              window.__SVARD_SMART_SCROLL_RESTORE_CHECK__?.layoutState ===
+                "ready" &&
               window.__SVARD_SMART_SCROLL_RESTORE_CHECK__
                 ?.sourceBlockDoesNotOverlapParagraph === true,
-          )) && bodyText.includes("Prepended update before target")
+          )) && bodyText.includes("Second prepended update before target")
         : true,
     hasSessionRestore:
       scenario === "viewer-session-restore"

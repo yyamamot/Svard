@@ -28,6 +28,10 @@ import {
 } from "../lib/perfTrace";
 import { setElementSafeHtml, unwrapSafeHtml } from "../lib/safeHtml";
 import type { SafeHtml } from "../lib/safeHtml";
+import {
+  setArticleLayoutState,
+  waitForArticleLayoutStability,
+} from "../lib/articleLayoutStability";
 import type { CommandId } from "../../core/commands";
 import type {
   CaptureAreaRect,
@@ -179,6 +183,7 @@ export function ViewerPane({
       : "";
   const [showLoadingMessage, setShowLoadingMessage] = useState(false);
   const articleNodeRef = useRef<HTMLElement | null>(null);
+  const layoutCommitSequenceRef = useRef(0);
   const renderCountRef = useRef(0);
   const previousDebugSnapshotRef = useRef<{
     html: SafeHtml;
@@ -253,6 +258,8 @@ export function ViewerPane({
     }
 
     const startedAt = perfNow();
+    const layoutCommitSequence = layoutCommitSequenceRef.current + 1;
+    layoutCommitSequenceRef.current = layoutCommitSequence;
     tracePerf("render.articleRefReady", {
       basename: perfBasename(documentPath),
       format: documentFormat,
@@ -266,6 +273,8 @@ export function ViewerPane({
     setElementSafeHtml(article, html);
     article.dataset.renderedDocumentPath = documentPath;
     article.dataset.renderRevision = articleRenderIdentity;
+    article.dataset.layoutCommit = String(layoutCommitSequence);
+    setArticleLayoutState(article, articleRenderIdentity, "pending");
     tracePerf("render.articleInnerHtmlCommit", {
       basename: perfBasename(documentPath),
       format: documentFormat,
@@ -277,15 +286,25 @@ export function ViewerPane({
       format: documentFormat,
       durationMs: perfDuration(startedAt),
     });
-    const animationFrame = window.requestAnimationFrame(() => {
-      tracePerf("render.postCommitAnimationFrame", {
-        basename: perfBasename(documentPath),
-        format: documentFormat,
-        durationMs: perfDuration(startedAt),
-      });
+    const cancelLayoutWait = waitForArticleLayoutStability({
+      article,
+      isCurrent: () =>
+        articleNodeRef.current === article &&
+        article.dataset.renderRevision === articleRenderIdentity &&
+        article.dataset.layoutCommit === String(layoutCommitSequence) &&
+        layoutCommitSequenceRef.current === layoutCommitSequence,
+      onComplete: (state) => {
+        setArticleLayoutState(article, articleRenderIdentity, state);
+        tracePerf("render.postCommitAnimationFrame", {
+          basename: perfBasename(documentPath),
+          format: documentFormat,
+          durationMs: perfDuration(startedAt),
+          layoutState: state,
+        });
+      },
     });
     return () => {
-      window.cancelAnimationFrame(animationFrame);
+      cancelLayoutWait();
     };
   }, [
     articleRenderIdentity,
@@ -519,7 +538,7 @@ export function ViewerPane({
       )}
       {result && payload && (
         <article
-          key={`${paneId}:${documentPath ?? "empty"}:${articleRenderIdentity}`}
+          key={`${paneId}:${documentPath ?? "empty"}`}
           ref={setArticleNode}
           className={`document-body markup-document format-${payload.format}${payload.format === "markdown" ? " markdown-body" : ""}${asciidocThemeClass}`}
           data-review-id={

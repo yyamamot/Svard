@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import type { DocumentPayload } from "../../core/types";
 import type { SafeHtml } from "../lib/safeHtml";
+import { articleLayoutStateEvent } from "../lib/articleLayoutStability";
 
 export type ActivateTabForHistory = (
   path: string,
@@ -105,21 +106,30 @@ export function useNavigationHistory({
       return;
     }
 
-    requestAnimationFrame(() => {
-      if (
-        articleRef.current?.dataset.renderRevision !==
-        String(documentRenderRevision)
-      ) {
+    const article = articleRef.current;
+    if (!article) return;
+    const revision = String(
+      pendingSmartScrollAnchor.expectedRenderRevision ?? documentRenderRevision,
+    );
+    const restoreWhenReady = () => {
+      if (article.dataset.layoutRevision !== revision) return;
+      if (article.dataset.layoutState === "timeout") {
+        setPendingSmartScrollAnchor(null);
         return;
       }
+      if (article.dataset.layoutState !== "ready") return;
       restoreSmartScrollAnchor({
         anchor: pendingSmartScrollAnchor,
-        article: articleRef.current,
+        article,
         setActiveHeadingId,
         viewer: viewerRef.current,
       });
       setPendingSmartScrollAnchor(null);
-    });
+    };
+    restoreWhenReady();
+    article.addEventListener(articleLayoutStateEvent, restoreWhenReady);
+    return () =>
+      article.removeEventListener(articleLayoutStateEvent, restoreWhenReady);
   }, [
     documentHtml,
     documentPayload?.path,
@@ -136,11 +146,29 @@ export function useNavigationHistory({
       return;
     }
 
-    requestAnimationFrame(() => {
+    const article = articleRef.current;
+    if (!article) return;
+    const revision = String(documentRenderRevision);
+    const restoreWhenReady = () => {
+      if (article.dataset.layoutRevision !== revision) return;
+      if (article.dataset.layoutState === "timeout") {
+        setPendingNavigationLocation(null);
+        return;
+      }
+      if (article.dataset.layoutState !== "ready") return;
       restoreNavigationScroll(pendingNavigationLocation);
       setPendingNavigationLocation(null);
-    });
-  }, [documentHtml, documentPayload?.path, pendingNavigationLocation]);
+    };
+    restoreWhenReady();
+    article.addEventListener(articleLayoutStateEvent, restoreWhenReady);
+    return () =>
+      article.removeEventListener(articleLayoutStateEvent, restoreWhenReady);
+  }, [
+    documentHtml,
+    documentPayload?.path,
+    documentRenderRevision,
+    pendingNavigationLocation,
+  ]);
 
   useEffect(() => {
     if (!documentPayload) {

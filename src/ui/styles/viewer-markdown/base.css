@@ -570,8 +570,7 @@
   max-width: 100%;
 }
 
-.document-body pre,
-.document-body .listingblock {
+.document-body pre {
   overflow: auto;
 }
 
@@ -662,6 +661,7 @@
 
 .source-block-frame {
   display: flow-root;
+  min-width: 0;
   position: relative;
   isolation: isolate;
 }

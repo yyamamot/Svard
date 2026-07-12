@@ -56,10 +56,7 @@ import { MAIN_WINDOW_SESSION_ID } from "./lib/config";
 import { saveAppConfig } from "./lib/saveAppConfig";
 import { emptySafeHtml } from "./lib/safeHtml";
 import type { LinkPreviewState } from "./lib/linkPreview";
-import type {
-  CaptureAreaRequest,
-  CaptureAreaVariant,
-} from "./lib/captureArea";
+import type { CaptureAreaRequest, CaptureAreaVariant } from "./lib/captureArea";
 import type {
   DiagramPreviewState,
   MouseGestureAutomation,
@@ -461,6 +458,7 @@ export function App() {
     setPendingSmartScrollAnchor,
     setQuery,
     setRenderResult,
+    documentRenderRevision,
     bumpDocumentRenderRevision: () =>
       setDocumentRenderRevision((revision) => revision + 1),
     setOpenFileReloadStates,

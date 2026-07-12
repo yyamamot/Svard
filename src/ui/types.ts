@@ -33,6 +33,7 @@ export interface NavigationLocation {
 
 export interface SmartScrollAnchor {
   path: string;
+  expectedRenderRevision?: number;
   headingId?: string;
   sourceLine?: number;
   sourceReference?: string;

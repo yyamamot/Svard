@@ -119,10 +119,29 @@ Tail content.
         const target = [...document.querySelectorAll("h2")].find(
           (heading) => heading.textContent?.trim() === "Target Section",
         );
+        const article = document.querySelector(
+          '[data-review-id="document-body"]',
+        );
+        const sourceFrame = article?.querySelector(".source-block-frame");
+        const sourceBlock =
+          sourceFrame?.closest(".listingblock, .literalblock") ?? sourceFrame;
+        const pre = sourceFrame?.querySelector("pre");
+        const paragraphAfterSource = sourceBlock?.nextElementSibling;
+        window.__SVARD_SMART_SCROLL_RESTORE_ARTICLE_BEFORE__ = article;
         window.__SVARD_SMART_SCROLL_RESTORE_BEFORE__ = {
-          article: document.querySelector('[data-review-id="document-body"]'),
           scrollTop: viewer?.scrollTop ?? 0,
           targetTop: target?.getBoundingClientRect().top ?? null,
+          geometry: {
+            articleClientHeight: article?.clientHeight ?? 0,
+            articleScrollHeight: article?.scrollHeight ?? 0,
+            frameBottom: sourceFrame?.getBoundingClientRect().bottom ?? null,
+            frameHeight: sourceFrame?.getBoundingClientRect().height ?? 0,
+            nextTop: paragraphAfterSource?.getBoundingClientRect().top ?? null,
+            preClientHeight: pre?.clientHeight ?? 0,
+            preClientWidth: pre?.clientWidth ?? 0,
+            preScrollHeight: pre?.scrollHeight ?? 0,
+            preScrollWidth: pre?.scrollWidth ?? 0,
+          },
         };
         window.__SVARD_DOCUMENT_OVERRIDES__ = {
           [documentPath]: {
@@ -135,6 +154,26 @@ Tail content.
       { path, source: updatedSource },
     );
     await page.getByText("Prepended update before target").waitFor();
+    await page.waitForTimeout(250);
+    await page.evaluate(
+      ({ path: documentPath, source }) => {
+        window.__SVARD_DOCUMENT_OVERRIDES__ = {
+          [documentPath]: {
+            source,
+            updatedAt: "2026-05-12T00:06:00.000Z",
+          },
+        };
+        window.__SVARD_TRIGGER_DOCUMENT_CHANGE__?.(documentPath);
+      },
+      {
+        path,
+        source: updatedSource.replace(
+          "Prepended update before target.",
+          "Second prepended update before target.",
+        ),
+      },
+    );
+    await page.getByText("Second prepended update before target").waitFor();
     await page.waitForTimeout(250);
     await page.evaluate(() => {
       const viewer = document.querySelector(
@@ -153,11 +192,34 @@ Tail content.
         sourceFrame?.closest(".listingblock, .literalblock") ?? sourceFrame;
       const paragraphAfterSource = sourceBlock?.nextElementSibling;
       const sourceFrameRect = sourceFrame?.getBoundingClientRect();
+      const pre = sourceFrame?.querySelector("pre");
+      const preRect = pre?.getBoundingClientRect();
       const paragraphRect = paragraphAfterSource?.getBoundingClientRect();
+      const domOverlap = Boolean(
+        sourceFrameRect &&
+        paragraphRect &&
+        sourceFrameRect.bottom > paragraphRect.top,
+      );
       window.__SVARD_SMART_SCROLL_RESTORE_CHECK__ = {
         before: window.__SVARD_SMART_SCROLL_RESTORE_BEFORE__,
-        articleRemounted:
-          window.__SVARD_SMART_SCROLL_RESTORE_BEFORE__?.article !== article,
+        articlePreserved:
+          window.__SVARD_SMART_SCROLL_RESTORE_ARTICLE_BEFORE__ === article,
+        layoutState: article?.getAttribute("data-layout-state") ?? null,
+        classification: domOverlap
+          ? "dom-layout-overlap"
+          : "dom-layout-non-overlap",
+        geometry: {
+          articleClientHeight: article?.clientHeight ?? 0,
+          articleScrollHeight: article?.scrollHeight ?? 0,
+          frameBottom: sourceFrameRect?.bottom ?? null,
+          frameHeight: sourceFrameRect?.height ?? 0,
+          nextTop: paragraphRect?.top ?? null,
+          preBottom: preRect?.bottom ?? null,
+          preClientHeight: pre?.clientHeight ?? 0,
+          preClientWidth: pre?.clientWidth ?? 0,
+          preScrollHeight: pre?.scrollHeight ?? 0,
+          preScrollWidth: pre?.scrollWidth ?? 0,
+        },
         sourceBlockDoesNotOverlapParagraph:
           Boolean(sourceFrameRect && paragraphRect) &&
           sourceFrameRect.bottom <= paragraphRect.top,
@@ -168,6 +230,23 @@ Tail content.
         scrollTop: viewer?.scrollTop ?? 0,
         targetText: target?.textContent?.trim() ?? "",
       };
+      console.info(
+        "[ui-review] smart-scroll-restore geometry",
+        JSON.stringify({
+          articlePreserved:
+            window.__SVARD_SMART_SCROLL_RESTORE_CHECK__.articlePreserved,
+          layoutState: window.__SVARD_SMART_SCROLL_RESTORE_CHECK__.layoutState,
+          classification:
+            window.__SVARD_SMART_SCROLL_RESTORE_CHECK__.classification,
+          geometry: window.__SVARD_SMART_SCROLL_RESTORE_CHECK__.geometry,
+          sourceBlockDoesNotOverlapParagraph:
+            window.__SVARD_SMART_SCROLL_RESTORE_CHECK__
+              .sourceBlockDoesNotOverlapParagraph,
+          restoredNearTarget:
+            window.__SVARD_SMART_SCROLL_RESTORE_CHECK__.restoredNearTarget,
+          scrollTop: window.__SVARD_SMART_SCROLL_RESTORE_CHECK__.scrollTop,
+        }),
+      );
     });
   } else {
     return false;
