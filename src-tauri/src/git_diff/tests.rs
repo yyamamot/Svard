@@ -84,6 +84,49 @@ fn status_summary_returns_metadata_without_diff_hunks() {
 }
 
 #[test]
+fn dirty_submodule_does_not_hide_modified_parent_document() {
+    let repo = create_fixture_repo();
+    let submodule_source = create_fixture_repo();
+    let submodule_source_path = submodule_source.path().to_string_lossy().into_owned();
+    git(
+        repo.path(),
+        &[
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "add",
+            &submodule_source_path,
+            "vendor/code",
+        ],
+    );
+    git(repo.path(), &["commit", "-m", "add submodule"]);
+
+    let document = repo.path().join("docs").join("sample.md");
+    fs::write(&document, "# Title\n\nchanged\n").expect("modify parent document");
+    fs::write(
+        repo.path()
+            .join("vendor")
+            .join("code")
+            .join("docs")
+            .join("sample.md"),
+        "# Title\n\nchanged in submodule\n",
+    )
+    .expect("modify submodule document");
+
+    let changes = git_changes_for_path(&document.to_string_lossy()).expect("changes");
+    let summary = git_status_summary_for_paths(vec![document.to_string_lossy().into_owned()])
+        .expect("status summary");
+
+    assert_eq!(summary[0].status, GitDiffStatus::Modified);
+    assert!(changes.items.iter().any(|item| {
+        item.path == "docs/sample.md" && item.status == GitDiffStatus::Modified
+    }));
+    assert!(changes.items.iter().any(|item| {
+        item.path == "vendor/code" && item.status == GitDiffStatus::Modified
+    }));
+}
+
+#[test]
 fn deleted_file_keeps_head_side_for_preview() {
     let repo = create_fixture_repo();
     let document = repo.path().join("docs").join("sample.md");

@@ -226,10 +226,12 @@ pub(super) fn git_status_items(repo: &gix::Repository) -> Result<Vec<GitChangeEn
                 if status == GitDiffStatus::Clean {
                     continue;
                 }
+                let worktree_path = workdir.join(&path);
                 if status == GitDiffStatus::Modified
+                    && worktree_path.is_file()
                     && git_status_for_resolved_path(
                         repo,
-                        &workdir.join(&path),
+                        &worktree_path,
                         &PathBuf::from(&path),
                         &path,
                     )? == GitDiffStatus::Clean
