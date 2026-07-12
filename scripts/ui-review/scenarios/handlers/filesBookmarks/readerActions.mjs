@@ -34,7 +34,9 @@ export async function applyReaderActionsScenario(context) {
     });
   } else if (scenario === "viewer-copy-actions") {
     await page.locator("text=copy-actions.adoc").click();
-    await page.getByRole("heading", { name: "Copy Actions", exact: true }).waitFor();
+    await page
+      .getByRole("heading", { name: "Copy Actions", exact: true })
+      .waitFor();
     await page.locator('[data-review-id="source-copy-button"]').click();
     await page
       .locator('[data-review-id="lightweight-action-feedback"]')
@@ -79,6 +81,28 @@ export async function applyReaderActionsScenario(context) {
       .locator('[data-review-id="lightweight-action-feedback"]')
       .filter({ hasText: "Heading link copied" })
       .waitFor();
+  } else if (scenario === "viewer-capture-area") {
+    await page.locator("text=copy-actions.adoc").click();
+    const article = page.locator('[data-review-id="document-body"]');
+    await article.waitFor();
+    const box = await article.boundingBox();
+    if (!box) {
+      throw new Error("Capture Area document body was not visible");
+    }
+    await page.mouse.click(box.x + box.width - 12, box.y + 24, {
+      button: "right",
+    });
+    await page
+      .locator('[data-review-id="context-menu-item-capture-area"]')
+      .click();
+    await page.locator('[data-review-id="capture-area-overlay"]').waitFor();
+    await page.mouse.move(box.x + 24, box.y + 48);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 260, box.y + 190);
+    await page.locator('[data-review-id="capture-area-selection"]').waitFor();
+    await page.evaluate(() => {
+      window.__SVARD_CAPTURE_AREA_CHECK__ = { selectionVisible: true };
+    });
   } else if (scenario === "viewer-copy-location-reference") {
     await page.locator("text=copy-actions.adoc").click();
     await page

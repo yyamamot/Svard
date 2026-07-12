@@ -80,6 +80,7 @@ const nativeKeybindings: Keybinding[] = [
   { keys: "Control+R", commandId: "viewer.reload" },
   { keys: "Mod+Shift+R", commandId: "viewer.reloadForce" },
   { keys: "Control+Shift+R", commandId: "viewer.reloadForce" },
+  { keys: "Mod+Shift+C", commandId: "viewer.captureArea" },
   { keys: "Alt+ArrowDown", commandId: "viewer.contentCursor.next" },
   { keys: "Alt+ArrowUp", commandId: "viewer.contentCursor.previous" },
   { keys: "Mod+=", commandId: "zoom.in" },

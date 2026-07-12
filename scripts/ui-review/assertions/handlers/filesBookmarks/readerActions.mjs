@@ -18,6 +18,15 @@ export async function buildReaderActionsAssertions(context) {
             .count()) > 0 &&
           (await page.locator('[data-review-id="inline-notice"]').count()) === 0
         : true,
+    hasCaptureArea:
+      scenario === "viewer-capture-area"
+        ? bodyText.includes("Copy Actions") &&
+          (await page.evaluate(() =>
+            Boolean(window.__SVARD_CAPTURE_AREA_CHECK__?.selectionVisible),
+          )) &&
+          geometryReviewIds.has("capture-area-overlay") &&
+          geometryReviewIds.has("capture-area-selection")
+        : true,
     hasLocationReference:
       scenario === "viewer-copy-location-reference"
         ? bodyText.includes("Copy Actions") &&

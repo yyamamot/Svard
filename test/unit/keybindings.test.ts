@@ -34,6 +34,15 @@ describe("keybindings", () => {
     expect(formatShortcut("Alt+V", "linux")).toBe("Alt+V");
   });
 
+  it("provides Capture Area as a native viewer shortcut", () => {
+    expect(defaultKeybindingMappings("native")).toContainEqual(
+      expect.objectContaining({
+        keys: "Mod+Shift+C",
+        commandId: "viewer.captureArea",
+      }),
+    );
+  });
+
   it("resolves native search focus", () => {
     const result = resolveKeybinding({
       preset: "native",

@@ -27,6 +27,25 @@
   outline-color: var(--shell-border);
 }
 
+.capture-area-overlay {
+  position: fixed;
+  z-index: 20;
+  overflow: hidden;
+  cursor: crosshair;
+  background: color-mix(in srgb, var(--reader-surface) 18%, transparent);
+  touch-action: none;
+  user-select: none;
+}
+
+.capture-area-selection {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: 0 0 0 9999px rgb(16 24 28 / 26%);
+  pointer-events: none;
+}
+
 .app-shell.zen-mode-active .viewer-pane.focused {
   outline-color: transparent;
 }

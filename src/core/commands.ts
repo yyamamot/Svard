@@ -50,6 +50,7 @@ export const commandIds = [
   "viewer.reload",
   "viewer.reloadForce",
   "viewer.showShortcuts",
+  "viewer.captureArea",
   "git.showDiff",
   "git.showFileHistory",
   "git.compareWithBranch",
@@ -175,6 +176,7 @@ export const commandDefinitions: CommandDefinition[] = [
     title: "Shortcuts and Gestures",
     context: "viewer",
   },
+  { id: "viewer.captureArea", title: "Capture Area", context: "viewer" },
   { id: "git.showDiff", title: "Show Git Diff", context: "viewer" },
   { id: "git.showFileHistory", title: "Show File History", context: "viewer" },
   {

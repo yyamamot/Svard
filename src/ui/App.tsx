@@ -24,7 +24,10 @@ import { useContextMenuState } from "./hooks/useContextMenuState";
 import { useMouseGestures } from "./hooks/useMouseGestures";
 import { useMarkdownWorkerWarmupProbe } from "./hooks/useMarkdownWorkerWarmupProbe";
 import { useNativeAppMenu } from "./hooks/useNativeAppMenu";
-import { type ActivateTabForHistory, useNavigationHistory } from "./hooks/useNavigationHistory";
+import {
+  type ActivateTabForHistory,
+  useNavigationHistory,
+} from "./hooks/useNavigationHistory";
 import { useOpenFileReloadStates } from "./hooks/useOpenFileReloadStates";
 import { useOpenFileActions } from "./hooks/useOpenFileActions";
 import { useQuickOpenCandidates } from "./hooks/useQuickOpenCandidates";
@@ -63,7 +66,13 @@ import type {
   SmartScrollAnchor,
 } from "./types";
 import { createHostAdapter } from "../adapters/createHostAdapter";
-import type { AppConfig, DocumentDiffPreview, DocumentPayload, RenderResult, WorkspaceEnvironment } from "../core/types";
+import type {
+  AppConfig,
+  DocumentDiffPreview,
+  DocumentPayload,
+  RenderResult,
+  WorkspaceEnvironment,
+} from "../core/types";
 const host = createHostAdapter();
 export function App() {
   const viewerRef = useRef<HTMLElement | null>(null);
@@ -74,10 +83,17 @@ export function App() {
   const quickOpenInputRef = useRef<HTMLInputElement | null>(null);
   const closeTabRef = useRef<((path: string) => void) | null>(null);
   const diffOverlayCommandRefs = useDiffOverlayCommandRefs();
-  const [documentPayload, setDocumentPayload] = useState<DocumentPayload | null>(null);
-  const [navigationBackStack, setNavigationBackStack] = useState<NavigationLocation[]>([]);
-  const [navigationForwardStack, setNavigationForwardStack] = useState<NavigationLocation[]>([]);
-  const [recentlyVisitedLocations, setRecentlyVisitedLocations] = useState<RecentlyVisitedLocation[]>([]);
+  const [documentPayload, setDocumentPayload] =
+    useState<DocumentPayload | null>(null);
+  const [navigationBackStack, setNavigationBackStack] = useState<
+    NavigationLocation[]
+  >([]);
+  const [navigationForwardStack, setNavigationForwardStack] = useState<
+    NavigationLocation[]
+  >([]);
+  const [recentlyVisitedLocations, setRecentlyVisitedLocations] = useState<
+    RecentlyVisitedLocation[]
+  >([]);
   const [renderResult, setRenderResult] = useState<RenderResult | null>(null);
   const [documentRenderRevision, setDocumentRenderRevision] = useState(0);
   const [documentHtml, setDocumentHtml] = useState(emptySafeHtml);
@@ -177,6 +193,7 @@ export function App() {
     useLightweightActionFeedback();
   const { contextMenu, closeContextMenu, openContextMenu } =
     useContextMenuState();
+  const [captureAreaRequest, setCaptureAreaRequest] = useState(0);
   const {
     clearKrokiCache,
     clearPlantUmlSvgCache,
@@ -491,7 +508,8 @@ export function App() {
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
     copyText: (label, value) => copyTextRef.current(label, value),
   });
-  refreshSourceControlFromFileTreeRef.current = refreshSourceControlFromFileTree;
+  refreshSourceControlFromFileTreeRef.current =
+    refreshSourceControlFromFileTree;
   const matchCount = searchHits.length;
   const {
     activateSearchHit,
@@ -530,6 +548,7 @@ export function App() {
     openContextMenu,
     openDocument,
     openPathInEditor,
+    onBeginCaptureArea: () => setCaptureAreaRequest((request) => request + 1),
     openPreferencesTab,
     orderedTabs,
     paneSnapshots,
@@ -622,8 +641,7 @@ export function App() {
     documentDiffStreamPreview,
     diffContentCursorCommandRef:
       diffOverlayCommandRefs.diffContentCursorCommandRef,
-    diffContentCursorClearRef:
-      diffOverlayCommandRefs.diffContentCursorClearRef,
+    diffContentCursorClearRef: diffOverlayCommandRefs.diffContentCursorClearRef,
   });
   const {
     activeTitle,
@@ -703,6 +721,13 @@ export function App() {
     onCloseSplitView: closeSplitView,
     onCloseTab: openFileActions.closeTab,
     onCopyHeadingLink: documentLinks.copyHeadingLink,
+    onBeginCaptureArea: () => {
+      if (documentDiffPreview) {
+        diffOverlayCommandRefs.diffCaptureAreaCommandRef.current?.();
+        return;
+      }
+      setCaptureAreaRequest((request) => request + 1);
+    },
     onClearContentCursor: contentCursor.clearActiveContentCursor,
     onFocusPane: focusPane,
     onMoveContentCursor: contentCursor.moveActiveContentCursor,
@@ -740,6 +765,7 @@ export function App() {
       antoraContextSelection.openSelector();
     },
     diffStreamCommandRef: diffOverlayCommandRefs.diffStreamCommandRef,
+    documentDiffPreviewActive: Boolean(documentDiffPreview),
     documentDiffStreamActive: Boolean(documentDiffStreamPreview),
     onActivateDocumentWorkspaceTab:
       workspaceTabActions.activateDocumentWorkspaceTab,
@@ -988,9 +1014,16 @@ export function App() {
     setActiveHeadingId,
     viewerRef,
   });
-  const { clearRecentDocuments, clearRecentDirectories } = useRecentWorkspaceActions(persistWorkspace);
+  const { clearRecentDocuments, clearRecentDirectories } =
+    useRecentWorkspaceActions(persistWorkspace);
   async function saveConfig(nextConfig: AppConfig) {
-    await saveAppConfig({ host, nextConfig, setConfig, setSidebarLayout, windowSessionId });
+    await saveAppConfig({
+      host,
+      nextConfig,
+      setConfig,
+      setSidebarLayout,
+      windowSessionId,
+    });
   }
   return (
     <AppMainShell
@@ -1085,6 +1118,7 @@ export function App() {
         documentPayload,
         renderResult,
         documentHtml,
+        captureAreaRequest,
         postDiffGitMarkers: activePostDiffGitMarkers,
         query,
         searchHits,
@@ -1097,6 +1131,7 @@ export function App() {
         onArticleFocus: documentLinks.handleArticleFocus,
         onArticlePointerLeave: documentLinks.handleArticlePointerLeave,
         onArticlePointerMove: documentLinks.handleArticlePointerMove,
+        onCaptureArea: documentLinks.copyCaptureArea,
         onClearContentCursor: contentCursor.clearActiveContentCursor,
         onDismissInlineNotice: dismissInlineNotice,
         onDispatchCommand: (commandId) => void dispatchCommand(commandId),
@@ -1180,6 +1215,7 @@ export function App() {
         onSetLastMouseGesture: setLastMouseGesture,
         onSetQuickOpenQuery: setQuickOpenQuery,
         onSetViewerShortcutHintsOpen: setViewerShortcutHintsOpen,
+        showLightweightActionFeedback,
         showInlineNotice,
       }}
     />

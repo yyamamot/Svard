@@ -38,6 +38,7 @@ interface UseDiffPreviewInteractionsOptions {
   onClearRenderedContentCursor: () => void;
   onClose: () => void;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
+  onBeginCaptureArea?: (container: HTMLElement) => void;
   openContextMenu: (
     event: MouseEvent<HTMLElement>,
     items: ContextMenuItem[],
@@ -73,6 +74,7 @@ export function useDiffPreviewInteractions({
   onClearRenderedContentCursor,
   onClose,
   onOpenDiagramPreview,
+  onBeginCaptureArea,
   openContextMenu,
   openDocument,
   openExternalUrl,
@@ -108,12 +110,14 @@ export function useDiffPreviewInteractions({
         confirmExternalLink,
         openExternalUrl,
         onOpenDiagramPreview,
+        onBeginCaptureArea,
         showInlineNotice,
       }),
     [
       confirmExternalLink,
       copyText,
       onOpenDiagramPreview,
+      onBeginCaptureArea,
       openContextMenu,
       openDocument,
       openExternalUrl,

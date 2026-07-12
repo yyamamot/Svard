@@ -511,7 +511,9 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
     sourceBlockSelectionPoint!.y,
     { button: "right" },
   );
-  await page.getByRole("menuitem", { name: "Copy Original Text Reference" }).click();
+  await page
+    .getByRole("menuitem", { name: "Copy Original Text Reference" })
+    .click();
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
     "Original text reference copied",
   );
@@ -546,7 +548,9 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   await expect(
     page.getByRole("menuitem", { name: "Copy Original Text Reference" }),
   ).toBeVisible();
-  await page.getByRole("menuitem", { name: "Copy Original Text Reference" }).click();
+  await page
+    .getByRole("menuitem", { name: "Copy Original Text Reference" })
+    .click();
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
     "Original text reference copied",
   );
@@ -571,11 +575,19 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
     return rect ? { x: rect.left + 8, y: rect.top + 8 } : null;
   });
   expect(crossBlockSelectionPoint).not.toBeNull();
-  await page.mouse.click(crossBlockSelectionPoint!.x, crossBlockSelectionPoint!.y, {
-    button: "right",
-  });
-  await page.getByRole("menuitem", { name: "Copy Original Text Reference" }).click();
-  const crossBlockOriginal = await page.evaluate(() => navigator.clipboard.readText());
+  await page.mouse.click(
+    crossBlockSelectionPoint!.x,
+    crossBlockSelectionPoint!.y,
+    {
+      button: "right",
+    },
+  );
+  await page
+    .getByRole("menuitem", { name: "Copy Original Text Reference" })
+    .click();
+  const crossBlockOriginal = await page.evaluate(() =>
+    navigator.clipboard.readText(),
+  );
   expect(crossBlockOriginal).toContain(
     '[source,ts]\n----\nconst product = "Svard";\n----\n\nA *source* paragraph for copy actions.',
   );
@@ -607,9 +619,7 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   expect(locationReference).toContain(
     "File: /workspace/docs/copy-actions.adoc:5",
   );
-  expect(locationReference).toContain(
-    'Text:\nconst product = "Svard";',
-  );
+  expect(locationReference).toContain('Text:\nconst product = "Svard";');
 
   await page.evaluate(() => window.getSelection()?.removeAllRanges());
   await page
@@ -728,6 +738,201 @@ test("viewer-context-menu-document exposes document actions", async ({
   await expect(page.getByTestId("document-body")).toContainText(
     "Render Fixtures",
   );
+});
+
+test("viewer Capture Area copies a visible document rectangle as PNG", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.getByText("copy-actions.adoc").click();
+  const article = page.getByTestId("document-body");
+  await expect(article).toContainText("A source paragraph for copy actions.");
+  const box = await article.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  await page.mouse.click(box.x + box.width - 12, box.y + 24, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Capture Area…" }).click();
+  await expect(page.getByTestId("capture-area-overlay")).toBeVisible();
+
+  await page.mouse.move(box.x + 24, box.y + 48);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 260, box.y + 190);
+  await page.mouse.up();
+
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Image copied",
+  );
+  const copiedImage = await page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read();
+    if (!item?.types.includes("image/png")) {
+      return { types: item?.types ?? [], colorCount: 0 };
+    }
+    const blob = await item!.getType("image/png");
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    context?.drawImage(bitmap, 0, 0);
+    const pixels = context?.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    ).data;
+    const colors = new Set<string>();
+    for (let index = 0; pixels && index < pixels.length; index += 16) {
+      colors.add(`${pixels[index]},${pixels[index + 1]},${pixels[index + 2]}`);
+    }
+    return { types: item.types, colorCount: colors.size };
+  });
+  expect(copiedImage.types).toContain("image/png");
+  expect(copiedImage.colorCount).toBeGreaterThan(1);
+});
+
+test("viewer Diff Preview Capture Area spans both rendered panes", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.getByText("git-modified.md").click();
+  await page.keyboard.press("Control+L");
+  await page.getByTestId("quick-open-input").fill(">git");
+  await page
+    .getByTestId("quick-open-result")
+    .filter({ hasText: "Show Git Diff" })
+    .click();
+
+  const diffBody = page.getByTestId("git-full-preview-diff");
+  await expect(diffBody).toBeVisible();
+  const rightPane = page.getByTestId("git-full-preview-right-pane");
+  const paneBox = await rightPane.boundingBox();
+  expect(paneBox).not.toBeNull();
+  if (!paneBox) return;
+  const paragraph = rightPane.locator("p").first();
+  const paragraphBox = await paragraph.boundingBox();
+  expect(paragraphBox).not.toBeNull();
+  if (!paragraphBox) return;
+
+  await page.mouse.click(paragraphBox.x + 12, paragraphBox.y + 12, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Capture Area…" }).click();
+  const overlay = page.getByTestId("capture-area-overlay");
+  await expect(overlay).toBeVisible();
+  const overlayBox = await overlay.boundingBox();
+  expect(overlayBox?.width).toBeGreaterThan(paneBox.width);
+
+  await page.mouse.move((overlayBox?.x ?? 0) + 24, (overlayBox?.y ?? 0) + 32);
+  await page.mouse.down();
+  await page.mouse.move(
+    (overlayBox?.x ?? 0) + (overlayBox?.width ?? 0) - 24,
+    (overlayBox?.y ?? 0) + 180,
+  );
+  await page.mouse.up();
+  await expect(
+    page.getByTestId("lightweight-action-feedback").filter({
+      hasText: "Image copied",
+    }),
+  ).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const [item] = await navigator.clipboard.read();
+        return item?.types.includes("image/png") ?? false;
+      }),
+    )
+    .toBe(true);
+  const firstPixelAlpha = await page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read();
+    const blob = await item!.getType("image/png");
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    context?.drawImage(bitmap, 0, 0);
+    return context?.getImageData(0, 0, 1, 1).data[3] ?? 0;
+  });
+  expect(firstPixelAlpha).toBe(255);
+});
+
+test("viewer split Capture Area spans both document panes", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.getByText("copy-actions.adoc").click();
+  await page.getByTestId("split-view-toggle").click();
+  await expect(page.getByTestId("viewer-split")).toBeVisible();
+
+  const article = page.getByTestId("document-body").first();
+  const articleBox = await article.boundingBox();
+  expect(articleBox).not.toBeNull();
+  if (!articleBox) return;
+  await page.mouse.click(articleBox.x + 24, articleBox.y + 40, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Capture Area…" }).click();
+
+  const overlay = page.getByTestId("capture-area-overlay");
+  await expect(overlay).toBeVisible();
+  const overlayBox = await overlay.boundingBox();
+  expect(overlayBox?.width).toBeGreaterThan(articleBox.width);
+
+  await page.mouse.move((overlayBox?.x ?? 0) + 24, (overlayBox?.y ?? 0) + 36);
+  await page.mouse.down();
+  await page.mouse.move(
+    (overlayBox?.x ?? 0) + (overlayBox?.width ?? 0) - 24,
+    (overlayBox?.y ?? 0) + 170,
+  );
+  await page.mouse.up();
+  await expect(
+    page.getByTestId("lightweight-action-feedback").filter({
+      hasText: "Image copied",
+    }),
+  ).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const [item] = await navigator.clipboard.read();
+        return item?.types.includes("image/png") ?? false;
+      }),
+    )
+    .toBe(true);
+  const rightPaneInkPixels = await page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read();
+    const bitmap = await createImageBitmap(await item!.getType("image/png"));
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    context?.drawImage(bitmap, 0, 0);
+    const pixels =
+      context?.getImageData(0, 0, canvas.width, canvas.height).data ??
+      new Uint8ClampedArray();
+    let count = 0;
+    for (let y = 0; y < canvas.height; y += 4) {
+      for (let x = Math.floor(canvas.width * 0.6); x < canvas.width; x += 4) {
+        const index = (y * canvas.width + x) * 4;
+        if (
+          pixels[index + 3] === 255 &&
+          (pixels[index] < 180 || pixels[index + 1] < 180 || pixels[index + 2] < 180)
+        ) {
+          count += 1;
+        }
+      }
+    }
+    return count;
+  });
+  expect(rightPaneInkPixels).toBeGreaterThan(10);
 });
 
 test("viewer-table-copy exposes TSV, CSV, Markdown, and reference actions", async ({
@@ -961,7 +1166,9 @@ test("viewer-git-diff-preview opens modified preview from command palette and co
     return rect ? { x: rect.left + 4, y: rect.top + 4 } : null;
   });
   expect(selectionPoint).not.toBeNull();
-  await page.mouse.click(selectionPoint!.x, selectionPoint!.y, { button: "right" });
+  await page.mouse.click(selectionPoint!.x, selectionPoint!.y, {
+    button: "right",
+  });
   await page.getByRole("menuitem", { name: "Copy Diff Reference" }).click();
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
     "Diff reference copied",
@@ -973,7 +1180,9 @@ test("viewer-git-diff-preview opens modified preview from command palette and co
     "After (Working Tree):",
   );
   await changedText.selectText();
-  await page.mouse.click(selectionPoint!.x, selectionPoint!.y, { button: "right" });
+  await page.mouse.click(selectionPoint!.x, selectionPoint!.y, {
+    button: "right",
+  });
   await page
     .getByRole("menuitem", { name: "Copy Original Text Reference" })
     .click();

@@ -73,6 +73,7 @@ export interface UseCommandDispatcherOptions {
   zenModeActive: boolean;
   canSwitchToRecentTab: boolean;
   canSelectAntoraContext?: boolean;
+  documentDiffPreviewActive?: boolean;
   documentDiffStreamActive?: boolean;
   diffStreamCommandRef?: RefObject<DocumentDiffStreamCommandBridge | null>;
   zenModeEscapeBlocked: boolean;
@@ -87,6 +88,7 @@ export interface UseCommandDispatcherOptions {
   onCompareGitRef: (kind: GitRefKind, path?: string) => void | Promise<void>;
   onComparePickedDocuments: () => void | Promise<void>;
   onCopyHeadingLink: () => void | Promise<void>;
+  onBeginCaptureArea?: () => void;
   onClearContentCursor: () => void;
   onFocusPane: (paneId: PaneId) => void;
   onMoveContentCursor: (direction: "next" | "previous") => boolean;
@@ -146,6 +148,7 @@ export function useCommandDispatcher({
   zenModeActive,
   canSwitchToRecentTab,
   canSelectAntoraContext = false,
+  documentDiffPreviewActive = false,
   documentDiffStreamActive = false,
   diffStreamCommandRef,
   zenModeEscapeBlocked,
@@ -160,6 +163,7 @@ export function useCommandDispatcher({
   onCompareGitRef,
   onComparePickedDocuments,
   onCopyHeadingLink,
+  onBeginCaptureArea,
   onClearContentCursor,
   onFocusPane,
   onMoveContentCursor,
@@ -227,10 +231,7 @@ export function useCommandDispatcher({
   }
 
   function isCommandEnabled(commandId: CommandId): boolean {
-    if (
-      documentDiffStreamActive &&
-      isDocumentDiffStreamCommand(commandId)
-    ) {
+    if (documentDiffStreamActive && isDocumentDiffStreamCommand(commandId)) {
       return true;
     }
     if (commandId === "tab.restoreClosed") {
@@ -263,6 +264,9 @@ export function useCommandDispatcher({
     }
     if (commandId === "heading.copyLink") {
       return Boolean(documentPayload);
+    }
+    if (commandId === "viewer.captureArea") {
+      return Boolean(documentPayload) || documentDiffPreviewActive;
     }
     if (commandId === "navigation.back") {
       return navigationBackStack.length > 0;
@@ -474,6 +478,10 @@ export function useCommandDispatcher({
         break;
       case "viewer.showShortcuts":
         onShowViewerShortcuts();
+        break;
+      case "viewer.captureArea":
+        onClearContentCursor();
+        onBeginCaptureArea?.();
         break;
       case "help.openWebsite":
         try {

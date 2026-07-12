@@ -17,6 +17,7 @@ import { StartPage } from "./StartPage";
 import { MouseGestureTrail } from "./MouseGestureTrail";
 import { SearchHitRuler } from "./SearchHitRuler";
 import { PostDiffGitMarkers } from "./PostDiffGitMarkers";
+import { CaptureAreaOverlay } from "./CaptureAreaOverlay";
 import { fileName } from "../lib/path";
 import { detectPlatform } from "../../core/keybindings";
 import {
@@ -28,6 +29,7 @@ import {
 import { setElementSafeHtml, unwrapSafeHtml } from "../lib/safeHtml";
 import type { SafeHtml } from "../lib/safeHtml";
 import type { CommandId } from "../../core/commands";
+import type { CaptureAreaRect } from "../lib/captureArea";
 import type {
   AppConfig,
   BookmarkEntry,
@@ -68,6 +70,7 @@ interface ViewerPaneProps {
   renderResult: ViewerPaneSnapshot["renderResult"];
   documentHtml: SafeHtml;
   postDiffGitMarkers: ViewerPostDiffGitMarkerContext | null;
+  captureAreaRequest?: number;
   query: string;
   searchHits: SearchHitSummary[];
   searchIndex: number;
@@ -79,6 +82,10 @@ interface ViewerPaneProps {
   onArticleFocus: (event: ReactFocusEvent<HTMLElement>) => void;
   onArticlePointerLeave: () => void;
   onArticlePointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
+  onCaptureArea?: (
+    rect: CaptureAreaRect,
+    captureTarget?: HTMLElement,
+  ) => Promise<void>;
   onClearContentCursor: () => void;
   onDismissInlineNotice: () => void;
   onDispatchCommand: (commandId: CommandId) => void;
@@ -120,6 +127,7 @@ export function ViewerPane({
   renderResult,
   documentHtml,
   postDiffGitMarkers,
+  captureAreaRequest = 0,
   query,
   searchHits,
   searchIndex,
@@ -131,6 +139,7 @@ export function ViewerPane({
   onArticleFocus,
   onArticlePointerLeave,
   onArticlePointerMove,
+  onCaptureArea = async () => undefined,
   onClearContentCursor,
   onDismissInlineNotice,
   onDispatchCommand,
@@ -169,6 +178,7 @@ export function ViewerPane({
     searchIndex: number;
   } | null>(null);
   const wheelZoomDeltaRef = useRef(0);
+  const [captureAreaActive, setCaptureAreaActive] = useState(false);
   const platform = useMemo(() => detectPlatform(), []);
   const setArticleNode = useCallback(
     (node: HTMLElement | null) => {
@@ -344,6 +354,13 @@ export function ViewerPane({
     };
   }, [handleArticleWheel, isFocused, html]);
 
+  useEffect(() => {
+    if (captureAreaRequest === 0 || !isFocused || !payload || !result) {
+      return;
+    }
+    setCaptureAreaActive(true);
+  }, [captureAreaRequest, isFocused, payload, result]);
+
   return (
     <section
       ref={isFocused ? viewerRef : undefined}
@@ -446,15 +463,18 @@ export function ViewerPane({
         <div className="state-message">Loading document</div>
       )}
       {isFocused && error && <div className="state-message error">{error}</div>}
-      {isFocused && config?.experimental.searchHitRuler && result && payload && (
-        <SearchHitRuler
-          articleRef={articleNodeRef}
-          query={query}
-          searchHits={searchHits}
-          searchIndex={searchIndex}
-          onActivateSearchHit={onActivateSearchHit}
-        />
-      )}
+      {isFocused &&
+        config?.experimental.searchHitRuler &&
+        result &&
+        payload && (
+          <SearchHitRuler
+            articleRef={articleNodeRef}
+            query={query}
+            searchHits={searchHits}
+            searchIndex={searchIndex}
+            onActivateSearchHit={onActivateSearchHit}
+          />
+        )}
       {isFocused && result && payload && activePostDiffGitMarkers && (
         <PostDiffGitMarkers
           articleRef={articleNodeRef}
@@ -507,6 +527,22 @@ export function ViewerPane({
           }
         />
       )}
+      {captureAreaActive &&
+        isFocused &&
+        articleNodeRef.current &&
+        (() => {
+          const captureTarget = splitEnabled
+            ? articleNodeRef.current.closest<HTMLElement>(".viewer-split")
+            : articleNodeRef.current;
+          return captureTarget ? (
+            <CaptureAreaOverlay
+              article={captureTarget}
+              viewer={captureTarget}
+              onCapture={(rect) => void onCaptureArea(rect, captureTarget)}
+              onClose={() => setCaptureAreaActive(false)}
+            />
+          ) : null;
+        })()}
       {isFocused && !isLoading && !error && !payload && (
         <StartPage
           recentDocuments={config?.workspace.recentDocuments ?? []}

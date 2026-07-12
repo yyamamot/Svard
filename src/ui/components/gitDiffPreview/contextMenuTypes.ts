@@ -27,6 +27,7 @@ export interface DiffPreviewContextMenuOptions {
   confirmExternalLink: (url: string) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<void>;
   onOpenDiagramPreview: (preview: DiagramPreviewState) => void;
+  onBeginCaptureArea?: (container: HTMLElement) => void;
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },

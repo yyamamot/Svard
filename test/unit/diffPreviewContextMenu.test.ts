@@ -260,6 +260,39 @@ describe("diff preview context menu", () => {
     ).toEqual(["Copy Pane Text"]);
   });
 
+  it("adds Capture Area after rendered diff pane actions", () => {
+    const container = document.createElement("div");
+    container.innerHTML = "<p>Background</p>";
+    document.body.append(container);
+    const beginCaptureArea = vi.fn();
+    const items = diffPreviewContextMenuItems({
+      container,
+      event: { clientX: 0, clientY: 0 },
+      target: container.querySelector<HTMLElement>("p") ?? container,
+      side: "right",
+      surface: "rendered",
+      preview: basePreview,
+      copyText: vi.fn(),
+      openDocument: vi.fn(),
+      openPathInEditor: vi.fn(),
+      resolveDocumentLink: vi.fn(),
+      confirmExternalLink: vi.fn(),
+      openExternalUrl: vi.fn(),
+      onOpenDiagramPreview: vi.fn(),
+      onBeginCaptureArea: beginCaptureArea,
+      showInlineNotice: vi.fn(),
+    });
+
+    expect(items.map((item) => item.label)).toEqual([
+      "Open in Editor",
+      "Copy Document Path",
+      "Capture Area…",
+    ]);
+    items.at(-1)?.onSelect();
+    expect(beginCaptureArea).toHaveBeenCalledWith(container);
+    container.remove();
+  });
+
   it("keeps Source view context menu limited to selection and path actions", () => {
     const container = document.createElement("div");
     container.textContent = "selected source";

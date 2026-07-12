@@ -1,5 +1,6 @@
 import {
   Copy,
+  Crop,
   Download,
   ExternalLink,
   FilePenLine,
@@ -97,7 +98,10 @@ export function addDiagramItems(
       svg: SVGElement,
       sourceReference: string | undefined,
     ) => DiagramPreviewState | undefined;
-    saveDiagramSvg: (svg: SVGElement, sourceReference?: string) => Promise<void>;
+    saveDiagramSvg: (
+      svg: SVGElement,
+      sourceReference?: string,
+    ) => Promise<void>;
     copyImage: CopyImage;
   },
 ) {
@@ -130,7 +134,8 @@ export function addDiagramItems(
       id: "save-diagram-svg",
       label: "Save SVG",
       icon: menuIcon(Download),
-      onSelect: () => actions.saveDiagramSvg(svg, diagramReference ?? undefined),
+      onSelect: () =>
+        actions.saveDiagramSvg(svg, diagramReference ?? undefined),
     });
     if (diagramReference) {
       items.push({
@@ -404,8 +409,9 @@ export function addDocumentItems(
     onShowGitDiff: (path: string) => void | Promise<void>;
     openPathInEditor: (path: string) => Promise<void>;
   },
+  allowExistingItems = false,
 ) {
-  if (items.length !== 0 || !documentPayload) {
+  if ((items.length !== 0 && !allowExistingItems) || !documentPayload) {
     return;
   }
   if (isSupportedDocumentPath(documentPayload.path)) {
@@ -445,5 +451,18 @@ export function addDocumentItems(
     label: "Copy Document Path",
     icon: menuIcon(Copy),
     onSelect: () => actions.copyText("Path", documentPayload.path),
+  });
+}
+
+export function addCaptureAreaItem(
+  items: ContextMenuItem[],
+  onBeginCaptureArea: () => void,
+) {
+  items.push({
+    id: "capture-area",
+    label: "Capture Area…",
+    icon: menuIcon(Crop),
+    separatorBefore: items.length > 0,
+    onSelect: onBeginCaptureArea,
   });
 }

@@ -14,6 +14,7 @@ import {
 import type { ContextMenuItem } from "../../types";
 import {
   addDiagramItems,
+  addCaptureAreaItem,
   addHeadingItems,
   addImageItems,
   addLinkItems,
@@ -66,6 +67,7 @@ export function createDiffPreviewContextMenuHandler({
   confirmExternalLink,
   openExternalUrl,
   onOpenDiagramPreview,
+  onBeginCaptureArea,
   showInlineNotice,
 }: DiffPreviewContextMenuOptions) {
   return function handleDiffPreviewContextMenu(
@@ -90,6 +92,7 @@ export function createDiffPreviewContextMenuHandler({
       confirmExternalLink,
       openExternalUrl,
       onOpenDiagramPreview,
+      onBeginCaptureArea,
       showInlineNotice,
       allowLocationReference,
     });
@@ -120,6 +123,7 @@ export function diffPreviewContextMenuItems({
   confirmExternalLink,
   openExternalUrl,
   onOpenDiagramPreview,
+  onBeginCaptureArea,
   showInlineNotice,
   allowLocationReference = true,
 }: Omit<DiffPreviewContextMenuOptions, "openContextMenu"> & {
@@ -215,6 +219,9 @@ export function diffPreviewContextMenuItems({
   }
   if (items.length === 0) {
     addCopyPaneTextItem(items, container, copyText);
+  }
+  if (surface === "rendered" && onBeginCaptureArea) {
+    addCaptureAreaItem(items, () => onBeginCaptureArea(container));
   }
   return items;
 }

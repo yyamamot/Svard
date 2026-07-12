@@ -156,6 +156,13 @@ describe("app menu model", () => {
         expect.objectContaining({ type: "native", nativeId: "copy" }),
         expect.objectContaining({ type: "native", nativeId: "paste" }),
         expect.objectContaining({ type: "native", nativeId: "selectAll" }),
+        expect.objectContaining({
+          type: "command",
+          label: "Capture Area…",
+          commandId: "viewer.captureArea",
+          shortcutDisplay: "⌘⇧C",
+          accelerator: "CmdOrCtrl+Shift+C",
+        }),
       ]),
     );
   });

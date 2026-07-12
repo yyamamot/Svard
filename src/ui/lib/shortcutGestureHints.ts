@@ -42,6 +42,7 @@ const viewerKeyboardActions: HintAction[] = [
   { commandId: "search.focus" },
   { commandId: "search.next" },
   { commandId: "search.previous" },
+  { commandId: "viewer.captureArea" },
   { commandId: "viewer.contentCursor.next" },
   { commandId: "viewer.contentCursor.previous" },
   { commandId: "navigation.back" },

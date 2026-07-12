@@ -14,6 +14,7 @@ import type { CopyText, UseDocumentLinksOptions } from "./types";
 import { documentSelectionAtPoint } from "./shared";
 import {
   addDiagramItems,
+  addCaptureAreaItem,
   addDocumentItems,
   addHeadingItems,
   addImageItems,
@@ -45,6 +46,7 @@ export function createArticleContextMenuHandler({
   onShowGitDiff,
   copyText,
   copyImage,
+  onBeginCaptureArea,
 }: Pick<
   UseDocumentLinksOptions,
   | "articleRef"
@@ -67,6 +69,7 @@ export function createArticleContextMenuHandler({
   saveDiagramSvg: (svg: SVGElement) => Promise<void>;
   copyText: CopyText;
   copyImage: (source: HTMLImageElement | SVGElement) => Promise<void>;
+  onBeginCaptureArea: () => void;
 }) {
   return function handleArticleContextMenu(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement;
@@ -155,12 +158,23 @@ export function createArticleContextMenuHandler({
           addTextReferenceItem(items, locationReference, copyText);
         }
       }
-      addDocumentItems(items, documentPayload, {
-        copyText,
-        onCompareGitRef,
-        onShowGitDiff,
-        openPathInEditor,
-      });
+      const isDocumentBackground = items.length === 0;
+      // Keep document actions at the top of the body-background menu. Capture
+      // Area starts a separate interaction, so it belongs in its own trailing
+      // group rather than displacing the usual document actions.
+      addDocumentItems(
+        items,
+        documentPayload,
+        {
+          copyText,
+          onCompareGitRef,
+          onShowGitDiff,
+          openPathInEditor,
+        },
+      );
+      if (documentPayload && isDocumentBackground) {
+        addCaptureAreaItem(items, onBeginCaptureArea);
+      }
     }
 
     openContextMenu(

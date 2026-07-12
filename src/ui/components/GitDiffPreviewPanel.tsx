@@ -12,6 +12,11 @@ import type {
 } from "../../core/types";
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
 import type { DiffPreviewWatchState } from "../lib/diffPreviewWatch";
+import {
+  copyCaptureAreaToClipboard,
+  type CaptureAreaCommandHandler,
+  type CaptureAreaRect,
+} from "../lib/captureArea";
 import { diffPreviewIdentityKey } from "../lib/diffPreviewWatch";
 import type { RenderedDiffPresentation } from "../lib/gitRenderedDiff";
 import { DiffToolbar } from "./gitDiffPreview/toolbar";
@@ -22,6 +27,7 @@ import { useDiffPreviewSummaries } from "./gitDiffPreview/useDiffPreviewSummarie
 import { useRenderedDiffContentCursor } from "./gitDiffPreview/useRenderedDiffContentCursor";
 import { useDiffPreviewInteractions } from "./gitDiffPreview/useDiffPreviewInteractions";
 import { MouseGestureTrail } from "./MouseGestureTrail";
+import { CaptureAreaOverlay } from "./CaptureAreaOverlay";
 import type {
   ContextMenuItem,
   DiagramPreviewState,
@@ -54,6 +60,7 @@ interface DocumentDiffPreviewPanelProps {
   krokiFallbackDiagramKeys?: ReadonlySet<string>;
   contentCursorCommandRef?: RefObject<ContentCursorCommandHandler | null>;
   contentCursorClearRef?: RefObject<(() => void) | null>;
+  captureAreaCommandRef?: RefObject<CaptureAreaCommandHandler | null>;
   copyText: CopyText;
   openContextMenu: (
     event: MouseEvent<HTMLElement>,
@@ -73,6 +80,7 @@ interface DocumentDiffPreviewPanelProps {
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
+  showLightweightActionFeedback?: (message: string) => void;
   setLastMouseGesture?: (gesture: MouseGestureAutomation | null) => void;
   watchState?: DiffPreviewWatchState;
   onRefreshPreview?: () => void;
@@ -90,6 +98,7 @@ export function DocumentDiffPreviewPanel({
   krokiFallbackDiagramKeys,
   contentCursorCommandRef,
   contentCursorClearRef,
+  captureAreaCommandRef,
   copyText,
   openContextMenu,
   openDocument,
@@ -99,6 +108,7 @@ export function DocumentDiffPreviewPanel({
   openExternalUrl,
   onOpenDiagramPreview,
   showInlineNotice,
+  showLightweightActionFeedback,
   setLastMouseGesture,
   watchState,
   onRefreshPreview,
@@ -116,6 +126,8 @@ export function DocumentDiffPreviewPanel({
   const [syncScrollEnabled, setSyncScrollEnabled] = useState(true);
   const [activeChangeIndex, setActiveChangeIndex] = useState(0);
   const [activeTableIndex, setActiveTableIndex] = useState(0);
+  const [captureAreaArticle, setCaptureAreaArticle] =
+    useState<HTMLElement | null>(null);
   const previewIdentityKey = diffPreviewIdentityKey(preview);
   const autoRefreshKeyRef = useRef<string | null>(null);
   const {
@@ -183,6 +195,29 @@ export function DocumentDiffPreviewPanel({
   const closeWithHandoff = useCallback(() => {
     onClose({ preview, renderedPresentation });
   }, [onClose, preview, renderedPresentation]);
+  const beginCaptureArea = useCallback((container?: HTMLElement) => {
+    const renderedPane =
+      container ?? renderedRightRef.current ?? renderedLeftRef.current;
+    const article = renderedPane?.closest<HTMLElement>(
+      ".git-rendered-diff-body",
+    );
+    if (!article) {
+      return false;
+    }
+    setCaptureAreaArticle(article);
+    return true;
+  }, []);
+  const copyCapturedArea = useCallback(
+    async (article: HTMLElement, rect: CaptureAreaRect) => {
+      try {
+        await copyCaptureAreaToClipboard(article, rect);
+        showLightweightActionFeedback?.("Image copied");
+      } catch {
+        showLightweightActionFeedback?.("Image could not be copied");
+      }
+    },
+    [showLightweightActionFeedback],
+  );
   const {
     handleContextMenuCapture,
     handleMouseGesturePointerCancel,
@@ -201,6 +236,9 @@ export function DocumentDiffPreviewPanel({
     onClearRenderedContentCursor: clearRenderedContentCursor,
     onClose: closeWithHandoff,
     onOpenDiagramPreview,
+    onBeginCaptureArea: (container) => {
+      beginCaptureArea(container);
+    },
     openContextMenu,
     openDocument,
     openExternalUrl,
@@ -237,6 +275,16 @@ export function DocumentDiffPreviewPanel({
   }, [changeCount]);
 
   useEffect(() => {
+    if (!captureAreaCommandRef) {
+      return;
+    }
+    captureAreaCommandRef.current = () => beginCaptureArea();
+    return () => {
+      captureAreaCommandRef.current = null;
+    };
+  }, [beginCaptureArea, captureAreaCommandRef]);
+
+  useEffect(() => {
     if (watchState?.status !== "stale") {
       autoRefreshKeyRef.current = null;
       return;
@@ -261,6 +309,11 @@ export function DocumentDiffPreviewPanel({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && captureAreaArticle) {
+        event.preventDefault();
+        setCaptureAreaArticle(null);
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         closeWithHandoff();
@@ -268,7 +321,7 @@ export function DocumentDiffPreviewPanel({
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [closeWithHandoff]);
+  }, [captureAreaArticle, closeWithHandoff]);
 
   return (
     <div
@@ -352,6 +405,16 @@ export function DocumentDiffPreviewPanel({
           syncDirectScroll={syncDirectScroll}
           syncRenderedScroll={syncRenderedScroll}
         />
+        {captureAreaArticle && (
+          <CaptureAreaOverlay
+            article={captureAreaArticle}
+            viewer={captureAreaArticle}
+            onCapture={(rect) =>
+              void copyCapturedArea(captureAreaArticle, rect)
+            }
+            onClose={() => setCaptureAreaArticle(null)}
+          />
+        )}
       </section>
     </div>
   );

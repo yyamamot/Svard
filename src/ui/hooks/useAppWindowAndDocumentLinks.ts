@@ -30,6 +30,7 @@ interface UseAppWindowAndDocumentLinksOptions extends AppWindowActionsOptions {
   setRightSidebarTab: (tab: "contents" | "search" | "diagrams") => void;
   setSelectedDiagramId: (id: string) => void;
   showInlineNotice: UseDocumentLinksOptions["showInlineNotice"];
+  onBeginCaptureArea: () => void;
   sourceControl: SourceControlDocumentLinkActions;
   tryKrokiFallback: (key: string) => void;
 }
@@ -48,6 +49,7 @@ export function useAppWindowAndDocumentLinks({
   openContextMenu,
   openDocument,
   openPathInEditor,
+  onBeginCaptureArea,
   openPreferencesTab,
   orderedTabs,
   paneSnapshots,
@@ -124,6 +126,7 @@ export function useAppWindowAndDocumentLinks({
     showInlineNotice,
     showLightweightActionFeedback,
     saveSvgFile: (fileName, svg) => host.saveSvgFile(fileName, svg),
+    onBeginCaptureArea,
   });
 
   return { documentLinks, windowActions };

@@ -16,6 +16,10 @@ import { createNavigationActions } from "./documentLinks/navigation";
 import { createArticleDoubleClickHandler } from "./documentLinks/previewDoubleClick";
 import type { UseDocumentLinksOptions } from "./documentLinks/types";
 import { copyImageToClipboard } from "../lib/imageClipboard";
+import {
+  copyCaptureAreaToClipboard,
+  type CaptureAreaRect,
+} from "../lib/captureArea";
 
 export function useDocumentLinks({
   activeHeadingId,
@@ -44,6 +48,7 @@ export function useDocumentLinks({
   showInlineNotice,
   showLightweightActionFeedback,
   saveSvgFile,
+  onBeginCaptureArea,
 }: UseDocumentLinksOptions) {
   const lastDocumentSelectionRef = useRef("");
   const linkPreviewTimerRef = useRef<number | null>(null);
@@ -108,6 +113,23 @@ export function useDocumentLinks({
     }
   }
 
+  async function copyCaptureArea(
+    rect: CaptureAreaRect,
+    captureTarget = articleRef.current,
+  ) {
+    const article = captureTarget;
+    if (!article) {
+      showInlineNotice("Image could not be copied", { tone: "warning" });
+      return;
+    }
+    try {
+      await copyCaptureAreaToClipboard(article, rect);
+      showLightweightActionFeedback("Image copied");
+    } catch {
+      showInlineNotice("Image could not be copied", { tone: "warning" });
+    }
+  }
+
   const {
     copyHeadingLink,
     navigateToHeading,
@@ -163,6 +185,7 @@ export function useDocumentLinks({
     onShowGitDiff,
     copyText,
     copyImage,
+    onBeginCaptureArea,
   });
 
   function clearLinkPreview() {
@@ -279,6 +302,7 @@ export function useDocumentLinks({
     copyHeadingLink,
     copyText,
     copyImage,
+    copyCaptureArea,
     handleArticleContextMenu,
     handleArticleClick,
     handleArticleDoubleClick,

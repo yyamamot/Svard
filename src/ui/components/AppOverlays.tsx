@@ -17,6 +17,7 @@ import type {
 import type { HostAdapter } from "../../core/types";
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
+import type { CaptureAreaCommandHandler } from "../lib/captureArea";
 import type { DocumentDiffStreamCommandBridge } from "../lib/documentDiffStreamCommands";
 import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
 import type {
@@ -86,6 +87,7 @@ interface AppOverlaysProps {
   diagramPreview: DiagramPreviewState | null;
   diffContentCursorClearRef: RefObject<(() => void) | null>;
   diffContentCursorCommandRef: RefObject<ContentCursorCommandHandler | null>;
+  diffCaptureAreaCommandRef: RefObject<CaptureAreaCommandHandler | null>;
   diffStreamCommandRef: RefObject<DocumentDiffStreamCommandBridge | null>;
   resolveDiffLocalImage: (
     source: string,
@@ -131,6 +133,7 @@ interface AppOverlaysProps {
   onSetLastMouseGesture: (gesture: MouseGestureAutomation | null) => void;
   onSetQuickOpenQuery: (query: string) => void;
   onSetViewerShortcutHintsOpen: (open: boolean) => void;
+  showLightweightActionFeedback: (message: string) => void;
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
@@ -164,6 +167,7 @@ export function AppOverlays({
   diagramPreview,
   diffContentCursorClearRef,
   diffContentCursorCommandRef,
+  diffCaptureAreaCommandRef,
   diffStreamCommandRef,
   resolveDiffLocalImage,
   loadDiffDocumentContext,
@@ -194,6 +198,7 @@ export function AppOverlays({
   onSetLastMouseGesture,
   onSetQuickOpenQuery,
   onSetViewerShortcutHintsOpen,
+  showLightweightActionFeedback,
   showInlineNotice,
 }: AppOverlaysProps) {
   return (
@@ -285,6 +290,7 @@ export function AppOverlays({
           krokiFallbackDiagramKeys={krokiFallbackDiagramKeys}
           contentCursorCommandRef={diffContentCursorCommandRef}
           contentCursorClearRef={diffContentCursorClearRef}
+          captureAreaCommandRef={diffCaptureAreaCommandRef}
           copyText={copyText}
           openContextMenu={openContextMenu}
           openDocument={onOpenDocument}
@@ -294,6 +300,7 @@ export function AppOverlays({
           openExternalUrl={openDiffExternalUrl}
           onOpenDiagramPreview={onOpenDiagramPreview}
           showInlineNotice={showInlineNotice}
+          showLightweightActionFeedback={showLightweightActionFeedback}
           setLastMouseGesture={onSetLastMouseGesture}
           watchState={diffPreviewWatchState}
           onRefreshPreview={onRefreshDiffPreview}

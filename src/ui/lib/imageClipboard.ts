@@ -6,25 +6,32 @@ export async function copyImageToClipboard(
   if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
     throw new Error("Image clipboard is not supported");
   }
-  const blob = source instanceof HTMLImageElement ? imageToPng(source) : svgToPng(source);
-  await writePng(blob);
+  const blob =
+    source instanceof HTMLImageElement ? imageToPng(source) : svgToPng(source);
+  await copyPngToClipboard(blob);
 }
 
 export async function copySvgToClipboard(source: string): Promise<void> {
   if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
     throw new Error("Image clipboard is not supported");
   }
-  await writePng(svgTextToPng(source));
+  await copyPngToClipboard(svgTextToPng(source));
 }
 
-async function writePng(blob: Promise<Blob>) {
-  await navigator.clipboard.write([
-    new ClipboardItem({ "image/png": blob }),
-  ]);
+export function copyPngToClipboard(blob: Promise<Blob>): Promise<void> {
+  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+    throw new Error("Image clipboard is not supported");
+  }
+  return navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
 }
 
 export function imageClipboardSize(width: number, height: number) {
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
     throw new Error("Image has no usable dimensions");
   }
   const scale = Math.min(1, maximumImageDimension / Math.max(width, height));
@@ -49,13 +56,23 @@ async function svgToPng(svg: SVGElement): Promise<Blob> {
 }
 
 async function svgTextToPng(source: string, svg?: SVGElement): Promise<Blob> {
-  const url = URL.createObjectURL(new Blob([source], { type: "image/svg+xml;charset=utf-8" }));
+  const url = URL.createObjectURL(
+    new Blob([source], { type: "image/svg+xml;charset=utf-8" }),
+  );
   try {
     const image = await loadImage(url);
     const viewBox = svg?.getAttribute("viewBox")?.trim().split(/\s+/u);
-    const width = Number.parseFloat(svg?.getAttribute("width") ?? "") || Number(viewBox?.[2]);
-    const height = Number.parseFloat(svg?.getAttribute("height") ?? "") || Number(viewBox?.[3]);
-    return await drawToPng(image, width || image.naturalWidth, height || image.naturalHeight);
+    const width =
+      Number.parseFloat(svg?.getAttribute("width") ?? "") ||
+      Number(viewBox?.[2]);
+    const height =
+      Number.parseFloat(svg?.getAttribute("height") ?? "") ||
+      Number(viewBox?.[3]);
+    return await drawToPng(
+      image,
+      width || image.naturalWidth,
+      height || image.naturalHeight,
+    );
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -74,7 +91,11 @@ function drawToPng(
   if (!context) throw new Error("Canvas is not available");
   context.drawImage(image, 0, 0, width, height);
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("PNG conversion failed"))), "image/png");
+    canvas.toBlob(
+      (blob) =>
+        blob ? resolve(blob) : reject(new Error("PNG conversion failed")),
+      "image/png",
+    );
   });
 }
 
