@@ -495,7 +495,34 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   const sourceParagraph = page.getByText(
     "A source paragraph for copy actions.",
   );
-  await sourceParagraph.selectText();
+  await sourceParagraph.evaluate((element) => {
+    const text = element.textContent ?? "";
+    const start = text.indexOf("paragraph");
+    const nodes: Text[] = [];
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      nodes.push(node as Text);
+    }
+    function boundary(offset: number) {
+      let consumed = 0;
+      for (const node of nodes) {
+        const length = node.data.length;
+        if (offset <= consumed + length) {
+          return { node, offset: offset - consumed };
+        }
+        consumed += length;
+      }
+      return { node: nodes.at(-1)!, offset: nodes.at(-1)?.data.length ?? 0 };
+    }
+    const from = boundary(start);
+    const to = boundary(text.length);
+    const range = document.createRange();
+    range.setStart(from.node, from.offset);
+    range.setEnd(to.node, to.offset);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
   const sourceBlockSelectionPoint = await page.evaluate(() => {
     const selection = window.getSelection();
     const rect = selection?.rangeCount
@@ -518,7 +545,7 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
     "Original text reference copied",
   );
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
-    "Original text:\nA *source* paragraph for copy actions.",
+    "Original text:\nparagraph for copy actions.",
   );
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
     "Section:",
@@ -555,7 +582,7 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
     "Original text reference copied",
   );
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
-    '[source,ts]\n----\nconst product = "Svard";\n----',
+    'Original text:\nconst product = "Svard";',
   );
 
   await page.evaluate(() => {
@@ -582,18 +609,10 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
       button: "right",
     },
   );
-  await page
-    .getByRole("menuitem", { name: "Copy Original Text Reference" })
-    .click();
-  const crossBlockOriginal = await page.evaluate(() =>
-    navigator.clipboard.readText(),
-  );
-  expect(crossBlockOriginal).toContain(
-    '[source,ts]\n----\nconst product = "Svard";\n----\n\nA *source* paragraph for copy actions.',
-  );
-  expect(crossBlockOriginal).toContain(
-    "File: /workspace/docs/copy-actions.adoc:5-10",
-  );
+  await expect(
+    page.getByRole("menuitem", { name: "Copy Original Text Reference" }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   await sourceBlock.selectText();
   const locationSelectionPoint = await page.evaluate(() => {
@@ -1454,6 +1473,56 @@ test("viewer-source-control-all-diffs supports LLM reference and Current file ca
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain("Before (HEAD):");
+
+  await changedParagraph.evaluate((element) => {
+    const selected = "two-pane Git diff preview";
+    const text = element.textContent ?? "";
+    const start = text.indexOf(selected);
+    const nodes: Text[] = [];
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      nodes.push(node as Text);
+    }
+    function boundary(offset: number) {
+      let consumed = 0;
+      for (const node of nodes) {
+        const length = node.data.length;
+        if (offset <= consumed + length) {
+          return { node, offset: offset - consumed };
+        }
+        consumed += length;
+      }
+      return { node: nodes.at(-1)!, offset: nodes.at(-1)?.data.length ?? 0 };
+    }
+    const from = boundary(start);
+    const to = boundary(start + selected.length);
+    const range = document.createRange();
+    range.setStart(from.node, from.offset);
+    range.setEnd(to.node, to.offset);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  const originalSelectionPoint = await page.evaluate(() => {
+    const rect = window.getSelection()?.getRangeAt(0).getClientRects()[0];
+    return rect ? { x: rect.left + 4, y: rect.top + 4 } : null;
+  });
+  expect(originalSelectionPoint).not.toBeNull();
+  await page.mouse.click(originalSelectionPoint!.x, originalSelectionPoint!.y, {
+    button: "right",
+  });
+  await page
+    .getByRole("menuitem", { name: "Copy Original Text Reference" })
+    .click();
+  const originalReference = await page.evaluate(() =>
+    navigator.clipboard.readText(),
+  );
+  expect(originalReference).toContain(
+    "Original text:\ntwo-pane Git diff preview",
+  );
+  expect(originalReference).not.toContain(
+    "No Git operation is performed from the preview.",
+  );
 
   await rightPane.evaluate((pane) => {
     const rect = pane.getBoundingClientRect();

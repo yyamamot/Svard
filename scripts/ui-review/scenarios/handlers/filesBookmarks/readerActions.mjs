@@ -141,8 +141,26 @@ export async function applyReaderActionsScenario(context) {
       .locator('[data-review-id="lightweight-action-feedback"]')
       .filter({ hasText: "Text reference copied" })
       .waitFor();
+    await page.mouse.click(selectionPoint.x, selectionPoint.y, {
+      button: "right",
+    });
+    await page
+      .locator(
+        '[data-review-id="context-menu-item-copy-original-text-reference"]',
+      )
+      .waitFor();
+    await page
+      .locator(
+        '[data-review-id="context-menu-item-copy-original-text-reference"]',
+      )
+      .click();
+    await page
+      .locator('[data-review-id="lightweight-action-feedback"]')
+      .filter({ hasText: "Original text reference copied" })
+      .waitFor();
     await page.evaluate(() => {
       window.__SVARD_LOCATION_REFERENCE_CHECK__ = {
+        originalReferenceCopied: true,
         selectionReferenceCopied: true,
       };
     });

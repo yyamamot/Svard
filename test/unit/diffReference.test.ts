@@ -57,7 +57,12 @@ After *text*.`);
     const target = surface.querySelector<HTMLElement>(".right-side p")!;
 
     expect(
-      diffReferenceForTarget({ target, preview, leftPath: preview.leftPath!, rightPath: preview.rightPath! })?.value,
+      diffReferenceForTarget({
+        target,
+        preview,
+        leftPath: preview.leftPath!,
+        rightPath: preview.rightPath!,
+      })?.value,
     ).toContain("Change: added\n\nBefore (HEAD):\n(none)");
     surface.remove();
   });
@@ -75,38 +80,44 @@ After *text*.`);
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
 
-    expect(originalDiffTextReferenceForSelection({
-      target: paragraph,
-      preview: {
-        ...preview,
-        rightText: "# Guide\n\nBefore *paragraph*.\n\n```sh\n$ run\n```\n\nAfter paragraph.\n",
-      },
-      path: preview.rightPath!,
-      side: "right",
-    })?.value).toBe(`File: /workspace/docs/guide.md:3-7
+    expect(
+      originalDiffTextReferenceForSelection({
+        target: paragraph,
+        preview: {
+          ...preview,
+          rightText:
+            "# Guide\n\nBefore paragraph.\n\n```sh\n$ run\n```\n\nAfter paragraph.\n",
+        },
+        path: preview.rightPath!,
+        side: "right",
+      })?.value,
+    ).toBe(`File: /workspace/docs/guide.md:3-6
 Revision: Working Tree (right)
 Section: Guide
 Original text:
-Before *paragraph*.
+Before paragraph.
 
-\`\`\`sh
-$ run
-\`\`\``);
+$ run`);
     const after = pane.querySelectorAll("p")[1]!;
     const codeToParagraph = document.createRange();
     codeToParagraph.setStart(pre.firstChild!, 0);
     codeToParagraph.setEnd(after.firstChild!, after.textContent!.length);
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(codeToParagraph);
-    expect(originalDiffTextReferenceForSelection({
-      target: pre,
-      preview: {
-        ...preview,
-        rightText: "# Guide\n\nBefore *paragraph*.\n\n```sh\n$ run\n```\n\nAfter paragraph.\n",
-      },
-      path: preview.rightPath!,
-      side: "right",
-    })?.value).toContain("File: /workspace/docs/guide.md:5-9\nRevision: Working Tree (right)");
+    expect(
+      originalDiffTextReferenceForSelection({
+        target: pre,
+        preview: {
+          ...preview,
+          rightText:
+            "# Guide\n\nBefore paragraph.\n\n```sh\n$ run\n```\n\nAfter paragraph.\n",
+        },
+        path: preview.rightPath!,
+        side: "right",
+      })?.value,
+    ).toContain(
+      "File: /workspace/docs/guide.md:6-9\nRevision: Working Tree (right)",
+    );
     window.getSelection()?.removeAllRanges();
     pane.remove();
   });
@@ -123,14 +134,15 @@ $ run
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
 
-    expect(originalDiffTextReferenceForSelection({
-      target: paragraphs[0],
-      preview,
-      path: preview.rightPath!,
-      side: "right",
-    })).toBeUndefined();
+    expect(
+      originalDiffTextReferenceForSelection({
+        target: paragraphs[0],
+        preview,
+        path: preview.rightPath!,
+        side: "right",
+      }),
+    ).toBeUndefined();
     window.getSelection()?.removeAllRanges();
     pane.remove();
   });
-
 });

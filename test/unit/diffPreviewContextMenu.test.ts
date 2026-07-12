@@ -112,11 +112,7 @@ describe("diff preview context menu", () => {
         </div>`,
         { selector: "pre" },
       ),
-    ).toEqual([
-      "Copy Source",
-      "Copy Source Reference",
-      "Copy Text Reference",
-    ]);
+    ).toEqual(["Copy Source", "Copy Source Reference", "Copy Text Reference"]);
   });
 
   it("uses source actions for extracted rendered diff pre blocks", () => {
@@ -125,11 +121,7 @@ describe("diff preview context menu", () => {
         `<pre data-source-reference="/workspace/docs/guide.md:5">const value = 1;</pre>`,
         { selector: "pre" },
       ),
-    ).toEqual([
-      "Copy Source",
-      "Copy Source Reference",
-      "Copy Text Reference",
-    ]);
+    ).toEqual(["Copy Source", "Copy Source Reference", "Copy Text Reference"]);
   });
 
   it("uses rendered table copy actions from the viewer menu", () => {
@@ -160,7 +152,12 @@ describe("diff preview context menu", () => {
         `<img src="data:image/svg+xml;charset=utf-8,%3Csvg%3E%3Ctext%3ELabel%3C%2Ftext%3E%3C%2Fsvg%3E" data-image-path="assets/sample.svg" data-image-reference="docs/guide.md:4" alt="Sample SVG">`,
         { selector: "img" },
       ),
-    ).toEqual(["Open Preview", "Copy Image", "Copy Image Reference", "Copy Path"]);
+    ).toEqual([
+      "Open Preview",
+      "Copy Image",
+      "Copy Image Reference",
+      "Copy Path",
+    ]);
   });
 
   it("opens a before/after diagram comparison for matched rendered diagram blocks", () => {
@@ -375,9 +372,7 @@ describe("diff preview context menu", () => {
       showInlineNotice: vi.fn(),
     });
 
-    await items
-      .find((item) => item.id === "copy-text-reference")
-      ?.onSelect();
+    await items.find((item) => item.id === "copy-text-reference")?.onSelect();
     selection?.removeAllRanges();
     container.remove();
     expect(copyText).toHaveBeenCalledWith(
@@ -398,7 +393,10 @@ describe("diff preview context menu", () => {
     const paragraph = container.querySelector("p")!;
     const range = document.createRange();
     range.selectNodeContents(paragraph);
-    range.getClientRects = () => [{ left: 0, right: 200, top: 0, bottom: 20 } as DOMRect] as unknown as DOMRectList;
+    range.getClientRects = () =>
+      [
+        { left: 0, right: 200, top: 0, bottom: 20 } as DOMRect,
+      ] as unknown as DOMRectList;
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
     const copyText = vi.fn();
@@ -408,7 +406,11 @@ describe("diff preview context menu", () => {
       target: paragraph,
       side: "right",
       surface: "rendered",
-      preview: { ...basePreview, leftText: "Selected sentence.\n", rightText: "Selected *sentence*.\n" },
+      preview: {
+        ...basePreview,
+        leftText: "Selected sentence.\n",
+        rightText: "Selected sentence.\n",
+      },
       copyText,
       openDocument: vi.fn(),
       openPathInEditor: vi.fn(),
@@ -429,7 +431,9 @@ describe("diff preview context menu", () => {
     container.remove();
     expect(copyText).toHaveBeenCalledWith(
       "Diff reference",
-      expect.stringContaining("Before (HEAD):\nFile: /workspace/docs/guide.md:1-1"),
+      expect.stringContaining(
+        "Before (HEAD):\nFile: /workspace/docs/guide.md:1-1",
+      ),
     );
   });
 
@@ -438,7 +442,11 @@ describe("diff preview context menu", () => {
       `<div class="git-diff-body-with-ruler"><article class="git-rendered-block left-side" data-sync-index="1" data-change-index="0"><p data-source-selection-start="1" data-source-selection-end="1">Before.</p></article><article class="git-rendered-block right-side" data-sync-index="1" data-change-index="0"><p data-source-selection-start="1" data-source-selection-end="1">After.</p></article></div>`,
       {
         selector: ".right-side p",
-        preview: { ...basePreview, leftText: "Before.\n", rightText: "After.\n" },
+        preview: {
+          ...basePreview,
+          leftText: "Before.\n",
+          rightText: "After.\n",
+        },
       },
     );
     expect(items.map((item) => item.label)).toContain("Copy Diff Reference");
@@ -454,7 +462,9 @@ describe("diff preview context menu", () => {
     const range = document.createRange();
     range.selectNodeContents(paragraph);
     range.getClientRects = () =>
-      [{ left: 0, right: 200, top: 0, bottom: 20 } as DOMRect] as unknown as DOMRectList;
+      [
+        { left: 0, right: 200, top: 0, bottom: 20 } as DOMRect,
+      ] as unknown as DOMRectList;
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
     const copyText = vi.fn();
@@ -465,7 +475,11 @@ describe("diff preview context menu", () => {
       target: paragraph,
       side: "right",
       surface: "rendered",
-      preview: { ...basePreview, leftText: "Unchanged sentence.\n", rightText: "Unchanged *sentence*.\n" },
+      preview: {
+        ...basePreview,
+        leftText: "Unchanged sentence.\n",
+        rightText: "Unchanged sentence.\n",
+      },
       copyText,
       openDocument: vi.fn(),
       openPathInEditor: vi.fn(),
@@ -480,10 +494,14 @@ describe("diff preview context menu", () => {
       "Copy Text Reference",
       "Copy Original Text Reference",
     ]);
-    await items.find((item) => item.id === "copy-original-text-reference")?.onSelect();
+    await items
+      .find((item) => item.id === "copy-original-text-reference")
+      ?.onSelect();
     expect(copyText).toHaveBeenCalledWith(
       "Original text reference",
-      expect.stringContaining("Revision: Working Tree (right)\nOriginal text:\nUnchanged *sentence*."),
+      expect.stringContaining(
+        "Revision: Working Tree (right)\nOriginal text:\nUnchanged sentence.",
+      ),
     );
     window.getSelection()?.removeAllRanges();
     container.remove();

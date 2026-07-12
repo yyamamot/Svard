@@ -24,7 +24,7 @@ export async function buildReaderActionsAssertions(context) {
           (await page.evaluate(() =>
             Boolean(
               window.__SVARD_CAPTURE_AREA_CHECK__?.selectionVisible &&
-                window.__SVARD_CAPTURE_AREA_CHECK__?.referenceActionVisible,
+              window.__SVARD_CAPTURE_AREA_CHECK__?.referenceActionVisible,
             ),
           )) &&
           geometryReviewIds.has("capture-area-overlay") &&
@@ -36,7 +36,9 @@ export async function buildReaderActionsAssertions(context) {
           (await page.evaluate(() =>
             Boolean(
               window.__SVARD_LOCATION_REFERENCE_CHECK__
-                ?.selectionReferenceCopied,
+                ?.selectionReferenceCopied &&
+              window.__SVARD_LOCATION_REFERENCE_CHECK__
+                ?.originalReferenceCopied,
             ),
           )) &&
           geometryReviewIds.has("lightweight-action-feedback")
