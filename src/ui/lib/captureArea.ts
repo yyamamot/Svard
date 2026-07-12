@@ -25,6 +25,7 @@ export interface CaptureAreaRequest {
 export const minimumCaptureAreaSize = 8;
 export const captureAreaFailureNotice =
   "Image could not be copied; clipboard was not changed";
+export const captureAreaImageDecodeTimeoutMs = 3000;
 
 const activeCaptureTargets = new WeakSet<HTMLElement>();
 
@@ -310,6 +311,7 @@ async function captureArticleArea(
   copyScrollOffsets(article, clone);
 
   try {
+    await waitForCaptureImages(contentFrame);
     if (!referenceText) {
       const size = captureAreaImageSize(rect);
       return await rasterizeCaptureFrame(contentFrame, size.width, size.height);
@@ -351,6 +353,92 @@ async function captureArticleArea(
   } finally {
     contentFrame.remove();
   }
+}
+
+export async function waitForCaptureImages(
+  root: HTMLElement,
+  timeoutMs = captureAreaImageDecodeTimeoutMs,
+) {
+  await Promise.all(
+    Array.from(root.querySelectorAll("img")).map((image) =>
+      waitForCaptureImage(image, timeoutMs),
+    ),
+  );
+}
+
+async function waitForCaptureImage(image: HTMLImageElement, timeoutMs: number) {
+  if (!image.complete) {
+    await waitForImageLoad(image, timeoutMs);
+  }
+  if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+    throw new Error("Capture image could not be decoded");
+  }
+  if (typeof image.decode !== "function") {
+    return;
+  }
+  try {
+    await withTimeout(image.decode(), timeoutMs);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "Capture image decode timed out"
+    ) {
+      throw error;
+    }
+    if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+      throw new Error("Capture image could not be decoded", { cause: error });
+    }
+  }
+}
+
+function waitForImageLoad(image: HTMLImageElement, timeoutMs: number) {
+  return new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      image.removeEventListener("load", handleLoad);
+      image.removeEventListener("error", handleError);
+    };
+    const handleLoad = () => {
+      cleanup();
+      resolve();
+    };
+    const handleError = () => {
+      cleanup();
+      reject(new Error("Capture image could not be loaded"));
+    };
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Capture image decode timed out"));
+    }, timeoutMs);
+    image.addEventListener("load", handleLoad, { once: true });
+    image.addEventListener("error", handleError, { once: true });
+    if (image.complete) {
+      if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+        handleLoad();
+      } else {
+        handleError();
+      }
+    }
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(
+      () => reject(new Error("Capture image decode timed out")),
+      timeoutMs,
+    );
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 }
 
 function createCaptureFrame(width: number, height: number, background: string) {

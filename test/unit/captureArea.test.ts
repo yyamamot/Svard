@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   captureAreaBackground,
   captureAreaCompositeLayout,
@@ -9,6 +9,7 @@ import {
   createCaptureAreaReferenceFooter,
   minimumCaptureAreaSize,
   visibleCaptureBounds,
+  waitForCaptureImages,
 } from "../../src/ui/lib/captureArea";
 
 describe("capture area geometry", () => {
@@ -77,6 +78,51 @@ describe("capture area geometry", () => {
 
   it("states that a failed capture leaves the previous clipboard unchanged", () => {
     expect(captureAreaFailureNotice).toContain("clipboard was not changed");
+  });
+
+  it("waits for cloned data images to decode before capture", async () => {
+    const root = document.createElement("div");
+    const image = document.createElement("img");
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalHeight: { configurable: true, value: 80 },
+      naturalWidth: { configurable: true, value: 120 },
+    });
+    let finishDecode: (() => void) | undefined;
+    image.decode = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishDecode = resolve;
+        }),
+    );
+    root.append(image);
+
+    let completed = false;
+    const waiting = waitForCaptureImages(root).then(() => {
+      completed = true;
+    });
+    await Promise.resolve();
+    expect(completed).toBe(false);
+    finishDecode?.();
+    await waiting;
+
+    expect(image.decode).toHaveBeenCalledOnce();
+    expect(completed).toBe(true);
+  });
+
+  it("rejects a cloned image without decoded dimensions", async () => {
+    const root = document.createElement("div");
+    const image = document.createElement("img");
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalHeight: { configurable: true, value: 0 },
+      naturalWidth: { configurable: true, value: 0 },
+    });
+    root.append(image);
+
+    await expect(waitForCaptureImages(root)).rejects.toThrow(
+      "Capture image could not be decoded",
+    );
   });
 
   it("uses the nearest opaque reader surface as the PNG background", () => {

@@ -905,6 +905,65 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
   );
 });
 
+test("viewer Capture Area waits for local images before plain and referenced PNG copy", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.getByText("asciidoc-comprehensive-visual.adoc").click();
+  const image = page.locator('img[data-image-path="assets/svard-sample.svg"]');
+  await expect(image).toBeVisible();
+  await image.evaluate((element) =>
+    element.scrollIntoView({ block: "center", inline: "center" }),
+  );
+  const imageBox = await image.boundingBox();
+  expect(imageBox).not.toBeNull();
+  if (!imageBox) return;
+  const captureBox = imageBox;
+
+  async function capture(variant: "plain" | "reference") {
+    await page.evaluate(async (nextVariant) => {
+      await window.__SVARD_COMMANDS__?.dispatch(
+        nextVariant === "reference"
+          ? "viewer.captureAreaWithReference"
+          : "viewer.captureArea",
+      );
+    }, variant);
+    await expect(page.getByTestId("capture-area-overlay")).toBeVisible();
+    await page.mouse.move(captureBox.x + 4, captureBox.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(
+      captureBox.x + Math.max(12, captureBox.width - 4),
+      captureBox.y + Math.max(12, captureBox.height - 4),
+    );
+    await page.mouse.up();
+    await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+      variant === "reference" ? "Image with reference copied" : "Image copied",
+    );
+    return page.evaluate(async () => {
+      const [item] = await navigator.clipboard.read();
+      const blob = await item?.getType("image/png");
+      const bitmap = blob ? await createImageBitmap(blob) : null;
+      return {
+        height: bitmap?.height ?? 0,
+        types: item?.types ?? [],
+        width: bitmap?.width ?? 0,
+      };
+    });
+  }
+
+  const plain = await capture("plain");
+  expect(plain.types).toContain("image/png");
+  expect(plain.width).toBeGreaterThan(0);
+  expect(plain.height).toBeGreaterThan(0);
+
+  const referenced = await capture("reference");
+  expect(referenced.types).toContain("image/png");
+  expect(referenced.width).toBe(plain.width);
+  expect(referenced.height).toBeGreaterThan(plain.height);
+});
+
 test("viewer Diff Preview Capture Area spans both rendered panes", async ({
   context,
   page,
