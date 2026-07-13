@@ -22,6 +22,7 @@ describe("prepareDocumentHtml image and link hydration", () => {
             status: "resolved",
             mediaType: "image/svg+xml",
             encoding: "utf8",
+            resolvedPath: "/workspace/svard/docs/assets/sample.svg",
             content:
               '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div xmlns="http://www.w3.org/1999/xhtml">Diagram&nbsp;text</div></foreignObject><text>Safe</text></svg>',
           };
@@ -74,6 +75,7 @@ describe("prepareDocumentHtml image and link hydration", () => {
             status: "resolved",
             mediaType: "image/svg+xml",
             encoding: "utf8",
+            resolvedPath: "/workspace/images/article/root.svg",
             content:
               '<svg xmlns="http://www.w3.org/2000/svg"><text>Root image</text></svg>',
           };
@@ -85,6 +87,9 @@ describe("prepareDocumentHtml image and link hydration", () => {
 
     expect(image?.getAttribute("data-image-path")).toBe(
       "/images/article/root.svg",
+    );
+    expect(image?.getAttribute("data-image-resolved-path")).toBe(
+      "/workspace/images/article/root.svg",
     );
     expect(image?.getAttribute("src")).toContain(
       "data:image/svg+xml;charset=utf-8,",

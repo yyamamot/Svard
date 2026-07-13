@@ -106,6 +106,28 @@ export async function buildAsciiDocAssertions({
             )
             .count()) === 0
         : true,
+    hasImageContextMenuSemantics:
+      scenario === "viewer-image-context-menu"
+        ? (await page
+            .locator('[data-review-id="context-menu-item-copy-image"]')
+            .count()) === 1 &&
+          (await page
+            .locator(
+              '[data-review-id="context-menu-item-copy-image-with-reference"]',
+            )
+            .count()) === 1 &&
+          (await page
+            .locator('[data-review-id="context-menu-item-copy-image-path"]')
+            .count()) === 1 &&
+          (await page
+            .locator(
+              '[data-review-id="context-menu-item-copy-image-reference"]',
+            )
+            .count()) === 0 &&
+          (await page
+            .locator('[data-review-id="context-menu-item-copy-path"]')
+            .count()) === 0
+        : true,
     hasAsciiDocProjectContextAssets:
       scenario === "viewer-asciidoc-project-context-assets"
         ? bodyText.includes("Project Context Assets") &&

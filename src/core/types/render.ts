@@ -22,6 +22,7 @@ export interface LocalImageResult {
   content?: string;
   encoding?: "base64" | "utf8";
   placeholderText?: string;
+  resolvedPath?: string;
 }
 
 export interface SourceLocation {

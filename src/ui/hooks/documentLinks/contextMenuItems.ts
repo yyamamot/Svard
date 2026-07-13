@@ -23,7 +23,10 @@ import { isSupportedDocumentHref, menuIcon } from "./shared";
 import { addTableItems } from "./tableActions";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
 
-type CopyImage = (source: HTMLImageElement | SVGElement) => Promise<void>;
+type CopyImage = (
+  source: HTMLImageElement | SVGElement,
+  referenceText?: string,
+) => Promise<void>;
 
 export interface OriginalTextReference {
   value: string;
@@ -297,14 +300,14 @@ export function addImageItems(
     openImagePreview: (image: HTMLImageElement) => void;
     copyImage: CopyImage;
   },
+  referenceText?: string,
 ) {
   const image = target.closest("img") as HTMLImageElement | null;
   if (items.length !== 0 || !image) {
     return;
   }
-  const imageReference =
-    image.getAttribute("data-image-reference") ?? undefined;
-  const imagePath = image.getAttribute("data-image-path") ?? undefined;
+  const imagePath = image.getAttribute("data-image-resolved-path") ?? undefined;
+  const imageUrl = image.getAttribute("data-image-url") ?? undefined;
   items.push({
     id: "open-image-preview",
     label: "Open Preview",
@@ -317,20 +320,27 @@ export function addImageItems(
     icon: menuIcon(Image),
     onSelect: () => actions.copyImage(image),
   });
-  if (imageReference) {
+  if (referenceText) {
     items.push({
-      id: "copy-image-reference",
-      label: "Copy Image Reference",
+      id: "copy-image-with-reference",
+      label: "Copy Image with Reference",
       icon: menuIcon(Image),
-      onSelect: () => actions.copyText("Image reference", imageReference),
+      onSelect: () => actions.copyImage(image, referenceText),
     });
   }
   if (imagePath) {
     items.push({
-      id: "copy-path",
-      label: "Copy Path",
+      id: "copy-image-path",
+      label: "Copy Image Path",
       icon: menuIcon(Copy),
-      onSelect: () => actions.copyText("Path", imagePath),
+      onSelect: () => actions.copyText("Image path", imagePath),
+    });
+  } else if (imageUrl) {
+    items.push({
+      id: "copy-image-url",
+      label: "Copy Image URL",
+      icon: menuIcon(Copy),
+      onSelect: () => actions.copyText("Image URL", imageUrl),
     });
   }
 }

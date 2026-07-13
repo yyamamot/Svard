@@ -513,7 +513,10 @@ export async function prepareDocumentHtml(
     elements.forEach((element, index) => {
       const block = blocks[index];
       element.setAttribute("data-source-selection-block-id", block.id);
-      element.setAttribute("data-source-selection-start", String(block.startLine));
+      element.setAttribute(
+        "data-source-selection-start",
+        String(block.startLine),
+      );
       element.setAttribute("data-source-selection-end", String(block.endLine));
       if (block.sourceLocation?.sourcePath) {
         element.setAttribute(
@@ -530,7 +533,12 @@ export async function prepareDocumentHtml(
     const id = frame.getAttribute("data-source-selection-block-id");
     const pre = frame.querySelector("pre");
     if (!id || !pre) return;
-    ["data-source-selection-block-id", "data-source-selection-start", "data-source-selection-end", "data-source-selection-source-path"].forEach((name) => {
+    [
+      "data-source-selection-block-id",
+      "data-source-selection-start",
+      "data-source-selection-end",
+      "data-source-selection-source-path",
+    ].forEach((name) => {
       const value = frame.getAttribute(name);
       if (value) pre.setAttribute(name, value);
     });
@@ -649,9 +657,18 @@ export async function prepareDocumentHtml(
           mediaType === "image/svg+xml" ? ";charset=utf-8," : ";base64,";
         image.setAttribute("src", `data:${mediaType}${encoding}${data}`);
         image.setAttribute("data-image-path", resolvedImage.source);
+        if (backendResult.resolvedPath) {
+          image.setAttribute(
+            "data-image-resolved-path",
+            backendResult.resolvedPath,
+          );
+        }
       } else {
         image.setAttribute("src", resolvedImage.src);
         image.setAttribute("data-image-path", source);
+        if (isExternalUrl(source)) {
+          image.setAttribute("data-image-url", source);
+        }
       }
       image.setAttribute("data-image-reference", sourceReference(document));
     }

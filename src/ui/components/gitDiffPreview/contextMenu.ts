@@ -6,7 +6,11 @@ import {
   locationReferenceTargetLabel,
 } from "../../lib/locationReference";
 import { isExternalUrl } from "../../lib/path";
-import { copyImageToClipboard } from "../../lib/imageClipboard";
+import {
+  copyImageToClipboard,
+  copyImageWithReferenceToClipboard,
+} from "../../lib/imageClipboard";
+import { imageReferenceForElement } from "../../lib/imageReference";
 import {
   diffReferenceForTarget,
   originalDiffTextReferenceForSelection,
@@ -175,7 +179,7 @@ export function diffPreviewContextMenuItems({
             preview,
             leftPath: diffPreviewDocumentPath(preview, "left"),
             rightPath: diffPreviewDocumentPath(preview, "right"),
-        })
+          })
         : undefined,
       surface === "rendered"
         ? originalDiffTextReferenceForSelection({
@@ -258,10 +262,18 @@ function addRenderedSurfaceItems(
     allowLocationReference: boolean;
   },
 ) {
-  const copyImage = async (source: HTMLImageElement | SVGElement) => {
+  const copyImage = async (
+    source: HTMLImageElement | SVGElement,
+    referenceText?: string,
+  ) => {
     try {
-      await copyImageToClipboard(source);
-      showInlineNotice("Image copied", { tone: "success" });
+      if (referenceText && source instanceof HTMLImageElement) {
+        await copyImageWithReferenceToClipboard(source, referenceText);
+        showInlineNotice("Image with reference copied", { tone: "success" });
+      } else {
+        await copyImageToClipboard(source);
+        showInlineNotice("Image copied", { tone: "success" });
+      }
     } catch {
       showInlineNotice("Image could not be copied", { tone: "warning" });
     }
@@ -292,9 +304,9 @@ function addRenderedSurfaceItems(
         svg,
         documentPath,
         sourceReference:
-          svg.closest<HTMLElement>(".diagram-inline-image")?.getAttribute(
-            "data-source-reference",
-          ) ?? undefined,
+          svg
+            .closest<HTMLElement>(".diagram-inline-image")
+            ?.getAttribute("data-source-reference") ?? undefined,
         showInlineNotice,
       }),
     copyImage,
@@ -327,16 +339,30 @@ function addRenderedSurfaceItems(
       showInlineNotice,
     });
   }
-  addImageItems(items, target, {
-    copyText,
-    openImagePreview: (image) =>
-      openDiffImagePreview({
-        image,
-        onOpenDiagramPreview,
-        showInlineNotice,
-      }),
-    copyImage,
-  });
+  const image = target.closest<HTMLImageElement>("img");
+  addImageItems(
+    items,
+    target,
+    {
+      copyText,
+      openImagePreview: (image) =>
+        openDiffImagePreview({
+          image,
+          onOpenDiagramPreview,
+          showInlineNotice,
+        }),
+      copyImage,
+    },
+    image
+      ? imageReferenceForElement(image, {
+          documentPath,
+          revision: {
+            label: side === "left" ? preview.leftLabel : preview.rightLabel,
+            side,
+          },
+        })
+      : undefined,
+  );
   addHeadingItems(items, target, documentPayload, copyText);
   const diffReference = diffReferenceForTarget({
     target,

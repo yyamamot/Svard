@@ -10,7 +10,8 @@ use crate::backend_types::{AsciiDocRenderContext, DocumentResourceContext};
 use crate::document_io::build_document_resource_context;
 use crate::git_diff::{git_resource_bytes, GitDiffResourceSource};
 use crate::path_policy::{
-    antora_module_root_for_page, ensure_path_allowed, normalize_path, resolve_existing_file_path,
+    antora_module_root_for_page, ensure_path_allowed, normalize_path, path_to_ui_string,
+    resolve_existing_file_path,
 };
 
 pub(crate) const LOCAL_IMAGE_MAX_BYTES: u64 = 5 * 1024 * 1024;
@@ -100,7 +101,7 @@ pub(crate) fn resolve_local_image_from_path_with_local_context(
         Ok(bytes) => bytes,
         Err(_) => return Ok(blocked_local_image("Local image is not available.")),
     };
-    resolved_local_image_from_bytes(bytes, media_type)
+    resolved_local_image_from_bytes(bytes, media_type, &image_path)
 }
 
 pub(crate) fn resolve_git_diff_local_image_from_source(
@@ -147,7 +148,7 @@ pub(crate) fn resolve_git_diff_local_image_from_source(
         if bytes.len() as u64 > LOCAL_IMAGE_MAX_BYTES {
             return Ok(blocked_local_image("Local image is too large."));
         }
-        return resolved_local_image_from_bytes(bytes, media_type);
+        return resolved_local_image_from_bytes(bytes, media_type, &candidate);
     }
     Ok(blocked_local_image("Local image is not available."))
 }
@@ -155,6 +156,7 @@ pub(crate) fn resolve_git_diff_local_image_from_source(
 fn resolved_local_image_from_bytes(
     bytes: Vec<u8>,
     media_type: &str,
+    resolved_path: &Path,
 ) -> Result<LocalImageResult, String> {
     let (content, encoding) = if media_type == "image/svg+xml" {
         match String::from_utf8(bytes) {
@@ -171,6 +173,7 @@ fn resolved_local_image_from_bytes(
         content: Some(content),
         encoding: Some(encoding.to_string()),
         placeholder_text: None,
+        resolved_path: Some(path_to_ui_string(resolved_path)),
     })
 }
 
@@ -528,6 +531,7 @@ pub(crate) fn blocked_local_image(message: &str) -> LocalImageResult {
         content: None,
         encoding: None,
         placeholder_text: Some(message.to_string()),
+        resolved_path: None,
     }
 }
 

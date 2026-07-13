@@ -104,6 +104,7 @@ export async function applyAsciiDocScenario(context) {
   } else if (
     scenario === "viewer-cross-platform-local-assets" ||
     scenario === "viewer-image-svg-preview-selectable-text" ||
+    scenario === "viewer-image-context-menu" ||
     scenario === "viewer-image-lightbox"
   ) {
     await page.locator("text=cross-platform-local-assets.adoc").click();
@@ -116,7 +117,17 @@ export async function applyAsciiDocScenario(context) {
       .waitFor();
     const image = page.locator('img[src^="data:image/svg+xml"]').first();
     await image.waitFor();
-    if (scenario === "viewer-image-lightbox") {
+    if (scenario === "viewer-image-context-menu") {
+      await image.click({ button: "right", force: true });
+      await page
+        .locator(
+          '[data-review-id="context-menu-item-copy-image-with-reference"]',
+        )
+        .waitFor();
+      await page
+        .locator('[data-review-id="context-menu-item-copy-image-path"]')
+        .waitFor();
+    } else if (scenario === "viewer-image-lightbox") {
       await image.dblclick({ force: true });
       await page.locator('[data-review-id="diagram-preview-panel"]').waitFor();
       await page

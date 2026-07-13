@@ -19,6 +19,7 @@ export async function buildGitDiffNavigationAssertions(context) {
   const scenario = context.scenario;
   const page = context.page;
   const bodyText = context.bodyText;
+  const geometryReviewIds = context.geometryReviewIds;
 
   return {
     hasDiffPreviewExpand:
@@ -401,6 +402,14 @@ export async function buildGitDiffNavigationAssertions(context) {
               left.src !== right.src,
             );
           }))
+        : true,
+    hasDiffImageReferenceContextMenu:
+      scenario === "viewer-diff-same-path-image-revision"
+        ? geometryReviewIds.has(
+            "context-menu-item-copy-image-with-reference",
+          ) &&
+          geometryReviewIds.has("context-menu-item-copy-image-path") &&
+          !geometryReviewIds.has("context-menu-item-copy-image-reference")
         : true,
     hasDiffImagePreview:
       scenario === "viewer-diff-image-preview"

@@ -51,6 +51,22 @@ export async function applyGitDiffRichPreviewScenario(context) {
       await page
         .locator('[data-review-id="image-svg-preview-content"] svg')
         .waitFor();
+    } else if (scenario === "viewer-diff-same-path-image-revision") {
+      await page
+        .locator(
+          '[data-review-id="git-full-preview-diff"] img[alt="Revision-specific local SVG"]:visible',
+        )
+        .last()
+        .click({ button: "right", force: true });
+      await page.locator('[data-review-id="context-menu"]').waitFor();
+      await page
+        .locator(
+          '[data-review-id="context-menu-item-copy-image-with-reference"]',
+        )
+        .waitFor();
+      await page
+        .locator('[data-review-id="context-menu-item-copy-image-path"]')
+        .waitFor();
     }
   } else if (
     scenario === "viewer-diff-diagram-rendered-preview" ||

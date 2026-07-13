@@ -1,5 +1,9 @@
 import { toBlob } from "html-to-image";
-import { copyPngToClipboard, imageClipboardSize } from "./imageClipboard";
+import {
+  copyPngToClipboard,
+  imageClipboardSize,
+  imageReferenceCompositeLayout,
+} from "./imageClipboard";
 import {
   sectionLabelForElement,
   sectionLabelForRange,
@@ -74,24 +78,11 @@ export function captureAreaCompositeLayout(
   footerHeight: number,
   pixelRatio = window.devicePixelRatio || 1,
 ) {
-  const totalHeight = rect.height + footerHeight;
-  const size = captureAreaImageSize(
-    { width: rect.width, height: totalHeight },
-    pixelRatio,
+  return imageReferenceCompositeLayout(
+    rect.width * pixelRatio,
+    rect.height * pixelRatio,
+    footerHeight * pixelRatio,
   );
-  const contentHeight = Math.max(
-    1,
-    Math.min(
-      size.height - 1,
-      Math.round((size.height * rect.height) / totalHeight),
-    ),
-  );
-  return {
-    width: size.width,
-    height: size.height,
-    contentHeight,
-    footerHeight: size.height - contentHeight,
-  };
 }
 
 export function copyCaptureAreaToClipboard(

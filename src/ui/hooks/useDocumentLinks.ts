@@ -15,7 +15,10 @@ import { createDiagramActions } from "./documentLinks/diagramActions";
 import { createNavigationActions } from "./documentLinks/navigation";
 import { createArticleDoubleClickHandler } from "./documentLinks/previewDoubleClick";
 import type { UseDocumentLinksOptions } from "./documentLinks/types";
-import { copyImageToClipboard } from "../lib/imageClipboard";
+import {
+  copyImageToClipboard,
+  copyImageWithReferenceToClipboard,
+} from "../lib/imageClipboard";
 import {
   captureAreaFailureNotice,
   captureAreaReferenceForRect,
@@ -107,10 +110,18 @@ export function useDocumentLinks({
     }
   }
 
-  async function copyImage(source: HTMLImageElement | SVGElement) {
+  async function copyImage(
+    source: HTMLImageElement | SVGElement,
+    referenceText?: string,
+  ) {
     try {
-      await copyImageToClipboard(source);
-      showLightweightActionFeedback("Image copied");
+      if (referenceText && source instanceof HTMLImageElement) {
+        await copyImageWithReferenceToClipboard(source, referenceText);
+        showLightweightActionFeedback("Image with reference copied");
+      } else {
+        await copyImageToClipboard(source);
+        showLightweightActionFeedback("Image copied");
+      }
     } catch {
       showInlineNotice("Image could not be copied", { tone: "warning" });
     }

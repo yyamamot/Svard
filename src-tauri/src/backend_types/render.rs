@@ -110,4 +110,6 @@ pub struct LocalImageResult {
     pub content: Option<String>,
     pub encoding: Option<String>,
     pub placeholder_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_path: Option<String>,
 }

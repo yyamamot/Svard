@@ -149,15 +149,38 @@ describe("diff preview context menu", () => {
   it("offers image preview actions in rendered panes", () => {
     expect(
       menuLabelsFor(
-        `<img src="data:image/svg+xml;charset=utf-8,%3Csvg%3E%3Ctext%3ELabel%3C%2Ftext%3E%3C%2Fsvg%3E" data-image-path="assets/sample.svg" data-image-reference="docs/guide.md:4" alt="Sample SVG">`,
+        `<p data-source-selection-start="4" data-source-selection-end="4"><img src="data:image/svg+xml;charset=utf-8,%3Csvg%3E%3Ctext%3ELabel%3C%2Ftext%3E%3C%2Fsvg%3E" data-image-path="assets/sample.svg" data-image-resolved-path="/workspace/assets/sample.svg" data-image-reference="/workspace/docs/guide.md" alt="Sample SVG"></p>`,
         { selector: "img" },
       ),
     ).toEqual([
       "Open Preview",
       "Copy Image",
-      "Copy Image Reference",
-      "Copy Path",
+      "Copy Image with Reference",
+      "Copy Image Path",
     ]);
+  });
+
+  it("uses URL terminology for displayed external images", () => {
+    expect(
+      menuLabelsFor(
+        `<img src="https://example.test/image.png" data-image-path="https://example.test/image.png" data-image-url="https://example.test/image.png" data-image-reference="/workspace/docs/guide.md" alt="Remote image">`,
+        { selector: "img" },
+      ),
+    ).toEqual([
+      "Open Preview",
+      "Copy Image",
+      "Copy Image with Reference",
+      "Copy Image URL",
+    ]);
+  });
+
+  it("does not offer a path or URL action for inline data images", () => {
+    expect(
+      menuLabelsFor(
+        `<img src="data:image/png;base64,AA==" data-image-reference="/workspace/docs/guide.md" alt="Inline image">`,
+        { selector: "img" },
+      ),
+    ).toEqual(["Open Preview", "Copy Image", "Copy Image with Reference"]);
   });
 
   it("opens a before/after diagram comparison for matched rendered diagram blocks", () => {

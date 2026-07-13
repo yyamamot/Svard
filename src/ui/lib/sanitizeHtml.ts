@@ -39,6 +39,8 @@ const viewerMetadataAttributes = [
   "data-source-collapse-toggle",
   "data-image-reference",
   "data-image-path",
+  "data-image-resolved-path",
+  "data-image-url",
   "data-diagram-id",
   "data-diagram-type",
   "data-diagram-renderer",

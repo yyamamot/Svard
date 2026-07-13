@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   copyPngToClipboard,
   imageClipboardSize,
+  imageReferenceCompositeLayout,
+  imageReferencePixelDensity,
+  wrapReferenceText,
 } from "../../src/ui/lib/imageClipboard";
 
 describe("image clipboard sizing", () => {
@@ -19,8 +22,45 @@ describe("image clipboard sizing", () => {
     });
   });
 
+  it("uses Retina density without exceeding the source resolution", () => {
+    expect(imageReferencePixelDensity(2000, 1000, 2)).toBe(2);
+    expect(imageReferencePixelDensity(1000, 1000, 2)).toBe(1);
+  });
+
+  it("keeps content and footer inside the 4096px image limit", () => {
+    expect(imageReferenceCompositeLayout(4096, 2048, 256)).toEqual({
+      width: 4096,
+      height: 2304,
+      contentHeight: 2048,
+      footerHeight: 256,
+    });
+    expect(imageReferenceCompositeLayout(8192, 4096, 512)).toEqual({
+      width: 4096,
+      height: 2304,
+      contentHeight: 2048,
+      footerHeight: 256,
+    });
+  });
+
   it("rejects images without usable dimensions", () => {
     expect(() => imageClipboardSize(0, 100)).toThrow("usable dimensions");
+  });
+
+  it("wraps long reference paths without dropping characters", () => {
+    const lines = wrapReferenceText(
+      "Image: /workspace/a-very-long-image-name.png\nFile: /workspace/doc.md:8",
+      12,
+      (value) => value.length,
+    );
+    expect(lines).toEqual([
+      "Image: /work",
+      "space/a-very",
+      "-long-image-",
+      "name.png",
+      "File: /works",
+      "pace/doc.md:",
+      "8",
+    ]);
   });
 
   it("starts a PNG clipboard write with an unresolved blob", async () => {

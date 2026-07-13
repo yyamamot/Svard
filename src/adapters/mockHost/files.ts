@@ -437,6 +437,7 @@ export async function resolveLocalImage(
       status: "resolved",
       mediaType: "image/svg+xml",
       encoding: "utf8",
+      resolvedPath: path,
       content:
         fixtureSource ??
         (path === "/workspace/docs/assets/diff-oversized-image.svg"
@@ -449,6 +450,7 @@ export async function resolveLocalImage(
       status: "resolved",
       mediaType: "image/png",
       encoding: "base64",
+      resolvedPath: path,
       content:
         "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAWUlEQVR4nO3PAQ3AMAwAsVJ/aZ+gIFcPGZC6b84vAAAAAAAAAAAAAAAAAAAAAIAb9gW9z4z9twMAAAAAAAAAAAAAAAAAAAAAAIC7AOIEAAGdF9g2AAAAAElFTkSuQmCC",
     };
@@ -468,11 +470,15 @@ export async function resolveGitDiffLocalImage(input: {
 }): Promise<LocalImageResult> {
   if (input.source.endsWith("diff-same-path-image.svg")) {
     const side = input.resourceSource.kind === "worktree" ? "right" : "left";
+    const resolvedPath = normalizeMockPath(
+      `${input.repositoryRoot}/${input.source.replace(/^\/+/, "")}`,
+    );
     return {
       status: "resolved",
       mediaType: "image/svg+xml",
       content: `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="80"><rect width="160" height="80" fill="${side === "left" ? "#b42318" : "#067647"}"/><text x="16" y="46" fill="white">${side}</text></svg>`,
       encoding: "utf8",
+      resolvedPath,
     };
   }
   return resolveLocalImage(input.source, input.documentPath, input.context);

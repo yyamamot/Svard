@@ -6,6 +6,7 @@ import {
   locationReferenceForSelection,
   locationReferenceTargetLabel,
 } from "../../lib/locationReference";
+import { imageReferenceForElement } from "../../lib/imageReference";
 import {
   originalTextReferenceForSelection,
   sourceReferenceForSelection,
@@ -68,7 +69,10 @@ export function createArticleContextMenuHandler({
   openImagePreview: (image: HTMLImageElement) => void;
   saveDiagramSvg: (svg: SVGElement) => Promise<void>;
   copyText: CopyText;
-  copyImage: (source: HTMLImageElement | SVGElement) => Promise<void>;
+  copyImage: (
+    source: HTMLImageElement | SVGElement,
+    referenceText?: string,
+  ) => Promise<void>;
   onBeginCaptureArea: (variant?: "plain" | "reference") => void;
 }) {
   return function handleArticleContextMenu(event: MouseEvent<HTMLElement>) {
@@ -141,7 +145,17 @@ export function createArticleContextMenuHandler({
         resolveDocumentLink,
         showInlineNotice,
       });
-      addImageItems(items, target, { copyText, openImagePreview, copyImage });
+      const image = target.closest<HTMLImageElement>("img");
+      addImageItems(
+        items,
+        target,
+        { copyText, openImagePreview, copyImage },
+        image
+          ? imageReferenceForElement(image, {
+              documentPath: documentPayload?.path,
+            })
+          : undefined,
+      );
       addHeadingItems(items, target, documentPayload, copyText, {
         renderResult,
         includeSectionCopy: true,
@@ -162,16 +176,12 @@ export function createArticleContextMenuHandler({
       // Keep document actions at the top of the body-background menu. Capture
       // Area starts a separate interaction, so it belongs in its own trailing
       // group rather than displacing the usual document actions.
-      addDocumentItems(
-        items,
-        documentPayload,
-        {
-          copyText,
-          onCompareGitRef,
-          onShowGitDiff,
-          openPathInEditor,
-        },
-      );
+      addDocumentItems(items, documentPayload, {
+        copyText,
+        onCompareGitRef,
+        onShowGitDiff,
+        openPathInEditor,
+      });
       if (documentPayload && isDocumentBackground) {
         addCaptureAreaItem(
           items,
