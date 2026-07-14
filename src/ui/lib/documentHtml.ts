@@ -565,10 +565,17 @@ export async function prepareDocumentHtml(
         ),
     );
     tableCount = tables.length;
+    const tableSourceScanStartedAt = perfNow();
     const tableLines =
       document.format === "markdown" && tables.length === 0
         ? []
         : tableSourceLines(document.source, document.format);
+    tracePerf("render.prepareDocumentHtml.tableSourceScan", {
+      basename,
+      format: document.format,
+      count: tableLines.length,
+      durationMs: perfDuration(tableSourceScanStartedAt),
+    });
     tableLineCount = tableLines.length;
     tables.forEach((table, index) => {
       const sourceLine = tableLines[index];
@@ -583,6 +590,15 @@ export async function prepareDocumentHtml(
       if (document.format === "markdown") {
         wrapMarkdownTable(doc, table);
       }
+    });
+  }
+  if (!shouldProcessTables) {
+    tracePerf("render.prepareDocumentHtml.tableSourceScan", {
+      basename,
+      format: document.format,
+      count: 0,
+      skipped: true,
+      durationMs: 0,
     });
   }
   tracePerf("render.prepareDocumentHtml.tables", {

@@ -371,6 +371,7 @@ describe("prepareDocumentHtml", () => {
 
       for (const eventName of [
         "render.prepareDocumentHtml.sourceBlocks",
+        "render.prepareDocumentHtml.tableSourceScan",
         "render.prepareDocumentHtml.tables",
         "render.prepareDocumentHtml.images",
         "render.prepareDocumentHtml.links",

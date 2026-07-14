@@ -1,3 +1,9 @@
+import {
+  asciiDocWorkerPhaseCountKeys,
+  asciiDocWorkerPhaseDurationKeys,
+  type AsciiDocWorkerPhaseMetrics,
+} from "./renderWorkerMetrics";
+
 export const defaultRenderWorkerTimeoutMs = 30000;
 
 export interface RenderWorkerRequest<Payload> {
@@ -11,6 +17,7 @@ export interface RenderWorkerDiagnosticMetrics {
   renderStartDeltaMs: number;
   responsePostDeltaMs: number;
   workerReceivedAtMs: number;
+  asciidocPhases?: AsciiDocWorkerPhaseMetrics;
 }
 
 export interface RenderWorkerSuccess<Result> {
@@ -59,6 +66,8 @@ interface QueuedRequest<Payload, Result> {
   resolve: (result: Result) => void;
   reject: (error: Error) => void;
   abortListener?: () => void;
+  diagnostic: boolean;
+  enqueuedAt?: number;
 }
 
 interface ActiveRequest<Payload, Result> extends QueuedRequest<
@@ -105,8 +114,11 @@ export class RenderWorkerPool<Payload, Result> {
     }
 
     const requestId = `${this.label}-${++this.nextRequestNumber}`;
+    const diagnostic = perfDiagnosticEnabled();
     return new Promise((resolve, reject) => {
       const request: QueuedRequest<Payload, Result> = {
+        diagnostic,
+        ...(diagnostic ? { enqueuedAt: perfNow() } : {}),
         requestId,
         payload,
         timeoutMs: options.timeoutMs ?? this.timeoutMs,
@@ -205,9 +217,17 @@ export class RenderWorkerPool<Payload, Result> {
       queueDepth,
       reusedWorker,
     });
+    if (typeof request.enqueuedAt === "number") {
+      traceWorkerPoolDiagnosticPerf("render.workerPool.queueWait", {
+        durationMs: perfDuration(request.enqueuedAt),
+        label: this.label,
+        queueDepth,
+        reusedWorker,
+      });
+    }
     try {
       worker.postMessage({
-        diagnostic: perfDiagnosticEnabled(),
+        diagnostic: request.diagnostic,
         requestId: request.requestId,
         payload: request.payload,
       } satisfies RenderWorkerRequest<Payload>);
@@ -421,12 +441,45 @@ function parseWorkerDiagnosticMetrics(
   ) {
     return undefined;
   }
+  const asciidocPhases = parseAsciiDocWorkerPhaseMetrics(
+    candidate.asciidocPhases,
+  );
   return {
     renderCoreMs: candidate.renderCoreMs,
     renderStartDeltaMs: candidate.renderStartDeltaMs,
     responsePostDeltaMs: candidate.responsePostDeltaMs,
     workerReceivedAtMs: candidate.workerReceivedAtMs,
+    ...(asciidocPhases ? { asciidocPhases } : {}),
   };
+}
+
+function parseAsciiDocWorkerPhaseMetrics(
+  metrics: unknown,
+): AsciiDocWorkerPhaseMetrics | undefined {
+  if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
+    return undefined;
+  }
+  const candidate = metrics as Record<string, unknown>;
+  const parsed: Partial<AsciiDocWorkerPhaseMetrics> = {};
+  for (const key of asciiDocWorkerPhaseDurationKeys) {
+    const value = candidate[key];
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      return undefined;
+    }
+    parsed[key] = value;
+  }
+  for (const key of asciiDocWorkerPhaseCountKeys) {
+    const value = candidate[key];
+    if (
+      typeof value !== "number" ||
+      !Number.isSafeInteger(value) ||
+      value < 0
+    ) {
+      return undefined;
+    }
+    parsed[key] = value;
+  }
+  return parsed as AsciiDocWorkerPhaseMetrics;
 }
 
 function createAbortError(message: string): Error {
@@ -512,4 +565,10 @@ function traceWorkerMetrics(
     responsePostDeltaMs: metrics.responsePostDeltaMs,
     workerReceivedAtMs: metrics.workerReceivedAtMs,
   });
+  if (metrics.asciidocPhases) {
+    traceWorkerPoolDiagnosticPerf("render.asciidoc.workerPhases", {
+      label,
+      ...metrics.asciidocPhases,
+    });
+  }
 }

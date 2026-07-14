@@ -6,6 +6,10 @@ import {
   type RenderWorkerRequest,
   type RenderWorkerResponse,
 } from "../../src/core/renderWorkerPool";
+import {
+  asciiDocWorkerPhaseCountKeys,
+  asciiDocWorkerPhaseDurationKeys,
+} from "../../src/core/renderWorkerMetrics";
 
 class FakeRenderWorker implements RenderWorkerLike {
   static instances: FakeRenderWorker[] = [];
@@ -312,6 +316,118 @@ describe("RenderWorkerPool", () => {
       expect(JSON.stringify(events)).not.toContain("private diagnostic source");
       expect(JSON.stringify(events)).not.toContain("private diagnostic result");
       expect(JSON.stringify(events)).not.toContain("result");
+    } finally {
+      console.info = originalConsoleInfo;
+      Object.defineProperty(globalThis, "localStorage", {
+        configurable: true,
+        value: originalLocalStorage,
+      });
+    }
+  });
+
+  it("allowlists AsciiDoc phase metrics and reports queue wait", async () => {
+    const originalLocalStorage = globalThis.localStorage;
+    const originalConsoleInfo = console.info;
+    const events: unknown[] = [];
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: { getItem: () => "1" },
+    });
+    console.info = vi.fn((label: string, payload: unknown) => {
+      if (label === "[perf]") events.push(payload);
+    });
+
+    try {
+      const pool = createPool(1);
+      const rendered = pool.render("private AsciiDoc source");
+      const worker = FakeRenderWorker.instances[0];
+      const phaseMetrics = Object.fromEntries([
+        ...asciiDocWorkerPhaseDurationKeys.map((key) => [key, 1.25]),
+        ...asciiDocWorkerPhaseCountKeys.map((key) => [key, 2]),
+        ["privatePath", "/private/workspace/doc.adoc"],
+      ]);
+      worker.respondWithPayload({
+        requestId: worker.messages[0].requestId,
+        ok: true,
+        result: "private result",
+        metrics: {
+          renderCoreMs: 2,
+          renderStartDeltaMs: 0,
+          responsePostDeltaMs: 2,
+          workerReceivedAtMs: 0,
+          asciidocPhases: phaseMetrics,
+        },
+      });
+      await expect(rendered).resolves.toBe("private result");
+
+      expect(events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event: "render.workerPool.queueWait",
+            label: "test",
+          }),
+          expect.objectContaining({
+            event: "render.asciidoc.workerPhases",
+            totalMs: 1.25,
+            sourceAnalysisPasses: 2,
+          }),
+        ]),
+      );
+      expect(JSON.stringify(events)).not.toContain("privatePath");
+      expect(JSON.stringify(events)).not.toContain("/private/workspace");
+      expect(JSON.stringify(events)).not.toContain("private AsciiDoc source");
+    } finally {
+      console.info = originalConsoleInfo;
+      Object.defineProperty(globalThis, "localStorage", {
+        configurable: true,
+        value: originalLocalStorage,
+      });
+    }
+  });
+
+  it("drops malformed AsciiDoc phase metrics without rejecting the render", async () => {
+    const originalLocalStorage = globalThis.localStorage;
+    const originalConsoleInfo = console.info;
+    const events: unknown[] = [];
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: { getItem: () => "1" },
+    });
+    console.info = vi.fn((label: string, payload: unknown) => {
+      if (label === "[perf]") events.push(payload);
+    });
+
+    try {
+      const pool = createPool();
+      const rendered = pool.render("private source");
+      const worker = FakeRenderWorker.instances[0];
+      worker.respondWithPayload({
+        requestId: worker.messages[0].requestId,
+        ok: true,
+        result: "rendered",
+        metrics: {
+          renderCoreMs: 2,
+          renderStartDeltaMs: 0,
+          responsePostDeltaMs: 2,
+          workerReceivedAtMs: 0,
+          asciidocPhases: { totalMs: Number.NaN },
+        },
+      });
+      await expect(rendered).resolves.toBe("rendered");
+      expect(
+        events.some(
+          (event) =>
+            (event as { event?: string }).event ===
+            "render.asciidoc.workerPhases",
+        ),
+      ).toBe(false);
+      expect(
+        events.some(
+          (event) =>
+            (event as { event?: string }).event ===
+            "render.workerPool.workerMetrics",
+        ),
+      ).toBe(true);
     } finally {
       console.info = originalConsoleInfo;
       Object.defineProperty(globalThis, "localStorage", {

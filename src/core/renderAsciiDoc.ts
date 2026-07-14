@@ -3,17 +3,11 @@ import type {
   AsciiDocRenderContext,
   RenderResult,
 } from "./types";
+import type { AsciiDocRenderPayload } from "./renderAsciiDocCore";
 import {
   RenderWorkerPool,
   type RenderRequestOptions,
 } from "./renderWorkerPool";
-
-interface AsciiDocRenderPayload {
-  source: string;
-  path?: string;
-  includeFiles: AsciiDocIncludeFile[];
-  asciidocContext?: AsciiDocRenderContext | null;
-}
 
 const asciidocRenderWorkerPool = new RenderWorkerPool<
   AsciiDocRenderPayload,
