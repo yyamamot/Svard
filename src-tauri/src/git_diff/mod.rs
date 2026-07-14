@@ -20,6 +20,10 @@ mod tests;
 #[cfg(test)]
 mod tests_history;
 #[cfg(test)]
+mod tests_line_diff_oracle;
+#[cfg(test)]
+mod tests_line_diff_probe;
+#[cfg(test)]
 mod tests_support;
 
 pub use changes::{git_branch_diff_for_path, git_changes_for_path};
