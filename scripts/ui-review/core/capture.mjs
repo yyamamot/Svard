@@ -15,6 +15,15 @@ export const WORKSPACE_BOOT_BENCHMARK_PROFILES = Object.freeze([
   "normal",
   "stress",
 ]);
+export const DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO =
+  "viewer-render-cache-tab-revisit";
+export const DOCUMENT_RENDER_CACHE_BENCHMARK_PHASES = Object.freeze([
+  "cold-a",
+  "cold-b",
+  "revisit-a",
+  "theme-a",
+  "reload-a",
+]);
 
 export function buildWorkspaceBootBenchmarkUrl(baseURL, profile = "stress") {
   if (!WORKSPACE_BOOT_BENCHMARK_PROFILES.includes(profile)) {
@@ -221,6 +230,200 @@ export async function installWorkspaceBootBenchmarkCollector(page) {
   );
 }
 
+export function buildDocumentRenderCacheBenchmarkUrl(baseURL) {
+  const url = new URL(baseURL);
+  url.searchParams.set("scenario", DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO);
+  return url.toString();
+}
+
+export async function installDocumentRenderCacheBenchmarkCollector(page) {
+  await page.addInitScript(
+    ({ allowedPhases, scenarioId }) => {
+      localStorage.setItem("SVARD_PERF_TRACE", "1");
+      const emptyPhase = () => ({
+        durationMs: 0,
+        coreProducerCount: 0,
+        prepareProducerCount: 0,
+        articleCommitCount: 0,
+        cacheEventCount: 0,
+        cacheHitCount: 0,
+        cacheMissCount: 0,
+        inFlightCount: 0,
+        inFlightActiveCountFinal: 0,
+        inFlightSnapshotCount: 0,
+        coreHitCount: 0,
+        preparedHitCount: 0,
+        admissionEstimatedBytesMax: 0,
+        residentBytesMax: 0,
+        entryCountMax: 0,
+        evictionCount: 0,
+      });
+      const benchmark = {
+        schemaVersion: 2,
+        scenarioId,
+        status: "pending",
+        phases: {},
+      };
+      let currentPhase = null;
+      let currentStartedAt = 0;
+      let currentMetrics = null;
+      window.__SVARD_DOCUMENT_RENDER_CACHE_BENCHMARK__ = benchmark;
+
+      const fail = (reason) => {
+        benchmark.status = "failed";
+        benchmark.reason = reason;
+        currentPhase = null;
+        currentMetrics = null;
+      };
+      window.__SVARD_DOCUMENT_RENDER_CACHE_BENCHMARK_BEGIN__ = (phase) => {
+        if (
+          benchmark.status !== "pending" ||
+          currentPhase !== null ||
+          !allowedPhases.includes(phase) ||
+          benchmark.phases[phase]
+        ) {
+          fail("invalid-phase-transition");
+          return false;
+        }
+        currentPhase = phase;
+        currentStartedAt = performance.now();
+        currentMetrics = emptyPhase();
+        return true;
+      };
+      window.__SVARD_DOCUMENT_RENDER_CACHE_BENCHMARK_END__ = (phase) => {
+        if (
+          benchmark.status !== "pending" ||
+          currentPhase !== phase ||
+          currentMetrics === null
+        ) {
+          fail("invalid-phase-transition");
+          return false;
+        }
+        currentMetrics.durationMs = Number(
+          Math.max(0, performance.now() - currentStartedAt).toFixed(2),
+        );
+        benchmark.phases[phase] = currentMetrics;
+        currentPhase = null;
+        currentMetrics = null;
+        if (allowedPhases.every((candidate) => benchmark.phases[candidate])) {
+          benchmark.status = "ok";
+          delete benchmark.reason;
+        }
+        return true;
+      };
+      window.__SVARD_DOCUMENT_RENDER_CACHE_BENCHMARK_CURRENT__ = () =>
+        currentMetrics === null ? null : { ...currentMetrics };
+
+      window.setTimeout(() => {
+        if (benchmark.status === "pending") {
+          fail("missing-phase");
+        }
+      }, 20_000);
+
+      const originalInfo = console.info.bind(console);
+      console.info = (...args) => {
+        const payload = args[1];
+        if (args[0] !== "[perf]" || !payload || typeof payload !== "object") {
+          originalInfo(...args);
+          return;
+        }
+        if (currentMetrics !== null) {
+          const eventName = payload.event;
+          if (eventName === "render.renderDocument") {
+            currentMetrics.coreProducerCount += 1;
+          } else if (eventName === "render.prepareDocumentHtml") {
+            currentMetrics.prepareProducerCount += 1;
+          } else if (eventName === "render.articleInnerHtmlCommit") {
+            currentMetrics.articleCommitCount += 1;
+          }
+          if (String(eventName).startsWith("render.artifactCache.")) {
+            currentMetrics.cacheEventCount += 1;
+            if (eventName === "render.artifactCache.lookup") {
+              if (payload.status === "hit") {
+                currentMetrics.cacheHitCount += 1;
+                if (payload.stage === "core") {
+                  currentMetrics.coreHitCount += 1;
+                } else if (payload.stage === "prepared") {
+                  currentMetrics.preparedHitCount += 1;
+                }
+              } else if (payload.status === "miss") {
+                currentMetrics.cacheMissCount += 1;
+              } else if (payload.status === "in-flight") {
+                currentMetrics.inFlightCount += 1;
+              }
+            }
+            if (
+              (eventName === "render.artifactCache.lookup" ||
+                eventName === "render.artifactCache.admission") &&
+              Number.isFinite(payload.count)
+            ) {
+              currentMetrics.inFlightActiveCountFinal = Math.max(
+                0,
+                Math.trunc(payload.count),
+              );
+              currentMetrics.inFlightSnapshotCount += 1;
+            }
+            if (Number.isFinite(payload.estimatedBytes)) {
+              currentMetrics.admissionEstimatedBytesMax = Math.max(
+                currentMetrics.admissionEstimatedBytesMax,
+                Math.max(0, Math.trunc(payload.estimatedBytes)),
+              );
+            }
+            if (Number.isFinite(payload.totalBytes)) {
+              currentMetrics.residentBytesMax = Math.max(
+                currentMetrics.residentBytesMax,
+                Math.max(0, Math.trunc(payload.totalBytes)),
+              );
+            }
+            if (Number.isFinite(payload.entryCount)) {
+              currentMetrics.entryCountMax = Math.max(
+                currentMetrics.entryCountMax,
+                Math.max(0, Math.trunc(payload.entryCount)),
+              );
+            }
+            if (
+              eventName === "render.artifactCache.eviction" &&
+              Number.isFinite(payload.count)
+            ) {
+              currentMetrics.evictionCount += Math.max(
+                0,
+                Math.trunc(payload.count),
+              );
+            }
+          }
+        }
+        // Perf payloads may contain document metadata. The collector retains
+        // only the fixed numeric allowlist above.
+      };
+    },
+    {
+      allowedPhases: DOCUMENT_RENDER_CACHE_BENCHMARK_PHASES,
+      scenarioId: DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO,
+    },
+  );
+}
+
+export async function runDocumentRenderCacheBenchmarkScenario(page, baseURL) {
+  await page.goto(buildDocumentRenderCacheBenchmarkUrl(baseURL), {
+    waitUntil: "networkidle",
+  });
+  await applyScenario({
+    scenario: DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO,
+    page,
+  });
+  await page.waitForFunction(
+    () => {
+      const status = window.__SVARD_DOCUMENT_RENDER_CACHE_BENCHMARK__?.status;
+      return status === "ok" || status === "failed";
+    },
+    undefined,
+    { timeout: 20_000 },
+  );
+  return page.evaluate(
+    () => window.__SVARD_DOCUMENT_RENDER_CACHE_BENCHMARK__ ?? null,
+  );
+}
+
 export function parseArgs(argv) {
   const args = { scenario: "viewer-basic", id: "local-ui-change" };
 
@@ -263,13 +466,16 @@ export async function captureScenario({
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   if (scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO) {
     await installWorkspaceBootBenchmarkCollector(page);
+  } else if (scenario === DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO) {
+    await installDocumentRenderCacheBenchmarkCollector(page);
   }
   const consoleMessages = [];
   const pageErrors = [];
 
   page.on("console", (message) => {
     if (
-      scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO &&
+      (scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO ||
+        scenario === DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO) &&
       message.text().startsWith("[perf]")
     ) {
       return;
@@ -287,9 +493,11 @@ export async function captureScenario({
   const scenarioUrl =
     scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO
       ? buildWorkspaceBootBenchmarkUrl(baseURL, "stress")
-      : scenariosWithBootConfig.has(scenario)
-        ? `${baseURL}?scenario=${encodeURIComponent(scenario)}`
-        : baseURL;
+      : scenario === DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO
+        ? buildDocumentRenderCacheBenchmarkUrl(baseURL)
+        : scenariosWithBootConfig.has(scenario)
+          ? `${baseURL}?scenario=${encodeURIComponent(scenario)}`
+          : baseURL;
   const startupObservationScenarios = new Set([
     "viewer-diagram-placeholder-startup",
     WORKSPACE_BOOT_BENCHMARK_SCENARIO,
@@ -792,6 +1000,9 @@ export async function captureScenario({
   const workspaceBootObservation = await page.evaluate(
     () => window.__SVARD_WORKSPACE_BOOT_OBSERVATION__ ?? null,
   );
+  const documentRenderCacheBenchmark = await page.evaluate(
+    () => window.__SVARD_DOCUMENT_RENDER_CACHE_BENCHMARK__ ?? null,
+  );
   const assertions = await buildAssertions({
     scenario,
     page,
@@ -806,6 +1017,10 @@ export async function captureScenario({
     geometryReviewIds,
     markerCompleteness,
     openFilesSplitResizeOutcome,
+    renderCacheExpectation:
+      scenario === DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO && id === "IMP-410"
+        ? "required"
+        : "optional",
     scrollIndependence,
     searchManualScrollStable,
     sidebarResize,
@@ -814,6 +1029,7 @@ export async function captureScenario({
     themeContrastOutcome,
     workspaceBootBenchmark,
     workspaceBootObservation,
+    documentRenderCacheBenchmark,
   });
   const plantUmlMetrics = await page.evaluate(
     () => window.__svardPlantUmlMetrics ?? null,
@@ -858,6 +1074,7 @@ export async function captureScenario({
     svgAspectRatios,
     markerCompleteness,
     benchmarkPhases,
+    documentRenderCacheBenchmark,
     captureMetrics: {
       gotoMs: afterGotoAt - captureStartedAt,
       scenarioMs: afterScenarioAt - afterGotoAt,
@@ -896,7 +1113,8 @@ export async function captureScenario({
         scenario,
         featureId: id,
         documentBasename:
-          scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO
+          scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO ||
+          scenario === DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO
             ? null
             : bodyText.includes("Render Fixtures")
               ? "render-fixtures.adoc"

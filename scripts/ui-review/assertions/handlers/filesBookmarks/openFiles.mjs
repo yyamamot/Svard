@@ -2,11 +2,102 @@ export async function buildOpenFilesAssertions(context) {
   const scenario = context.scenario;
   const page = context.page;
   const bodyText = context.bodyText;
+  const consoleMessages = context.consoleMessages;
+  const documentRenderCacheBenchmark = context.documentRenderCacheBenchmark;
+  const renderCacheExpectation = context.renderCacheExpectation;
   const commandAutomation = context.commandAutomation;
   const contextMenuText = context.contextMenuText;
   const editorOpenRequests = context.editorOpenRequests;
   const geometryReviewIds = context.geometryReviewIds;
+  const renderCachePhases = documentRenderCacheBenchmark?.phases;
+  const cacheInstrumentationObserved = Object.values(
+    renderCachePhases ?? {},
+  ).some(
+    (metrics) =>
+      (metrics?.cacheHitCount ?? 0) +
+        (metrics?.cacheMissCount ?? 0) +
+        (metrics?.inFlightCount ?? 0) >
+      0,
+  );
+  const cacheInstrumentationRequired =
+    scenario === "viewer-render-cache-tab-revisit" &&
+    renderCacheExpectation === "required";
   return {
+    hasRenderCacheTabRevisitFlow:
+      scenario === "viewer-render-cache-tab-revisit"
+        ? await page.evaluate(() => {
+            const check = window.__SVARD_RENDER_CACHE_UI_CHECK__;
+            return (
+              check?.equivalentShape === true &&
+              check?.selectionUsable === true &&
+              check?.searchUsable === true &&
+              check?.themeApplied === true &&
+              check?.latestContentVisible === true
+            );
+          })
+        : true,
+    hasRenderCacheBenchmarkPhases:
+      scenario === "viewer-render-cache-tab-revisit"
+        ? documentRenderCacheBenchmark?.schemaVersion === 2 &&
+          documentRenderCacheBenchmark?.scenarioId ===
+            "viewer-render-cache-tab-revisit" &&
+          documentRenderCacheBenchmark?.status === "ok" &&
+          ["cold-a", "cold-b", "revisit-a", "theme-a", "reload-a"].every(
+            (phase) => {
+              const metrics = documentRenderCacheBenchmark?.phases?.[phase];
+              return (
+                typeof metrics?.durationMs === "number" &&
+                metrics.durationMs >= 0 &&
+                Number.isInteger(metrics.coreProducerCount) &&
+                Number.isInteger(metrics.prepareProducerCount) &&
+                Number.isInteger(metrics.cacheEventCount) &&
+                Number.isInteger(metrics.inFlightActiveCountFinal) &&
+                Number.isInteger(metrics.inFlightSnapshotCount) &&
+                Number.isInteger(metrics.residentBytesMax)
+              );
+            },
+          )
+        : true,
+    hasRenderCacheInstrumentation:
+      scenario === "viewer-render-cache-tab-revisit"
+        ? !cacheInstrumentationRequired || cacheInstrumentationObserved
+        : true,
+    hasRenderCacheProducerElision:
+      scenario === "viewer-render-cache-tab-revisit"
+        ? (!cacheInstrumentationObserved && !cacheInstrumentationRequired) ||
+          (cacheInstrumentationObserved &&
+            renderCachePhases?.["cold-a"]?.coreProducerCount === 1 &&
+            renderCachePhases?.["cold-a"]?.prepareProducerCount === 1 &&
+            renderCachePhases?.["cold-b"]?.coreProducerCount === 1 &&
+            renderCachePhases?.["cold-b"]?.prepareProducerCount === 1 &&
+            renderCachePhases?.["revisit-a"]?.coreProducerCount === 0 &&
+            renderCachePhases?.["revisit-a"]?.prepareProducerCount === 0 &&
+            renderCachePhases?.["revisit-a"]?.coreHitCount >= 1 &&
+            renderCachePhases?.["revisit-a"]?.preparedHitCount >= 1 &&
+            renderCachePhases?.["theme-a"]?.coreProducerCount === 0 &&
+            renderCachePhases?.["theme-a"]?.prepareProducerCount === 0 &&
+            renderCachePhases?.["theme-a"]?.coreHitCount >= 1 &&
+            renderCachePhases?.["theme-a"]?.preparedHitCount >= 1 &&
+            renderCachePhases?.["reload-a"]?.coreProducerCount === 1 &&
+            renderCachePhases?.["reload-a"]?.prepareProducerCount === 1 &&
+            ["cold-a", "cold-b", "revisit-a", "theme-a", "reload-a"].every(
+              (phase) =>
+                renderCachePhases?.[phase]?.inFlightSnapshotCount >= 1 &&
+                renderCachePhases?.[phase]?.inFlightActiveCountFinal === 0,
+            ))
+        : true,
+    hasRenderCacheBoundedAccounting:
+      scenario === "viewer-render-cache-tab-revisit"
+        ? Object.values(documentRenderCacheBenchmark?.phases ?? {}).every(
+            (metrics) => metrics?.residentBytesMax <= 33_554_432,
+          )
+        : true,
+    hasRenderCachePrivacySafeConsole:
+      scenario === "viewer-render-cache-tab-revisit"
+        ? consoleMessages.every(
+            (message) => !String(message?.text ?? "").startsWith("[perf]"),
+          )
+        : true,
     hasOpenFilesDragReorder:
       scenario === "viewer-drag-reorder-open-files"
         ? (await page

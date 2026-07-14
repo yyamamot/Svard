@@ -4,20 +4,67 @@ import { describe, expect, it, vi } from "vitest";
 
 const {
   buildSummary,
+  deriveDocumentRenderCacheResult,
   deriveUiReviewResults,
   deriveWorkspaceBootResult,
   fillMissingWorkflows,
   normalizeWorkspaceBootSample,
+  normalizeDocumentRenderCacheSample,
   parseArgs,
   percentile,
   reportMarkdown,
   runWorkspaceBootBenchmark,
+  runDocumentRenderCacheBenchmark,
+  summarizeDocumentRenderCacheBenchmark,
   summarizeWorkspaceBootBenchmark,
   summarizeEvents,
   validatePrivacy,
+  documentRenderCacheBenchmarkPlan,
   workspaceBootBenchmarkPlan,
   workspaceBootScenarioUrl,
 } = benchmark;
+
+const renderCachePhaseNames = [
+  "cold-a",
+  "cold-b",
+  "revisit-a",
+  "theme-a",
+  "reload-a",
+];
+
+function documentRenderCacheSample(offset = 0) {
+  return {
+    schemaVersion: 2,
+    scenarioId: "viewer-render-cache-tab-revisit",
+    status: "ok",
+    phases: Object.fromEntries(
+      renderCachePhaseNames.map((phase, index) => [
+        phase,
+        {
+          durationMs: offset + index + 1,
+          coreProducerCount:
+            phase === "revisit-a" || phase === "theme-a" ? 0 : 1,
+          prepareProducerCount:
+            phase === "revisit-a" || phase === "theme-a" ? 0 : 1,
+          articleCommitCount: 1,
+          cacheEventCount: 2,
+          cacheHitCount: phase === "revisit-a" || phase === "theme-a" ? 2 : 0,
+          cacheMissCount: phase === "revisit-a" || phase === "theme-a" ? 0 : 2,
+          inFlightCount: 0,
+          inFlightActiveCountFinal: 0,
+          inFlightSnapshotCount: 2,
+          coreHitCount: phase === "revisit-a" || phase === "theme-a" ? 1 : 0,
+          preparedHitCount:
+            phase === "revisit-a" || phase === "theme-a" ? 1 : 0,
+          admissionEstimatedBytesMax: 2048,
+          residentBytesMax: 8192,
+          entryCountMax: 2,
+          evictionCount: 0,
+        },
+      ]),
+    ),
+  };
+}
 
 function workspaceBootSample(
   profile: "fast" | "normal",
@@ -291,6 +338,94 @@ describe("workspace performance benchmark script", () => {
     expect(validatePrivacy(report)).toEqual([]);
   });
 
+  it("normalizes and aggregates the document render cache collector allowlist", () => {
+    const normalized = normalizeDocumentRenderCacheSample({
+      ...documentRenderCacheSample(10),
+      cacheKey: "private-key",
+      sourceText: "private source",
+      path: "/Users/example/private.md",
+    });
+    expect(normalized).toMatchObject({ status: "ok" });
+    expect(normalized.phases["revisit-a"]).toMatchObject({
+      coreProducerCount: 0,
+      prepareProducerCount: 0,
+      coreHitCount: 1,
+      preparedHitCount: 1,
+      inFlightActiveCountFinal: 0,
+      inFlightSnapshotCount: 2,
+    });
+    expect(JSON.stringify(normalized)).not.toContain("private-key");
+    expect(JSON.stringify(normalized)).not.toContain("private source");
+    expect(JSON.stringify(normalized)).not.toContain("/Users/");
+
+    const report = {
+      status: "ok",
+      samples: Array.from({ length: 7 }, (_, index) =>
+        normalizeDocumentRenderCacheSample(documentRenderCacheSample(index)),
+      ),
+    };
+    const summary = summarizeDocumentRenderCacheBenchmark(report, "full");
+    const result = deriveDocumentRenderCacheResult(summary);
+    expect(summary).toMatchObject({
+      measurementCount: 7,
+      reason: null,
+      status: "ok",
+      warmupCount: 1,
+    });
+    expect(summary.phases["revisit-a"].duration).toMatchObject({
+      count: 7,
+      p50Ms: 6,
+      p95Ms: 9,
+    });
+    expect(result).toMatchObject({
+      durationMs: 6,
+      eventCount: 35,
+      id: "document-render-cache-tab-revisit",
+      metric: "revisit-a.durationMs.p50",
+      status: "ok",
+    });
+    expect(validatePrivacy({ result, summary })).toEqual([]);
+  });
+
+  it("reuses one browser context for one cache warmup and seven measurements", async () => {
+    const plan = documentRenderCacheBenchmarkPlan();
+    expect(plan).toHaveLength(8);
+    expect(
+      plan.filter((run: { kind: string }) => run.kind === "warmup"),
+    ).toHaveLength(1);
+    expect(
+      plan.filter((run: { kind: string }) => run.kind === "measurement"),
+    ).toHaveLength(7);
+    let offset = 0;
+    const page = {};
+    const context = {
+      close: vi.fn(async () => {}),
+      grantPermissions: vi.fn(async () => {}),
+      newPage: vi.fn(async () => page),
+    };
+    const browser = {
+      close: vi.fn(async () => {}),
+      newContext: vi.fn(async () => context),
+    };
+    const installCollector = vi.fn(async () => {});
+    const runScenario = vi.fn(async () => documentRenderCacheSample(offset++));
+
+    const report = await runDocumentRenderCacheBenchmark({
+      baseURL: "http://127.0.0.1:4173",
+      installCollector,
+      launchBrowser: vi.fn(async () => browser),
+      runScenario,
+    });
+
+    expect(report.status).toBe("ok");
+    expect(report.samples).toHaveLength(7);
+    expect(installCollector).toHaveBeenCalledTimes(1);
+    expect(runScenario).toHaveBeenCalledTimes(8);
+    expect(context.newPage).toHaveBeenCalledTimes(1);
+    expect(context.close).toHaveBeenCalledTimes(1);
+    expect(browser.close).toHaveBeenCalledTimes(1);
+  });
+
   it("summarizes known perf trace categories without private payload fields", () => {
     const summary = summarizeEvents([
       { event: "render.prepareDocumentHtml", durationMs: 4.2 },
@@ -382,7 +517,7 @@ describe("workspace performance benchmark script", () => {
     });
 
     expect(summary.schemaVersion).toBe(1);
-    expect(summary.workflows).toHaveLength(14);
+    expect(summary.workflows).toHaveLength(15);
     expect(
       summary.workflows.find(
         (item: { id: string }) => item.id === "asciidoc-render",
@@ -487,7 +622,7 @@ describe("workspace performance benchmark script", () => {
       "quick",
     );
 
-    expect(workflows).toHaveLength(14);
+    expect(workflows).toHaveLength(15);
     expect(
       workflows.find((item: { id: string }) => item.id === "workspace-search"),
     ).toMatchObject({
@@ -508,10 +643,24 @@ describe("workspace performance benchmark script", () => {
       reason: "not-measured-in-quick-profile",
       status: "skipped",
     });
+    expect(summary.documentRenderCacheTabRevisit).toMatchObject({
+      phases: {},
+      reason: "not-measured-in-quick-profile",
+      status: "skipped",
+    });
     expect(
       summary.workflows.find(
         (workflow: { id: string }) =>
           workflow.id === "workspace-boot-first-content",
+      ),
+    ).toMatchObject({
+      reason: "not-measured-in-quick-profile",
+      status: "skipped",
+    });
+    expect(
+      summary.workflows.find(
+        (workflow: { id: string }) =>
+          workflow.id === "document-render-cache-tab-revisit",
       ),
     ).toMatchObject({
       reason: "not-measured-in-quick-profile",
