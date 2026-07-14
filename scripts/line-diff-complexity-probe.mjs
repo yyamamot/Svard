@@ -15,11 +15,16 @@ export const lineDiffProbeFixtureIds = [
 ];
 
 export function parseLineDiffProbeArgs(argv) {
-  const args = { out: ".artifacts/perf/imp-415-before" };
+  const args = {
+    baseline: null,
+    out: ".artifacts/perf/imp-415-before",
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (value === "--") continue;
-    if (value === "--out") {
+    if (value === "--baseline") {
+      args.baseline = argv[++index] ?? null;
+    } else if (value === "--out") {
       args.out = argv[++index] ?? args.out;
     } else {
       throw new Error(`Unknown argument: ${value}`);
@@ -72,18 +77,42 @@ function assertExactKeys(value, keys, label) {
   }
 }
 
-function assertFixtureMetrics(value, label) {
+function assertFixtureMetrics(value, label, mode) {
   const lineCount = Number(value.fixtureId.split("-").at(-1));
+  const usesTrimmedMiddle =
+    mode === "common-edge-trim" &&
+    value.fixtureId.startsWith("single-edit-") &&
+    lineCount > 200;
+  const expectedWorkUnits = usesTrimmedMiddle ? 1 : lineCount * lineCount;
+  const expectedPeakScratchEntries = usesTrimmedMiddle
+    ? 4
+    : (lineCount + 1) * (lineCount + 1);
   if (
     !Number.isSafeInteger(value.inputBytes) ||
     value.inputBytes <= 0 ||
     value.leftLineCount !== lineCount ||
     value.rightLineCount !== lineCount ||
-    value.workUnits !== lineCount * lineCount ||
-    value.peakScratchEntries !== (lineCount + 1) * (lineCount + 1)
+    value.workUnits !== expectedWorkUnits ||
+    value.peakScratchEntries !== expectedPeakScratchEntries
   ) {
     throw new Error(`${label} metric mismatch`);
   }
+}
+
+function lineDiffProbeReportMode(report) {
+  const singleEdit = report.summaries.find(
+    (summary) => summary.fixtureId === "single-edit-5000",
+  );
+  if (
+    singleEdit?.workUnits === 25_000_000 &&
+    singleEdit.peakScratchEntries === 25_010_001
+  ) {
+    return "full-lcs";
+  }
+  if (singleEdit?.workUnits === 1 && singleEdit.peakScratchEntries === 4) {
+    return "common-edge-trim";
+  }
+  throw new Error("Line diff report mode mismatch");
 }
 
 function percentile(values, ratio) {
@@ -112,11 +141,14 @@ export function validateLineDiffProbeReport(report) {
     throw new Error("Line diff report metadata mismatch");
   }
   if (
+    !Array.isArray(report.samples) ||
+    !Array.isArray(report.summaries) ||
     report.samples.length !== lineDiffProbeFixtureIds.length * 20 ||
     report.summaries.length !== lineDiffProbeFixtureIds.length
   ) {
     throw new Error("Line diff report sample count mismatch");
   }
+  const mode = lineDiffProbeReportMode(report);
 
   const sampleCounts = new Map(
     lineDiffProbeFixtureIds.map((fixtureId) => [fixtureId, 0]),
@@ -145,7 +177,7 @@ export function validateLineDiffProbeReport(report) {
     ) {
       throw new Error("Line diff report sample value mismatch");
     }
-    assertFixtureMetrics(sample, "sample");
+    assertFixtureMetrics(sample, "sample", mode);
     sampleCounts.set(sample.fixtureId, sampleCounts.get(sample.fixtureId) + 1);
     sampleDurations.get(sample.fixtureId).push(sample.durationMs);
   }
@@ -179,7 +211,7 @@ export function validateLineDiffProbeReport(report) {
     ) {
       throw new Error("Line diff report summary value mismatch");
     }
-    assertFixtureMetrics(summary, "summary");
+    assertFixtureMetrics(summary, "summary", mode);
     const durations = sampleDurations.get(summary.fixtureId);
     if (
       summary.durationMs.p50 !== percentile(durations, 0.5) ||
@@ -206,6 +238,153 @@ export function validateLineDiffProbeReport(report) {
       throw new Error("Line diff report contains a private field");
     }
   }
+  return mode;
+}
+
+function round(value) {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function p95RegressionPercent(baseline, candidate) {
+  return baseline === 0
+    ? candidate === 0
+      ? 0
+      : Number.POSITIVE_INFINITY
+    : round(((candidate - baseline) / baseline) * 100);
+}
+
+export function validateLineDiffProbeComparison(comparison) {
+  assertExactKeys(
+    comparison,
+    ["fixtures", "schemaVersion", "status", "violations"],
+    "comparison",
+  );
+  if (
+    comparison.schemaVersion !== 1 ||
+    !new Set(["go", "no-go"]).has(comparison.status) ||
+    !Array.isArray(comparison.fixtures) ||
+    comparison.fixtures.length !== lineDiffProbeFixtureIds.length ||
+    !Array.isArray(comparison.violations)
+  ) {
+    throw new Error("Line diff comparison metadata mismatch");
+  }
+  const allowedViolations = new Set([
+    "baseline-mode-mismatch",
+    "candidate-mode-mismatch",
+    "single-edit-work-not-reduced",
+    "single-edit-scratch-not-reduced",
+    "small-case-p95-regression",
+  ]);
+  if (
+    comparison.violations.some((reason) => !allowedViolations.has(reason)) ||
+    comparison.status !== (comparison.violations.length === 0 ? "go" : "no-go")
+  ) {
+    throw new Error("Line diff comparison violation mismatch");
+  }
+  const fixtureIds = new Set();
+  for (const fixture of comparison.fixtures) {
+    assertExactKeys(
+      fixture,
+      [
+        "baselineP95Ms",
+        "baselinePeakScratchEntries",
+        "baselineWorkUnits",
+        "candidateP95Ms",
+        "candidatePeakScratchEntries",
+        "candidateWorkUnits",
+        "fixtureId",
+        "p95RegressionPercent",
+      ],
+      "comparison fixture",
+    );
+    if (
+      !lineDiffProbeFixtureIds.includes(fixture.fixtureId) ||
+      fixtureIds.has(fixture.fixtureId) ||
+      !Object.values(fixture)
+        .filter((value) => typeof value === "number")
+        .every(Number.isFinite)
+    ) {
+      throw new Error("Line diff comparison fixture mismatch");
+    }
+    fixtureIds.add(fixture.fixtureId);
+  }
+  const serialized = JSON.stringify(comparison);
+  for (const privateField of [
+    "source",
+    "path",
+    "basename",
+    "hunk",
+    "lineText",
+    "repository",
+    "url",
+    "timestamp",
+    "platform",
+  ]) {
+    if (serialized.includes(privateField)) {
+      throw new Error("Line diff comparison contains a private field");
+    }
+  }
+}
+
+export function buildLineDiffProbeComparison(baseline, candidate) {
+  const baselineMode = validateLineDiffProbeReport(baseline);
+  const candidateMode = validateLineDiffProbeReport(candidate);
+  const baselineById = new Map(
+    baseline.summaries.map((summary) => [summary.fixtureId, summary]),
+  );
+  const candidateById = new Map(
+    candidate.summaries.map((summary) => [summary.fixtureId, summary]),
+  );
+  const fixtures = lineDiffProbeFixtureIds.map((fixtureId) => {
+    const before = baselineById.get(fixtureId);
+    const after = candidateById.get(fixtureId);
+    return {
+      baselineP95Ms: before.durationMs.p95,
+      baselinePeakScratchEntries: before.peakScratchEntries,
+      baselineWorkUnits: before.workUnits,
+      candidateP95Ms: after.durationMs.p95,
+      candidatePeakScratchEntries: after.peakScratchEntries,
+      candidateWorkUnits: after.workUnits,
+      fixtureId,
+      p95RegressionPercent: p95RegressionPercent(
+        before.durationMs.p95,
+        after.durationMs.p95,
+      ),
+    };
+  });
+  const violations = [];
+  if (baselineMode !== "full-lcs") violations.push("baseline-mode-mismatch");
+  if (candidateMode !== "common-edge-trim") {
+    violations.push("candidate-mode-mismatch");
+  }
+  const singleEdit5000 = fixtures.find(
+    (fixture) => fixture.fixtureId === "single-edit-5000",
+  );
+  if (singleEdit5000.candidateWorkUnits >= singleEdit5000.baselineWorkUnits) {
+    violations.push("single-edit-work-not-reduced");
+  }
+  if (
+    singleEdit5000.candidatePeakScratchEntries >=
+    singleEdit5000.baselinePeakScratchEntries
+  ) {
+    violations.push("single-edit-scratch-not-reduced");
+  }
+  if (
+    fixtures.some(
+      (fixture) =>
+        fixture.fixtureId.endsWith("-200") && fixture.p95RegressionPercent > 10,
+    )
+  ) {
+    violations.push("small-case-p95-regression");
+  }
+  const comparison = {
+    fixtures,
+    schemaVersion: 1,
+    status: violations.length === 0 ? "go" : "no-go",
+    violations,
+  };
+  validateLineDiffProbeComparison(comparison);
+  return comparison;
 }
 
 async function main() {
@@ -215,6 +394,17 @@ async function main() {
   await runReleaseProbe(outputFile);
   const report = JSON.parse(await fs.readFile(outputFile, "utf8"));
   validateLineDiffProbeReport(report);
+  if (args.baseline) {
+    const baseline = JSON.parse(await fs.readFile(args.baseline, "utf8"));
+    const comparison = buildLineDiffProbeComparison(baseline, report);
+    await fs.writeFile(
+      path.resolve(args.out, "comparison.json"),
+      `${JSON.stringify(comparison, null, 2)}\n`,
+    );
+    process.stdout.write(
+      `Line diff comparison completed with status ${comparison.status}.\n`,
+    );
+  }
   process.stdout.write(
     `Line diff complexity probe passed: ${report.samples.length} samples across ${report.summaries.length} fixtures.\n`,
   );

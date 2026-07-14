@@ -176,3 +176,97 @@ fn line_diff_oracle_freezes_utf8_text_without_byte_based_line_offsets() {
         ],
     );
 }
+
+fn generated_documents(alphabet: &[&str], max_lines: usize) -> Vec<String> {
+    let mut documents = vec![String::new()];
+    for line_count in 1..=max_lines {
+        for encoded in 0..alphabet.len().pow(line_count as u32) {
+            let mut remaining = encoded;
+            let mut lines = Vec::with_capacity(line_count);
+            for _ in 0..line_count {
+                lines.push(alphabet[remaining % alphabet.len()]);
+                remaining /= alphabet.len();
+            }
+            documents.push(lines.join("\n") + "\n");
+        }
+    }
+    documents
+}
+
+#[test]
+fn line_diff_common_edge_trim_matches_full_lcs_for_short_sequences() {
+    let documents = generated_documents(&["A", "B", "C"], 5);
+    for (left_index, left) in documents.iter().enumerate() {
+        for (right_index, right) in documents.iter().enumerate() {
+            assert_eq!(
+                line_diff_hunks_unbounded_common_edges_for_test(left, right),
+                line_diff_hunks_full_lcs_for_test(left, right),
+                "trimmed LCS differs for generated fixture {left_index}/{right_index}"
+            );
+        }
+    }
+}
+
+#[test]
+fn line_diff_common_edge_plan_uses_guarded_suffix_fallback() {
+    let edges =
+        |left: &str, right: &str| line_diff_common_edges(&split_lines(left), &split_lines(right));
+
+    assert_eq!(
+        edges("a\nb\nc\nd\ne\n", "a\nb\nx\nd\ne\n"),
+        LineDiffCommonEdges {
+            prefix_lines: 2,
+            suffix_lines: 2,
+        }
+    );
+    assert_eq!(
+        edges("A\nA\n", "X\nA\n"),
+        LineDiffCommonEdges {
+            prefix_lines: 0,
+            suffix_lines: 0,
+        }
+    );
+    assert_eq!(
+        edges("X\nA\n", "A\nA\n"),
+        LineDiffCommonEdges {
+            prefix_lines: 0,
+            suffix_lines: 0,
+        }
+    );
+    assert_eq!(
+        edges("a\nb\nc\n", "a\nx\nb\nc\n"),
+        LineDiffCommonEdges {
+            prefix_lines: 1,
+            suffix_lines: 2,
+        }
+    );
+    assert_eq!(
+        edges("same\r\ntext\r\n", "same\ntext\n"),
+        LineDiffCommonEdges {
+            prefix_lines: 2,
+            suffix_lines: 0,
+        }
+    );
+}
+
+#[test]
+fn line_diff_common_edge_trim_bypasses_small_inputs() {
+    let small_left = vec!["same"; 200];
+    let small_right = vec!["same"; 200];
+    assert_eq!(
+        line_diff_effective_common_edges(&small_left, &small_right),
+        LineDiffCommonEdges::default()
+    );
+
+    let mut large_left = vec!["same"; 201];
+    let mut large_right = large_left.clone();
+    large_left[100] = "left";
+    large_right[100] = "right";
+    assert_eq!(
+        line_diff_effective_common_edges(&large_left, &large_right),
+        LineDiffCommonEdges {
+            prefix_lines: 100,
+            suffix_lines: 100,
+        }
+    );
+}

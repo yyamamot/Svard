@@ -80,13 +80,19 @@ fn complexity_metrics(left: &str, right: &str) -> (usize, usize, u64, u64) {
     if left == right {
         return (left_line_count, right_line_count, 0, 0);
     }
-    let work_units = u64::try_from(left_line_count)
+    let left_lines = split_lines(left);
+    let right_lines = split_lines(right);
+    let common_edges = line_diff_effective_common_edges(&left_lines, &right_lines);
+    let left_middle_count = left_line_count - common_edges.prefix_lines - common_edges.suffix_lines;
+    let right_middle_count =
+        right_line_count - common_edges.prefix_lines - common_edges.suffix_lines;
+    let work_units = u64::try_from(left_middle_count)
         .expect("left line count")
-        .checked_mul(u64::try_from(right_line_count).expect("right line count"))
+        .checked_mul(u64::try_from(right_middle_count).expect("right line count"))
         .expect("work units");
-    let peak_scratch_entries = u64::try_from(left_line_count + 1)
+    let peak_scratch_entries = u64::try_from(left_middle_count + 1)
         .expect("left scratch dimension")
-        .checked_mul(u64::try_from(right_line_count + 1).expect("right scratch dimension"))
+        .checked_mul(u64::try_from(right_middle_count + 1).expect("right scratch dimension"))
         .expect("scratch entries");
     (
         left_line_count,
@@ -265,9 +271,10 @@ fn assert_report_is_privacy_safe(report: &ProbeReport) {
 }
 
 #[test]
-fn line_diff_probe_metrics_match_the_full_matrix_formula() {
+fn line_diff_probe_metrics_follow_the_current_common_edge_plan() {
     assert_eq!(complexity_metrics("same\n", "same\n"), (1, 1, 0, 0));
     assert_eq!(complexity_metrics("same", "same\n"), (1, 1, 1, 4));
+    assert_eq!(complexity_metrics("A\nA\n", "X\nA\n"), (2, 2, 4, 9));
 
     let single_edit = probe_fixture(FixtureKind::SingleEdit, 200);
     assert_eq!(single_edit.work_units, 40_000);

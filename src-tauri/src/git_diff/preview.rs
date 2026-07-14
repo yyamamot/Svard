@@ -594,16 +594,119 @@ pub(super) fn empty_preview(
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct LineDiffCommonEdges {
+    pub(super) prefix_lines: usize,
+    pub(super) suffix_lines: usize,
+}
+
+// Keep the existing full-LCS path for the fixed small-document regression gate.
+const LINE_DIFF_COMMON_EDGE_TRIM_MIN_LINE_COUNT: usize = 201;
+
+pub(super) fn line_diff_effective_common_edges(
+    left_lines: &[&str],
+    right_lines: &[&str],
+) -> LineDiffCommonEdges {
+    if left_lines.len().max(right_lines.len()) < LINE_DIFF_COMMON_EDGE_TRIM_MIN_LINE_COUNT {
+        LineDiffCommonEdges::default()
+    } else {
+        line_diff_common_edges(left_lines, right_lines)
+    }
+}
+
+pub(super) fn line_diff_common_edges(
+    left_lines: &[&str],
+    right_lines: &[&str],
+) -> LineDiffCommonEdges {
+    let prefix_lines = left_lines
+        .iter()
+        .zip(right_lines)
+        .take_while(|(left, right)| left == right)
+        .count();
+    let remaining_left = left_lines.len() - prefix_lines;
+    let remaining_right = right_lines.len() - prefix_lines;
+    let maximal_suffix_lines = (0..remaining_left.min(remaining_right))
+        .take_while(|offset| {
+            left_lines[left_lines.len() - offset - 1] == right_lines[right_lines.len() - offset - 1]
+        })
+        .count();
+    if maximal_suffix_lines == 0 {
+        return LineDiffCommonEdges {
+            prefix_lines,
+            suffix_lines: 0,
+        };
+    }
+
+    let left_middle_end = left_lines.len() - maximal_suffix_lines;
+    let right_middle_end = right_lines.len() - maximal_suffix_lines;
+    let suffix_boundary = left_lines[left_middle_end];
+    let suffix_boundary_repeats = left_lines[prefix_lines..left_middle_end]
+        .contains(&suffix_boundary)
+        || right_lines[prefix_lines..right_middle_end].contains(&suffix_boundary);
+
+    LineDiffCommonEdges {
+        prefix_lines,
+        suffix_lines: if suffix_boundary_repeats {
+            0
+        } else {
+            maximal_suffix_lines
+        },
+    }
+}
+
 pub(super) fn line_diff_hunks(left: &str, right: &str) -> Vec<GitDiffHunk> {
+    line_diff_hunks_with_common_edges(left, right, LineDiffCommonEdgeMode::Effective)
+}
+
+#[cfg(test)]
+pub(super) fn line_diff_hunks_full_lcs_for_test(left: &str, right: &str) -> Vec<GitDiffHunk> {
+    line_diff_hunks_with_common_edges(left, right, LineDiffCommonEdgeMode::Disabled)
+}
+
+#[cfg(test)]
+pub(super) fn line_diff_hunks_unbounded_common_edges_for_test(
+    left: &str,
+    right: &str,
+) -> Vec<GitDiffHunk> {
+    line_diff_hunks_with_common_edges(left, right, LineDiffCommonEdgeMode::Unbounded)
+}
+
+#[derive(Debug, Clone, Copy)]
+enum LineDiffCommonEdgeMode {
+    #[cfg(test)]
+    Disabled,
+    Effective,
+    #[cfg(test)]
+    Unbounded,
+}
+
+fn line_diff_hunks_with_common_edges(
+    left: &str,
+    right: &str,
+    common_edge_mode: LineDiffCommonEdgeMode,
+) -> Vec<GitDiffHunk> {
     if left == right {
         return Vec::new();
     }
     let left_lines = split_lines(left);
     let right_lines = split_lines(right);
-    let mut rows = vec![vec![0usize; right_lines.len() + 1]; left_lines.len() + 1];
-    for i in (0..left_lines.len()).rev() {
-        for j in (0..right_lines.len()).rev() {
-            rows[i][j] = if left_lines[i] == right_lines[j] {
+    let common_edges = match common_edge_mode {
+        #[cfg(test)]
+        LineDiffCommonEdgeMode::Disabled => LineDiffCommonEdges::default(),
+        LineDiffCommonEdgeMode::Effective => {
+            line_diff_effective_common_edges(&left_lines, &right_lines)
+        }
+        #[cfg(test)]
+        LineDiffCommonEdgeMode::Unbounded => line_diff_common_edges(&left_lines, &right_lines),
+    };
+    let left_middle_end = left_lines.len() - common_edges.suffix_lines;
+    let right_middle_end = right_lines.len() - common_edges.suffix_lines;
+    let left_middle = &left_lines[common_edges.prefix_lines..left_middle_end];
+    let right_middle = &right_lines[common_edges.prefix_lines..right_middle_end];
+    let mut rows = vec![vec![0usize; right_middle.len() + 1]; left_middle.len() + 1];
+    for i in (0..left_middle.len()).rev() {
+        for j in (0..right_middle.len()).rev() {
+            rows[i][j] = if left_middle[i] == right_middle[j] {
                 rows[i + 1][j + 1] + 1
             } else {
                 rows[i + 1][j].max(rows[i][j + 1])
@@ -612,41 +715,59 @@ pub(super) fn line_diff_hunks(left: &str, right: &str) -> Vec<GitDiffHunk> {
     }
 
     let mut lines = Vec::new();
+    for index in 0..common_edges.prefix_lines {
+        lines.push(GitDiffLine {
+            kind: GitDiffLineKind::Context,
+            old_line: Some(index + 1),
+            new_line: Some(index + 1),
+            text: left_lines[index].to_string(),
+        });
+    }
     let mut left_index = 0usize;
     let mut right_index = 0usize;
-    while left_index < left_lines.len() || right_index < right_lines.len() {
-        if left_index < left_lines.len()
-            && right_index < right_lines.len()
-            && left_lines[left_index] == right_lines[right_index]
+    while left_index < left_middle.len() || right_index < right_middle.len() {
+        if left_index < left_middle.len()
+            && right_index < right_middle.len()
+            && left_middle[left_index] == right_middle[right_index]
         {
             lines.push(GitDiffLine {
                 kind: GitDiffLineKind::Context,
-                old_line: Some(left_index + 1),
-                new_line: Some(right_index + 1),
-                text: left_lines[left_index].to_string(),
+                old_line: Some(common_edges.prefix_lines + left_index + 1),
+                new_line: Some(common_edges.prefix_lines + right_index + 1),
+                text: left_middle[left_index].to_string(),
             });
             left_index += 1;
             right_index += 1;
-        } else if right_index < right_lines.len()
-            && (left_index == left_lines.len()
+        } else if right_index < right_middle.len()
+            && (left_index == left_middle.len()
                 || rows[left_index][right_index + 1] >= rows[left_index + 1][right_index])
         {
             lines.push(GitDiffLine {
                 kind: GitDiffLineKind::Added,
                 old_line: None,
-                new_line: Some(right_index + 1),
-                text: right_lines[right_index].to_string(),
+                new_line: Some(common_edges.prefix_lines + right_index + 1),
+                text: right_middle[right_index].to_string(),
             });
             right_index += 1;
-        } else if left_index < left_lines.len() {
+        } else if left_index < left_middle.len() {
             lines.push(GitDiffLine {
                 kind: GitDiffLineKind::Removed,
-                old_line: Some(left_index + 1),
+                old_line: Some(common_edges.prefix_lines + left_index + 1),
                 new_line: None,
-                text: left_lines[left_index].to_string(),
+                text: left_middle[left_index].to_string(),
             });
             left_index += 1;
         }
+    }
+    for offset in 0..common_edges.suffix_lines {
+        let left_index = left_middle_end + offset;
+        let right_index = right_middle_end + offset;
+        lines.push(GitDiffLine {
+            kind: GitDiffLineKind::Context,
+            old_line: Some(left_index + 1),
+            new_line: Some(right_index + 1),
+            text: left_lines[left_index].to_string(),
+        });
     }
 
     if lines
