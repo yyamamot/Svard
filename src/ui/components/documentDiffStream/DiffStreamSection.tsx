@@ -1,5 +1,6 @@
 import { memo, type MouseEvent } from "react";
 import type {
+  DocumentDiffPreview,
   DocumentDiffStreamItem,
   DocumentLinkResolution,
 } from "../../../core/types";
@@ -29,6 +30,7 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   confirmExternalLink,
   openExternalUrl,
   onOpenDiagramPreview,
+  onOpenDiffPreview,
   onBeginCaptureArea,
   showInlineNotice,
   reviewState,
@@ -59,6 +61,7 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   confirmExternalLink: (url: string) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<void>;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
+  onOpenDiffPreview?: (preview: DocumentDiffPreview) => void;
   onBeginCaptureArea: (
     target: HTMLElement,
     variant: CaptureAreaVariant,
@@ -158,7 +161,27 @@ export const DiffStreamSection = memo(function DiffStreamSection({
             showInlineNotice={showInlineNotice}
           />
         ) : loadState?.status === "blocked" ? (
-          <p className="diff-stream-blocker-message">{loadState.message}</p>
+          <div
+            className="diff-stream-blocker-message"
+            data-review-id={
+              loadState.reason === "too-complex"
+                ? "diff-stream-too-complex-blocker"
+                : undefined
+            }
+          >
+            <p>{loadState.message}</p>
+            {loadState.reason === "too-complex" &&
+            loadState.preview &&
+            onOpenDiffPreview ? (
+              <button
+                type="button"
+                data-review-id="diff-stream-open-source-fallback"
+                onClick={() => onOpenDiffPreview(loadState.preview!)}
+              >
+                View source
+              </button>
+            ) : null}
+          </div>
         ) : loadState?.status === "loading" ? (
           <p className="diff-stream-loading">Loading rendered diff</p>
         ) : null

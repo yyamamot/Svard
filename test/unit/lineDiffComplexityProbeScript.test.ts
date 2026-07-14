@@ -77,6 +77,30 @@ function withFixtureMetrics(
   };
 }
 
+function withWorkBudget(
+  report: ReturnType<typeof validReport>,
+  overrides: Partial<{
+    adversarialAvailability: "available" | "too-complex";
+    adversarialReason: "work-budget-exceeded" | null;
+    adversarialWorkUnits: number;
+    budget: number;
+    disjoint5000Availability: "available" | "too-complex";
+  }> = {},
+) {
+  return {
+    ...report,
+    schemaVersion: 2,
+    workBudget: {
+      adversarialAvailability: "too-complex" as const,
+      adversarialReason: "work-budget-exceeded" as const,
+      adversarialWorkUnits: 25_000_000,
+      budget: 25_000_000,
+      disjoint5000Availability: "available" as const,
+      ...overrides,
+    },
+  };
+}
+
 describe("line diff complexity probe wrapper", () => {
   it("fixes the formal probe to one warmup and twenty measurements", () => {
     expect(parseLineDiffProbeArgs([])).toEqual({
@@ -90,13 +114,13 @@ describe("line diff complexity probe wrapper", () => {
         "--baseline",
         "before.json",
         "--comparison",
-        "imp417-linear-memory",
+        "imp419-work-budget",
         "--out",
         "artifact",
       ]),
     ).toEqual({
       baseline: "before.json",
-      comparison: "imp417-linear-memory",
+      comparison: "imp419-work-budget",
       out: "artifact",
     });
     expect(() => parseLineDiffProbeArgs(["--comparison", "unknown"])).toThrow(
@@ -295,6 +319,99 @@ describe("line diff complexity probe wrapper", () => {
     expect(comparison).toMatchObject({
       status: "no-go",
       violations: ["small-case-p95-regression"],
+    });
+  });
+
+  it("compares IMP-419 linear-memory reports with a fixed work budget", () => {
+    const baseline = validReport("linear-memory");
+    const candidate = withWorkBudget(validReport("linear-memory"));
+    const comparison = buildLineDiffProbeComparison(
+      baseline,
+      candidate,
+      "imp419-work-budget",
+    );
+
+    expect(validateLineDiffProbeReport(candidate)).toBe("linear-memory");
+    expect(comparison).toMatchObject({
+      baselineMode: "linear-memory",
+      candidateMode: "linear-memory",
+      comparisonId: "imp419-work-budget",
+      schemaVersion: 2,
+      status: "go",
+      violations: [],
+      workBudget: {
+        adversarialAvailability: "too-complex",
+        adversarialReason: "work-budget-exceeded",
+        adversarialWorkUnits: 25_000_000,
+        budget: 25_000_000,
+        disjoint5000Availability: "available",
+      },
+    });
+    expect(() => validateLineDiffProbeComparison(comparison)).not.toThrow();
+    expect(JSON.stringify(comparison)).not.toMatch(
+      /source|path|basename|hunk|repository|revision|message|timestamp|platform/i,
+    );
+  });
+
+  it("uses fixed IMP-419 violations for budget and deterministic regressions", () => {
+    const baseline = validReport("linear-memory");
+    const candidate = withWorkBudget(
+      withFixtureMetrics(
+        validReport("linear-memory", (fixtureId) =>
+          fixtureId === "disjoint-200" ? 1.2 : 1,
+        ),
+        "disjoint-1000",
+        999_999,
+        2,
+      ),
+      {
+        adversarialAvailability: "available",
+        adversarialReason: null,
+        adversarialWorkUnits: 24_999_999,
+        budget: 24_999_999,
+        disjoint5000Availability: "too-complex",
+      },
+    );
+    const comparison = buildLineDiffProbeComparison(
+      baseline,
+      candidate,
+      "imp419-work-budget",
+    );
+
+    expect(comparison).toMatchObject({
+      status: "no-go",
+      violations: [
+        "candidate-mode-mismatch",
+        "work-units-changed",
+        "peak-scratch-entries-changed",
+        "work-budget-mismatch",
+        "disjoint-5000-availability-mismatch",
+        "adversarial-availability-mismatch",
+        "adversarial-reason-mismatch",
+        "adversarial-work-units-mismatch",
+        "small-case-p95-regression",
+      ],
+    });
+    expect(() => validateLineDiffProbeComparison(comparison)).not.toThrow();
+  });
+
+  it("records fixed IMP-419 violations when the candidate lacks budget metadata", () => {
+    const comparison = buildLineDiffProbeComparison(
+      validReport("linear-memory"),
+      validReport("linear-memory"),
+      "imp419-work-budget",
+    );
+
+    expect(comparison).toMatchObject({
+      status: "no-go",
+      violations: [
+        "work-budget-mismatch",
+        "disjoint-5000-availability-mismatch",
+        "adversarial-availability-mismatch",
+        "adversarial-reason-mismatch",
+        "adversarial-work-units-mismatch",
+      ],
+      workBudget: null,
     });
   });
 });

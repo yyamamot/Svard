@@ -1,5 +1,6 @@
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
+import type { DocumentDiffPreview } from "../../src/core/types";
 import type { ContentCursorCommandHandler } from "../../src/ui/lib/contentCursor";
 import type { DocumentDiffStreamCommandBridge } from "../../src/ui/lib/documentDiffStreamCommands";
 import {
@@ -8,6 +9,7 @@ import {
 } from "./documentDiffStreamPanelHarness";
 import {
   buttonByText,
+  deferred,
   diffPreview,
   documentStreamItem,
   flushPreviewLoad,
@@ -16,6 +18,7 @@ import {
   requiredDiffStreamProps,
   renderedDiffSummary,
   renderedDiffSummaryWithFineTargets,
+  tooComplexDiffPreview,
 } from "./documentDiffStreamTestUtils";
 
 describe("DocumentDiffStreamPanel navigation", () => {
@@ -59,6 +62,125 @@ describe("DocumentDiffStreamPanel navigation", () => {
       expect(
         test.container.querySelector(
           '[data-stream-index="1"] [data-active-change="true"]',
+        ),
+      ).not.toBeNull();
+    } finally {
+      intersection.restore();
+    }
+  });
+
+  it("skips a terminal over-budget section when moving to a later document", async () => {
+    const intersection = installMockIntersectionObserver();
+    const getGitDiffPreview = vi.fn((path: string) =>
+      Promise.resolve(
+        path.endsWith("two.md")
+          ? tooComplexDiffPreview(path)
+          : diffPreview(path),
+      ),
+    );
+
+    try {
+      await test.render({
+        config: null,
+        preview: {
+          source: "git-changes-stream",
+          items: [
+            documentStreamItem("docs/one.md"),
+            documentStreamItem("docs/two.md"),
+            documentStreamItem("docs/three.md"),
+          ],
+        },
+        getGitDiffPreview,
+        ...requiredDiffStreamProps(),
+        onClose: vi.fn(),
+      });
+
+      await act(async () => {
+        intersection.trigger("docs/one.md", "docs/two.md");
+      });
+      await flushPreviewLoad();
+      expect(
+        test.container.querySelector(
+          '[data-stream-index="1"] [data-review-id="diff-stream-too-complex-blocker"]',
+        ),
+      ).not.toBeNull();
+
+      await act(async () => {
+        buttonByText("Next").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      await flushPreviewLoad();
+
+      expect(getGitDiffPreview).toHaveBeenCalledTimes(3);
+      expect(getGitDiffPreview).toHaveBeenCalledWith(
+        "/workspace/docs/three.md",
+      );
+      expect(
+        test.container.querySelector(
+          '[data-stream-index="2"] [data-active-change="true"]',
+        ),
+      ).not.toBeNull();
+
+      await act(async () => {
+        buttonByText("Previous").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      expect(
+        test.container.querySelector(
+          '[data-stream-index="0"] [data-active-change="true"]',
+        ),
+      ).not.toBeNull();
+      expect(getGitDiffPreview).toHaveBeenCalledTimes(3);
+    } finally {
+      intersection.restore();
+    }
+  });
+
+  it("continues pending navigation when the requested section becomes over-budget", async () => {
+    const intersection = installMockIntersectionObserver();
+    const middlePreview = deferred<DocumentDiffPreview>();
+    const getGitDiffPreview = vi.fn((path: string) =>
+      path.endsWith("two.md")
+        ? middlePreview.promise
+        : Promise.resolve(diffPreview(path)),
+    );
+
+    try {
+      await test.render({
+        config: null,
+        preview: {
+          source: "git-changes-stream",
+          items: [
+            documentStreamItem("docs/one.md"),
+            documentStreamItem("docs/two.md"),
+            documentStreamItem("docs/three.md"),
+          ],
+        },
+        getGitDiffPreview,
+        ...requiredDiffStreamProps(),
+        onClose: vi.fn(),
+      });
+
+      await act(async () => intersection.trigger("docs/one.md"));
+      await flushPreviewLoad();
+      await act(async () => {
+        buttonByText("Next").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      expect(getGitDiffPreview).toHaveBeenCalledWith("/workspace/docs/two.md");
+
+      middlePreview.resolve(tooComplexDiffPreview("/workspace/docs/two.md"));
+      await flushPreviewLoad();
+
+      expect(getGitDiffPreview).toHaveBeenCalledWith(
+        "/workspace/docs/three.md",
+      );
+      expect(
+        test.container.querySelector(
+          '[data-stream-index="2"] [data-active-change="true"]',
         ),
       ).not.toBeNull();
     } finally {

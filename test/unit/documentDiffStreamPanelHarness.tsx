@@ -1,4 +1,4 @@
-import { act, type ComponentProps } from "react";
+import { act, useLayoutEffect, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
 import { DocumentDiffStreamPanel } from "../../src/ui/components/DocumentDiffStreamPanel";
@@ -17,6 +17,17 @@ vi.mock("../../src/ui/lib/gitRenderedDiff", async (importOriginal) => {
 export const deriveGitRenderedDiffSummaryMock = vi.mocked(
   deriveGitRenderedDiffSummary,
 );
+
+function LayoutObservedDocumentDiffStreamPanel({
+  onLayout,
+  panelProps,
+}: {
+  onLayout: () => void;
+  panelProps: ComponentProps<typeof DocumentDiffStreamPanel>;
+}) {
+  useLayoutEffect(onLayout, [onLayout, panelProps.preview.items]);
+  return <DocumentDiffStreamPanel {...panelProps} />;
+}
 
 export function setupDocumentDiffStreamPanelTest() {
   let container: HTMLDivElement;
@@ -45,6 +56,19 @@ export function setupDocumentDiffStreamPanelTest() {
     render: async (props: ComponentProps<typeof DocumentDiffStreamPanel>) => {
       await act(async () => {
         root.render(<DocumentDiffStreamPanel {...props} />);
+      });
+    },
+    renderObserved: async (
+      props: ComponentProps<typeof DocumentDiffStreamPanel>,
+      onLayout: () => void,
+    ) => {
+      await act(async () => {
+        root.render(
+          <LayoutObservedDocumentDiffStreamPanel
+            onLayout={onLayout}
+            panelProps={props}
+          />,
+        );
       });
     },
   };

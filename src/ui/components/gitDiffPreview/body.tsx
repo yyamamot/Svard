@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { isLineDiffTooComplex } from "../../../core/types";
 import type { DocumentDiffPreview, DocumentFormat } from "../../../core/types";
 import type {
   GitRenderedDiffSummary,
@@ -15,7 +16,7 @@ import {
   renderedTableRowChangeIndex,
   RenderedDiffPane,
 } from "./renderedView";
-import { DiffPane, sideLines } from "./sourceView";
+import { DiffPane, rawSourceLines, sideLines } from "./sourceView";
 import {
   changedCellCount,
   fallbackMessage,
@@ -110,6 +111,43 @@ export function DiffPreviewBody({
         view={view}
       />
     ) : null;
+
+  if (isLineDiffTooComplex(preview)) {
+    return (
+      <div
+        className="git-diff-source-only"
+        data-review-id="git-diff-source-only"
+      >
+        <div
+          className="git-diff-source-only-banner"
+          data-review-id="git-diff-source-only-banner"
+          role="status"
+        >
+          Change highlighting is unavailable for this comparison.
+        </div>
+        <div className="git-diff-body">
+          <DiffPane
+            label={preview.leftLabel}
+            lines={rawSourceLines(preview.leftText)}
+            paneRef={leftRef}
+            reviewId="git-diff-left-pane"
+            onScroll={(event) =>
+              syncDirectScroll(event.currentTarget, rightRef.current)
+            }
+          />
+          <DiffPane
+            label={preview.rightLabel}
+            lines={rawSourceLines(preview.rightText)}
+            paneRef={rightRef}
+            reviewId="git-diff-right-pane"
+            onScroll={(event) =>
+              syncDirectScroll(event.currentTarget, leftRef.current)
+            }
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (hasDiff && view === "overview") {
     return (

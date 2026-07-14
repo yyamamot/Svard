@@ -107,6 +107,10 @@ export interface GitRefListMetrics {
 
 export type DocumentDiffSource = "git" | "file";
 
+export type LineDiffAvailability = "available" | "too-complex";
+
+export type LineDiffFallbackReason = "work-budget-exceeded";
+
 export type GitDiffLineKind = "context" | "added" | "removed";
 
 export interface GitDiffLine {
@@ -140,12 +144,43 @@ export interface GitDiffPreview {
   leftResourceSource?: GitDiffResourceSource | null;
   rightResourceSource?: GitDiffResourceSource | null;
   status: GitDiffStatus;
+  /**
+   * Native producers always provide this field. It remains optional while
+   * legacy browser fixtures migrate; consumers must normalize an omitted value
+   * to `available`.
+   */
+  lineDiffAvailability?: LineDiffAvailability;
+  lineDiffFallbackReason?: LineDiffFallbackReason | null;
   leftLabel: string;
   rightLabel: string;
   hunks: GitDiffHunk[];
   message?: string | null;
   leftText?: string | null;
   rightText?: string | null;
+}
+
+export function lineDiffAvailability(
+  preview: Pick<GitDiffPreview, "lineDiffAvailability">,
+): LineDiffAvailability {
+  return preview.lineDiffAvailability ?? "available";
+}
+
+export function isLineDiffTooComplex(
+  preview: Pick<GitDiffPreview, "lineDiffAvailability">,
+): boolean {
+  return lineDiffAvailability(preview) === "too-complex";
+}
+
+export function normalizeGitDiffPreview<T extends GitDiffPreview>(
+  preview: T,
+): T & { lineDiffAvailability: LineDiffAvailability } {
+  if (preview.lineDiffAvailability) {
+    return preview as T & { lineDiffAvailability: LineDiffAvailability };
+  }
+  return {
+    ...preview,
+    lineDiffAvailability: "available",
+  };
 }
 
 export type DocumentDiffPreview = GitDiffPreview;

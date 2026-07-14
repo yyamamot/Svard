@@ -30,6 +30,7 @@ describe("UI review scenario contract", () => {
         "viewer-git-timeline-file-history-cache",
         "viewer-diff-preview-regression-suite",
         "viewer-diff-code-fence-word-highlight",
+        "viewer-git-diff-too-complex-source-fallback",
       ]),
     );
 

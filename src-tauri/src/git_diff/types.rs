@@ -6,6 +6,9 @@ pub struct GitDiffPreview {
     pub repository_root: Option<String>,
     pub relative_path: Option<String>,
     pub status: GitDiffStatus,
+    pub line_diff_availability: LineDiffAvailability,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_diff_fallback_reason: Option<LineDiffFallbackReason>,
     pub left_label: String,
     pub right_label: String,
     pub hunks: Vec<GitDiffHunk>,
@@ -20,6 +23,19 @@ pub struct GitDiffPreview {
     pub left_resource_source: Option<GitDiffResourceSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub right_resource_source: Option<GitDiffResourceSource>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum LineDiffAvailability {
+    Available,
+    TooComplex,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum LineDiffFallbackReason {
+    WorkBudgetExceeded,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

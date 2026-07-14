@@ -119,6 +119,7 @@ interface AppOverlaysProps {
   onCompareDocuments: (leftPath: string, rightPath: string) => Promise<void>;
   onExternalLinkConfirmation: (confirmed: boolean) => void;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
+  onOpenDocumentDiffPreviewFromStream: (preview: DocumentDiffPreview) => void;
   onOpenDocument: (path: string) => Promise<void>;
   onOpenGitCommitDetailsFile: (
     details: GitCommitDetails,
@@ -187,6 +188,7 @@ export function AppOverlays({
   onCompareDocuments,
   onExternalLinkConfirmation,
   onOpenDiagramPreview,
+  onOpenDocumentDiffPreviewFromStream,
   onOpenDocument,
   onOpenGitCommitDetailsFile,
   onOpenAllDiffs,
@@ -327,6 +329,7 @@ export function AppOverlays({
           confirmExternalLink={confirmExternalLink}
           openExternalUrl={openDiffExternalUrl}
           onOpenDiagramPreview={onOpenDiagramPreview}
+          onOpenDiffPreview={onOpenDocumentDiffPreviewFromStream}
           showInlineNotice={showInlineNotice}
           showLightweightActionFeedback={showLightweightActionFeedback}
           resolveLocalImage={resolveDiffLocalImage}

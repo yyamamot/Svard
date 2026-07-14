@@ -72,7 +72,9 @@ export function useAppSourceControlReview({
     source: string,
   ) => void;
   persistWorkspace: (patch: Partial<AppConfig["workspace"]>) => Promise<void>;
-  renderDiffDiagram: Parameters<typeof usePostDiffGitMarkerState>[0]["renderDiffDiagram"];
+  renderDiffDiagram: Parameters<
+    typeof usePostDiffGitMarkerState
+  >[0]["renderDiffDiagram"];
   renderResult: RenderResult | null;
   resolveDiffLocalImage: Parameters<
     typeof usePostDiffGitMarkerState
@@ -247,6 +249,13 @@ export function useAppSourceControlReview({
     [setDocumentDiffPreview],
   );
 
+  const openDocumentDiffPreviewFromStream = useCallback(
+    (preview: DocumentDiffPreview) => {
+      setFreshDocumentDiffPreview(preview);
+    },
+    [setFreshDocumentDiffPreview],
+  );
+
   const refreshDocumentDiffStream = useCallback(() => {
     setDocumentDiffStreamPreview((current) =>
       current
@@ -341,6 +350,7 @@ export function useAppSourceControlReview({
     diffPreviewWatchState,
     documentDiffStreamPreview,
     documentReviewSession,
+    openDocumentDiffPreviewFromStream,
     openSourceControlAllDiffs,
     refreshActiveDiffPreview,
     refreshDocumentDiffStream,

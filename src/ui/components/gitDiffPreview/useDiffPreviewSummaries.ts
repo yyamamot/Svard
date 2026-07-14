@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { documentFormatForPath } from "../../../core/documentFormat";
+import { isLineDiffTooComplex } from "../../../core/types";
 import type {
   AppConfig,
   DocumentDiffPreview,
@@ -69,7 +70,14 @@ export function useDiffPreviewSummaries({
   const [renderedSummary, setRenderedSummary] =
     useState<GitRenderedDiffSummary>(emptyRenderedSummary);
   const [renderedSummaryLoading, setRenderedSummaryLoading] = useState(false);
-  const hasDiff = preview.hunks.length > 0;
+  const lineDiffTooComplex = isLineDiffTooComplex(preview);
+  const effectiveRenderedSummary = lineDiffTooComplex
+    ? emptyRenderedSummary
+    : renderedSummary;
+  const effectiveTableSummary = lineDiffTooComplex
+    ? emptyTableSummary
+    : tableSummary;
+  const hasDiff = !lineDiffTooComplex && preview.hunks.length > 0;
   const relativePath = preview.relativePath ?? "Current document";
   const documentFormat = documentFormatForPath(preview.relativePath ?? "");
   const renderedDocumentClassName = `markup-document format-${documentFormat}${
@@ -77,8 +85,8 @@ export function useDiffPreviewSummaries({
   }`;
   const title = `${relativePath} · ${statusLabel(preview.status)}`;
   const renderedPresentation = useMemo(
-    () => buildRenderedDiffPresentation(renderedSummary.blocks),
-    [renderedSummary.blocks],
+    () => buildRenderedDiffPresentation(effectiveRenderedSummary.blocks),
+    [effectiveRenderedSummary.blocks],
   );
   const renderedEntrySyncIndexes = useMemo(
     () =>
@@ -100,15 +108,15 @@ export function useDiffPreviewSummaries({
   const overview = overviewStats({
     activeChangeIndex,
     preview,
-    renderedSummary,
+    renderedSummary: effectiveRenderedSummary,
     renderedPresentation,
-    tableSummary,
+    tableSummary: effectiveTableSummary,
   });
   const changeCount = diffPreviewChangeCount({
     activeTableIndex,
     renderedChangeCount,
     sourceChangeCount,
-    tableSummary,
+    tableSummary: effectiveTableSummary,
     view,
   });
   const changeCountLabel = diffPreviewChangeCountLabel({
@@ -116,10 +124,16 @@ export function useDiffPreviewSummaries({
     view,
   });
   const tableViewAvailable =
-    tableSummary.renderedTables.length > 0 ||
-    tableSummary.tableMarkers.length > 0;
+    !lineDiffTooComplex &&
+    (effectiveTableSummary.renderedTables.length > 0 ||
+      effectiveTableSummary.tableMarkers.length > 0);
 
   useEffect(() => {
+    if (lineDiffTooComplex) {
+      setRenderedSummary(emptyRenderedSummary);
+      setRenderedSummaryLoading(false);
+      return;
+    }
     let cancelled = false;
     setRenderedSummary(emptyRenderedSummary);
     setRenderedSummaryLoading(true);
@@ -158,12 +172,19 @@ export function useDiffPreviewSummaries({
     confirmedRemoteDiagramKeys,
     krokiFallbackDiagramKeys,
     loadDocumentContext,
+    lineDiffTooComplex,
     preview,
     renderDiagram,
     resolveLocalImage,
   ]);
 
   useEffect(() => {
+    if (lineDiffTooComplex) {
+      setTableSummary(emptyTableSummary);
+      setTableSummaryLoading(false);
+      setActiveTableIndex(0);
+      return;
+    }
     let cancelled = false;
     setTableSummary(emptyTableSummary);
     setTableSummaryLoading(true);
@@ -191,7 +212,7 @@ export function useDiffPreviewSummaries({
     return () => {
       cancelled = true;
     };
-  }, [preview, setActiveTableIndex]);
+  }, [lineDiffTooComplex, preview, setActiveTableIndex]);
 
   return {
     changeCount,
@@ -203,11 +224,11 @@ export function useDiffPreviewSummaries({
     renderedDocumentClassName,
     renderedEntrySyncIndexes,
     renderedPresentation,
-    renderedSummary,
-    renderedSummaryLoading,
+    renderedSummary: effectiveRenderedSummary,
+    renderedSummaryLoading: lineDiffTooComplex ? false : renderedSummaryLoading,
     sourceIndexes,
-    tableSummary,
-    tableSummaryLoading,
+    tableSummary: effectiveTableSummary,
+    tableSummaryLoading: lineDiffTooComplex ? false : tableSummaryLoading,
     tableViewAvailable,
     title,
   };

@@ -2,6 +2,7 @@ export const lineDiffProbeFixtureIds: readonly string[];
 export const lineDiffProbeComparisonIds: readonly [
   "imp416-common-edge-trim",
   "imp417-linear-memory",
+  "imp419-work-budget",
 ];
 
 export type LineDiffProbeMode =
@@ -10,7 +11,8 @@ export type LineDiffProbeMode =
   | "linear-memory";
 export type LineDiffProbeComparisonId =
   | "imp416-common-edge-trim"
-  | "imp417-linear-memory";
+  | "imp417-linear-memory"
+  | "imp419-work-budget";
 
 export function parseLineDiffProbeArgs(argv: string[]): {
   baseline: string | null;
@@ -37,6 +39,13 @@ export interface LineDiffProbeComparison {
   schemaVersion: 2;
   status: "go" | "no-go";
   violations: string[];
+  workBudget?: {
+    adversarialAvailability: "available" | "too-complex";
+    adversarialReason: "work-budget-exceeded" | null;
+    adversarialWorkUnits: number;
+    budget: number;
+    disjoint5000Availability: "available" | "too-complex";
+  } | null;
 }
 
 export function buildLineDiffProbeComparison(

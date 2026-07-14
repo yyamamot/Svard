@@ -212,6 +212,9 @@ function renderHookHarness({
     api: () => api as HookApi,
     cleanup: harness.cleanup,
     getGitDiffPreview,
+    loadDiffDocumentContext,
+    renderDiffDiagram,
+    resolveDiffLocalImage,
   };
 }
 
@@ -223,6 +226,100 @@ async function flushHookUpdates() {
 }
 
 describe("usePostDiffGitMarkerState", () => {
+  it("clears stale markers and suppresses marker work for a too-complex preview", async () => {
+    const getGitDiffPreview = vi.fn(async () => preview());
+    const {
+      api,
+      cleanup,
+      loadDiffDocumentContext,
+      renderDiffDiagram,
+      resolveDiffLocalImage,
+    } = renderHookHarness({ getGitDiffPreview });
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: preview(),
+        renderedPresentation: presentation([block("rendered-block:0")]),
+      });
+    });
+    await flushHookUpdates();
+    expect(api().activePostDiffGitMarkers).not.toBeNull();
+    expect(getGitDiffPreview).toHaveBeenCalledTimes(1);
+
+    const blockedPreview = preview({
+      lineDiffAvailability: "too-complex",
+      lineDiffFallbackReason: "work-budget-exceeded",
+      hunks: [],
+    });
+    await act(async () => {
+      api().setDocumentDiffPreview(blockedPreview);
+    });
+    expect(api().activePostDiffGitMarkers).toBeNull();
+
+    await act(async () => {
+      api().closeDocumentDiffPreview({
+        preview: blockedPreview,
+        renderedPresentation: presentation([]),
+      });
+      api().setRenderResult(renderResult());
+    });
+    await flushHookUpdates();
+
+    expect(getGitDiffPreview).toHaveBeenCalledTimes(1);
+    expect(loadDiffDocumentContext).not.toHaveBeenCalled();
+    expect(resolveDiffLocalImage).not.toHaveBeenCalled();
+    expect(renderDiffDiagram).not.toHaveBeenCalled();
+    expect(api().activePostDiffGitMarkers).toBeNull();
+
+    cleanup();
+  });
+
+  it("does not retry a too-complex marker payload until the document changes", async () => {
+    const getGitDiffPreview = vi.fn(async () =>
+      preview({
+        lineDiffAvailability: "too-complex",
+        lineDiffFallbackReason: "work-budget-exceeded",
+        hunks: [],
+      }),
+    );
+    const {
+      api,
+      cleanup,
+      loadDiffDocumentContext,
+      renderDiffDiagram,
+      resolveDiffLocalImage,
+    } = renderHookHarness({
+      getGitDiffPreview,
+      rendered: renderResult(),
+    });
+
+    await flushHookUpdates();
+    expect(getGitDiffPreview).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      api().setConfig({
+        ...enabledConfig(),
+        theme: "dark",
+      });
+    });
+    await flushHookUpdates();
+    expect(getGitDiffPreview).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      api().setDocumentPayload({
+        ...documentPayload(),
+        updatedAt: "2026-06-08T00:00:01.000Z",
+      });
+    });
+    await flushHookUpdates();
+    expect(getGitDiffPreview).toHaveBeenCalledTimes(2);
+    expect(loadDiffDocumentContext).not.toHaveBeenCalled();
+    expect(resolveDiffLocalImage).not.toHaveBeenCalled();
+    expect(renderDiffDiagram).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
   it("creates the active document context from Diff Preview close handoff", async () => {
     const { api, cleanup } = renderHookHarness();
 

@@ -37,6 +37,7 @@ export function DocumentDiffStreamPanel({
   confirmExternalLink,
   openExternalUrl,
   onOpenDiagramPreview,
+  onOpenDiffPreview,
   showInlineNotice,
   showLightweightActionFeedback = () => undefined,
   loadDocumentContext,
@@ -555,6 +556,7 @@ export function DocumentDiffStreamPanel({
                 confirmExternalLink={confirmExternalLink}
                 openExternalUrl={openExternalUrl}
                 onOpenDiagramPreview={onOpenDiagramPreview}
+                onOpenDiffPreview={onOpenDiffPreview}
                 onBeginCaptureArea={beginSectionCaptureArea}
                 showInlineNotice={showInlineNotice}
                 reviewState={

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import type {
   AppConfig,
   DocumentDiffPreview,
@@ -8,6 +15,10 @@ import type {
   KrokiResult,
   LocalImageResolveContext,
   LocalImageResult,
+} from "../../../core/types";
+import {
+  isLineDiffTooComplex,
+  normalizeGitDiffPreview,
 } from "../../../core/types";
 import { deriveGitRenderedDiffSummary } from "../../lib/gitRenderedDiff";
 import type { DiffStreamLoadReason, SectionLoadState } from "./types";
@@ -30,9 +41,17 @@ export function useDocumentDiffStreamLoader({
   getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
   getGitBranchFileDiff?: (
     path: string,
-    input: { baseRef: string; headRef?: string | null; path: string; oldPath?: string | null },
+    input: {
+      baseRef: string;
+      headRef?: string | null;
+      path: string;
+      oldPath?: string | null;
+    },
   ) => Promise<DocumentDiffPreview>;
-  getGitFileCommitDiff?: (path: string, revision: string) => Promise<DocumentDiffPreview>;
+  getGitFileCommitDiff?: (
+    path: string,
+    revision: string,
+  ) => Promise<DocumentDiffPreview>;
   krokiFallbackDiagramKeys?: ReadonlySet<string>;
   loadDocumentContext?: (
     documentPath: string,
@@ -49,24 +68,84 @@ export function useDocumentDiffStreamLoader({
   ) => Promise<LocalImageResult>;
   streamBodyRef: RefObject<HTMLDivElement | null>;
 }) {
-  const [loadStates, setLoadStates] = useState<Record<string, SectionLoadState>>(
-    {},
-  );
+  const [loadStateSnapshot, setLoadStateSnapshot] = useState<{
+    items: DocumentDiffStreamPreview["items"];
+    states: Record<string, SectionLoadState>;
+  }>(() => ({ items: preview.items, states: {} }));
   const requestIds = useRef<Record<string, number>>({});
   const loadQueueRef = useRef<string[]>([]);
   const inFlightLoadsRef = useRef<Set<string>>(new Set());
   const loadStatesRef = useRef<Record<string, SectionLoadState>>({});
+  const generationRef = useRef(0);
+  const previewItemsRef = useRef(preview.items);
+  const pumpLoadQueueRef = useRef<() => void>(() => undefined);
 
-  useEffect(() => {
-    loadStatesRef.current = loadStates;
-  }, [loadStates]);
+  const loadStates =
+    loadStateSnapshot.items === preview.items ? loadStateSnapshot.states : {};
+
+  useLayoutEffect(() => {
+    if (previewItemsRef.current === preview.items) {
+      return;
+    }
+    previewItemsRef.current = preview.items;
+    generationRef.current += 1;
+    requestIds.current = {};
+    loadQueueRef.current = [];
+    inFlightLoadsRef.current.clear();
+    loadStatesRef.current = {};
+  }, [preview.items]);
+
+  const commitLoadStates = useCallback(
+    (
+      generation: number,
+      items: DocumentDiffStreamPreview["items"],
+      update: (
+        current: Record<string, SectionLoadState>,
+      ) => Record<string, SectionLoadState>,
+    ) => {
+      if (
+        generationRef.current !== generation ||
+        previewItemsRef.current !== items
+      ) {
+        return false;
+      }
+      const next = update(loadStatesRef.current);
+      loadStatesRef.current = next;
+      setLoadStateSnapshot((current) => {
+        if (
+          generationRef.current !== generation ||
+          previewItemsRef.current !== items
+        ) {
+          return current;
+        }
+        return { items, states: next };
+      });
+      return true;
+    },
+    [],
+  );
 
   const pumpLoadQueue = useCallback(() => {
-    while (inFlightLoadsRef.current.size < 2 && loadQueueRef.current.length > 0) {
-      const key = loadQueueRef.current.shift();
-      if (!key || inFlightLoadsRef.current.has(key)) {
-        continue;
+    const items = preview.items;
+    if (previewItemsRef.current !== items) {
+      return;
+    }
+    const generation = generationRef.current;
+    while (
+      inFlightLoadsRef.current.size < 2 &&
+      loadQueueRef.current.length > 0
+    ) {
+      const nextIndex = loadQueueRef.current.findIndex(
+        (candidate) =>
+          !inFlightLoadsRef.current.has(
+            inFlightLoadToken(generation, candidate),
+          ),
+      );
+      if (nextIndex < 0) {
+        break;
       }
+      const [key] = loadQueueRef.current.splice(nextIndex, 1);
+      if (!key) continue;
       const item = preview.items.find(
         (candidate) => (candidate.documentPath ?? candidate.path) === key,
       );
@@ -76,22 +155,26 @@ export function useDocumentDiffStreamLoader({
       const currentState = loadStatesRef.current[key];
       if (
         currentState?.status === "loading" ||
-        currentState?.status === "ready"
+        currentState?.status === "ready" ||
+        (currentState?.status === "blocked" &&
+          currentState.reason === "too-complex")
       ) {
         continue;
       }
       const requestId = (requestIds.current[key] ?? 0) + 1;
       const documentPath = item.documentPath;
+      const inFlightToken = inFlightLoadToken(generation, key);
       requestIds.current[key] = requestId;
-      inFlightLoadsRef.current.add(key);
-      setLoadStates((current) => {
-        const next = {
+      inFlightLoadsRef.current.add(inFlightToken);
+      if (
+        !commitLoadStates(generation, items, (current) => ({
           ...current,
           [key]: { status: "loading" } as SectionLoadState,
-        };
-        loadStatesRef.current = next;
-        return next;
-      });
+        }))
+      ) {
+        inFlightLoadsRef.current.delete(inFlightToken);
+        continue;
+      }
       loadDiffPreview({
         documentPath,
         getGitBranchFileDiff,
@@ -101,62 +184,83 @@ export function useDocumentDiffStreamLoader({
         preview,
       })
         .then(async (diffPreview) => {
-          const normalizedPreview = {
+          const normalizedPreview = normalizeGitDiffPreview({
             ...diffPreview,
             source: diffPreview.source ?? "git",
             leftPath: diffPreview.leftPath ?? documentPath,
             rightPath: diffPreview.rightPath ?? documentPath,
-          };
-          const summary = await deriveGitRenderedDiffSummary(normalizedPreview, {
-            config,
-            loadDocumentContext,
-            resolveLocalImage,
-            renderDiagram,
-            confirmedRemoteDiagramKeys,
-            krokiFallbackDiagramKeys,
           });
-          if (requestIds.current[key] !== requestId) {
+          if (
+            generationRef.current !== generation ||
+            requestIds.current[key] !== requestId
+          ) {
             return;
           }
-          setLoadStates((current) => {
-            const next = {
-              ...current,
-              [key]: {
-                status: "ready",
-                preview: normalizedPreview,
-                summary,
-              } as SectionLoadState,
-            };
-            loadStatesRef.current = next;
-            return next;
-          });
-        })
-        .catch((error) => {
-          if (requestIds.current[key] !== requestId) {
-            return;
-          }
-          setLoadStates((current) => {
-            const next = {
+          if (isLineDiffTooComplex(normalizedPreview)) {
+            commitLoadStates(generation, items, (current) => ({
               ...current,
               [key]: {
                 status: "blocked",
+                reason: "too-complex",
                 message:
-                  error instanceof Error
-                    ? "This file cannot be previewed right now."
-                    : "Preview failed.",
+                  "Highlighted diff is unavailable because this comparison exceeds the safe work limit.",
+                preview: normalizedPreview,
               } as SectionLoadState,
-            };
-            loadStatesRef.current = next;
-            return next;
-          });
+            }));
+            return;
+          }
+          const summary = await deriveGitRenderedDiffSummary(
+            normalizedPreview,
+            {
+              config,
+              loadDocumentContext,
+              resolveLocalImage,
+              renderDiagram,
+              confirmedRemoteDiagramKeys,
+              krokiFallbackDiagramKeys,
+            },
+          );
+          if (
+            generationRef.current !== generation ||
+            requestIds.current[key] !== requestId
+          ) {
+            return;
+          }
+          commitLoadStates(generation, items, (current) => ({
+            ...current,
+            [key]: {
+              status: "ready",
+              preview: normalizedPreview,
+              summary,
+            } as SectionLoadState,
+          }));
+        })
+        .catch((error) => {
+          if (
+            generationRef.current !== generation ||
+            requestIds.current[key] !== requestId
+          ) {
+            return;
+          }
+          commitLoadStates(generation, items, (current) => ({
+            ...current,
+            [key]: {
+              status: "blocked",
+              message:
+                error instanceof Error
+                  ? "This file cannot be previewed right now."
+                  : "Preview failed.",
+            } as SectionLoadState,
+          }));
         })
         .finally(() => {
-          inFlightLoadsRef.current.delete(key);
-          pumpLoadQueue();
+          inFlightLoadsRef.current.delete(inFlightToken);
+          pumpLoadQueueRef.current();
         });
     }
   }, [
     config,
+    commitLoadStates,
     confirmedRemoteDiagramKeys,
     getGitDiffPreview,
     getGitBranchFileDiff,
@@ -168,9 +272,13 @@ export function useDocumentDiffStreamLoader({
     renderDiagram,
     resolveLocalImage,
   ]);
+  pumpLoadQueueRef.current = pumpLoadQueue;
 
   const ensureSectionLoaded = useCallback(
     (key: string, _reason: DiffStreamLoadReason) => {
+      if (previewItemsRef.current !== preview.items) {
+        return false;
+      }
       const item = preview.items.find(
         (candidate) => (candidate.documentPath ?? candidate.path) === key,
       );
@@ -180,6 +288,8 @@ export function useDocumentDiffStreamLoader({
         !item.documentPath ||
         currentState?.status === "loading" ||
         currentState?.status === "ready" ||
+        (currentState?.status === "blocked" &&
+          currentState.reason === "too-complex") ||
         loadQueueRef.current.includes(key)
       ) {
         return false;
@@ -240,6 +350,10 @@ export function useDocumentDiffStreamLoader({
   };
 }
 
+function inFlightLoadToken(generation: number, key: string) {
+  return `${generation}:${key}`;
+}
+
 function loadDiffPreview({
   documentPath,
   getGitBranchFileDiff,
@@ -251,14 +365,26 @@ function loadDiffPreview({
   documentPath: string;
   getGitBranchFileDiff?: (
     path: string,
-    input: { baseRef: string; headRef?: string | null; path: string; oldPath?: string | null },
+    input: {
+      baseRef: string;
+      headRef?: string | null;
+      path: string;
+      oldPath?: string | null;
+    },
   ) => Promise<DocumentDiffPreview>;
   getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
-  getGitFileCommitDiff?: (path: string, revision: string) => Promise<DocumentDiffPreview>;
+  getGitFileCommitDiff?: (
+    path: string,
+    revision: string,
+  ) => Promise<DocumentDiffPreview>;
   item: DocumentDiffStreamPreview["items"][number];
   preview: DocumentDiffStreamPreview;
 }) {
-  if (preview.source === "git-branch-stream" && preview.baseRef && getGitBranchFileDiff) {
+  if (
+    preview.source === "git-branch-stream" &&
+    preview.baseRef &&
+    getGitBranchFileDiff
+  ) {
     return getGitBranchFileDiff(preview.repositoryRoot ?? documentPath, {
       baseRef: preview.baseRef,
       headRef: preview.headRef,
@@ -266,7 +392,11 @@ function loadDiffPreview({
       oldPath: item.oldPath,
     });
   }
-  if (preview.source === "git-commit-stream" && preview.revision && getGitFileCommitDiff) {
+  if (
+    preview.source === "git-commit-stream" &&
+    preview.revision &&
+    getGitFileCommitDiff
+  ) {
     return getGitFileCommitDiff(documentPath, preview.revision);
   }
   return getGitDiffPreview(documentPath);

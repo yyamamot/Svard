@@ -4,8 +4,10 @@ import { getImageDiagramGitDiffPreview } from "./gitDiffPreview/imageDiagramFixt
 import { getRegressionGalleryGitDiffPreview } from "./gitDiffPreview/regressionGalleryFixtures";
 import { getRenderedDocumentGitDiffPreview } from "./gitDiffPreview/renderedDocumentFixtures";
 import { getTableGitDiffPreview } from "./gitDiffPreview/tableFixtures";
+import { getTooComplexGitDiffPreview } from "./gitDiffPreview/tooComplexFixture";
 
 const gitDiffPreviewFixtureProviders = [
+  getTooComplexGitDiffPreview,
   getTableGitDiffPreview,
   getRenderedDocumentGitDiffPreview,
   getImageDiagramGitDiffPreview,

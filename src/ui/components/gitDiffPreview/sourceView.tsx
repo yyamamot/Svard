@@ -11,6 +11,17 @@ interface SideLine {
   changeIndex: number | null;
 }
 
+export function rawSourceLines(source: string | null | undefined): SideLine[] {
+  return (source ?? "").split(/\r\n|\r|\n/u).map((text, index) => ({
+    key: `raw:${index}`,
+    kind: "context",
+    lineNumber: index + 1,
+    text,
+    tableChanged: false,
+    changeIndex: null,
+  }));
+}
+
 export function sideLines(
   preview: DocumentDiffPreview,
   side: "left" | "right",

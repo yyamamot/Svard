@@ -127,9 +127,21 @@ export function useDocumentDiffStreamNavigation({
         if (state?.status === "ready") {
           continue;
         }
-        pendingNavigationRef.current = { fileIndex: index, direction };
+        if (state?.status === "blocked" && state.reason === "too-complex") {
+          const pending = pendingNavigationRef.current;
+          if (pending?.fileIndex === index) {
+            pendingNavigationRef.current = null;
+          }
+          continue;
+        }
         expandSection(key);
-        ensureSectionLoaded(key, "navigation");
+        const waitingForLoad =
+          state?.status === "loading" || ensureSectionLoaded(key, "navigation");
+        if (!waitingForLoad) {
+          pendingNavigationRef.current = null;
+          continue;
+        }
+        pendingNavigationRef.current = { fileIndex: index, direction };
         const section = diffStreamSection(panelRef.current, index);
         if (typeof section?.scrollIntoView === "function") {
           section.scrollIntoView({ block: "center" });
@@ -176,6 +188,19 @@ export function useDocumentDiffStreamNavigation({
     if (!pending) {
       return;
     }
+    const pendingItem = preview.items[pending.fileIndex];
+    const pendingKey = pendingItem
+      ? (pendingItem.documentPath ?? pendingItem.path)
+      : null;
+    const pendingState = pendingKey ? loadStates[pendingKey] : null;
+    if (
+      pendingState?.status === "blocked" &&
+      pendingState.reason === "too-complex"
+    ) {
+      pendingNavigationRef.current = null;
+      moveToUnloadedDocument(pending.direction);
+      return;
+    }
     const matchingTargets = loadedTargets.filter(
       (target) => target.fileIndex === pending.fileIndex,
     );
@@ -188,7 +213,13 @@ export function useDocumentDiffStreamNavigation({
         ? matchingTargets[0]
         : matchingTargets[matchingTargets.length - 1],
     );
-  }, [loadedTargets, selectTarget]);
+  }, [
+    loadStates,
+    loadedTargets,
+    moveToUnloadedDocument,
+    preview.items,
+    selectTarget,
+  ]);
 
   const scrollStream = useCallback(
     (action: DiffPreviewMouseGestureScrollAction) => {

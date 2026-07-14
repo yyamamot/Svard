@@ -554,14 +554,26 @@ pub(super) fn build_text_preview_with_labels(
         String::from_utf8(left).map_err(|_| "HEAD content is not UTF-8 text".to_string())?;
     let right_text = String::from_utf8(right)
         .map_err(|_| "Working tree content is not UTF-8 text".to_string())?;
+    let (line_diff_availability, line_diff_fallback_reason, hunks, message) =
+        match line_diff_hunks_bounded(&left_text, &right_text) {
+            Ok(hunks) => (LineDiffAvailability::Available, None, hunks, None),
+            Err(LineDiffWorkBudgetExceeded) => (
+                LineDiffAvailability::TooComplex,
+                Some(LineDiffFallbackReason::WorkBudgetExceeded),
+                Vec::new(),
+                Some(LINE_DIFF_WORK_BUDGET_MESSAGE.to_string()),
+            ),
+        };
     Ok(GitDiffPreview {
         repository_root,
         relative_path: Some(relative_path),
         status,
+        line_diff_availability,
+        line_diff_fallback_reason,
         left_label,
         right_label,
-        hunks: line_diff_hunks(&left_text, &right_text),
-        message: None,
+        hunks,
+        message,
         left_text: Some(left_text),
         right_text: Some(right_text),
         left_relative_path: None,
@@ -581,6 +593,8 @@ pub(super) fn empty_preview(
         repository_root,
         relative_path,
         status,
+        line_diff_availability: LineDiffAvailability::Available,
+        line_diff_fallback_reason: None,
         left_label: "HEAD".to_string(),
         right_label: "Working Tree".to_string(),
         hunks: Vec::new(),
@@ -607,20 +621,54 @@ pub(super) struct LineDiffCoreMetrics {
 }
 
 pub(super) const LINEAR_DIFF_SCRATCH_COEFFICIENT: usize = 2;
+pub(super) const LINE_DIFF_WORK_BUDGET: u64 = 25_000_000;
+pub(super) const LINE_DIFF_WORK_BUDGET_MESSAGE: &str = "Highlighted diff is unavailable because this comparison exceeds the safe work limit. Both source versions remain available.";
 
-impl LineDiffCoreMetrics {
-    fn record_work<const MEASURE: bool>(&mut self) {
-        if MEASURE {
-            self.work_units = self
-                .work_units
-                .checked_add(1)
-                .expect("line diff work units");
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct LineDiffWorkBudgetExceeded;
+
+struct LineDiffCoreState {
+    metrics: LineDiffCoreMetrics,
+    remaining_work_units: u64,
+}
+
+impl LineDiffCoreState {
+    fn new(work_budget: u64) -> Self {
+        Self {
+            metrics: LineDiffCoreMetrics::default(),
+            remaining_work_units: work_budget,
         }
+    }
+
+    fn reserve_work(&mut self, requested: usize) -> usize {
+        let requested = u64::try_from(requested).expect("line diff work reservation");
+        let allowed = requested.min(self.remaining_work_units);
+        self.remaining_work_units -= allowed;
+        self.metrics.work_units = self
+            .metrics
+            .work_units
+            .checked_add(allowed)
+            .expect("line diff work units");
+        usize::try_from(allowed).expect("line diff allowed work")
+    }
+
+    fn refund_work(&mut self, unused: usize) {
+        let unused = u64::try_from(unused).expect("line diff work refund");
+        self.remaining_work_units = self
+            .remaining_work_units
+            .checked_add(unused)
+            .expect("line diff remaining work units");
+        self.metrics.work_units = self
+            .metrics
+            .work_units
+            .checked_sub(unused)
+            .expect("line diff recorded work units");
     }
 
     fn record_scratch<const MEASURE: bool>(&mut self, entries: usize) {
         if MEASURE {
-            self.peak_scratch_entries = self
+            self.metrics.peak_scratch_entries = self
+                .metrics
                 .peak_scratch_entries
                 .max(u64::try_from(entries).expect("line diff scratch entries"));
         }
@@ -667,8 +715,9 @@ pub(super) fn line_diff_common_edges(
     }
 }
 
+#[cfg(test)]
 pub(super) fn line_diff_hunks(left: &str, right: &str) -> Vec<GitDiffHunk> {
-    line_diff_hunks_linear::<false>(left, right).0
+    line_diff_hunks_bounded(left, right).expect("test fixture must fit the line diff work budget")
 }
 
 #[cfg(test)]
@@ -676,16 +725,43 @@ pub(super) fn line_diff_hunks_with_metrics_for_test(
     left: &str,
     right: &str,
 ) -> (Vec<GitDiffHunk>, LineDiffCoreMetrics) {
-    line_diff_hunks_linear::<true>(left, right)
+    let (result, metrics) = line_diff_hunks_linear::<true>(left, right, LINE_DIFF_WORK_BUDGET);
+    (
+        result.expect("test fixture must fit the line diff work budget"),
+        metrics,
+    )
+}
+
+#[cfg(test)]
+pub(super) fn line_diff_hunks_with_budget_for_test(
+    left: &str,
+    right: &str,
+    work_budget: u64,
+) -> (
+    Result<Vec<GitDiffHunk>, LineDiffWorkBudgetExceeded>,
+    LineDiffCoreMetrics,
+) {
+    line_diff_hunks_linear::<true>(left, right, work_budget)
+}
+
+fn line_diff_hunks_bounded(
+    left: &str,
+    right: &str,
+) -> Result<Vec<GitDiffHunk>, LineDiffWorkBudgetExceeded> {
+    line_diff_hunks_linear::<false>(left, right, LINE_DIFF_WORK_BUDGET).0
 }
 
 fn line_diff_hunks_linear<const MEASURE: bool>(
     left: &str,
     right: &str,
-) -> (Vec<GitDiffHunk>, LineDiffCoreMetrics) {
-    let mut metrics = LineDiffCoreMetrics::default();
+    work_budget: u64,
+) -> (
+    Result<Vec<GitDiffHunk>, LineDiffWorkBudgetExceeded>,
+    LineDiffCoreMetrics,
+) {
+    let mut state = LineDiffCoreState::new(work_budget);
     if left == right {
-        return (Vec::new(), metrics);
+        return (Ok(Vec::new()), state.metrics);
     }
     let left_lines = split_lines(left);
     let right_lines = split_lines(right);
@@ -703,14 +779,17 @@ fn line_diff_hunks_linear<const MEASURE: bool>(
             text: left_lines[index].to_string(),
         });
     }
-    append_linear_diff::<MEASURE>(
+    let result = append_linear_diff::<MEASURE>(
         left_middle,
         right_middle,
         common_edges.prefix_lines,
         common_edges.prefix_lines,
         &mut lines,
-        &mut metrics,
+        &mut state,
     );
+    if let Err(error) = result {
+        return (Err(error), state.metrics);
+    }
     for offset in 0..common_edges.suffix_lines {
         let left_index = left_middle_end + offset;
         let right_index = right_middle_end + offset;
@@ -723,8 +802,12 @@ fn line_diff_hunks_linear<const MEASURE: bool>(
     }
 
     (
-        finalize_line_diff_hunks(left_lines.len(), right_lines.len(), lines),
-        metrics,
+        Ok(finalize_line_diff_hunks(
+            left_lines.len(),
+            right_lines.len(),
+            lines,
+        )),
+        state.metrics,
     )
 }
 
@@ -755,23 +838,23 @@ fn append_linear_diff<const MEASURE: bool>(
     old_offset: usize,
     new_offset: usize,
     output: &mut Vec<GitDiffLine>,
-    metrics: &mut LineDiffCoreMetrics,
-) {
-    if append_linear_diff_base_case::<MEASURE>(left, right, old_offset, new_offset, output, metrics)
+    state: &mut LineDiffCoreState,
+) -> Result<(), LineDiffWorkBudgetExceeded> {
+    if append_linear_diff_base_case::<MEASURE>(left, right, old_offset, new_offset, output, state)?
     {
-        return;
+        return Ok(());
     }
     // With an empty LCS, the frozen full-matrix path follows right-on-tie successors:
     // every right line is Added before every left line is Removed. Detecting that exact
     // case avoids allocating workspace without changing the edit script.
-    if !linear_diff_has_common_line::<MEASURE>(left, right, metrics) {
+    if !linear_diff_has_common_line(left, right, state)? {
         append_added_lines(right, new_offset, output);
         append_removed_lines(left, old_offset, output);
-        return;
+        return Ok(());
     }
 
     let workspace_len = right.len() + 1;
-    metrics.record_scratch::<MEASURE>(
+    state.record_scratch::<MEASURE>(
         LINEAR_DIFF_SCRATCH_COEFFICIENT
             .checked_mul(workspace_len)
             .expect("line diff scratch size"),
@@ -786,8 +869,8 @@ fn append_linear_diff<const MEASURE: bool>(
         output,
         &mut scores,
         &mut crossings,
-        metrics,
-    );
+        state,
+    )
 }
 
 fn append_canonical_diff<const MEASURE: bool>(
@@ -798,16 +881,15 @@ fn append_canonical_diff<const MEASURE: bool>(
     output: &mut Vec<GitDiffLine>,
     scores: &mut [usize],
     crossings: &mut [usize],
-    metrics: &mut LineDiffCoreMetrics,
-) {
-    if append_linear_diff_base_case::<MEASURE>(left, right, old_offset, new_offset, output, metrics)
+    state: &mut LineDiffCoreState,
+) -> Result<(), LineDiffWorkBudgetExceeded> {
+    if append_linear_diff_base_case::<MEASURE>(left, right, old_offset, new_offset, output, state)?
     {
-        return;
+        return Ok(());
     }
 
     let left_split = left.len() / 2;
-    let right_split =
-        canonical_diff_crossing::<MEASURE>(left, right, left_split, scores, crossings, metrics);
+    let right_split = canonical_diff_crossing(left, right, left_split, scores, crossings, state)?;
     append_canonical_diff::<MEASURE>(
         &left[..left_split],
         &right[..right_split],
@@ -816,8 +898,8 @@ fn append_canonical_diff<const MEASURE: bool>(
         output,
         scores,
         crossings,
-        metrics,
-    );
+        state,
+    )?;
     append_canonical_diff::<MEASURE>(
         &left[left_split..],
         &right[right_split..],
@@ -826,18 +908,18 @@ fn append_canonical_diff<const MEASURE: bool>(
         output,
         scores,
         crossings,
-        metrics,
-    );
+        state,
+    )
 }
 
-fn canonical_diff_crossing<const MEASURE: bool>(
+fn canonical_diff_crossing(
     left: &[&str],
     right: &[&str],
     left_split: usize,
     scores: &mut [usize],
     crossings: &mut [usize],
-    metrics: &mut LineDiffCoreMetrics,
-) -> usize {
+    state: &mut LineDiffCoreState,
+) -> Result<usize, LineDiffWorkBudgetExceeded> {
     // Propagate the column where the frozen full-LCS successor path crosses left_split.
     // The mismatch branch intentionally selects the right successor on equal scores so
     // the reconstructed edit script preserves the existing Added-first tie behavior.
@@ -848,15 +930,18 @@ fn canonical_diff_crossing<const MEASURE: bool>(
 
     for left_index in (left_split..left.len()).rev() {
         let mut diagonal_score = scores[right_len];
-        for right_index in (0..right_len).rev() {
+        let allowed = state.reserve_work(right_len);
+        for right_index in (0..right_len).rev().take(allowed) {
             let down_score = scores[right_index];
-            metrics.record_work::<MEASURE>();
             scores[right_index] = if left[left_index] == right[right_index] {
                 diagonal_score + 1
             } else {
                 down_score.max(scores[right_index + 1])
             };
             diagonal_score = down_score;
+        }
+        if allowed < right_len {
+            return Err(LineDiffWorkBudgetExceeded);
         }
     }
 
@@ -866,12 +951,12 @@ fn canonical_diff_crossing<const MEASURE: bool>(
     for left_index in (0..left_split).rev() {
         let mut diagonal_score = scores[right_len];
         let mut diagonal_crossing = crossings[right_len];
-        for right_index in (0..right_len).rev() {
+        let allowed = state.reserve_work(right_len);
+        for right_index in (0..right_len).rev().take(allowed) {
             let down_score = scores[right_index];
             let down_crossing = crossings[right_index];
             let right_score = scores[right_index + 1];
             let right_crossing = crossings[right_index + 1];
-            metrics.record_work::<MEASURE>();
             if left[left_index] == right[right_index] {
                 scores[right_index] = diagonal_score + 1;
                 crossings[right_index] = diagonal_crossing;
@@ -885,8 +970,11 @@ fn canonical_diff_crossing<const MEASURE: bool>(
             diagonal_score = down_score;
             diagonal_crossing = down_crossing;
         }
+        if allowed < right_len {
+            return Err(LineDiffWorkBudgetExceeded);
+        }
     }
-    crossings[0]
+    Ok(crossings[0])
 }
 
 fn append_linear_diff_base_case<const MEASURE: bool>(
@@ -895,22 +983,21 @@ fn append_linear_diff_base_case<const MEASURE: bool>(
     old_offset: usize,
     new_offset: usize,
     output: &mut Vec<GitDiffLine>,
-    metrics: &mut LineDiffCoreMetrics,
-) -> bool {
+    state: &mut LineDiffCoreState,
+) -> Result<bool, LineDiffWorkBudgetExceeded> {
     if left.is_empty() {
         append_added_lines(right, new_offset, output);
-        return true;
+        return Ok(true);
     }
     if right.is_empty() {
         append_removed_lines(left, old_offset, output);
-        return true;
+        return Ok(true);
     }
     if left.len() == 1 {
-        let match_index = right.iter().position(|right_line| {
-            metrics.record_work::<MEASURE>();
-            left[0] == *right_line
-        });
+        let allowed = state.reserve_work(right.len());
+        let match_index = find_line_match(left[0], &right[..allowed]);
         if let Some(match_index) = match_index {
+            state.refund_work(allowed - match_index - 1);
             append_added_lines(&right[..match_index], new_offset, output);
             output.push(GitDiffLine {
                 kind: GitDiffLineKind::Context,
@@ -923,18 +1010,19 @@ fn append_linear_diff_base_case<const MEASURE: bool>(
                 new_offset + match_index + 1,
                 output,
             );
+        } else if allowed < right.len() {
+            return Err(LineDiffWorkBudgetExceeded);
         } else {
             append_added_lines(right, new_offset, output);
             append_removed_lines(left, old_offset, output);
         }
-        return true;
+        return Ok(true);
     }
     if right.len() == 1 {
-        let match_index = left.iter().position(|left_line| {
-            metrics.record_work::<MEASURE>();
-            *left_line == right[0]
-        });
+        let allowed = state.reserve_work(left.len());
+        let match_index = find_line_match(right[0], &left[..allowed]);
         if let Some(match_index) = match_index {
+            state.refund_work(allowed - match_index - 1);
             append_removed_lines(&left[..match_index], old_offset, output);
             output.push(GitDiffLine {
                 kind: GitDiffLineKind::Context,
@@ -947,29 +1035,68 @@ fn append_linear_diff_base_case<const MEASURE: bool>(
                 old_offset + match_index + 1,
                 output,
             );
+        } else if allowed < left.len() {
+            return Err(LineDiffWorkBudgetExceeded);
         } else {
             append_added_lines(right, new_offset, output);
             append_removed_lines(left, old_offset, output);
         }
-        return true;
+        return Ok(true);
     }
-    false
+    Ok(false)
 }
 
-fn linear_diff_has_common_line<const MEASURE: bool>(
+fn linear_diff_has_common_line(
     left: &[&str],
     right: &[&str],
-    metrics: &mut LineDiffCoreMetrics,
-) -> bool {
-    for left_line in left {
-        for right_line in right {
-            metrics.record_work::<MEASURE>();
-            if left_line == right_line {
-                return true;
+    state: &mut LineDiffCoreState,
+) -> Result<bool, LineDiffWorkBudgetExceeded> {
+    if let Some(total_work) = left.len().checked_mul(right.len()) {
+        let total_work_u64 = u64::try_from(total_work).expect("line diff common-line work");
+        if total_work_u64 <= state.remaining_work_units {
+            state.reserve_work(total_work);
+            for left_line in left {
+                if let Some(right_index) = find_line_match(left_line, right) {
+                    let left_index = find_slice_element_position(left, left_line);
+                    let completed_work = left_index
+                        .checked_mul(right.len())
+                        .and_then(|value| value.checked_add(right_index + 1))
+                        .expect("line diff completed common-line work");
+                    state.refund_work(total_work - completed_work);
+                    return Ok(true);
+                }
             }
+            return Ok(false);
         }
     }
-    false
+
+    for left_line in left {
+        let allowed = state.reserve_work(right.len());
+        if let Some(right_index) = find_line_match(left_line, &right[..allowed]) {
+            state.refund_work(allowed - right_index - 1);
+            return Ok(true);
+        }
+        if allowed < right.len() {
+            return Err(LineDiffWorkBudgetExceeded);
+        }
+    }
+    Ok(false)
+}
+
+fn find_line_match(line: &str, candidates: &[&str]) -> Option<usize> {
+    for candidate in candidates {
+        if line == *candidate {
+            return Some(find_slice_element_position(candidates, candidate));
+        }
+    }
+    None
+}
+
+fn find_slice_element_position(candidates: &[&str], target: &&str) -> usize {
+    candidates
+        .iter()
+        .position(|candidate| std::ptr::eq(candidate, target))
+        .expect("line diff slice element")
 }
 
 fn append_added_lines(right: &[&str], new_offset: usize, output: &mut Vec<GitDiffLine>) {

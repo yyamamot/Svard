@@ -38,6 +38,7 @@ export function DiffToolbar({
   watchState,
   renderedSummaryLoading,
   renderedBlockCount,
+  sourceOnly = false,
   onMoveChange,
   onRefreshPreview,
   onViewChange,
@@ -57,6 +58,7 @@ export function DiffToolbar({
   watchState?: DiffPreviewWatchState;
   renderedSummaryLoading: boolean;
   renderedBlockCount: number;
+  sourceOnly?: boolean;
   onMoveChange: (offset: number) => void;
   onRefreshPreview?: () => void;
   onViewChange: (view: DiffView) => void;
@@ -77,7 +79,9 @@ export function DiffToolbar({
         className="git-diff-navigation"
         data-review-id="git-diff-change-navigation"
       >
-        <span data-review-id="git-diff-change-count">{changeCountLabel}</span>
+        <span data-review-id="git-diff-change-count">
+          {sourceOnly ? "Source only" : changeCountLabel}
+        </span>
         {watchLabel && (
           <span
             className={`git-diff-watch-status ${watchState?.status ?? ""}`}
@@ -103,7 +107,7 @@ export function DiffToolbar({
         )}
         <button
           type="button"
-          disabled={changeCount === 0}
+          disabled={sourceOnly || changeCount === 0}
           aria-label="Previous change"
           onClick={() => onMoveChange(-1)}
         >
@@ -111,7 +115,7 @@ export function DiffToolbar({
         </button>
         <button
           type="button"
-          disabled={changeCount === 0}
+          disabled={sourceOnly || changeCount === 0}
           aria-label="Next change"
           onClick={() => onMoveChange(1)}
         >
@@ -136,6 +140,7 @@ export function DiffToolbar({
           className={view === "overview" ? "active" : ""}
           data-review-id="git-diff-overview-view"
           aria-pressed={view === "overview"}
+          disabled={sourceOnly}
           onClick={() => onViewChange("overview")}
         >
           Overview
@@ -145,7 +150,9 @@ export function DiffToolbar({
           className={view === "preview" ? "active" : ""}
           data-review-id="git-diff-full-preview-view"
           aria-pressed={view === "preview"}
-          disabled={renderedSummaryLoading || renderedBlockCount === 0}
+          disabled={
+            sourceOnly || renderedSummaryLoading || renderedBlockCount === 0
+          }
           title={
             renderedBlockCount > 0
               ? "Show full document preview diff"
@@ -160,7 +167,9 @@ export function DiffToolbar({
           className={view === "rendered" ? "active" : ""}
           data-review-id="git-diff-rendered-view"
           aria-pressed={view === "rendered"}
-          disabled={renderedSummaryLoading || renderedBlockCount === 0}
+          disabled={
+            sourceOnly || renderedSummaryLoading || renderedBlockCount === 0
+          }
           title={
             renderedBlockCount > 0
               ? "Show changed sections only"
@@ -184,7 +193,7 @@ export function DiffToolbar({
           className={view === "table" ? "active" : ""}
           data-review-id="git-diff-table-view"
           aria-pressed={view === "table"}
-          disabled={!tableViewAvailable}
+          disabled={sourceOnly || !tableViewAvailable}
           title={
             tableViewAvailable ? "Show table diff" : "No table diff available"
           }

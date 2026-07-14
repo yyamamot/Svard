@@ -324,6 +324,30 @@ export async function buildGitDiffSourceControlAssertions(context) {
             );
           })
         : true,
+    hasTooComplexDiffSourceFallback:
+      scenario === "viewer-git-diff-too-complex-source-fallback"
+        ? await page.evaluate(() => {
+            const sample = window.__SVARD_TOO_COMPLEX_DIFF_FALLBACK_SAMPLE__;
+            return (
+              sample?.blockerVisible === true &&
+              sample?.otherSectionRendered === true &&
+              sample?.remainedUnreviewed === true &&
+              sample?.requestCount === 1 &&
+              sample?.requestCountAfterOpen === 1 &&
+              sample?.allDiffsClosed === true &&
+              sample?.sourceOnlyVisible === true &&
+              sample?.sourceOnlyLabel === true &&
+              sample?.bannerVisible === true &&
+              sample?.leftSourceVisible === true &&
+              sample?.rightSourceVisible === true &&
+              sample?.leftLineNumbers >= 2 &&
+              sample?.rightLineNumbers >= 2 &&
+              sample?.controlsDisabled === true &&
+              sample?.navigationDisabled === true &&
+              sample?.rulerAbsent === true
+            );
+          })
+        : true,
     hasSourceControlAllDiffsMouseGestures:
       scenario === "viewer-source-control-all-diffs-mouse-gestures"
         ? await page.evaluate(() => {

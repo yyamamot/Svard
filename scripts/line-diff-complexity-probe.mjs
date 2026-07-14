@@ -17,6 +17,7 @@ export const lineDiffProbeFixtureIds = [
 export const lineDiffProbeComparisonIds = [
   "imp416-common-edge-trim",
   "imp417-linear-memory",
+  "imp419-work-budget",
 ];
 
 export function parseLineDiffProbeArgs(argv) {
@@ -150,23 +151,53 @@ function percentile(values, ratio) {
 }
 
 function validateLineDiffProbeReportStructure(report) {
-  assertExactKeys(
-    report,
-    [
-      "measurementCount",
-      "samples",
-      "schemaVersion",
-      "summaries",
-      "warmupCount",
-    ],
-    "report",
-  );
+  const reportKeys = [
+    "measurementCount",
+    "samples",
+    "schemaVersion",
+    "summaries",
+    "warmupCount",
+  ];
+  if (report.schemaVersion === 2) {
+    reportKeys.push("workBudget");
+  }
+  assertExactKeys(report, reportKeys, "report");
   if (
-    report.schemaVersion !== 1 ||
+    !new Set([1, 2]).has(report.schemaVersion) ||
     report.warmupCount !== 1 ||
     report.measurementCount !== 20
   ) {
     throw new Error("Line diff report metadata mismatch");
+  }
+  if (report.schemaVersion === 2) {
+    assertExactKeys(
+      report.workBudget,
+      [
+        "adversarialAvailability",
+        "adversarialReason",
+        "adversarialWorkUnits",
+        "budget",
+        "disjoint5000Availability",
+      ],
+      "work budget",
+    );
+    if (
+      !Number.isSafeInteger(report.workBudget.budget) ||
+      report.workBudget.budget < 0 ||
+      !Number.isSafeInteger(report.workBudget.adversarialWorkUnits) ||
+      report.workBudget.adversarialWorkUnits < 0 ||
+      !new Set(["available", "too-complex"]).has(
+        report.workBudget.disjoint5000Availability,
+      ) ||
+      !new Set(["available", "too-complex"]).has(
+        report.workBudget.adversarialAvailability,
+      ) ||
+      !new Set([null, "work-budget-exceeded"]).has(
+        report.workBudget.adversarialReason,
+      )
+    ) {
+      throw new Error("Line diff report work budget mismatch");
+    }
   }
   if (
     !Array.isArray(report.samples) ||
@@ -315,19 +346,19 @@ function p95RegressionPercent(baseline, candidate) {
 }
 
 export function validateLineDiffProbeComparison(comparison) {
-  assertExactKeys(
-    comparison,
-    [
-      "baselineMode",
-      "candidateMode",
-      "comparisonId",
-      "fixtures",
-      "schemaVersion",
-      "status",
-      "violations",
-    ],
-    "comparison",
-  );
+  const comparisonKeys = [
+    "baselineMode",
+    "candidateMode",
+    "comparisonId",
+    "fixtures",
+    "schemaVersion",
+    "status",
+    "violations",
+  ];
+  if (comparison.comparisonId === "imp419-work-budget") {
+    comparisonKeys.push("workBudget");
+  }
+  assertExactKeys(comparison, comparisonKeys, "comparison");
   if (
     comparison.schemaVersion !== 2 ||
     !lineDiffProbeComparisonIds.includes(comparison.comparisonId) ||
@@ -345,26 +376,54 @@ export function validateLineDiffProbeComparison(comparison) {
     throw new Error("Line diff comparison metadata mismatch");
   }
   const allowedViolations =
-    comparison.comparisonId === "imp417-linear-memory"
+    comparison.comparisonId === "imp419-work-budget"
       ? new Set([
           "baseline-mode-mismatch",
           "candidate-mode-mismatch",
-          "linear-scratch-bound-exceeded",
-          "full-matrix-allocation-retained",
+          "work-units-changed",
+          "peak-scratch-entries-changed",
           "small-case-p95-regression",
+          "work-budget-mismatch",
+          "disjoint-5000-availability-mismatch",
+          "adversarial-availability-mismatch",
+          "adversarial-reason-mismatch",
+          "adversarial-work-units-mismatch",
         ])
-      : new Set([
-          "baseline-mode-mismatch",
-          "candidate-mode-mismatch",
-          "single-edit-work-not-reduced",
-          "single-edit-scratch-not-reduced",
-          "small-case-p95-regression",
-        ]);
+      : comparison.comparisonId === "imp417-linear-memory"
+        ? new Set([
+            "baseline-mode-mismatch",
+            "candidate-mode-mismatch",
+            "linear-scratch-bound-exceeded",
+            "full-matrix-allocation-retained",
+            "small-case-p95-regression",
+          ])
+        : new Set([
+            "baseline-mode-mismatch",
+            "candidate-mode-mismatch",
+            "single-edit-work-not-reduced",
+            "single-edit-scratch-not-reduced",
+            "small-case-p95-regression",
+          ]);
   if (
     comparison.violations.some((reason) => !allowedViolations.has(reason)) ||
     comparison.status !== (comparison.violations.length === 0 ? "go" : "no-go")
   ) {
     throw new Error("Line diff comparison violation mismatch");
+  }
+  if (comparison.comparisonId === "imp419-work-budget") {
+    if (comparison.workBudget !== null) {
+      assertExactKeys(
+        comparison.workBudget,
+        [
+          "adversarialAvailability",
+          "adversarialReason",
+          "adversarialWorkUnits",
+          "budget",
+          "disjoint5000Availability",
+        ],
+        "comparison work budget",
+      );
+    }
   }
   const fixtureIds = new Set();
   for (const fixture of comparison.fixtures) {
@@ -425,6 +484,9 @@ function inferLineDiffProbeComparisonId(
   if (baselineMode === "full-lcs" || candidateMode === "common-edge-trim") {
     return "imp416-common-edge-trim";
   }
+  if (baselineMode === "linear-memory" && candidateMode === "linear-memory") {
+    return "imp419-work-budget";
+  }
   if (
     baselineMode === "common-edge-trim" ||
     candidateMode === "linear-memory"
@@ -470,7 +532,47 @@ export function buildLineDiffProbeComparison(
     };
   });
   const violations = [];
-  if (comparisonId === "imp417-linear-memory") {
+  if (comparisonId === "imp419-work-budget") {
+    if (baselineMode !== "linear-memory") {
+      violations.push("baseline-mode-mismatch");
+    }
+    if (candidateMode !== "linear-memory") {
+      violations.push("candidate-mode-mismatch");
+    }
+    if (
+      fixtures.some(
+        (fixture) => fixture.candidateWorkUnits !== fixture.baselineWorkUnits,
+      )
+    ) {
+      violations.push("work-units-changed");
+    }
+    if (
+      fixtures.some(
+        (fixture) =>
+          fixture.candidatePeakScratchEntries !==
+          fixture.baselinePeakScratchEntries,
+      )
+    ) {
+      violations.push("peak-scratch-entries-changed");
+    }
+    const workBudget =
+      candidate.schemaVersion === 2 ? candidate.workBudget : null;
+    if (workBudget?.budget !== 25_000_000) {
+      violations.push("work-budget-mismatch");
+    }
+    if (workBudget?.disjoint5000Availability !== "available") {
+      violations.push("disjoint-5000-availability-mismatch");
+    }
+    if (workBudget?.adversarialAvailability !== "too-complex") {
+      violations.push("adversarial-availability-mismatch");
+    }
+    if (workBudget?.adversarialReason !== "work-budget-exceeded") {
+      violations.push("adversarial-reason-mismatch");
+    }
+    if (workBudget?.adversarialWorkUnits !== 25_000_000) {
+      violations.push("adversarial-work-units-mismatch");
+    }
+  } else if (comparisonId === "imp417-linear-memory") {
     if (baselineMode !== "common-edge-trim") {
       violations.push("baseline-mode-mismatch");
     }
@@ -531,6 +633,12 @@ export function buildLineDiffProbeComparison(
     schemaVersion: 2,
     status: violations.length === 0 ? "go" : "no-go",
     violations,
+    ...(comparisonId === "imp419-work-budget"
+      ? {
+          workBudget:
+            candidate.schemaVersion === 2 ? candidate.workBudget : null,
+        }
+      : {}),
   };
   validateLineDiffProbeComparison(comparison);
   return comparison;

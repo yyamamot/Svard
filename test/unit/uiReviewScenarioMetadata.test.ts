@@ -62,6 +62,7 @@ describe("UI review scenario metadata", () => {
         "viewer-diff-preview-regression-suite",
         "viewer-diff-code-fence-word-highlight",
         "viewer-diff-inline-diagnostics",
+        "viewer-git-diff-too-complex-source-fallback",
       ]),
     );
     expect(scenarioContractFor("viewer-source-control-changes")).toMatchObject({
@@ -97,6 +98,16 @@ describe("UI review scenario metadata", () => {
         "git-diff-preview-panel",
         "git-full-preview-diff",
         "diff-inline-diagnostic-note",
+      ]),
+    );
+    expect(
+      requiredMarkersForScenario("viewer-git-diff-too-complex-source-fallback"),
+    ).toEqual(
+      expect.arrayContaining([
+        "git-diff-source-only",
+        "git-diff-source-only-banner",
+        "git-diff-left-pane",
+        "git-diff-right-pane",
       ]),
     );
   });

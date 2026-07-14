@@ -10,6 +10,7 @@ import type {
   LocalImageResolveContext,
   LocalImageResult,
 } from "../../core/types";
+import { isLineDiffTooComplex } from "../../core/types";
 import type { ContentCursorCommandHandler } from "../lib/contentCursor";
 import type { DiffPreviewWatchState } from "../lib/diffPreviewWatch";
 import {
@@ -129,11 +130,22 @@ export function DocumentDiffPreviewPanel({
   const [syncScrollEnabled, setSyncScrollEnabled] = useState(true);
   const [activeChangeIndex, setActiveChangeIndex] = useState(0);
   const [activeTableIndex, setActiveTableIndex] = useState(0);
+  const sourceOnly = isLineDiffTooComplex(preview);
+  const activeView: DiffView = sourceOnly ? "source" : view;
+  const previewIdentityKey = diffPreviewIdentityKey(preview);
+  const captureAreaContextKey = `${previewIdentityKey}\0${
+    sourceOnly ? "source-only" : "rendered"
+  }`;
   const [captureAreaState, setCaptureAreaState] = useState<{
     article: HTMLElement;
+    contextKey: string;
     variant: CaptureAreaVariant;
   } | null>(null);
-  const previewIdentityKey = diffPreviewIdentityKey(preview);
+  const activeCaptureAreaState =
+    captureAreaState?.contextKey === captureAreaContextKey &&
+    captureAreaState.article.isConnected
+      ? captureAreaState
+      : null;
   const autoRefreshKeyRef = useRef<string | null>(null);
   const {
     changeCount,
@@ -163,7 +175,7 @@ export function DocumentDiffPreviewPanel({
     renderDiagram,
     resolveLocalImage,
     setActiveTableIndex,
-    view,
+    view: activeView,
   });
   const {
     jumpToPreviewChange,
@@ -178,7 +190,7 @@ export function DocumentDiffPreviewPanel({
     syncingScrollRef,
     programmaticScrollElementsRef,
     syncScrollEnabled,
-    view,
+    view: activeView,
     changeCount,
     activeChangeIndex,
     renderedNavigationTargets: renderedPresentation.navigationTargets,
@@ -195,7 +207,7 @@ export function DocumentDiffPreviewPanel({
       renderedChangedEntries,
       renderedPresentation,
       setActiveChangeIndex,
-      view,
+      view: activeView,
     });
   const closeWithHandoff = useCallback(() => {
     onClose({ preview, renderedPresentation });
@@ -210,10 +222,14 @@ export function DocumentDiffPreviewPanel({
       if (!article) {
         return false;
       }
-      setCaptureAreaState({ article, variant });
+      setCaptureAreaState({
+        article,
+        contextKey: captureAreaContextKey,
+        variant,
+      });
       return true;
     },
-    [],
+    [captureAreaContextKey],
   );
   const copyCapturedArea = useCallback(
     async (
@@ -271,19 +287,20 @@ export function DocumentDiffPreviewPanel({
     rightRef,
     setLastMouseGesture,
     showInlineNotice,
-    view,
+    view: activeView,
   });
 
   useEffect(() => {
-    setView("preview");
+    setView(sourceOnly ? "source" : "preview");
     setIsExpanded(true);
     setActiveTableIndex(0);
     setActiveChangeIndex(0);
-  }, [previewIdentityKey]);
+    setCaptureAreaState(null);
+  }, [previewIdentityKey, sourceOnly]);
 
   useEffect(() => {
     setActiveChangeIndex(0);
-  }, [view, activeTableIndex]);
+  }, [activeView, activeTableIndex]);
 
   useEffect(() => {
     setActiveChangeIndex((current) => {
@@ -330,7 +347,7 @@ export function DocumentDiffPreviewPanel({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && captureAreaState) {
+      if (event.key === "Escape" && activeCaptureAreaState) {
         event.preventDefault();
         setCaptureAreaState(null);
         return;
@@ -342,7 +359,7 @@ export function DocumentDiffPreviewPanel({
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [captureAreaState, closeWithHandoff]);
+  }, [activeCaptureAreaState, closeWithHandoff]);
 
   return (
     <div
@@ -378,7 +395,7 @@ export function DocumentDiffPreviewPanel({
             config={config}
             preview={preview}
             title={title}
-            view={view}
+            view={activeView}
             changeCount={changeCount}
             changeCountLabel={changeCountLabel}
             isExpanded={isExpanded}
@@ -387,9 +404,14 @@ export function DocumentDiffPreviewPanel({
             watchState={watchState}
             renderedSummaryLoading={renderedSummaryLoading}
             renderedBlockCount={renderedSummary.blocks.length}
+            sourceOnly={sourceOnly}
             onMoveChange={moveChange}
             onRefreshPreview={onRefreshPreview}
-            onViewChange={setView}
+            onViewChange={(nextView) => {
+              if (!sourceOnly) {
+                setView(nextView);
+              }
+            }}
             onToggleExpanded={() => setIsExpanded((current) => !current)}
             onSyncScrollChange={setSyncScrollEnabled}
             onClose={closeWithHandoff}
@@ -415,26 +437,26 @@ export function DocumentDiffPreviewPanel({
           renderedSummary={renderedSummary}
           renderedSummaryLoading={renderedSummaryLoading}
           rightRef={rightRef}
-          showChangeRuler={!chromeHidden}
+          showChangeRuler={!chromeHidden && !sourceOnly}
           sourceIndexes={sourceIndexes}
           tableSummary={tableSummary}
           tableSummaryLoading={tableSummaryLoading}
-          view={view}
+          view={activeView}
           jumpToPreviewChange={jumpToPreviewChange}
           selectChange={selectChange}
           setActiveTableIndex={setActiveTableIndex}
           syncDirectScroll={syncDirectScroll}
           syncRenderedScroll={syncRenderedScroll}
         />
-        {captureAreaState && (
+        {activeCaptureAreaState && (
           <CaptureAreaOverlay
-            article={captureAreaState.article}
-            viewer={captureAreaState.article}
+            article={activeCaptureAreaState.article}
+            viewer={activeCaptureAreaState.article}
             onCapture={(rect) =>
               void copyCapturedArea(
-                captureAreaState.article,
+                activeCaptureAreaState.article,
                 rect,
-                captureAreaState.variant,
+                activeCaptureAreaState.variant,
               )
             }
             onClose={() => setCaptureAreaState(null)}

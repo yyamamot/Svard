@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isSupportedDocumentPath } from "../../core/documentFormat";
+import { isLineDiffTooComplex } from "../../core/types";
 import type {
   AppConfig,
   DocumentDiffPreview,
@@ -98,8 +99,18 @@ function gitDiffPreviewHandoffSignature(preview: DocumentDiffPreview): string {
     relativePath: preview.relativePath ?? null,
     rightLabel: preview.rightLabel,
     status: preview.status,
+    lineDiffAvailability: preview.lineDiffAvailability ?? "available",
     hunks: preview.hunks,
   });
+}
+
+function previewTargetsDocument(
+  preview: DocumentDiffPreview,
+  documentPath: string,
+): boolean {
+  return (
+    preview.leftPath === documentPath || preview.rightPath === documentPath
+  );
 }
 
 function postDiffGitMarkerContextSignature(
@@ -139,6 +150,9 @@ export function usePostDiffGitMarkerState({
   const pendingPostDiffGitMarkerRefreshPathsRef = useRef<Map<string, string>>(
     new Map(),
   );
+  const blockedPostDiffGitMarkerDocumentVersionsRef = useRef<
+    Record<string, string | null>
+  >({});
   const activeDocumentPathRef = useRef<string | null>(
     documentPayload?.path ?? null,
   );
@@ -183,6 +197,7 @@ export function usePostDiffGitMarkerState({
         return;
       }
       delete initialPostDiffGitMarkerSignaturesRef.current[path];
+      delete blockedPostDiffGitMarkerDocumentVersionsRef.current[path];
       clearPostDiffGitMarkers(reason);
       setPostDiffGitMarkerRefreshToken((current) => current + 1);
     },
@@ -196,6 +211,7 @@ export function usePostDiffGitMarkerState({
         return;
       }
       delete initialPostDiffGitMarkerSignaturesRef.current[path];
+      delete blockedPostDiffGitMarkerDocumentVersionsRef.current[path];
       pendingPostDiffGitMarkerRefreshPathsRef.current.set(path, reason);
       tracePerf("postDiffGitMarkers.refreshKeep", {
         basename: perfBasename(path),
@@ -227,6 +243,16 @@ export function usePostDiffGitMarkerState({
       const closeHandoff = handoff;
       const documentUpdatedAt = documentPayload.updatedAt ?? null;
 
+      if (isLineDiffTooComplex(closeHandoff.preview)) {
+        if (previewTargetsDocument(closeHandoff.preview, activePath)) {
+          blockedPostDiffGitMarkerDocumentVersionsRef.current[activePath] =
+            documentUpdatedAt;
+        }
+        pendingPostDiffGitMarkerRefreshPathsRef.current.delete(activePath);
+        clearPostDiffGitMarkers("line-diff-too-complex");
+        return;
+      }
+
       async function commitWorkingTreeHandoff() {
         try {
           const workingTreePreview = await getGitDiffPreview(activePath);
@@ -236,6 +262,13 @@ export function usePostDiffGitMarkerState({
           ) {
             return;
           }
+          if (isLineDiffTooComplex(workingTreePreview)) {
+            blockedPostDiffGitMarkerDocumentVersionsRef.current[activePath] =
+              documentUpdatedAt;
+            pendingPostDiffGitMarkerRefreshPathsRef.current.delete(activePath);
+            clearPostDiffGitMarkers("handoff-line-diff-too-complex");
+            return;
+          }
           if (
             workingTreePreview.status === "clean" ||
             workingTreePreview.hunks.length === 0
@@ -243,8 +276,7 @@ export function usePostDiffGitMarkerState({
             clearPostDiffGitMarkers("handoff-working-tree-clean");
             tracePerf("postDiffGitMarkers.handoffSkip", {
               basename: perfBasename(activePath),
-              reason:
-                workingTreePreview.status === "clean" ? "clean" : "empty",
+              reason: workingTreePreview.status === "clean" ? "clean" : "empty",
               status: workingTreePreview.status,
             });
             return;
@@ -320,12 +352,13 @@ export function usePostDiffGitMarkerState({
       refreshGitChanges: (reason?: string) => void,
     ) => {
       const reason = `file-tree-${event.reason}`;
-      const decision =
-        shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
+      const decision = shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange(
+        {
           activeDocumentPath: documentPayload?.path ?? null,
           changedPath: event.changedPath,
           reason,
-        });
+        },
+      );
       if (decision.shouldInvalidate) {
         refreshPostDiffGitMarkersForActiveDocument("git-refresh");
       } else {
@@ -362,9 +395,24 @@ export function usePostDiffGitMarkerState({
 
   useEffect(() => {
     if (documentDiffPreview) {
+      const path = documentPayload?.path ?? null;
+      if (
+        path &&
+        isLineDiffTooComplex(documentDiffPreview) &&
+        previewTargetsDocument(documentDiffPreview, path)
+      ) {
+        blockedPostDiffGitMarkerDocumentVersionsRef.current[path] =
+          documentPayload?.updatedAt ?? null;
+      } else if (
+        path &&
+        documentDiffPreview.rightLabel === "Working Tree" &&
+        previewTargetsDocument(documentDiffPreview, path)
+      ) {
+        delete blockedPostDiffGitMarkerDocumentVersionsRef.current[path];
+      }
       clearPostDiffGitMarkers("diff-preview-open");
     }
-  }, [clearPostDiffGitMarkers, documentDiffPreview]);
+  }, [clearPostDiffGitMarkers, documentDiffPreview, documentPayload]);
 
   useEffect(() => {
     if (!config?.experimental.postDiffGitMarkers) {
@@ -402,6 +450,17 @@ export function usePostDiffGitMarkerState({
 
     const activePath = path;
     const documentUpdatedAt = documentPayload.updatedAt ?? null;
+    if (
+      Object.prototype.hasOwnProperty.call(
+        blockedPostDiffGitMarkerDocumentVersionsRef.current,
+        activePath,
+      ) &&
+      blockedPostDiffGitMarkerDocumentVersionsRef.current[activePath] ===
+        documentUpdatedAt
+    ) {
+      clearPostDiffGitMarkers("line-diff-too-complex");
+      return;
+    }
     const existingContext = postDiffGitMarkersByPath[activePath] ?? null;
     const hasPendingRefresh =
       pendingPostDiffGitMarkerRefreshPathsRef.current.has(activePath);
@@ -449,6 +508,16 @@ export function usePostDiffGitMarkerState({
         if (cancelled) {
           return;
         }
+        if (isLineDiffTooComplex(preview)) {
+          blockedPostDiffGitMarkerDocumentVersionsRef.current[activePath] =
+            documentUpdatedAt;
+          initialPostDiffGitMarkerSignaturesRef.current[activePath] =
+            requestSignature;
+          pendingPostDiffGitMarkerRefreshPathsRef.current.delete(activePath);
+          clearPostDiffGitMarkers("initial-line-diff-too-complex");
+          return;
+        }
+        delete blockedPostDiffGitMarkerDocumentVersionsRef.current[activePath];
         if (preview.status === "clean" || preview.hunks.length === 0) {
           pendingPostDiffGitMarkerRefreshPathsRef.current.delete(activePath);
           clearPostDiffGitMarkers("initial-clean");

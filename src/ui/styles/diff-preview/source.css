@@ -5,6 +5,23 @@
   min-height: 0;
 }
 
+.git-diff-source-only {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.git-diff-source-only-banner {
+  flex: 0 0 auto;
+  border-bottom: 1px solid color-mix(in srgb, #b98000 46%, var(--reader-border));
+  padding: 7px 12px;
+  color: color-mix(in srgb, #684400 86%, var(--reader-text));
+  background: color-mix(in srgb, #fff5d8 76%, var(--reader-bg));
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .git-diff-pane {
   display: flex;
   flex-direction: column;

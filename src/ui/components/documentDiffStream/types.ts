@@ -33,7 +33,12 @@ export type SectionLoadState =
       preview: DocumentDiffPreview;
       summary: GitRenderedDiffSummary;
     }
-  | { status: "blocked"; message: string };
+  | {
+      status: "blocked";
+      message: string;
+      reason?: "too-complex";
+      preview?: DocumentDiffPreview;
+    };
 
 export type DiffStreamViewMode = "full" | "changes";
 
@@ -92,6 +97,7 @@ export interface DocumentDiffStreamPanelProps {
   confirmExternalLink: (url: string) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<void>;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
+  onOpenDiffPreview?: (preview: DocumentDiffPreview) => void;
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },

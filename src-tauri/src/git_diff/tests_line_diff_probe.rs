@@ -64,6 +64,17 @@ struct ProbeReport {
     schema_version: u32,
     summaries: Vec<FixtureSummary>,
     warmup_count: usize,
+    work_budget: WorkBudgetSummary,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkBudgetSummary {
+    adversarial_availability: &'static str,
+    adversarial_reason: Option<&'static str>,
+    adversarial_work_units: u64,
+    budget: u64,
+    disjoint_5000_availability: &'static str,
 }
 
 fn numbered_lines(prefix: &str, count: usize) -> String {
@@ -154,6 +165,51 @@ fn percentile(values: &[f64], percentile: f64) -> f64 {
     sorted[rank.saturating_sub(1).min(sorted.len() - 1)]
 }
 
+fn late_common_lines(count: usize) -> (String, String) {
+    let mut left = (0..count)
+        .map(|index| format!("left-{index:05}"))
+        .collect::<Vec<_>>();
+    let mut right = (0..count)
+        .map(|index| format!("right-{index:05}"))
+        .collect::<Vec<_>>();
+    left[count / 2] = "shared".to_string();
+    left[count - 1] = "shared".to_string();
+    right[count - 1] = "shared".to_string();
+    (left.join("\n") + "\n", right.join("\n") + "\n")
+}
+
+fn work_budget_summary(disjoint: &ProbeFixture) -> WorkBudgetSummary {
+    let (disjoint_result, _) = line_diff_hunks_with_budget_for_test(
+        &disjoint.left,
+        &disjoint.right,
+        LINE_DIFF_WORK_BUDGET,
+    );
+    let (adversarial_left, adversarial_right) = late_common_lines(5_000);
+    let (adversarial_result, adversarial_metrics) = line_diff_hunks_with_budget_for_test(
+        &adversarial_left,
+        &adversarial_right,
+        LINE_DIFF_WORK_BUDGET,
+    );
+
+    WorkBudgetSummary {
+        adversarial_availability: if adversarial_result.is_err() {
+            "too-complex"
+        } else {
+            "available"
+        },
+        adversarial_reason: adversarial_result
+            .is_err()
+            .then_some("work-budget-exceeded"),
+        adversarial_work_units: adversarial_metrics.work_units,
+        budget: LINE_DIFF_WORK_BUDGET,
+        disjoint_5000_availability: if disjoint_result.is_ok() {
+            "available"
+        } else {
+            "too-complex"
+        },
+    }
+}
+
 fn build_report() -> ProbeReport {
     let fixtures = probe_fixtures();
     let mut samples_by_fixture = vec![Vec::<ProbeSample>::new(); fixtures.len()];
@@ -191,13 +247,18 @@ fn build_report() -> ProbeReport {
         })
         .collect();
     let samples = samples_by_fixture.into_iter().flatten().collect();
+    let disjoint_5000 = fixtures
+        .iter()
+        .find(|fixture| fixture.fixture_id == "disjoint-5000")
+        .expect("disjoint-5000 fixture");
 
     ProbeReport {
         measurement_count: MEASUREMENT_COUNT,
         samples,
-        schema_version: 1,
+        schema_version: 2,
         summaries,
         warmup_count: WARMUP_COUNT,
+        work_budget: work_budget_summary(disjoint_5000),
     }
 }
 
@@ -232,6 +293,11 @@ fn assert_report_is_privacy_safe(report: &ProbeReport) {
                 format!("disjoint-{line_count}"),
             ]
         })
+        .chain([
+            "available".to_string(),
+            "too-complex".to_string(),
+            "work-budget-exceeded".to_string(),
+        ])
         .collect::<BTreeSet<_>>();
     assert!(
         string_values.is_subset(&allowed),
@@ -291,7 +357,7 @@ fn line_diff_probe_report_schema_is_minimal_and_privacy_safe() {
     let report = ProbeReport {
         measurement_count: 1,
         samples: vec![sample],
-        schema_version: 1,
+        schema_version: 2,
         summaries: vec![FixtureSummary {
             duration_ms: DurationSummary {
                 p50: 1.25,
@@ -305,6 +371,13 @@ fn line_diff_probe_report_schema_is_minimal_and_privacy_safe() {
             work_units: 40_000,
         }],
         warmup_count: 1,
+        work_budget: WorkBudgetSummary {
+            adversarial_availability: "too-complex",
+            adversarial_reason: Some("work-budget-exceeded"),
+            adversarial_work_units: LINE_DIFF_WORK_BUDGET,
+            budget: LINE_DIFF_WORK_BUDGET,
+            disjoint_5000_availability: "available",
+        },
     };
     assert_report_is_privacy_safe(&report);
 
@@ -323,6 +396,7 @@ fn line_diff_probe_report_schema_is_minimal_and_privacy_safe() {
             "schemaVersion".to_string(),
             "summaries".to_string(),
             "warmupCount".to_string(),
+            "workBudget".to_string(),
         ])
     );
     let sample = &value["samples"][0];
@@ -330,6 +404,16 @@ fn line_diff_probe_report_schema_is_minimal_and_privacy_safe() {
     assert!(sample.get("source").is_none());
     assert!(sample.get("path").is_none());
     assert!(sample.get("hunk").is_none());
+    assert_eq!(value["workBudget"]["budget"], LINE_DIFF_WORK_BUDGET);
+    assert_eq!(value["workBudget"]["disjoint5000Availability"], "available");
+    assert_eq!(
+        value["workBudget"]["adversarialAvailability"],
+        "too-complex"
+    );
+    assert_eq!(
+        value["workBudget"]["adversarialReason"],
+        "work-budget-exceeded"
+    );
 }
 
 #[test]

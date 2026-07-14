@@ -160,6 +160,25 @@ export function diffPreview(path: string): DocumentDiffPreview {
   };
 }
 
+export function tooComplexDiffPreview(path: string): DocumentDiffPreview {
+  return {
+    source: "git",
+    relativePath: path.replace(/^\/workspace\//, ""),
+    leftPath: path,
+    rightPath: path,
+    status: "modified",
+    lineDiffAvailability: "too-complex",
+    lineDiffFallbackReason: "work-budget-exceeded",
+    leftLabel: "HEAD",
+    rightLabel: "Working Tree",
+    hunks: [],
+    message:
+      "Highlighted diff is unavailable because this comparison exceeds the safe work limit. Both source versions remain available.",
+    leftText: "# Previous\n\nOriginal source",
+    rightText: "# Current\n\nUpdated source",
+  };
+}
+
 export function renderedDiffSummary(count = 1): GitRenderedDiffSummary {
   return {
     blocks: Array.from({ length: count }, (_, index) => ({

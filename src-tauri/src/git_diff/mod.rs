@@ -20,6 +20,8 @@ mod tests;
 #[cfg(test)]
 mod tests_history;
 #[cfg(test)]
+mod tests_line_diff_budget;
+#[cfg(test)]
 mod tests_line_diff_oracle;
 #[cfg(test)]
 mod tests_line_diff_probe;
