@@ -26,6 +26,25 @@ export interface HeadroomEvaluation {
   upperBoundP50Ms?: number | null;
 }
 
+export interface AsciiDocPrepareComparison {
+  duplicateImagesP50ImprovementPercent: number | null;
+  duplicateLinksP50ImprovementPercent: number | null;
+  duplicateMaxConcurrency: number | null;
+  duplicateResolverCallCount: number | null;
+  duplicateResolverTotalP50ImprovementPercent: number | null;
+  duplicateResolverUniqueCount: number | null;
+  plainLargeP95RegressionPercent: number | null;
+  includeHeavyP95RegressionPercent: number | null;
+  diagramHeavyP95RegressionPercent: number | null;
+  productionWorkerP95RegressionPercent: number | null;
+  reasons: string[];
+  status: "go" | "no-go" | "needs-decision";
+  uniqueMaxConcurrency: number | null;
+  uniquePrepareP95RegressionPercent: number | null;
+  uniqueResolverCallCount: number | null;
+  uniqueTotalP95RegressionPercent: number | null;
+}
+
 export function assertAsciiDocPrepareArtifactSafe(value: unknown): void;
 export function round(value: unknown): number | null;
 export function percentile(
@@ -34,6 +53,10 @@ export function percentile(
 ): number | null;
 export function medianAbsoluteDeviation(values: number[]): number | null;
 export function summarizeSamples(values: number[]): DurationSummary;
+export function buildAsciiDocPrepareComparison(
+  baseline: unknown,
+  current: unknown,
+): AsciiDocPrepareComparison;
 export function estimateBoundedConcurrencyMs(
   durations: number[],
   concurrency: number,

@@ -6,6 +6,7 @@ import { chromium } from "@playwright/test";
 import { asciidocPrepareFixtures } from "./asciidoc-prepare-benchmark/fixtures.mjs";
 import {
   assertAsciiDocPrepareArtifactSafe,
+  buildAsciiDocPrepareComparison,
   round,
   summarizeSamples,
 } from "./asciidoc-prepare-benchmark/report.mjs";
@@ -42,6 +43,7 @@ const workerCountKeys = [
 
 function parseArgs(argv) {
   const args = {
+    baseline: null,
     out: ".artifacts/perf/imp-411-baseline",
     port: 4293,
     profile: "full",
@@ -50,7 +52,9 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (value === "--") continue;
-    if (value === "--out") {
+    if (value === "--baseline") {
+      args.baseline = argv[++index] ?? null;
+    } else if (value === "--out") {
       args.out = argv[++index] ?? args.out;
     } else if (value === "--port") {
       args.port = Number(argv[++index] ?? args.port);
@@ -372,10 +376,16 @@ async function main() {
       args.url ?? server.url,
     );
     const report = JSON.parse(await fs.readFile(summaryPath, "utf8"));
+    const baseline = args.baseline
+      ? JSON.parse(await fs.readFile(path.resolve(args.baseline), "utf8"))
+      : null;
     const merged = {
       ...report,
       productionWorker,
     };
+    if (baseline) {
+      merged.comparison = buildAsciiDocPrepareComparison(baseline, merged);
+    }
     assertAsciiDocPrepareArtifactSafe(merged);
     const serialized = JSON.stringify(merged);
     if (
