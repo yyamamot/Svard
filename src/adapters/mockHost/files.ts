@@ -149,6 +149,7 @@ export async function openDocument(
 }
 
 export async function listDirectory(path: string): Promise<DirectoryEntry[]> {
+  await waitForBootTreeProfile();
   if (typeof window !== "undefined") {
     const overrides = (
       window as unknown as {
@@ -693,6 +694,30 @@ export async function loadConfig(): Promise<AppConfig> {
       },
     };
   }
+  if (scenario === "viewer-workspace-boot-first-content") {
+    const documentPath = "/workspace/docs/markdown-sample.md";
+    return {
+      ...structuredClone(defaultConfig),
+      theme: "dark",
+      workspace: {
+        ...structuredClone(defaultConfig.workspace),
+        lastDirectory: "/workspace",
+        activePath: documentPath,
+        openTabs: [documentPath],
+        recentTabs: [documentPath],
+        expandedDirectories: ["/workspace/docs"],
+        splitSession: {
+          enabled: true,
+          focusedPaneId: "right",
+          splitRatio: 0.6,
+          panePaths: {
+            left: documentPath,
+            right: documentPath,
+          },
+        },
+      },
+    };
+  }
   return {
     ...structuredClone(currentConfig),
     workspace: {
@@ -700,6 +725,21 @@ export async function loadConfig(): Promise<AppConfig> {
       lastDirectory: "/workspace",
     },
   };
+}
+
+async function waitForBootTreeProfile(): Promise<void> {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const search = new URLSearchParams(window.location.search);
+  if (search.get("scenario") !== "viewer-workspace-boot-first-content") {
+    return;
+  }
+  const profile = search.get("bootTreeProfile");
+  const delayMs = profile === "normal" ? 50 : profile === "stress" ? 750 : 0;
+  if (delayMs > 0) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, delayMs));
+  }
 }
 
 export async function saveConfig(config: AppConfig): Promise<void> {

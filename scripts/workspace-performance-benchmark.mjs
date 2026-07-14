@@ -7,6 +7,7 @@ import { reportMarkdown } from "./workspace-performance/reportMarkdown.mjs";
 
 const workflowDefinitions = [
   { id: "app-boot", category: "render" },
+  { id: "workspace-boot-first-content", category: "filesystem" },
   { id: "initial-document-open", category: "render" },
   { id: "markdown-render", category: "render" },
   { id: "asciidoc-render", category: "render" },
@@ -58,6 +59,35 @@ const uiWorkflowScenarios = [
     workflowId: "change-review-marker-generation",
     scenario: "viewer-normal-git-markers-table-cell-markdown-diagnosis",
   },
+];
+
+/**
+ * Browser collector contract installed before each startup navigation:
+ * window[collectorGlobal] = {
+ *   schemaVersion, scenarioId, status, profile,
+ *   phases: { initialDocumentOpenedMs, documentRenderStartedMs,
+ *     firstDocumentFrameMs, rootDirectoryReadyMs,
+ *     expandedDirectoriesReadyMs, treeSettledMs },
+ *   entryCount, orderViolationCount, reason?
+ * }.
+ * The benchmark copies only this fixed allowlist into its summary.
+ */
+const workspaceBootBenchmarkInterface = Object.freeze({
+  collectorGlobal: "__SVARD_WORKSPACE_BOOT_BENCHMARK__",
+  measurementCountPerProfile: 7,
+  profiles: ["fast", "normal"],
+  scenarioId: "viewer-workspace-boot-first-content",
+  schemaVersion: 1,
+  warmupCountPerProfile: 1,
+});
+
+const workspaceBootPhaseDefinitions = [
+  ["initialDocumentOpenedMs", "initial-document-opened"],
+  ["documentRenderStartedMs", "document-render-started"],
+  ["firstDocumentFrameMs", "first-document-frame"],
+  ["rootDirectoryReadyMs", "root-directory-ready"],
+  ["expandedDirectoriesReadyMs", "expanded-directories-ready"],
+  ["treeSettledMs", "tree-settled"],
 ];
 
 function parseArgs(argv) {
@@ -120,6 +150,231 @@ function summarizeDurations(durations) {
     p50Ms: percentile(numeric, 50),
     p95Ms: percentile(numeric, 95),
   };
+}
+
+function workspaceBootBenchmarkPlan() {
+  const warmups = workspaceBootBenchmarkInterface.profiles.flatMap((profile) =>
+    Array.from(
+      { length: workspaceBootBenchmarkInterface.warmupCountPerProfile },
+      () => ({ kind: "warmup", profile }),
+    ),
+  );
+  const measurements = Array.from(
+    { length: workspaceBootBenchmarkInterface.measurementCountPerProfile },
+    (_, index) =>
+      workspaceBootBenchmarkInterface.profiles.map((profile) => ({
+        index: index + 1,
+        kind: "measurement",
+        profile,
+      })),
+  ).flat();
+  return [...warmups, ...measurements];
+}
+
+function workspaceBootScenarioUrl(baseURL, profile) {
+  if (!workspaceBootBenchmarkInterface.profiles.includes(profile)) {
+    throw new Error(`Unsupported workspace boot profile: ${profile}`);
+  }
+  const url = new URL(baseURL);
+  url.searchParams.set("scenario", workspaceBootBenchmarkInterface.scenarioId);
+  url.searchParams.set("bootTreeProfile", profile);
+  return url.toString();
+}
+
+function safeCollectorReason(reason, fallback) {
+  return typeof reason === "string" && /^[a-z0-9_.:-]+$/iu.test(reason)
+    ? reason
+    : fallback;
+}
+
+function normalizeWorkspaceBootSample(sample, expectedProfile) {
+  if (!sample || typeof sample !== "object" || Array.isArray(sample)) {
+    throw new Error("Workspace boot collector returned an invalid sample");
+  }
+  const status = sample.status === "ok" ? "ok" : "failed";
+  const profile = sample.profile;
+  if (
+    sample.schemaVersion !== workspaceBootBenchmarkInterface.schemaVersion ||
+    sample.scenarioId !== workspaceBootBenchmarkInterface.scenarioId ||
+    profile !== expectedProfile
+  ) {
+    throw new Error("Workspace boot collector contract mismatch");
+  }
+  if (status !== "ok") {
+    return {
+      profile,
+      reason: safeCollectorReason(sample.reason, "collector-failed"),
+      status,
+    };
+  }
+  const phases = {};
+  for (const [phaseKey] of workspaceBootPhaseDefinitions) {
+    const value = sample.phases?.[phaseKey];
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      throw new Error(`Workspace boot collector missing phase: ${phaseKey}`);
+    }
+    phases[phaseKey] = round(value);
+  }
+  const entryCount = sample.entryCount;
+  const orderViolationCount = sample.orderViolationCount;
+  if (!Number.isInteger(entryCount) || entryCount < 0) {
+    throw new Error("Workspace boot collector returned an invalid entry count");
+  }
+  if (!Number.isInteger(orderViolationCount) || orderViolationCount < 0) {
+    throw new Error(
+      "Workspace boot collector returned an invalid order violation count",
+    );
+  }
+  return {
+    entryCount,
+    orderViolationCount,
+    phases,
+    profile,
+    status,
+  };
+}
+
+function summarizeWorkspaceBootProfile(samples) {
+  const phases = Object.fromEntries(
+    workspaceBootPhaseDefinitions.map(([phaseKey]) => [
+      phaseKey,
+      summarizeDurations(samples.map((sample) => sample.phases[phaseKey])),
+    ]),
+  );
+  const entryCounts = samples.map((sample) => sample.entryCount);
+  return {
+    entryCount: {
+      max: entryCounts.length > 0 ? Math.max(...entryCounts) : null,
+      min: entryCounts.length > 0 ? Math.min(...entryCounts) : null,
+    },
+    measurementCount: samples.length,
+    orderViolationCount: samples.reduce(
+      (total, sample) => total + sample.orderViolationCount,
+      0,
+    ),
+    phases,
+  };
+}
+
+function summarizeWorkspaceBootBenchmark(report, profile) {
+  if (!report) {
+    return {
+      measurementCountPerProfile:
+        workspaceBootBenchmarkInterface.measurementCountPerProfile,
+      profiles: {},
+      reason:
+        profile === "quick"
+          ? "not-measured-in-quick-profile"
+          : "workspace-boot-collector-unavailable",
+      scenarioId: workspaceBootBenchmarkInterface.scenarioId,
+      schemaVersion: workspaceBootBenchmarkInterface.schemaVersion,
+      status: "skipped",
+      warmupCountPerProfile:
+        workspaceBootBenchmarkInterface.warmupCountPerProfile,
+    };
+  }
+  if (report.status !== "ok") {
+    return {
+      measurementCountPerProfile:
+        workspaceBootBenchmarkInterface.measurementCountPerProfile,
+      profiles: {},
+      reason: safeCollectorReason(
+        report.reason,
+        report.status === "skipped"
+          ? "workspace-boot-collector-unavailable"
+          : "workspace-boot-collector-failed",
+      ),
+      scenarioId: workspaceBootBenchmarkInterface.scenarioId,
+      schemaVersion: workspaceBootBenchmarkInterface.schemaVersion,
+      status: report.status === "skipped" ? "skipped" : "failed",
+      warmupCountPerProfile:
+        workspaceBootBenchmarkInterface.warmupCountPerProfile,
+    };
+  }
+
+  const profileSummaries = {};
+  let reason = null;
+  for (const profileId of workspaceBootBenchmarkInterface.profiles) {
+    const samples = report.profiles?.[profileId] ?? [];
+    if (
+      samples.length !==
+      workspaceBootBenchmarkInterface.measurementCountPerProfile
+    ) {
+      reason ??= "incomplete-workspace-boot-measurements";
+    }
+    profileSummaries[profileId] = summarizeWorkspaceBootProfile(samples);
+  }
+  return {
+    measurementCountPerProfile:
+      workspaceBootBenchmarkInterface.measurementCountPerProfile,
+    profiles: profileSummaries,
+    reason,
+    scenarioId: workspaceBootBenchmarkInterface.scenarioId,
+    schemaVersion: workspaceBootBenchmarkInterface.schemaVersion,
+    status: reason === null ? "ok" : "failed",
+    warmupCountPerProfile:
+      workspaceBootBenchmarkInterface.warmupCountPerProfile,
+  };
+}
+
+function deriveWorkspaceBootResult(summary) {
+  const hasProfileSummaries = workspaceBootBenchmarkInterface.profiles.every(
+    (profileId) => summary.profiles?.[profileId]?.phases,
+  );
+  if (
+    (summary.status !== "ok" && summary.status !== "failed") ||
+    !hasProfileSummaries
+  ) {
+    return workflowResult({
+      category: "filesystem",
+      fixtureId: summary.scenarioId,
+      id: "workspace-boot-first-content",
+      metric: "normal.firstDocumentFrameMs.p50",
+      reason: summary.reason,
+      source: `ui-startup-benchmark:${summary.scenarioId}`,
+      status: summary.status === "failed" ? "failed" : "skipped",
+    });
+  }
+  const phaseBreakdown = workspaceBootBenchmarkInterface.profiles.flatMap(
+    (profileId) =>
+      workspaceBootPhaseDefinitions.map(([phaseKey, phaseName]) => {
+        const stats = summary.profiles[profileId].phases[phaseKey];
+        const details = {
+          p50Ms: stats.p50Ms,
+          p95Ms: stats.p95Ms,
+          sampleCount: stats.count,
+        };
+        if (phaseKey === "treeSettledMs") {
+          details.entryCountMax = summary.profiles[profileId].entryCount.max;
+          details.entryCountMin = summary.profiles[profileId].entryCount.min;
+          details.orderViolationCount =
+            summary.profiles[profileId].orderViolationCount;
+        }
+        return {
+          details,
+          durationMs: stats.p50Ms,
+          name: `${profileId}-${phaseName}`,
+          status: "ok",
+        };
+      }),
+  );
+  const measurementCount = workspaceBootBenchmarkInterface.profiles.reduce(
+    (total, profileId) => total + summary.profiles[profileId].measurementCount,
+    0,
+  );
+  return workflowResult({
+    category: "filesystem",
+    durationMs:
+      summary.profiles.normal?.phases.firstDocumentFrameMs.p50Ms ?? null,
+    eventCount: measurementCount * workspaceBootPhaseDefinitions.length,
+    fixtureId: summary.scenarioId,
+    id: "workspace-boot-first-content",
+    metric: "normal.firstDocumentFrameMs.p50",
+    phaseBreakdown,
+    reason: summary.reason,
+    source: `ui-startup-benchmark:${summary.scenarioId}`,
+    status: summary.status,
+  });
 }
 
 function workflowResult({
@@ -574,13 +829,19 @@ function buildSummary({
   profile,
   sourceReport,
   uiReports = [],
+  workspaceBootReport = null,
 }) {
   const markdown = markdownReport
     ? deriveMarkdownResults(markdownReport)
     : { events: summarizeEvents([]), workflows: [] };
+  const workspaceBootFirstContent = summarizeWorkspaceBootBenchmark(
+    workspaceBootReport,
+    profile,
+  );
   const workflows = fillMissingWorkflows(
     [
       ...markdown.workflows,
+      deriveWorkspaceBootResult(workspaceBootFirstContent),
       ...(asciidocReport ? deriveAsciiDocResults(asciidocReport) : []),
       ...(sourceReport ? deriveSourceControlResults(sourceReport) : []),
       ...deriveUiReviewResults(uiReports),
@@ -617,6 +878,7 @@ function buildSummary({
     schemaVersion: 1,
     traceSummary: markdown.events,
     workflows,
+    workspaceBootFirstContent,
   };
 }
 
@@ -726,6 +988,89 @@ async function startUiServer() {
   };
 }
 
+async function runWorkspaceBootBenchmark({
+  baseURL,
+  buildScenarioUrl = workspaceBootScenarioUrl,
+  collectorTimeoutMs = 10_000,
+  installCollector,
+  launchBrowser,
+}) {
+  const profiles = Object.fromEntries(
+    workspaceBootBenchmarkInterface.profiles.map((profile) => [profile, []]),
+  );
+  let browser = null;
+  let context = null;
+  try {
+    browser = await launchBrowser();
+    context = await browser.newContext({
+      viewport: { width: 1440, height: 960 },
+    });
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const page = await context.newPage();
+    await installCollector(page);
+
+    for (const run of workspaceBootBenchmarkPlan()) {
+      await page.goto(buildScenarioUrl(baseURL, run.profile), {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForFunction(
+        (collectorGlobal) => {
+          const collector = globalThis[collectorGlobal];
+          return collector?.status === "ok" || collector?.status === "failed";
+        },
+        workspaceBootBenchmarkInterface.collectorGlobal,
+        { timeout: collectorTimeoutMs },
+      );
+      const rawSample = await page.evaluate(
+        (collectorGlobal) => globalThis[collectorGlobal] ?? null,
+        workspaceBootBenchmarkInterface.collectorGlobal,
+      );
+      let sample;
+      try {
+        sample = normalizeWorkspaceBootSample(rawSample, run.profile);
+      } catch {
+        return {
+          profiles,
+          reason: "workspace-boot-collector-contract-mismatch",
+          status: "failed",
+        };
+      }
+      if (sample.status !== "ok") {
+        return {
+          profiles,
+          reason: sample.reason,
+          status: "failed",
+        };
+      }
+      if (run.kind === "measurement") {
+        profiles[run.profile].push(sample);
+      }
+    }
+    return {
+      measurementCountPerProfile:
+        workspaceBootBenchmarkInterface.measurementCountPerProfile,
+      profiles,
+      status: "ok",
+      warmupCountPerProfile:
+        workspaceBootBenchmarkInterface.warmupCountPerProfile,
+    };
+  } catch (error) {
+    const unavailable =
+      error?.name === "TimeoutError" ||
+      /timeout|timed out/iu.test(String(error?.message ?? ""));
+    return {
+      profiles,
+      reason: unavailable
+        ? "workspace-boot-collector-unavailable"
+        : "workspace-boot-scenario-error",
+      status: unavailable ? "skipped" : "failed",
+    };
+  } finally {
+    await context?.close().catch(() => {});
+    await browser?.close().catch(() => {});
+  }
+}
+
 async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, "utf8"));
 }
@@ -761,22 +1106,52 @@ async function runProbeReports({ outputDir, profile }) {
   };
 
   if (profile === "quick") {
-    return { ...reports, uiReports: [] };
+    return { ...reports, uiReports: [], workspaceBootReport: null };
   }
 
+  const uiResults = await runUiReviewReports({ outputDir, profile });
   return {
     ...reports,
-    uiReports: await runUiReviewReports({ outputDir, profile }),
+    ...uiResults,
   };
 }
 
 async function runUiReviewReports({ outputDir, profile }) {
-  const { captureScenario } = await import("./ui-review-utils.mjs");
+  const [captureModule, playwright] = await Promise.all([
+    import("./ui-review/core/capture.mjs"),
+    import("@playwright/test"),
+  ]);
+  const {
+    WORKSPACE_BOOT_BENCHMARK_PROFILES,
+    WORKSPACE_BOOT_BENCHMARK_SCENARIO,
+    buildWorkspaceBootBenchmarkUrl,
+    captureScenario,
+    installWorkspaceBootBenchmarkCollector,
+  } = captureModule;
   const server = await startUiServer();
   const uiRoot = path.join(outputDir, "ui-scenarios");
   const reports = [];
+  let workspaceBootReport;
 
   try {
+    const interfaceMatches =
+      WORKSPACE_BOOT_BENCHMARK_SCENARIO ===
+        workspaceBootBenchmarkInterface.scenarioId &&
+      workspaceBootBenchmarkInterface.profiles.every((profileId) =>
+        WORKSPACE_BOOT_BENCHMARK_PROFILES.includes(profileId),
+      );
+    workspaceBootReport = interfaceMatches
+      ? await runWorkspaceBootBenchmark({
+          baseURL: server.baseURL,
+          buildScenarioUrl: buildWorkspaceBootBenchmarkUrl,
+          installCollector: installWorkspaceBootBenchmarkCollector,
+          launchBrowser: () => playwright.chromium.launch(),
+        })
+      : {
+          profiles: {},
+          reason: "workspace-boot-collector-contract-mismatch",
+          status: "failed",
+        };
     for (const definition of uiWorkflowScenarios) {
       const scenario = definition.scenario;
       const artifactRoot = path.join(uiRoot, definition.workflowId);
@@ -814,7 +1189,7 @@ async function runUiReviewReports({ outputDir, profile }) {
     await server.stop();
   }
 
-  return reports;
+  return { uiReports: reports, workspaceBootReport };
 }
 
 async function writeOutputs(outputDir, summary) {
@@ -866,11 +1241,18 @@ export {
   deriveMarkdownResults,
   deriveSourceControlResults,
   deriveUiReviewResults,
+  deriveWorkspaceBootResult,
   fillMissingWorkflows,
+  normalizeWorkspaceBootSample,
   parseArgs,
   percentile,
   reportMarkdown,
+  runWorkspaceBootBenchmark,
+  summarizeWorkspaceBootBenchmark,
   summarizeDurations,
   summarizeEvents,
   validatePrivacy,
+  workspaceBootBenchmarkInterface,
+  workspaceBootBenchmarkPlan,
+  workspaceBootScenarioUrl,
 };

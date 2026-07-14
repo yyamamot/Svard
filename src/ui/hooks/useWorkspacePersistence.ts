@@ -13,11 +13,11 @@ import type { PaneId, ViewerPaneSnapshot } from "../types";
 
 interface UseWorkspacePersistenceOptions {
   activeHeadingId: string | null;
+  canAutoPersist: boolean;
   config: AppConfig | null;
   documentPayload: DocumentPayload | null;
   focusedPaneId: PaneId;
   host: HostAdapter;
-  isLoading: boolean;
   paneSnapshots: Record<PaneId, ViewerPaneSnapshot>;
   setConfig: (config: AppConfig) => void;
   splitEnabled: boolean;
@@ -28,11 +28,11 @@ interface UseWorkspacePersistenceOptions {
 
 export function useWorkspacePersistence({
   activeHeadingId,
+  canAutoPersist,
   config,
   documentPayload,
   focusedPaneId,
   host,
-  isLoading,
   paneSnapshots,
   setConfig,
   splitEnabled,
@@ -66,7 +66,7 @@ export function useWorkspacePersistence({
   }
 
   useEffect(() => {
-    if (!config || isLoading) {
+    if (!config || !canAutoPersist) {
       return;
     }
 
@@ -140,10 +140,10 @@ export function useWorkspacePersistence({
     return () => window.clearTimeout(timeoutId);
   }, [
     activeHeadingId,
+    canAutoPersist,
     config,
     documentPayload,
     focusedPaneId,
-    isLoading,
     paneSnapshots.left.documentPayload,
     paneSnapshots.right.documentPayload,
     splitEnabled,

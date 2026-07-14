@@ -2,6 +2,7 @@ export async function buildFilesAssertions(context) {
   const scenario = context.scenario;
   const page = context.page;
   const bodyText = context.bodyText;
+  const consoleMessages = context.consoleMessages ?? [];
   return {
     hasFileTree:
       scenario === "viewer-files" || scenario === "viewer-files-tree"
@@ -60,6 +61,115 @@ export async function buildFilesAssertions(context) {
             )
             .filter({ hasText: "auto-created.md" })
             .count()) === 1
+        : true,
+    hasWorkspaceBootPhaseOrder:
+      scenario === "viewer-workspace-boot-first-content"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_WORKSPACE_BOOT_BENCHMARK__;
+            const phases = result?.phases;
+            return (
+              result?.schemaVersion === 1 &&
+              result?.scenarioId === "viewer-workspace-boot-first-content" &&
+              result?.profile === "stress" &&
+              result?.status === "ok" &&
+              result?.orderViolationCount === 0 &&
+              result?.entryCount > 0 &&
+              typeof phases?.initialDocumentOpenedMs === "number" &&
+              typeof phases?.documentRenderStartedMs === "number" &&
+              typeof phases?.firstDocumentFrameMs === "number" &&
+              typeof phases?.rootDirectoryReadyMs === "number" &&
+              typeof phases?.expandedDirectoriesReadyMs === "number" &&
+              typeof phases?.treeSettledMs === "number" &&
+              phases.initialDocumentOpenedMs <=
+                phases.documentRenderStartedMs &&
+              phases.documentRenderStartedMs <= phases.firstDocumentFrameMs &&
+              phases.firstDocumentFrameMs < phases.rootDirectoryReadyMs &&
+              phases.firstDocumentFrameMs < phases.expandedDirectoriesReadyMs &&
+              phases.firstDocumentFrameMs < phases.treeSettledMs
+            );
+          })
+        : true,
+    hasWorkspaceBootSingleRenderCommit:
+      scenario === "viewer-workspace-boot-first-content"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_WORKSPACE_BOOT_OBSERVATION__;
+            return (
+              result?.renderEffectStartCount === 1 &&
+              result?.articleInnerHtmlCommitCount === 1 &&
+              result?.firstDocumentFrameCount === 1
+            );
+          })
+        : true,
+    hasWorkspaceBootStableTheme:
+      scenario === "viewer-workspace-boot-first-content"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_WORKSPACE_BOOT_OBSERVATION__;
+            return (
+              result?.themeAtDocumentRenderStart === "dark" &&
+              result?.themeAtFirstDocumentFrame === "dark" &&
+              result?.finalTheme === "dark"
+            );
+          })
+        : true,
+    hasWorkspaceBootRestoredSplit:
+      scenario === "viewer-workspace-boot-first-content"
+        ? (await page.evaluate(() => {
+            const result = window.__SVARD_WORKSPACE_BOOT_OBSERVATION__;
+            return (
+              result?.splitVisibleAtFirstDocumentFrame === true &&
+              result?.focusedPaneAtFirstDocumentFrame === "right" &&
+              result?.splitRatioAtFirstDocumentFrame === 0.6 &&
+              result?.finalSplitVisible === true &&
+              result?.finalFocusedPane === "right" &&
+              result?.finalSplitRatio === 0.6
+            );
+          })) &&
+          (await page.locator('[data-review-id="viewer-split"]').count()) ===
+            1 &&
+          (await page.locator('[data-pane-id="right"].focused').count()) ===
+            1 &&
+          (await page
+            .locator(
+              '[data-pane-id="left"][data-review-id="document-viewer-secondary"]',
+            )
+            .count()) === 1
+        : true,
+    hasWorkspaceBootFirstContent:
+      scenario === "viewer-workspace-boot-first-content"
+        ? bodyText.includes("Markdown Sample") &&
+          !bodyText.includes("Loading document") &&
+          (await page.evaluate(() => {
+            const result = window.__SVARD_WORKSPACE_BOOT_OBSERVATION__;
+            return (
+              result?.loadingVisibleAtFirstDocumentFrame === false &&
+              result?.documentVisibleAtFirstDocumentFrame === true &&
+              result?.finalLoadingVisible === false &&
+              result?.finalDocumentVisible === true &&
+              result?.finalDiagramCount === 0
+            );
+          }))
+        : true,
+    hasWorkspaceBootFinalTree:
+      scenario === "viewer-workspace-boot-first-content"
+        ? (await page.evaluate(
+            () =>
+              window.__SVARD_WORKSPACE_BOOT_OBSERVATION__?.finalTreeVisible ===
+              true,
+          )) &&
+          (await page
+            .locator('[data-review-id="tree-folder-toggle"]')
+            .filter({ hasText: "docs" })
+            .count()) === 1 &&
+          (await page
+            .locator('[data-review-id="tree-file"]')
+            .filter({ hasText: "markdown-sample.md" })
+            .count()) === 1
+        : true,
+    hasWorkspaceBootPrivacySafeConsole:
+      scenario === "viewer-workspace-boot-first-content"
+        ? consoleMessages.every(
+            (message) => !String(message?.text ?? "").startsWith("[perf]"),
+          )
         : true,
     hasFileTreeNewFileWatchRefresh:
       scenario === "viewer-file-tree-new-file-watch-refresh"

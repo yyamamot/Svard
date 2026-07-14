@@ -19,6 +19,8 @@ describe("render commit perf trace", () => {
     expect(viewerPaneSource).toContain("render.layoutEffect.start");
     expect(viewerPaneSource).toContain("render.layoutEffect.done");
     expect(viewerPaneSource).toContain("render.postCommitAnimationFrame");
+    expect(renderHookSource).toContain("workspaceBoot.documentRenderStarted");
+    expect(viewerPaneSource).toContain("workspaceBoot.firstDocumentFrame");
 
     const stateTraceBody = renderHookSource.slice(
       renderHookSource.indexOf('tracePerf("render.stateCommit.start"'),
@@ -30,6 +32,36 @@ describe("render commit perf trace", () => {
     expect(stateTraceBody).not.toContain("finalHtml");
     expect(stateTraceBody).not.toContain("source");
     expect(stateTraceBody).not.toContain("documentPayload.path");
+
+    const safeRenderStartTrace = renderHookSource.slice(
+      renderHookSource.indexOf(
+        'tracePerf("workspaceBoot.documentRenderStarted"',
+      ),
+      renderHookSource.indexOf(
+        "});",
+        renderHookSource.indexOf(
+          'tracePerf("workspaceBoot.documentRenderStarted"',
+        ),
+      ) + 3,
+    );
+    expect(safeRenderStartTrace).not.toContain("basename");
+    expect(safeRenderStartTrace).not.toContain("format");
+    expect(safeRenderStartTrace).not.toContain("path");
+    expect(safeRenderStartTrace).not.toContain("source");
+
+    const safeFirstFrameTrace = viewerPaneSource.slice(
+      viewerPaneSource.indexOf('tracePerf("workspaceBoot.firstDocumentFrame"'),
+      viewerPaneSource.indexOf(
+        "});",
+        viewerPaneSource.indexOf(
+          'tracePerf("workspaceBoot.firstDocumentFrame"',
+        ),
+      ) + 3,
+    );
+    expect(safeFirstFrameTrace).not.toContain("basename");
+    expect(safeFirstFrameTrace).not.toContain("format");
+    expect(safeFirstFrameTrace).not.toContain("path");
+    expect(safeFirstFrameTrace).not.toContain("source");
   });
 
   it("keeps article innerHTML commits tied to HTML and primitive document identity", () => {
@@ -46,8 +78,12 @@ describe("render commit perf trace", () => {
     expect(layoutEffectBody).toContain("documentPath");
     expect(layoutEffectBody).toContain("hasRenderResult");
     expect(layoutEffectBody).toContain("html");
-    expect(layoutEffectBody).not.toContain("tracePerf(\"render.articleRefReady\", {\n      html");
-    expect(layoutEffectBody).not.toContain("tracePerf(\"render.postCommitAnimationFrame\", {\n        html");
+    expect(layoutEffectBody).not.toContain(
+      'tracePerf("render.articleRefReady", {\n      html',
+    );
+    expect(layoutEffectBody).not.toContain(
+      'tracePerf("render.postCommitAnimationFrame", {\n        html',
+    );
     expect(layoutEffectBody).not.toContain("source");
     expect(layoutEffectBody).not.toContain("documentPayload.path");
     expect(layoutEffectBody).not.toContain("[html, payload, result]");

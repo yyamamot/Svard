@@ -338,6 +338,135 @@ export async function applyFilesScenario(context) {
       .click();
     await page.locator("text=Quick Start").waitFor();
     await page.locator('[data-review-id="tree-refresh"]').click();
+  } else if (scenario === "viewer-workspace-boot-first-content") {
+    await page.waitForFunction(
+      () => {
+        const status = window.__SVARD_WORKSPACE_BOOT_BENCHMARK__?.status;
+        return status === "ok" || status === "failed";
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    await page
+      .locator('[data-review-id="document-body"] h1')
+      .filter({ hasText: "Markdown Sample" })
+      .waitFor();
+    await page.locator('[data-review-id="document-body"] p').first().waitFor();
+    await page.locator('[data-review-id="file-tree"]').waitFor();
+    await page.locator('[data-review-id="tree-root"]').waitFor();
+    await page.locator('[data-review-id="viewer-split"]').waitFor();
+    await page.locator('[data-pane-id="right"].focused').waitFor();
+    await page
+      .locator(
+        '[data-pane-id="left"][data-review-id="document-viewer-secondary"]',
+      )
+      .waitFor();
+    await page
+      .locator('[data-review-id="tree-folder-toggle"]')
+      .filter({ hasText: "docs" })
+      .waitFor();
+    await page
+      .locator('[data-review-id="tree-file"]')
+      .filter({ hasText: "markdown-sample.md" })
+      .waitFor();
+    await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        }),
+    );
+    await page.waitForTimeout(150);
+    await page.evaluate(() => {
+      const benchmark = window.__SVARD_WORKSPACE_BOOT_BENCHMARK__;
+      const observation = window.__SVARD_WORKSPACE_BOOT_OBSERVATION__;
+      const shell = document.querySelector('[data-review-id="shell"]');
+      const loadingVisible = [
+        ...document.querySelectorAll(".state-message"),
+      ].some((element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+        const rect = element.getBoundingClientRect();
+        return (
+          element.textContent?.trim() === "Loading document" &&
+          rect.width > 0 &&
+          rect.height > 0
+        );
+      });
+      const finalTheme =
+        shell instanceof HTMLElement && shell.classList.contains("theme-dark")
+          ? "dark"
+          : shell instanceof HTMLElement &&
+              shell.classList.contains("theme-light")
+            ? "light"
+            : "unknown";
+      const split = document.querySelector('[data-review-id="viewer-split"]');
+      const focusedPaneId = split
+        ?.querySelector("[data-pane-id].focused")
+        ?.getAttribute("data-pane-id");
+      const splitPercent = Number.parseFloat(
+        shell instanceof HTMLElement
+          ? getComputedStyle(shell)
+              .getPropertyValue("--split-left-width")
+              .trim()
+          : "",
+      );
+      window.__SVARD_WORKSPACE_BOOT_OBSERVATION__ = {
+        ...observation,
+        finalTheme,
+        finalLoadingVisible: loadingVisible,
+        finalDocumentVisible:
+          document.querySelector('[data-review-id="document-body"] h1') !==
+            null &&
+          document.querySelector('[data-review-id="document-body"] p') !== null,
+        finalTreeVisible:
+          document.querySelector('[data-review-id="file-tree"]') !== null &&
+          document.querySelector('[data-review-id="tree-root"]') !== null &&
+          document.querySelectorAll('[data-review-id="tree-folder-toggle"]')
+            .length > 0 &&
+          document.querySelectorAll('[data-review-id="tree-file"]').length > 0,
+        finalDiagramCount: document.querySelectorAll(
+          '[data-review-id="mermaid-render"], [data-review-id="plantuml-render"], [data-review-id="graphviz-render"], [data-review-id="kroki-render"]',
+        ).length,
+        finalSplitVisible:
+          split instanceof HTMLElement &&
+          getComputedStyle(split).display !== "none",
+        finalFocusedPane:
+          focusedPaneId === "left" || focusedPaneId === "right"
+            ? focusedPaneId
+            : "unknown",
+        finalSplitRatio: Number.isFinite(splitPercent)
+          ? Number((splitPercent / 100).toFixed(2))
+          : null,
+      };
+      if (!benchmark) {
+        window.__SVARD_BENCHMARK_PHASES__ = [];
+        return;
+      }
+      const phaseNames = [
+        ["initial-document-opened", benchmark.phases.initialDocumentOpenedMs],
+        ["document-render-started", benchmark.phases.documentRenderStartedMs],
+        ["first-document-frame", benchmark.phases.firstDocumentFrameMs],
+        ["root-directory-ready", benchmark.phases.rootDirectoryReadyMs],
+        [
+          "expanded-directories-ready",
+          benchmark.phases.expandedDirectoriesReadyMs,
+        ],
+        ["tree-settled", benchmark.phases.treeSettledMs],
+      ];
+      window.__SVARD_BENCHMARK_PHASES__ = phaseNames.map(
+        ([name, durationMs]) => ({
+          name,
+          durationMs:
+            typeof durationMs === "number" ? Number(durationMs.toFixed(2)) : 0,
+          status: typeof durationMs === "number" ? "ok" : "missing",
+          details:
+            name === "root-directory-ready"
+              ? { entryCount: benchmark.entryCount }
+              : undefined,
+        }),
+      );
+    });
   } else if (scenario === "viewer-files-tree-auto-refresh") {
     const phases = [];
     const recordPhase = async (name, started, details = undefined) => {

@@ -301,6 +301,10 @@ export function ViewerPane({
           durationMs: perfDuration(startedAt),
           layoutState: state,
         });
+        tracePerf("workspaceBoot.firstDocumentFrame", {
+          durationMs: perfDuration(startedAt),
+          status: state,
+        });
       },
     });
     return () => {

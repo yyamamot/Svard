@@ -39,9 +39,7 @@ interface WorkspaceBootHost {
   openNewWindow(request: ViewerWindowOpenRequest): Promise<void>;
   openDocument(path: string): Promise<DocumentPayload>;
   setWindowTheme(theme: AppConfig["theme"]): Promise<void>;
-  takeCurrentViewerWindowOpenRequest?(): Promise<
-    ViewerWindowOpenRequest | null
-  >;
+  takeCurrentViewerWindowOpenRequest?(): Promise<ViewerWindowOpenRequest | null>;
   resolveWorkspacePaths(
     input: WorkspacePathResolutionInput,
   ): Promise<WorkspacePathResolution>;
@@ -52,17 +50,14 @@ type ViewerWindowOpenRequestHost = Pick<
   "takeCurrentViewerWindowOpenRequest"
 >;
 
-let cachedViewerWindowOpenRequest:
-  | ViewerWindowOpenRequest
-  | null
-  | undefined;
-let pendingViewerWindowOpenRequest:
-  | Promise<ViewerWindowOpenRequest | null>
-  | null = null;
+let cachedViewerWindowOpenRequest: ViewerWindowOpenRequest | null | undefined;
+let pendingViewerWindowOpenRequest: Promise<ViewerWindowOpenRequest | null> | null =
+  null;
 export const maxRestoredAdditionalWindows = 5;
 
 interface UseWorkspaceBootOptions {
   host: WorkspaceBootHost;
+  workspaceTreeGenerationRef?: { current: number };
   setWindowSessionId?: (sessionId: string) => void;
   setChildrenByDirectory: Dispatch<
     SetStateAction<Record<string, DirectoryEntry[]>>
@@ -89,6 +84,7 @@ interface UseWorkspaceBootOptions {
 
 export function useWorkspaceBoot({
   host,
+  workspaceTreeGenerationRef,
   setWindowSessionId,
   setChildrenByDirectory,
   setConfig,
@@ -113,13 +109,19 @@ export function useWorkspaceBoot({
   useEffect(() => {
     let cancelled = false;
     let backgroundRestoreTimer: number | null = null;
+    const bootTreeGeneration = workspaceTreeGenerationRef?.current ?? 0;
 
     async function boot() {
+      let treeHydrationStartedAt: number | null = null;
+      let loadingReleased = false;
       try {
         const bootStartedAt = perfNow();
         tracePerf("workspaceBoot.start");
         const loadConfigStartedAt = perfNow();
         const loadedConfig = await host.loadConfig();
+        if (cancelled) {
+          return;
+        }
         tracePerf("workspaceBoot.loadConfig", {
           durationMs: perfDuration(loadConfigStartedAt),
         });
@@ -132,16 +134,22 @@ export function useWorkspaceBoot({
           restorableWindowSessionCount:
             nextConfig.workspace.restorableWindowSessionIds.length,
         });
-        void host.setWindowTheme(nextConfig.theme);
+        try {
+          void host.setWindowTheme(nextConfig.theme).catch(() => undefined);
+        } catch {
+          // Theme application is best-effort and must not block first content.
+        }
         const takeRequestStartedAt = perfNow();
         const newWindowRequest = await takeViewerWindowOpenRequest(host);
+        if (cancelled) {
+          return;
+        }
         tracePerf("workspaceBoot.takeViewerWindowOpenRequest", {
           durationMs: perfDuration(takeRequestStartedAt),
           hasRequest: Boolean(newWindowRequest),
         });
         const windowSessionId =
           newWindowRequest?.sessionId ?? MAIN_WINDOW_SESSION_ID;
-        setWindowSessionId?.(windowSessionId);
         const baseWorkspace = newWindowRequest
           ? {
               ...nextConfig.workspace,
@@ -197,6 +205,14 @@ export function useWorkspaceBoot({
         ]);
         const initialPath =
           effectiveBootWorkspace.activePath ?? restorePaths[0] ?? null;
+
+        if (cancelled) {
+          return;
+        }
+        setWindowSessionId?.(windowSessionId);
+        setConfig(bootConfig);
+        setSidebarLayout(bootConfig.layout);
+
         if (initialPath) {
           const preResolveStartedAt = perfNow();
           const preResolvedWorkspace = await host
@@ -210,6 +226,9 @@ export function useWorkspaceBoot({
               expandedDirectories: [],
             })
             .catch(() => null);
+          if (cancelled) {
+            return;
+          }
           tracePerf("workspaceBoot.preResolveWorkspacePaths", {
             basename: perfBasename(initialPath),
             durationMs: perfDuration(preResolveStartedAt),
@@ -220,24 +239,112 @@ export function useWorkspaceBoot({
             await host
               .authorizeDirectory(preResolvedWorkspace.initialDirectory)
               .catch(() => undefined);
+            if (cancelled) {
+              return;
+            }
             tracePerf("workspaceBoot.preAuthorizeDirectory", {
               durationMs: perfDuration(preAuthorizeStartedAt),
             });
           }
         }
         const openDocumentStartedAt = perfNow();
-        const nextDocument = initialPath
-          ? await host.openDocument(initialPath).catch(() => null)
-          : null;
+        let initialDocumentStatus: "opened" | "empty" | "error" = "empty";
+        let nextDocument: DocumentPayload | null = null;
+        if (initialPath) {
+          try {
+            nextDocument = await host.openDocument(initialPath);
+            initialDocumentStatus = "opened";
+          } catch {
+            initialDocumentStatus = "error";
+          }
+        }
+        if (cancelled) {
+          return;
+        }
+        const initialDocumentOpenDurationMs = perfDuration(
+          openDocumentStartedAt,
+        );
         tracePerf("workspaceBoot.openInitialDocument", {
           basename: perfBasename(initialPath),
-          durationMs: perfDuration(openDocumentStartedAt),
+          durationMs: initialDocumentOpenDurationMs,
           opened: Boolean(nextDocument),
+        });
+        tracePerf("workspaceBoot.initialDocumentOpened", {
+          durationMs: initialDocumentOpenDurationMs,
+          status: initialDocumentStatus,
         });
         const documentByPath = new Map<string, DocumentPayload>();
         if (nextDocument) {
           documentByPath.set(nextDocument.path, nextDocument);
         }
+        const tabPaths = sortedOpenTabPaths({
+          ...bootWorkspace,
+          openTabs: uniquePaths([
+            ...bootWorkspace.openTabs,
+            ...bootWorkspace.pinnedTabs,
+            ...(nextDocument ? [nextDocument.path] : []),
+          ]),
+        }).slice(0, 12);
+        const nextTabs = tabPaths
+          .map((path) => documentByPath.get(path) ?? null)
+          .filter((tab): tab is DocumentPayload => tab !== null);
+        const leftDocument =
+          (splitSession?.panePaths.left
+            ? documentByPath.get(splitSession.panePaths.left)
+            : null) ?? nextDocument;
+        const rightDocument = splitSession?.panePaths.right
+          ? (documentByPath.get(splitSession.panePaths.right) ?? null)
+          : nextDocument;
+
+        if (cancelled) {
+          return;
+        }
+        setDocumentPayload(nextDocument);
+        setTabs(nextTabs);
+        setQuery(bootWorkspace.pinnedSearch ?? "");
+        setSplitEnabled(Boolean(splitSession && leftDocument && rightDocument));
+        setFocusedPaneId(splitSession?.focusedPaneId ?? "left");
+        setSplitRatio(splitSession?.splitRatio ?? 0.5);
+        setPaneSnapshots({
+          left: {
+            ...createEmptyPaneSnapshot("left"),
+            documentPayload: leftDocument,
+            activeHeadingId: leftDocument
+              ? (bootWorkspace.activeHeadingByPath[leftDocument.path] ?? null)
+              : null,
+            query: bootWorkspace.pinnedSearch ?? "",
+          },
+          right: {
+            ...createEmptyPaneSnapshot("right"),
+            documentPayload: rightDocument,
+            activeHeadingId: rightDocument
+              ? (bootWorkspace.activeHeadingByPath[rightDocument.path] ?? null)
+              : null,
+            query: bootWorkspace.pinnedSearch ?? "",
+          },
+        });
+        setTabQueries(
+          bootWorkspace.pinnedSearch && nextDocument
+            ? { [nextDocument.path]: bootWorkspace.pinnedSearch }
+            : {},
+        );
+        if (nextDocument) {
+          const headingId =
+            bootWorkspace.activeHeadingByPath[nextDocument.path];
+          const scrollTop = bootWorkspace.scrollPositions[nextDocument.path];
+          if (headingId || typeof scrollTop === "number") {
+            setPendingNavigationLocation({
+              path: nextDocument.path,
+              headingId,
+              scrollTop,
+              label: headingId ?? fileName(nextDocument.path),
+            });
+          }
+          setIsLoading(false);
+          loadingReleased = true;
+        }
+
+        treeHydrationStartedAt = perfNow();
         const resolveStartedAt = perfNow();
         const workspacePaths = await host.resolveWorkspacePaths({
           documentPath: nextDocument?.path ?? null,
@@ -248,6 +355,9 @@ export function useWorkspaceBoot({
           ),
           expandedDirectories: bootWorkspace.expandedDirectories,
         });
+        if (cancelled) {
+          return;
+        }
         tracePerf("workspaceBoot.resolveWorkspacePaths", {
           basename: perfBasename(nextDocument?.path ?? initialPath),
           durationMs: perfDuration(resolveStartedAt),
@@ -260,37 +370,56 @@ export function useWorkspaceBoot({
           await host
             .authorizeDirectory(initialDirectory)
             .catch(() => undefined);
+          if (cancelled) {
+            return;
+          }
           tracePerf("workspaceBoot.authorizeDirectory", {
             durationMs: perfDuration(authorizeStartedAt),
           });
         }
         let rootEntries: DirectoryEntry[] = [];
         const nextDirectoryErrors: Record<string, string> = {};
+        const listRootStartedAt = perfNow();
+        let rootDirectoryStatus: "ok" | "error" | "skipped" = "skipped";
         if (initialDirectory) {
           try {
-            const listRootStartedAt = perfNow();
             rootEntries = await host.listDirectory(initialDirectory);
+            if (cancelled) {
+              return;
+            }
+            rootDirectoryStatus = "ok";
             tracePerf("workspaceBoot.listRootDirectory", {
               durationMs: perfDuration(listRootStartedAt),
               entryCount: rootEntries.length,
             });
           } catch (listError) {
+            rootDirectoryStatus = "error";
             nextDirectoryErrors[initialDirectory] =
               listError instanceof Error
                 ? listError.message
                 : "Directory restore failed";
           }
         }
+        if (cancelled) {
+          return;
+        }
+        tracePerf("workspaceBoot.rootDirectoryReady", {
+          durationMs: perfDuration(listRootStartedAt),
+          entryCount: rootEntries.length,
+          status: rootDirectoryStatus,
+        });
         const restoredExpanded = initialDirectory
           ? uniquePaths(workspacePaths.expandedDirectories)
           : [];
         const listExpandedStartedAt = perfNow();
+        let expandedDirectoryErrorCount = 0;
         const restoredChildren = await Promise.all(
           restoredExpanded.map((path) =>
             host
               .listDirectory(path)
               .then((entries) => [path, entries] as const)
               .catch((listError) => {
+                expandedDirectoryErrorCount += 1;
                 nextDirectoryErrors[path] =
                   listError instanceof Error
                     ? listError.message
@@ -299,25 +428,32 @@ export function useWorkspaceBoot({
               }),
           ),
         );
+        if (cancelled) {
+          return;
+        }
         tracePerf("workspaceBoot.listExpandedDirectories", {
           durationMs: perfDuration(listExpandedStartedAt),
           expandedDirectoryCount: restoredExpanded.length,
         });
-        const tabPaths = sortedOpenTabPaths({
-          ...bootWorkspace,
-          openTabs: uniquePaths([
-            ...bootWorkspace.openTabs,
-            ...bootWorkspace.pinnedTabs,
-            ...(nextDocument ? [nextDocument.path] : []),
-          ]),
-        }).slice(0, 12);
-        const nextTabs = tabPaths
-          .map((path) => documentByPath.get(path) ?? null)
-          .filter((tab): tab is DocumentPayload => tab !== null);
+        tracePerf("workspaceBoot.expandedDirectoriesReady", {
+          durationMs: perfDuration(listExpandedStartedAt),
+          errorCount: expandedDirectoryErrorCount,
+          expandedDirectoryCount: restoredExpanded.length,
+          status:
+            restoredExpanded.length === 0
+              ? "skipped"
+              : expandedDirectoryErrorCount > 0
+                ? "partial-error"
+                : "ok",
+        });
 
-        if (!cancelled) {
-          setConfig(bootConfig);
-          setSidebarLayout(bootConfig.layout);
+        if (cancelled) {
+          return;
+        }
+        const treeResultIsCurrent =
+          !workspaceTreeGenerationRef ||
+          workspaceTreeGenerationRef.current === bootTreeGeneration;
+        if (treeResultIsCurrent) {
           setRootDirectory(initialDirectory ?? "");
           setWorkspaceEnvironment(workspacePaths.environment ?? null);
           setChildrenByDirectory(
@@ -330,63 +466,23 @@ export function useWorkspaceBoot({
           );
           setDirectoryErrors(nextDirectoryErrors);
           setExpandedDirectories(new Set(restoredExpanded));
-          setDocumentPayload(nextDocument);
-          setTabs(nextTabs);
-          setQuery(bootWorkspace.pinnedSearch ?? "");
-          const leftDocument =
-            (splitSession?.panePaths.left
-              ? documentByPath.get(splitSession.panePaths.left)
-              : null) ?? nextDocument;
-          const rightDocument = splitSession?.panePaths.right
-            ? (documentByPath.get(splitSession.panePaths.right) ?? null)
-            : nextDocument;
-          setSplitEnabled(
-            Boolean(splitSession && leftDocument && rightDocument),
-          );
-          setFocusedPaneId(splitSession?.focusedPaneId ?? "left");
-          setSplitRatio(splitSession?.splitRatio ?? 0.5);
-          setPaneSnapshots({
-            left: {
-              ...createEmptyPaneSnapshot("left"),
-              documentPayload: leftDocument,
-              activeHeadingId: leftDocument
-                ? (bootWorkspace.activeHeadingByPath[
-                    leftDocument.path
-                  ] ?? null)
-                : null,
-              query: bootWorkspace.pinnedSearch ?? "",
-            },
-            right: {
-              ...createEmptyPaneSnapshot("right"),
-              documentPayload: rightDocument,
-              activeHeadingId: rightDocument
-                ? (bootWorkspace.activeHeadingByPath[
-                    rightDocument.path
-                  ] ?? null)
-                : null,
-              query: bootWorkspace.pinnedSearch ?? "",
-            },
-          });
-          setTabQueries(
-            bootWorkspace.pinnedSearch && nextDocument
-              ? { [nextDocument.path]: bootWorkspace.pinnedSearch }
-              : {},
-          );
-          if (nextDocument) {
-            const headingId =
-              bootWorkspace.activeHeadingByPath[nextDocument.path];
-            const scrollTop =
-              bootWorkspace.scrollPositions[nextDocument.path];
-            if (headingId || typeof scrollTop === "number") {
-              setPendingNavigationLocation({
-                path: nextDocument.path,
-                headingId,
-                scrollTop,
-                label: headingId ?? fileName(nextDocument.path),
-              });
-            }
-          }
         }
+        tracePerf("workspaceBoot.treeSettled", {
+          durationMs: perfDuration(treeHydrationStartedAt),
+          errorCount: Object.keys(nextDirectoryErrors).length,
+          expandedDirectoryCount: restoredExpanded.length,
+          rootEntryCount: rootEntries.length,
+          status: treeResultIsCurrent
+            ? Object.keys(nextDirectoryErrors).length > 0
+              ? "partial-error"
+              : "ok"
+            : "superseded",
+        });
+        if (!nextDocument) {
+          setIsLoading(false);
+          loadingReleased = true;
+        }
+        setWorkspaceBootComplete(true);
 
         const backgroundRestorePaths = tabPaths.filter(
           (path) => !documentByPath.has(path),
@@ -402,6 +498,9 @@ export function useWorkspaceBoot({
                 const restoredDocument = await host
                   .openDocument(path)
                   .catch(() => null);
+                if (cancelled) {
+                  return;
+                }
                 if (restoredDocument) {
                   restoredDocuments.push(restoredDocument);
                 }
@@ -450,16 +549,47 @@ export function useWorkspaceBoot({
           basename: perfBasename(nextDocument?.path ?? initialPath),
         });
       } catch (bootError) {
+        if (cancelled) {
+          return;
+        }
+        const failedTreeStartedAt = treeHydrationStartedAt;
+        const staleTreeFailure =
+          failedTreeStartedAt !== null &&
+          workspaceTreeGenerationRef !== undefined &&
+          workspaceTreeGenerationRef.current !== bootTreeGeneration;
+        if (staleTreeFailure) {
+          if (!loadingReleased) {
+            setIsLoading(false);
+          }
+          setWorkspaceBootComplete(true);
+          tracePerf("workspaceBoot.treeSettled", {
+            durationMs: perfDuration(failedTreeStartedAt),
+            errorCount: 0,
+            expandedDirectoryCount: 0,
+            rootEntryCount: 0,
+            status: "superseded",
+          });
+          return;
+        }
         setError(
           bootError instanceof Error
             ? bootError.message
             : "Failed to boot viewer",
         );
-      } finally {
-        setIsLoading(false);
-        if (!cancelled) {
-          setWorkspaceBootComplete(true);
+        if (!loadingReleased) {
+          setIsLoading(false);
         }
+        setWorkspaceBootComplete(true);
+        tracePerf("workspaceBoot.treeSettled", {
+          durationMs:
+            treeHydrationStartedAt === null
+              ? 0
+              : perfDuration(treeHydrationStartedAt),
+          errorCount: 1,
+          expandedDirectoryCount: 0,
+          rootEntryCount: 0,
+          status: "error",
+        });
       }
     }
 
@@ -527,8 +657,8 @@ export async function takeViewerWindowOpenRequest(
   }
   pendingViewerWindowOpenRequest =
     pendingViewerWindowOpenRequest ??
-    (host.takeCurrentViewerWindowOpenRequest?.().catch(() => null) ??
-      Promise.resolve(null));
+    host.takeCurrentViewerWindowOpenRequest?.().catch(() => null) ??
+    Promise.resolve(null);
   cachedViewerWindowOpenRequest = await pendingViewerWindowOpenRequest;
   return cachedViewerWindowOpenRequest;
 }
@@ -560,10 +690,13 @@ export function workspaceSessionFromNewWindowRequest(
   workspace: AppConfig["workspace"],
 ): WorkspaceWindowSession {
   const activePath =
-    request.activePath !== undefined ? request.activePath : request.path ?? null;
+    request.activePath !== undefined
+      ? request.activePath
+      : (request.path ?? null);
   const openTabs = request.openTabs ?? (request.path ? [request.path] : []);
   const pinnedTabs =
-    request.pinnedTabs ?? (request.path && request.pinned ? [request.path] : []);
+    request.pinnedTabs ??
+    (request.path && request.pinned ? [request.path] : []);
   const recentTabs = request.recentTabs ?? (request.path ? [request.path] : []);
   return {
     ...workspaceSessionFromWorkspace(workspace),

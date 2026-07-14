@@ -1,9 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type {
+  BookmarkEntry,
+  DirectoryEntry,
+  HostAdapter,
+  WatchHandle,
+  WorkspacePerformanceMode,
+} from "../../src/core/types";
 import {
   collectGitStatusPaths,
   gitStatusEntriesToMap,
   shouldSkipGitStatusHints,
+  useGitStatusHints,
 } from "../../src/ui/hooks/useGitStatusHints";
 import {
   buildGitDirectoryStatusSummary,
@@ -220,5 +230,129 @@ describe("git status hints", () => {
         message: "failed",
       }),
     ).toBe(base);
+  });
+});
+
+const gitStatusDocument = {
+  path: "/workspace/docs/current.md",
+  basePath: "/workspace/docs",
+  format: "markdown" as const,
+  source: "# Current",
+  updatedAt: "2026-07-14T00:00:00.000Z",
+};
+const gitStatusTabs = [gitStatusDocument];
+const noBookmarks: BookmarkEntry[] = [];
+const noChildrenByDirectory: Record<string, DirectoryEntry[]> = {};
+
+function GitStatusHintsHarness({
+  enabled,
+  host,
+  workspacePerformanceMode = "normal",
+}: {
+  enabled: boolean;
+  host: HostAdapter;
+  workspacePerformanceMode?: WorkspacePerformanceMode;
+}) {
+  useGitStatusHints({
+    bookmarks: noBookmarks,
+    childrenByDirectory: noChildrenByDirectory,
+    enabled,
+    host,
+    tabs: gitStatusTabs,
+    workspacePerformanceMode,
+  });
+  return null;
+}
+
+describe("useGitStatusHints side-effect gating", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    (
+      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
+    vi.useFakeTimers();
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.useRealTimers();
+    delete window.__SVARD_GIT_STATUS_HINT_TIMING__;
+  });
+
+  it("does not refresh or watch while disabled, then starts each once when enabled", async () => {
+    const host = {
+      getGitStatusSummary: vi.fn(async () => [
+        { path: gitStatusDocument.path, status: "modified" as const },
+      ]),
+      watchGitStatus: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+    } as Partial<HostAdapter> as HostAdapter;
+
+    await act(async () => {
+      root.render(
+        createElement(GitStatusHintsHarness, { enabled: false, host }),
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+    });
+
+    expect(host.getGitStatusSummary).not.toHaveBeenCalled();
+    expect(host.watchGitStatus).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.render(
+        createElement(GitStatusHintsHarness, { enabled: true, host }),
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+    });
+
+    expect(host.watchGitStatus).toHaveBeenCalledTimes(1);
+    expect(host.watchGitStatus).toHaveBeenCalledWith(
+      [gitStatusDocument.path],
+      expect.any(Function),
+      expect.any(Function),
+    );
+    expect(host.getGitStatusSummary).toHaveBeenCalledTimes(1);
+    expect(host.getGitStatusSummary).toHaveBeenCalledWith([
+      gitStatusDocument.path,
+    ]);
+  });
+
+  it("keeps refresh and watcher setup skipped in WSL mitigation mode", async () => {
+    const host = {
+      getGitStatusSummary: vi.fn(async () => []),
+      watchGitStatus: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+    } as Partial<HostAdapter> as HostAdapter;
+
+    await act(async () => {
+      root.render(
+        createElement(GitStatusHintsHarness, {
+          enabled: true,
+          host,
+          workspacePerformanceMode: "wsl-mitigated",
+        }),
+      );
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+    });
+
+    expect(host.getGitStatusSummary).not.toHaveBeenCalled();
+    expect(host.watchGitStatus).not.toHaveBeenCalled();
   });
 });

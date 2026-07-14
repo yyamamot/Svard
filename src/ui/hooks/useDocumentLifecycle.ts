@@ -39,6 +39,8 @@ import type {
 interface UseDocumentLifecycleOptions {
   activeHeadingId: string | null;
   articleRef: RefObject<HTMLElement | null>;
+  canWatchDocuments?: boolean;
+  workspaceTreeGenerationRef?: { current: number };
   config: AppConfig | null;
   dismissInlineNotice: () => void;
   documentPayload: DocumentPayload | null;
@@ -86,6 +88,8 @@ interface UseDocumentLifecycleOptions {
 export function useDocumentLifecycle({
   activeHeadingId,
   articleRef,
+  canWatchDocuments = true,
+  workspaceTreeGenerationRef,
   config,
   dismissInlineNotice,
   documentPayload,
@@ -126,10 +130,12 @@ export function useDocumentLifecycle({
   const activeHeadingIdRef = useRef<string | null>(activeHeadingId);
   const watchedTabPaths = useMemo(
     () =>
-      [...new Set(tabs.map((tab) => tab.path))]
-        .filter((path) => isSupportedDocumentPath(path))
-        .sort(),
-    [tabs],
+      canWatchDocuments
+        ? [...new Set(tabs.map((tab) => tab.path))]
+            .filter((path) => isSupportedDocumentPath(path))
+            .sort()
+        : [],
+    [canWatchDocuments, tabs],
   );
   const watchedTabPathKey = watchedTabPaths.join("\0");
 
@@ -472,6 +478,9 @@ export function useDocumentLifecycle({
           expandedDirectories: [],
         })
         .catch(() => null);
+      if (workspaceTreeGenerationRef) {
+        workspaceTreeGenerationRef.current += 1;
+      }
       setRootDirectory(path);
       setWorkspaceEnvironment(workspacePaths?.environment ?? null);
       setChildrenByDirectory({ [path]: nextEntries });

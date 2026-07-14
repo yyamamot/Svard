@@ -85,12 +85,14 @@ export function gitStatusEntriesToMap(
 export function useGitStatusHints({
   bookmarks,
   childrenByDirectory,
+  enabled = true,
   host,
   tabs,
   workspacePerformanceMode = "normal",
 }: {
   bookmarks: BookmarkEntry[];
   childrenByDirectory: Record<string, DirectoryEntry[]>;
+  enabled?: boolean;
   host: HostAdapter;
   tabs: DocumentPayload[];
   workspacePerformanceMode?: WorkspacePerformanceMode;
@@ -147,6 +149,10 @@ export function useGitStatusHints({
   );
 
   useEffect(() => {
+    if (!enabled) {
+      setStatusByPath({});
+      return;
+    }
     if (paths.length === 0) {
       setStatusByPath({});
       return;
@@ -176,9 +182,18 @@ export function useGitStatusHints({
       disposed = true;
       window.clearTimeout(timer);
     };
-  }, [paths, refreshGitStatus, refreshToken, workspacePerformanceMode]);
+  }, [
+    enabled,
+    paths,
+    refreshGitStatus,
+    refreshToken,
+    workspacePerformanceMode,
+  ]);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     if (paths.length === 0) {
       return;
     }
@@ -240,7 +255,7 @@ export function useGitStatusHints({
       disposed = true;
       handle?.dispose();
     };
-  }, [host, paths, workspacePerformanceMode]);
+  }, [enabled, host, paths, workspacePerformanceMode]);
 
   return statusByPath;
 }

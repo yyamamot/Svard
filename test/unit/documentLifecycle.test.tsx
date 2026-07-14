@@ -35,6 +35,101 @@ const currentRenderResult: RenderResult = {
   krokiDiagrams: [],
 };
 
+type DocumentLifecycleOptions = Parameters<typeof useDocumentLifecycle>[0];
+type LifecycleTreeSetterOverrides = Partial<
+  Pick<
+    DocumentLifecycleOptions,
+    | "setChildrenByDirectory"
+    | "setDirectoryErrors"
+    | "setExpandedDirectories"
+    | "setRootDirectory"
+    | "setWorkspaceEnvironment"
+  >
+>;
+
+function LifecycleGateHarness({
+  canDrainPendingOpenRequests = false,
+  canWatchDocuments = false,
+  host,
+  onReady,
+  treeSetters,
+  workspaceTreeGenerationRef,
+}: {
+  canDrainPendingOpenRequests?: boolean;
+  canWatchDocuments?: boolean;
+  host: HostAdapter;
+  onReady?: (lifecycle: { openDirectory(path: string): Promise<void> }) => void;
+  treeSetters?: LifecycleTreeSetterOverrides;
+  workspaceTreeGenerationRef?: { current: number };
+}) {
+  const articleRef = useRef<HTMLElement | null>(null);
+  const viewerRef = useRef<HTMLElement | null>(null);
+  const [documentPayload, setDocumentPayload] =
+    useState<DocumentPayload | null>(currentDocument);
+  const [tabs, setTabs] = useState<DocumentPayload[]>([currentDocument]);
+  const [, setError] = useState<string | null>(null);
+  const [, setRenderResult] = useState<RenderResult | null>(
+    currentRenderResult,
+  );
+  const [, setIsLoading] = useState(false);
+  const [, setQuery] = useState("");
+  const [, setChildrenByDirectory] = useState<Record<string, DirectoryEntry[]>>(
+    {},
+  );
+  const [, setDirectoryErrors] = useState<Record<string, string>>({});
+  const [, setExpandedDirectories] = useState<Set<string>>(new Set());
+  const [, setOpenFileReloadStates] = useState({});
+  const [, setRootDirectory] = useState("");
+  const [, setWorkspaceEnvironment] = useState<WorkspaceEnvironment | null>(
+    null,
+  );
+  const lifecycle = useDocumentLifecycle({
+    activeHeadingId: null,
+    articleRef,
+    canDrainPendingOpenRequests,
+    canWatchDocuments,
+    config: defaultConfig,
+    dismissInlineNotice: vi.fn(),
+    documentPayload,
+    focusedPaneId: "left",
+    focusPane: vi.fn(),
+    host,
+    persistWorkspace: vi.fn(
+      async (_partial: Partial<AppConfig["workspace"]>) => undefined,
+    ),
+    recordNavigation: vi.fn(),
+    searchQueryForPath: (_path: string, fallbackQuery?: string) =>
+      fallbackQuery ?? "",
+    setChildrenByDirectory:
+      treeSetters?.setChildrenByDirectory ?? setChildrenByDirectory,
+    setDirectoryErrors: treeSetters?.setDirectoryErrors ?? setDirectoryErrors,
+    setDocumentPayload,
+    setError,
+    setExpandedDirectories:
+      treeSetters?.setExpandedDirectories ?? setExpandedDirectories,
+    setIsLoading,
+    setOpenFileReloadStates,
+    setPendingSmartScrollAnchor: vi.fn(),
+    setQuery,
+    setRenderResult,
+    bumpDocumentRenderRevision: vi.fn(),
+    setRootDirectory: treeSetters?.setRootDirectory ?? setRootDirectory,
+    setTabs,
+    setWorkspaceEnvironment:
+      treeSetters?.setWorkspaceEnvironment ?? setWorkspaceEnvironment,
+    showInlineNotice: vi.fn(),
+    snapshotForPath: (_path: string): PaneId | null => null,
+    tabs,
+    viewerRef,
+    workspaceTreeGenerationRef,
+  });
+
+  useEffect(() => {
+    onReady?.(lifecycle);
+  });
+  return null;
+}
+
 describe("useDocumentLifecycle open failures", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -158,6 +253,7 @@ describe("useDocumentLifecycle open failures", () => {
 
     expect(host.openDocument).toHaveBeenCalledWith(
       "/workspace/docs/deleted.md",
+      { antoraContextId: null },
     );
     expect(api?.documentPayload).toEqual(currentDocument);
     expect(api?.renderResult).toEqual(currentRenderResult);
@@ -613,5 +709,167 @@ describe("useDocumentLifecycle open failures", () => {
       }),
     );
     expect(bumpDocumentRenderRevision).toHaveBeenCalledTimes(1);
+  });
+
+  it("defers document watchers until enabled and starts each watcher once", async () => {
+    const host = {
+      watchDocument: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+      takePendingOpenRequests: vi.fn(async () => []),
+      watchOpenRequests: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+    } as Partial<HostAdapter> as HostAdapter;
+
+    await act(async () => {
+      root.render(
+        <LifecycleGateHarness host={host} canWatchDocuments={false} />,
+      );
+      await Promise.resolve();
+    });
+
+    expect(host.watchDocument).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.render(
+        <LifecycleGateHarness host={host} canWatchDocuments={true} />,
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      root.render(
+        <LifecycleGateHarness host={host} canWatchDocuments={true} />,
+      );
+      await Promise.resolve();
+    });
+
+    expect(host.watchDocument).toHaveBeenCalledTimes(1);
+    expect(host.watchDocument).toHaveBeenCalledWith(
+      currentDocument.path,
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it("drains pending desktop requests once only after boot completion", async () => {
+    const host = {
+      watchDocument: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+      takePendingOpenRequests: vi.fn(async () => []),
+      watchOpenRequests: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+    } as Partial<HostAdapter> as HostAdapter;
+
+    await act(async () => {
+      root.render(
+        <LifecycleGateHarness
+          host={host}
+          canDrainPendingOpenRequests={false}
+        />,
+      );
+      await Promise.resolve();
+    });
+    expect(host.takePendingOpenRequests).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.render(
+        <LifecycleGateHarness host={host} canDrainPendingOpenRequests={true} />,
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      root.render(
+        <LifecycleGateHarness host={host} canDrainPendingOpenRequests={true} />,
+      );
+      await Promise.resolve();
+    });
+
+    expect(host.takePendingOpenRequests).toHaveBeenCalledTimes(1);
+  });
+
+  it("advances the tree generation immediately before a successful directory commit", async () => {
+    const order: string[] = [];
+    let generation = 7;
+    const workspaceTreeGenerationRef = {} as { current: number };
+    Object.defineProperty(workspaceTreeGenerationRef, "current", {
+      configurable: true,
+      get: () => generation,
+      set: (nextGeneration: number) => {
+        generation = nextGeneration;
+        order.push("generation");
+      },
+    });
+    const recordTreeCommit = (step: string) => {
+      expect(workspaceTreeGenerationRef.current).toBe(8);
+      order.push(step);
+    };
+    const treeSetters = {
+      setRootDirectory: vi.fn(() => recordTreeCommit("root")),
+      setWorkspaceEnvironment: vi.fn(() => recordTreeCommit("environment")),
+      setChildrenByDirectory: vi.fn(() => recordTreeCommit("children")),
+      setExpandedDirectories: vi.fn(() => recordTreeCommit("expanded")),
+      setDirectoryErrors: vi.fn(() => recordTreeCommit("errors")),
+    } satisfies LifecycleTreeSetterOverrides;
+    const host = {
+      authorizeDirectory: vi.fn(async () => {
+        expect(workspaceTreeGenerationRef.current).toBe(7);
+        order.push("authorize");
+      }),
+      listDirectory: vi.fn(async () => {
+        expect(workspaceTreeGenerationRef.current).toBe(7);
+        order.push("list");
+        return [];
+      }),
+      resolveWorkspacePaths: vi.fn(async () => {
+        expect(workspaceTreeGenerationRef.current).toBe(7);
+        order.push("resolve");
+        return {
+          environment: {
+            locationKind: "local" as const,
+            performanceMode: "normal" as const,
+          },
+          expandedDirectories: [],
+          initialDirectory: "/workspace/next",
+        };
+      }),
+      takePendingOpenRequests: vi.fn(async () => []),
+      watchOpenRequests: vi.fn(
+        async (): Promise<WatchHandle> => ({ dispose() {} }),
+      ),
+    } as Partial<HostAdapter> as HostAdapter;
+    let api: { openDirectory(path: string): Promise<void> } | undefined;
+
+    await act(async () => {
+      root.render(
+        <LifecycleGateHarness
+          host={host}
+          onReady={(lifecycle) => {
+            api = lifecycle;
+          }}
+          treeSetters={treeSetters}
+          workspaceTreeGenerationRef={workspaceTreeGenerationRef}
+        />,
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await api?.openDirectory("/workspace/next");
+    });
+
+    expect(workspaceTreeGenerationRef.current).toBe(8);
+    expect(order).toEqual([
+      "authorize",
+      "list",
+      "resolve",
+      "generation",
+      "root",
+      "environment",
+      "children",
+      "expanded",
+      "errors",
+    ]);
   });
 });

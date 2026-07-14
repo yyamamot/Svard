@@ -53,6 +53,7 @@ interface UseAppSidebarWiringOptions {
   documentOrderRefreshRevision?: number;
   expandedDirectories: Set<string>;
   gitSourceControl: SourceControlPropsInput;
+  gitStatusEnabled?: boolean;
   hideOpenFiles: boolean;
   host: Parameters<typeof useGitStatusHints>[0]["host"];
   leftSidebarContentRef: RefObject<HTMLDivElement | null>;
@@ -183,6 +184,7 @@ export function useAppSidebarWiring({
   documentOrderRefreshRevision = 0,
   expandedDirectories,
   gitSourceControl,
+  gitStatusEnabled = true,
   hideOpenFiles,
   host,
   leftSidebarContentRef,
@@ -245,6 +247,7 @@ export function useAppSidebarWiring({
   const gitStatusByPath = useGitStatusHints({
     bookmarks,
     childrenByDirectory,
+    enabled: gitStatusEnabled,
     host,
     tabs,
     workspacePerformanceMode,

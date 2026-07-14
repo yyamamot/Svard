@@ -204,6 +204,10 @@ export function useDocumentRender({
           format: documentPayload.format,
           durationMs: 0,
         });
+        tracePerf("workspaceBoot.documentRenderStarted", {
+          durationMs: 0,
+          status: "started",
+        });
         setDiagramRenderSnapshot(null);
         const diagramKey = (renderer: string, id: string) =>
           `${documentPayload.path}::${renderer}:${id}`;

@@ -2,9 +2,14 @@ import { act } from "react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { defaultConfig } from "../../src/core/defaultConfig";
-import type { AppConfig, HostAdapter } from "../../src/core/types";
+import type {
+  AppConfig,
+  DocumentPayload,
+  HostAdapter,
+} from "../../src/core/types";
 import { useWorkspacePersistence } from "../../src/ui/hooks/useWorkspacePersistence";
 import { workspaceSessionFromWorkspace } from "../../src/ui/lib/config";
+import { createEmptyPaneSnapshot } from "../../src/ui/lib/split";
 import { createReactRootHarness } from "./helpers/reactHarness";
 
 describe("useWorkspacePersistence", () => {
@@ -32,6 +37,7 @@ describe("useWorkspacePersistence", () => {
       const [config, setConfig] = useState<AppConfig | null>(defaultConfig);
       const hook = useWorkspacePersistence({
         activeHeadingId: null,
+        canAutoPersist: true,
         config,
         documentPayload: null,
         focusedPaneId: "left",
@@ -39,11 +45,10 @@ describe("useWorkspacePersistence", () => {
           loadConfig: async () => persistedConfig,
           saveConfig,
         } as unknown as HostAdapter,
-        isLoading: false,
         paneSnapshots: {
-          left: { id: "left", documentPayload: null },
-          right: { id: "right", documentPayload: null },
-        } as any,
+          left: createEmptyPaneSnapshot("left"),
+          right: createEmptyPaneSnapshot("right"),
+        },
         setConfig,
         splitEnabled: false,
         splitRatio: 0.5,
@@ -119,6 +124,7 @@ describe("useWorkspacePersistence", () => {
       });
       const hook = useWorkspacePersistence({
         activeHeadingId: null,
+        canAutoPersist: true,
         config,
         documentPayload: null,
         focusedPaneId: "left",
@@ -126,11 +132,10 @@ describe("useWorkspacePersistence", () => {
           loadConfig: async () => persistedConfig,
           saveConfig,
         } as unknown as HostAdapter,
-        isLoading: false,
         paneSnapshots: {
-          left: { id: "left", documentPayload: null },
-          right: { id: "right", documentPayload: null },
-        } as any,
+          left: createEmptyPaneSnapshot("left"),
+          right: createEmptyPaneSnapshot("right"),
+        },
         setConfig,
         splitEnabled: false,
         splitRatio: 0.5,
@@ -177,5 +182,103 @@ describe("useWorkspacePersistence", () => {
       }),
     );
     harness.cleanup();
+  });
+
+  it("allows manual persistence while automatic persistence waits for boot completion", async () => {
+    vi.useFakeTimers();
+    const activeDocument: DocumentPayload = {
+      path: "/workspace/docs/active.md",
+      basePath: "/workspace/docs",
+      format: "markdown",
+      source: "# Active",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const initialConfig: AppConfig = {
+      ...defaultConfig,
+      workspace: {
+        ...defaultConfig.workspace,
+        activePath: activeDocument.path,
+        openTabs: [activeDocument.path],
+      },
+    };
+    const saveConfig = vi.fn(async (_config: AppConfig) => undefined);
+    let persistWorkspace:
+      | ((partial: Partial<AppConfig["workspace"]>) => Promise<void>)
+      | null = null;
+    const harness = createReactRootHarness();
+
+    function Probe({ canAutoPersist }: { canAutoPersist: boolean }) {
+      const [config, setConfig] = useState<AppConfig | null>(initialConfig);
+      const hook = useWorkspacePersistence({
+        activeHeadingId: "overview",
+        canAutoPersist,
+        config,
+        documentPayload: activeDocument,
+        focusedPaneId: "left",
+        host: {
+          loadConfig: async () => initialConfig,
+          saveConfig,
+        } as unknown as HostAdapter,
+        paneSnapshots: {
+          left: {
+            ...createEmptyPaneSnapshot("left"),
+            documentPayload: activeDocument,
+          },
+          right: createEmptyPaneSnapshot("right"),
+        },
+        setConfig,
+        splitEnabled: false,
+        splitRatio: 0.5,
+        viewerRef: { current: null },
+        windowSessionId: "main",
+      });
+      persistWorkspace = hook.persistWorkspace;
+      return null;
+    }
+
+    try {
+      harness.render(<Probe canAutoPersist={false} />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+      expect(saveConfig).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await persistWorkspace?.({
+          bookmarks: [{ kind: "file", path: activeDocument.path }],
+        });
+      });
+      expect(saveConfig).toHaveBeenCalledTimes(1);
+      expect(saveConfig).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          workspace: expect.objectContaining({
+            bookmarks: [{ kind: "file", path: activeDocument.path }],
+          }),
+        }),
+      );
+
+      saveConfig.mockClear();
+      harness.render(<Probe canAutoPersist />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(saveConfig).toHaveBeenCalledTimes(1);
+      expect(saveConfig).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          workspace: expect.objectContaining({
+            activePath: activeDocument.path,
+            activeHeadingByPath: {
+              [activeDocument.path]: "overview",
+            },
+          }),
+        }),
+      );
+    } finally {
+      harness.cleanup();
+      vi.useRealTimers();
+    }
   });
 });

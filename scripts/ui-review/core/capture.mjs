@@ -8,6 +8,219 @@ import { applyScenario } from "../scenarios/registry.mjs";
 
 export { UI_REVIEW_SCHEMA_VERSION };
 
+export const WORKSPACE_BOOT_BENCHMARK_SCENARIO =
+  "viewer-workspace-boot-first-content";
+export const WORKSPACE_BOOT_BENCHMARK_PROFILES = Object.freeze([
+  "fast",
+  "normal",
+  "stress",
+]);
+
+export function buildWorkspaceBootBenchmarkUrl(baseURL, profile = "stress") {
+  if (!WORKSPACE_BOOT_BENCHMARK_PROFILES.includes(profile)) {
+    throw new Error(`Unknown workspace boot benchmark profile: ${profile}`);
+  }
+  const url = new URL(baseURL);
+  url.searchParams.set("scenario", WORKSPACE_BOOT_BENCHMARK_SCENARIO);
+  url.searchParams.set("bootTreeProfile", profile);
+  return url.toString();
+}
+
+export async function installWorkspaceBootBenchmarkCollector(page) {
+  await page.addInitScript(
+    ({ allowedProfiles, scenarioId }) => {
+      localStorage.setItem("SVARD_PERF_TRACE", "1");
+      const profileParam = new URLSearchParams(window.location.search).get(
+        "bootTreeProfile",
+      );
+      const profile = allowedProfiles.includes(profileParam)
+        ? profileParam
+        : "stress";
+      const phaseKeyByEvent = {
+        "workspaceBoot.initialDocumentOpened": "initialDocumentOpenedMs",
+        "workspaceBoot.documentRenderStarted": "documentRenderStartedMs",
+        "workspaceBoot.firstDocumentFrame": "firstDocumentFrameMs",
+        "workspaceBoot.rootDirectoryReady": "rootDirectoryReadyMs",
+        "workspaceBoot.expandedDirectoriesReady": "expandedDirectoriesReadyMs",
+        "workspaceBoot.treeSettled": "treeSettledMs",
+      };
+      const phases = {
+        initialDocumentOpenedMs: null,
+        documentRenderStartedMs: null,
+        firstDocumentFrameMs: null,
+        rootDirectoryReadyMs: null,
+        expandedDirectoriesReadyMs: null,
+        treeSettledMs: null,
+      };
+      const benchmark = {
+        schemaVersion: 1,
+        scenarioId,
+        status: "pending",
+        profile,
+        phases,
+        entryCount: 0,
+        orderViolationCount: 0,
+      };
+      const observation = {
+        schemaVersion: 1,
+        renderEffectStartCount: 0,
+        articleInnerHtmlCommitCount: 0,
+        firstDocumentFrameCount: 0,
+        themeAtDocumentRenderStart: "unknown",
+        themeAtFirstDocumentFrame: "unknown",
+        loadingVisibleAtFirstDocumentFrame: null,
+        documentVisibleAtFirstDocumentFrame: null,
+        splitVisibleAtFirstDocumentFrame: null,
+        focusedPaneAtFirstDocumentFrame: "unknown",
+        splitRatioAtFirstDocumentFrame: null,
+      };
+      window.__SVARD_WORKSPACE_BOOT_BENCHMARK__ = benchmark;
+      window.__SVARD_WORKSPACE_BOOT_OBSERVATION__ = observation;
+
+      const completeBenchmarkIfReady = () => {
+        const requiredPhases = Object.values(phases);
+        if (requiredPhases.some((value) => typeof value !== "number")) {
+          return;
+        }
+        const firstFrame = phases.firstDocumentFrameMs;
+        const treePhases = [
+          phases.rootDirectoryReadyMs,
+          phases.expandedDirectoriesReadyMs,
+          phases.treeSettledMs,
+        ];
+        benchmark.orderViolationCount = treePhases.some(
+          (value) => firstFrame >= value,
+        )
+          ? 1
+          : 0;
+        benchmark.status = "ok";
+        delete benchmark.reason;
+      };
+      window.setTimeout(() => {
+        if (benchmark.status === "pending") {
+          benchmark.status = "failed";
+          benchmark.reason = "missing-phase";
+        }
+      }, 8000);
+
+      const readTheme = () => {
+        const shell = document.querySelector('[data-review-id="shell"]');
+        if (!(shell instanceof HTMLElement)) {
+          return "unknown";
+        }
+        if (shell.classList.contains("theme-dark")) {
+          return "dark";
+        }
+        return shell.classList.contains("theme-light") ? "light" : "unknown";
+      };
+      const loadingVisible = () =>
+        [...document.querySelectorAll(".state-message")].some((element) => {
+          if (!(element instanceof HTMLElement)) {
+            return false;
+          }
+          const rect = element.getBoundingClientRect();
+          return (
+            element.textContent?.trim() === "Loading document" &&
+            rect.width > 0 &&
+            rect.height > 0
+          );
+        });
+      const documentVisible = () => {
+        const body = document.querySelector('[data-review-id="document-body"]');
+        const heading = body?.querySelector("h1");
+        if (
+          !(body instanceof HTMLElement) ||
+          !(heading instanceof HTMLElement)
+        ) {
+          return false;
+        }
+        const bodyRect = body.getBoundingClientRect();
+        const headingRect = heading.getBoundingClientRect();
+        return (
+          bodyRect.width > 0 &&
+          bodyRect.height > 0 &&
+          headingRect.width > 0 &&
+          headingRect.height > 0
+        );
+      };
+      const readSplitState = () => {
+        const shell = document.querySelector('[data-review-id="shell"]');
+        const split = document.querySelector('[data-review-id="viewer-split"]');
+        const focusedPaneId = split
+          ?.querySelector("[data-pane-id].focused")
+          ?.getAttribute("data-pane-id");
+        const splitPercent = Number.parseFloat(
+          shell instanceof HTMLElement
+            ? getComputedStyle(shell)
+                .getPropertyValue("--split-left-width")
+                .trim()
+            : "",
+        );
+        return {
+          visible:
+            split instanceof HTMLElement &&
+            getComputedStyle(split).display !== "none",
+          focusedPane:
+            focusedPaneId === "left" || focusedPaneId === "right"
+              ? focusedPaneId
+              : "unknown",
+          ratio: Number.isFinite(splitPercent)
+            ? Number((splitPercent / 100).toFixed(2))
+            : null,
+        };
+      };
+      const originalInfo = console.info.bind(console);
+      console.info = (...args) => {
+        const payload = args[1];
+        if (args[0] !== "[perf]" || !payload || typeof payload !== "object") {
+          originalInfo(...args);
+          return;
+        }
+
+        const eventName = payload.event;
+        if (eventName === "workspaceBoot.documentRenderStarted") {
+          observation.renderEffectStartCount += 1;
+          if (observation.themeAtDocumentRenderStart === "unknown") {
+            observation.themeAtDocumentRenderStart = readTheme();
+          }
+        } else if (eventName === "render.articleInnerHtmlCommit") {
+          observation.articleInnerHtmlCommitCount += 1;
+        } else if (eventName === "workspaceBoot.firstDocumentFrame") {
+          observation.firstDocumentFrameCount += 1;
+          if (observation.themeAtFirstDocumentFrame === "unknown") {
+            const splitState = readSplitState();
+            observation.themeAtFirstDocumentFrame = readTheme();
+            observation.loadingVisibleAtFirstDocumentFrame = loadingVisible();
+            observation.documentVisibleAtFirstDocumentFrame = documentVisible();
+            observation.splitVisibleAtFirstDocumentFrame = splitState.visible;
+            observation.focusedPaneAtFirstDocumentFrame =
+              splitState.focusedPane;
+            observation.splitRatioAtFirstDocumentFrame = splitState.ratio;
+          }
+        }
+
+        const phaseKey = phaseKeyByEvent[eventName];
+        if (phaseKey && phases[phaseKey] === null) {
+          phases[phaseKey] = Number(performance.now().toFixed(2));
+        }
+        if (
+          eventName === "workspaceBoot.rootDirectoryReady" &&
+          Number.isFinite(payload.entryCount)
+        ) {
+          benchmark.entryCount = Math.max(0, Math.trunc(payload.entryCount));
+        }
+        completeBenchmarkIfReady();
+        // `[perf]` payloads can contain document metadata. Keep them out of
+        // Playwright console artifacts after collecting this fixed allowlist.
+      };
+    },
+    {
+      allowedProfiles: WORKSPACE_BOOT_BENCHMARK_PROFILES,
+      scenarioId: WORKSPACE_BOOT_BENCHMARK_SCENARIO,
+    },
+  );
+}
+
 export function parseArgs(argv) {
   const args = { scenario: "viewer-basic", id: "local-ui-change" };
 
@@ -48,10 +261,19 @@ export async function captureScenario({
     viewport: { width: 1440, height: 960 },
   });
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  if (scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO) {
+    await installWorkspaceBootBenchmarkCollector(page);
+  }
   const consoleMessages = [];
   const pageErrors = [];
 
   page.on("console", (message) => {
+    if (
+      scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO &&
+      message.text().startsWith("[perf]")
+    ) {
+      return;
+    }
     consoleMessages.push({ type: message.type(), text: message.text() });
   });
   page.on("pageerror", (error) => {
@@ -62,11 +284,15 @@ export async function captureScenario({
     "viewer-start-page",
     "viewer-restore-additional-windows-opt-in",
   ]);
-  const scenarioUrl = scenariosWithBootConfig.has(scenario)
-    ? `${baseURL}?scenario=${encodeURIComponent(scenario)}`
-    : baseURL;
+  const scenarioUrl =
+    scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO
+      ? buildWorkspaceBootBenchmarkUrl(baseURL, "stress")
+      : scenariosWithBootConfig.has(scenario)
+        ? `${baseURL}?scenario=${encodeURIComponent(scenario)}`
+        : baseURL;
   const startupObservationScenarios = new Set([
     "viewer-diagram-placeholder-startup",
+    WORKSPACE_BOOT_BENCHMARK_SCENARIO,
   ]);
   const captureStartedAt = Date.now();
   await page.goto(scenarioUrl, {
@@ -560,11 +786,18 @@ export async function captureScenario({
       viewerWidth: viewerRect?.width ?? 0,
     };
   });
+  const workspaceBootBenchmark = await page.evaluate(
+    () => window.__SVARD_WORKSPACE_BOOT_BENCHMARK__ ?? null,
+  );
+  const workspaceBootObservation = await page.evaluate(
+    () => window.__SVARD_WORKSPACE_BOOT_OBSERVATION__ ?? null,
+  );
   const assertions = await buildAssertions({
     scenario,
     page,
     bodyText,
     commandAutomation,
+    consoleMessages,
     contextMenuText,
     diagramFit,
     documentUsesViewerWidth,
@@ -579,6 +812,8 @@ export async function captureScenario({
     sidebarResizeOutcome,
     svgAspectRatios,
     themeContrastOutcome,
+    workspaceBootBenchmark,
+    workspaceBootObservation,
   });
   const plantUmlMetrics = await page.evaluate(
     () => window.__svardPlantUmlMetrics ?? null,
@@ -660,37 +895,52 @@ export async function captureScenario({
         event: "scenario-rendered",
         scenario,
         featureId: id,
-        documentBasename: bodyText.includes("Render Fixtures")
-          ? "render-fixtures.adoc"
-          : bodyText.includes("AsciiDoc Comprehensive Visual Sample")
-            ? "asciidoc-comprehensive-visual.adoc"
-            : bodyText.includes("Markdown Sample")
-              ? "markdown-sample.md"
-              : bodyText.includes("Markdown Diagram Sample")
-                ? "markdown-diagrams.md"
-          : bodyText.includes("Markdown Footnotes And Admonitions Sample")
-                  ? "markdown-footnotes-admonitions.md"
-                  : bodyText.includes("Markdown 日本語確認")
-                    ? "markdown-japanese.md"
-                    : bodyText.includes("Large Table Row Addition")
-                      ? "git-large-table-row-addition.md"
-                    : bodyText.includes("Git Markdown Table Cell Fixture")
-                      ? "git-table-cells.md"
-                      : bodyText.includes("Git Markdown Table Untracked Fixture")
-                        ? "git-table-untracked.md"
-                        : bodyText.includes("Git AsciiDoc Table Diff Fixture")
-                          ? "git-asciidoc-table.adoc"
-                          : bodyText.includes(
-                              "Git AsciiDoc Complex Table Diff Fixture",
-                            )
-                            ? "git-asciidoc-table-complex.adoc"
-                    : bodyText.includes("PlantUML Concurrency Stress")
-                      ? "plantuml-concurrency.adoc"
-                      : bodyText.includes("Mixed Diagram Japanese Sample")
-                      ? "diagrams-mixed-long-ja.adoc"
-                      : bodyText.includes("Git Rendered List Reorder Fixture")
-                        ? "git-rendered-list-reorder.md"
-                        : null,
+        documentBasename:
+          scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO
+            ? null
+            : bodyText.includes("Render Fixtures")
+              ? "render-fixtures.adoc"
+              : bodyText.includes("AsciiDoc Comprehensive Visual Sample")
+                ? "asciidoc-comprehensive-visual.adoc"
+                : bodyText.includes("Markdown Sample")
+                  ? "markdown-sample.md"
+                  : bodyText.includes("Markdown Diagram Sample")
+                    ? "markdown-diagrams.md"
+                    : bodyText.includes(
+                          "Markdown Footnotes And Admonitions Sample",
+                        )
+                      ? "markdown-footnotes-admonitions.md"
+                      : bodyText.includes("Markdown 日本語確認")
+                        ? "markdown-japanese.md"
+                        : bodyText.includes("Large Table Row Addition")
+                          ? "git-large-table-row-addition.md"
+                          : bodyText.includes("Git Markdown Table Cell Fixture")
+                            ? "git-table-cells.md"
+                            : bodyText.includes(
+                                  "Git Markdown Table Untracked Fixture",
+                                )
+                              ? "git-table-untracked.md"
+                              : bodyText.includes(
+                                    "Git AsciiDoc Table Diff Fixture",
+                                  )
+                                ? "git-asciidoc-table.adoc"
+                                : bodyText.includes(
+                                      "Git AsciiDoc Complex Table Diff Fixture",
+                                    )
+                                  ? "git-asciidoc-table-complex.adoc"
+                                  : bodyText.includes(
+                                        "PlantUML Concurrency Stress",
+                                      )
+                                    ? "plantuml-concurrency.adoc"
+                                    : bodyText.includes(
+                                          "Mixed Diagram Japanese Sample",
+                                        )
+                                      ? "diagrams-mixed-long-ja.adoc"
+                                      : bodyText.includes(
+                                            "Git Rendered List Reorder Fixture",
+                                          )
+                                        ? "git-rendered-list-reorder.md"
+                                        : null,
         status: report.outcome,
         plantUmlMetrics,
         diagramScrollStability,

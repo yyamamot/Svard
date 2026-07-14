@@ -233,6 +233,7 @@ export function App() {
     useState<MouseGestureAutomation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [workspaceBootComplete, setWorkspaceBootComplete] = useState(false);
+  const workspaceTreeGenerationRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const {
     closeSplitView,
@@ -275,11 +276,11 @@ export function App() {
   });
   const { persistWorkspace } = useWorkspacePersistence({
     activeHeadingId,
+    canAutoPersist: !isLoading && workspaceBootComplete,
     config,
     documentPayload,
     focusedPaneId,
     host,
-    isLoading,
     paneSnapshots,
     setConfig,
     splitEnabled,
@@ -371,6 +372,7 @@ export function App() {
   });
   useWorkspaceBoot({
     host,
+    workspaceTreeGenerationRef,
     setWindowSessionId,
     setChildrenByDirectory,
     setConfig,
@@ -437,6 +439,8 @@ export function App() {
     pickAndOpenDirectory,
     pickAndOpenDocument,
   } = useDocumentLifecycle({
+    canWatchDocuments: workspaceBootComplete,
+    workspaceTreeGenerationRef,
     config,
     dismissInlineNotice,
     documentPayload,
@@ -501,7 +505,7 @@ export function App() {
   } = useAppSourceControlReview({
     activeDocumentPayload,
     confirmedRemoteDiagramKeys,
-    config,
+    config: workspaceBootComplete ? config : null,
     documentPayload,
     documentDiffPreview,
     getGitDiffPreview,
@@ -816,6 +820,7 @@ export function App() {
       ...sourceControl,
       openSourceControlAllDiffs,
     },
+    gitStatusEnabled: workspaceBootComplete,
     hideOpenFiles: hideOpenFilesForSiteScreenshot,
     host,
     leftSidebarContentRef,
@@ -1001,7 +1006,7 @@ export function App() {
   useSiteScreenshotScenario({
     closeAllTabs: workspaceTabActions.closeAllWorkspaceTabs,
     dismissInlineNotice,
-    documentPayload,
+    documentPayload: workspaceBootComplete ? documentPayload : null,
     openDirectory,
     openDocument: workspaceTabActions.openDocumentWorkspaceTab,
     openPreferences: openPreferencesTab,
