@@ -600,17 +600,30 @@ pub(super) struct LineDiffCommonEdges {
     pub(super) suffix_lines: usize,
 }
 
-// Keep the existing full-LCS path for the fixed small-document regression gate.
-const LINE_DIFF_COMMON_EDGE_TRIM_MIN_LINE_COUNT: usize = 201;
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct LineDiffCoreMetrics {
+    pub(super) peak_scratch_entries: u64,
+    pub(super) work_units: u64,
+}
 
-pub(super) fn line_diff_effective_common_edges(
-    left_lines: &[&str],
-    right_lines: &[&str],
-) -> LineDiffCommonEdges {
-    if left_lines.len().max(right_lines.len()) < LINE_DIFF_COMMON_EDGE_TRIM_MIN_LINE_COUNT {
-        LineDiffCommonEdges::default()
-    } else {
-        line_diff_common_edges(left_lines, right_lines)
+pub(super) const LINEAR_DIFF_SCRATCH_COEFFICIENT: usize = 2;
+
+impl LineDiffCoreMetrics {
+    fn record_work<const MEASURE: bool>(&mut self) {
+        if MEASURE {
+            self.work_units = self
+                .work_units
+                .checked_add(1)
+                .expect("line diff work units");
+        }
+    }
+
+    fn record_scratch<const MEASURE: bool>(&mut self, entries: usize) {
+        if MEASURE {
+            self.peak_scratch_entries = self
+                .peak_scratch_entries
+                .max(u64::try_from(entries).expect("line diff scratch entries"));
+        }
     }
 }
 
@@ -655,66 +668,33 @@ pub(super) fn line_diff_common_edges(
 }
 
 pub(super) fn line_diff_hunks(left: &str, right: &str) -> Vec<GitDiffHunk> {
-    line_diff_hunks_with_common_edges(left, right, LineDiffCommonEdgeMode::Effective)
+    line_diff_hunks_linear::<false>(left, right).0
 }
 
 #[cfg(test)]
-pub(super) fn line_diff_hunks_full_lcs_for_test(left: &str, right: &str) -> Vec<GitDiffHunk> {
-    line_diff_hunks_with_common_edges(left, right, LineDiffCommonEdgeMode::Disabled)
-}
-
-#[cfg(test)]
-pub(super) fn line_diff_hunks_unbounded_common_edges_for_test(
+pub(super) fn line_diff_hunks_with_metrics_for_test(
     left: &str,
     right: &str,
-) -> Vec<GitDiffHunk> {
-    line_diff_hunks_with_common_edges(left, right, LineDiffCommonEdgeMode::Unbounded)
+) -> (Vec<GitDiffHunk>, LineDiffCoreMetrics) {
+    line_diff_hunks_linear::<true>(left, right)
 }
 
-#[derive(Debug, Clone, Copy)]
-enum LineDiffCommonEdgeMode {
-    #[cfg(test)]
-    Disabled,
-    Effective,
-    #[cfg(test)]
-    Unbounded,
-}
-
-fn line_diff_hunks_with_common_edges(
+fn line_diff_hunks_linear<const MEASURE: bool>(
     left: &str,
     right: &str,
-    common_edge_mode: LineDiffCommonEdgeMode,
-) -> Vec<GitDiffHunk> {
+) -> (Vec<GitDiffHunk>, LineDiffCoreMetrics) {
+    let mut metrics = LineDiffCoreMetrics::default();
     if left == right {
-        return Vec::new();
+        return (Vec::new(), metrics);
     }
     let left_lines = split_lines(left);
     let right_lines = split_lines(right);
-    let common_edges = match common_edge_mode {
-        #[cfg(test)]
-        LineDiffCommonEdgeMode::Disabled => LineDiffCommonEdges::default(),
-        LineDiffCommonEdgeMode::Effective => {
-            line_diff_effective_common_edges(&left_lines, &right_lines)
-        }
-        #[cfg(test)]
-        LineDiffCommonEdgeMode::Unbounded => line_diff_common_edges(&left_lines, &right_lines),
-    };
+    let common_edges = line_diff_common_edges(&left_lines, &right_lines);
     let left_middle_end = left_lines.len() - common_edges.suffix_lines;
     let right_middle_end = right_lines.len() - common_edges.suffix_lines;
     let left_middle = &left_lines[common_edges.prefix_lines..left_middle_end];
     let right_middle = &right_lines[common_edges.prefix_lines..right_middle_end];
-    let mut rows = vec![vec![0usize; right_middle.len() + 1]; left_middle.len() + 1];
-    for i in (0..left_middle.len()).rev() {
-        for j in (0..right_middle.len()).rev() {
-            rows[i][j] = if left_middle[i] == right_middle[j] {
-                rows[i + 1][j + 1] + 1
-            } else {
-                rows[i + 1][j].max(rows[i][j + 1])
-            };
-        }
-    }
-
-    let mut lines = Vec::new();
+    let mut lines = Vec::with_capacity(left_lines.len() + right_lines.len());
     for index in 0..common_edges.prefix_lines {
         lines.push(GitDiffLine {
             kind: GitDiffLineKind::Context,
@@ -723,42 +703,14 @@ fn line_diff_hunks_with_common_edges(
             text: left_lines[index].to_string(),
         });
     }
-    let mut left_index = 0usize;
-    let mut right_index = 0usize;
-    while left_index < left_middle.len() || right_index < right_middle.len() {
-        if left_index < left_middle.len()
-            && right_index < right_middle.len()
-            && left_middle[left_index] == right_middle[right_index]
-        {
-            lines.push(GitDiffLine {
-                kind: GitDiffLineKind::Context,
-                old_line: Some(common_edges.prefix_lines + left_index + 1),
-                new_line: Some(common_edges.prefix_lines + right_index + 1),
-                text: left_middle[left_index].to_string(),
-            });
-            left_index += 1;
-            right_index += 1;
-        } else if right_index < right_middle.len()
-            && (left_index == left_middle.len()
-                || rows[left_index][right_index + 1] >= rows[left_index + 1][right_index])
-        {
-            lines.push(GitDiffLine {
-                kind: GitDiffLineKind::Added,
-                old_line: None,
-                new_line: Some(common_edges.prefix_lines + right_index + 1),
-                text: right_middle[right_index].to_string(),
-            });
-            right_index += 1;
-        } else if left_index < left_middle.len() {
-            lines.push(GitDiffLine {
-                kind: GitDiffLineKind::Removed,
-                old_line: Some(common_edges.prefix_lines + left_index + 1),
-                new_line: None,
-                text: left_middle[left_index].to_string(),
-            });
-            left_index += 1;
-        }
-    }
+    append_linear_diff::<MEASURE>(
+        left_middle,
+        right_middle,
+        common_edges.prefix_lines,
+        common_edges.prefix_lines,
+        &mut lines,
+        &mut metrics,
+    );
     for offset in 0..common_edges.suffix_lines {
         let left_index = left_middle_end + offset;
         let right_index = right_middle_end + offset;
@@ -770,6 +722,17 @@ fn line_diff_hunks_with_common_edges(
         });
     }
 
+    (
+        finalize_line_diff_hunks(left_lines.len(), right_lines.len(), lines),
+        metrics,
+    )
+}
+
+fn finalize_line_diff_hunks(
+    left_line_count: usize,
+    right_line_count: usize,
+    lines: Vec<GitDiffLine>,
+) -> Vec<GitDiffHunk> {
     if lines
         .iter()
         .all(|line| line.kind == GitDiffLineKind::Context)
@@ -779,11 +742,314 @@ fn line_diff_hunks_with_common_edges(
 
     vec![GitDiffHunk {
         old_start: 1,
-        old_lines: left_lines.len(),
+        old_lines: left_line_count,
         new_start: 1,
-        new_lines: right_lines.len(),
+        new_lines: right_line_count,
         lines,
     }]
+}
+
+fn append_linear_diff<const MEASURE: bool>(
+    left: &[&str],
+    right: &[&str],
+    old_offset: usize,
+    new_offset: usize,
+    output: &mut Vec<GitDiffLine>,
+    metrics: &mut LineDiffCoreMetrics,
+) {
+    if append_linear_diff_base_case::<MEASURE>(left, right, old_offset, new_offset, output, metrics)
+    {
+        return;
+    }
+    // With an empty LCS, the frozen full-matrix path follows right-on-tie successors:
+    // every right line is Added before every left line is Removed. Detecting that exact
+    // case avoids allocating workspace without changing the edit script.
+    if !linear_diff_has_common_line::<MEASURE>(left, right, metrics) {
+        append_added_lines(right, new_offset, output);
+        append_removed_lines(left, old_offset, output);
+        return;
+    }
+
+    let workspace_len = right.len() + 1;
+    metrics.record_scratch::<MEASURE>(
+        LINEAR_DIFF_SCRATCH_COEFFICIENT
+            .checked_mul(workspace_len)
+            .expect("line diff scratch size"),
+    );
+    let mut scores = vec![0usize; workspace_len];
+    let mut crossings = vec![0usize; workspace_len];
+    append_canonical_diff::<MEASURE>(
+        left,
+        right,
+        old_offset,
+        new_offset,
+        output,
+        &mut scores,
+        &mut crossings,
+        metrics,
+    );
+}
+
+fn append_canonical_diff<const MEASURE: bool>(
+    left: &[&str],
+    right: &[&str],
+    old_offset: usize,
+    new_offset: usize,
+    output: &mut Vec<GitDiffLine>,
+    scores: &mut [usize],
+    crossings: &mut [usize],
+    metrics: &mut LineDiffCoreMetrics,
+) {
+    if append_linear_diff_base_case::<MEASURE>(left, right, old_offset, new_offset, output, metrics)
+    {
+        return;
+    }
+
+    let left_split = left.len() / 2;
+    let right_split =
+        canonical_diff_crossing::<MEASURE>(left, right, left_split, scores, crossings, metrics);
+    append_canonical_diff::<MEASURE>(
+        &left[..left_split],
+        &right[..right_split],
+        old_offset,
+        new_offset,
+        output,
+        scores,
+        crossings,
+        metrics,
+    );
+    append_canonical_diff::<MEASURE>(
+        &left[left_split..],
+        &right[right_split..],
+        old_offset + left_split,
+        new_offset + right_split,
+        output,
+        scores,
+        crossings,
+        metrics,
+    );
+}
+
+fn canonical_diff_crossing<const MEASURE: bool>(
+    left: &[&str],
+    right: &[&str],
+    left_split: usize,
+    scores: &mut [usize],
+    crossings: &mut [usize],
+    metrics: &mut LineDiffCoreMetrics,
+) -> usize {
+    // Propagate the column where the frozen full-LCS successor path crosses left_split.
+    // The mismatch branch intentionally selects the right successor on equal scores so
+    // the reconstructed edit script preserves the existing Added-first tie behavior.
+    let right_len = right.len();
+    let scores = &mut scores[..=right_len];
+    let crossings = &mut crossings[..=right_len];
+    scores.fill(0);
+
+    for left_index in (left_split..left.len()).rev() {
+        let mut diagonal_score = scores[right_len];
+        for right_index in (0..right_len).rev() {
+            let down_score = scores[right_index];
+            metrics.record_work::<MEASURE>();
+            scores[right_index] = if left[left_index] == right[right_index] {
+                diagonal_score + 1
+            } else {
+                down_score.max(scores[right_index + 1])
+            };
+            diagonal_score = down_score;
+        }
+    }
+
+    for (right_index, crossing) in crossings.iter_mut().enumerate() {
+        *crossing = right_index;
+    }
+    for left_index in (0..left_split).rev() {
+        let mut diagonal_score = scores[right_len];
+        let mut diagonal_crossing = crossings[right_len];
+        for right_index in (0..right_len).rev() {
+            let down_score = scores[right_index];
+            let down_crossing = crossings[right_index];
+            let right_score = scores[right_index + 1];
+            let right_crossing = crossings[right_index + 1];
+            metrics.record_work::<MEASURE>();
+            if left[left_index] == right[right_index] {
+                scores[right_index] = diagonal_score + 1;
+                crossings[right_index] = diagonal_crossing;
+            } else if right_score >= down_score {
+                scores[right_index] = right_score;
+                crossings[right_index] = right_crossing;
+            } else {
+                scores[right_index] = down_score;
+                crossings[right_index] = down_crossing;
+            }
+            diagonal_score = down_score;
+            diagonal_crossing = down_crossing;
+        }
+    }
+    crossings[0]
+}
+
+fn append_linear_diff_base_case<const MEASURE: bool>(
+    left: &[&str],
+    right: &[&str],
+    old_offset: usize,
+    new_offset: usize,
+    output: &mut Vec<GitDiffLine>,
+    metrics: &mut LineDiffCoreMetrics,
+) -> bool {
+    if left.is_empty() {
+        append_added_lines(right, new_offset, output);
+        return true;
+    }
+    if right.is_empty() {
+        append_removed_lines(left, old_offset, output);
+        return true;
+    }
+    if left.len() == 1 {
+        let match_index = right.iter().position(|right_line| {
+            metrics.record_work::<MEASURE>();
+            left[0] == *right_line
+        });
+        if let Some(match_index) = match_index {
+            append_added_lines(&right[..match_index], new_offset, output);
+            output.push(GitDiffLine {
+                kind: GitDiffLineKind::Context,
+                old_line: Some(old_offset + 1),
+                new_line: Some(new_offset + match_index + 1),
+                text: left[0].to_string(),
+            });
+            append_added_lines(
+                &right[match_index + 1..],
+                new_offset + match_index + 1,
+                output,
+            );
+        } else {
+            append_added_lines(right, new_offset, output);
+            append_removed_lines(left, old_offset, output);
+        }
+        return true;
+    }
+    if right.len() == 1 {
+        let match_index = left.iter().position(|left_line| {
+            metrics.record_work::<MEASURE>();
+            *left_line == right[0]
+        });
+        if let Some(match_index) = match_index {
+            append_removed_lines(&left[..match_index], old_offset, output);
+            output.push(GitDiffLine {
+                kind: GitDiffLineKind::Context,
+                old_line: Some(old_offset + match_index + 1),
+                new_line: Some(new_offset + 1),
+                text: right[0].to_string(),
+            });
+            append_removed_lines(
+                &left[match_index + 1..],
+                old_offset + match_index + 1,
+                output,
+            );
+        } else {
+            append_added_lines(right, new_offset, output);
+            append_removed_lines(left, old_offset, output);
+        }
+        return true;
+    }
+    false
+}
+
+fn linear_diff_has_common_line<const MEASURE: bool>(
+    left: &[&str],
+    right: &[&str],
+    metrics: &mut LineDiffCoreMetrics,
+) -> bool {
+    for left_line in left {
+        for right_line in right {
+            metrics.record_work::<MEASURE>();
+            if left_line == right_line {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn append_added_lines(right: &[&str], new_offset: usize, output: &mut Vec<GitDiffLine>) {
+    for (index, text) in right.iter().enumerate() {
+        output.push(GitDiffLine {
+            kind: GitDiffLineKind::Added,
+            old_line: None,
+            new_line: Some(new_offset + index + 1),
+            text: (*text).to_string(),
+        });
+    }
+}
+
+fn append_removed_lines(left: &[&str], old_offset: usize, output: &mut Vec<GitDiffLine>) {
+    for (index, text) in left.iter().enumerate() {
+        output.push(GitDiffLine {
+            kind: GitDiffLineKind::Removed,
+            old_line: Some(old_offset + index + 1),
+            new_line: None,
+            text: (*text).to_string(),
+        });
+    }
+}
+
+#[cfg(test)]
+pub(super) fn line_diff_hunks_full_lcs_for_test(left: &str, right: &str) -> Vec<GitDiffHunk> {
+    if left == right {
+        return Vec::new();
+    }
+    let left_lines = split_lines(left);
+    let right_lines = split_lines(right);
+    let mut rows = vec![vec![0usize; right_lines.len() + 1]; left_lines.len() + 1];
+    for left_index in (0..left_lines.len()).rev() {
+        for right_index in (0..right_lines.len()).rev() {
+            rows[left_index][right_index] = if left_lines[left_index] == right_lines[right_index] {
+                rows[left_index + 1][right_index + 1] + 1
+            } else {
+                rows[left_index + 1][right_index].max(rows[left_index][right_index + 1])
+            };
+        }
+    }
+
+    let mut lines = Vec::with_capacity(left_lines.len() + right_lines.len());
+    let mut left_index = 0usize;
+    let mut right_index = 0usize;
+    while left_index < left_lines.len() || right_index < right_lines.len() {
+        if left_index < left_lines.len()
+            && right_index < right_lines.len()
+            && left_lines[left_index] == right_lines[right_index]
+        {
+            lines.push(GitDiffLine {
+                kind: GitDiffLineKind::Context,
+                old_line: Some(left_index + 1),
+                new_line: Some(right_index + 1),
+                text: left_lines[left_index].to_string(),
+            });
+            left_index += 1;
+            right_index += 1;
+        } else if right_index < right_lines.len()
+            && (left_index == left_lines.len()
+                || rows[left_index][right_index + 1] >= rows[left_index + 1][right_index])
+        {
+            lines.push(GitDiffLine {
+                kind: GitDiffLineKind::Added,
+                old_line: None,
+                new_line: Some(right_index + 1),
+                text: right_lines[right_index].to_string(),
+            });
+            right_index += 1;
+        } else if left_index < left_lines.len() {
+            lines.push(GitDiffLine {
+                kind: GitDiffLineKind::Removed,
+                old_line: Some(left_index + 1),
+                new_line: None,
+                text: left_lines[left_index].to_string(),
+            });
+            left_index += 1;
+        }
+    }
+    finalize_line_diff_hunks(left_lines.len(), right_lines.len(), lines)
 }
 
 pub(super) fn split_lines(value: &str) -> Vec<&str> {

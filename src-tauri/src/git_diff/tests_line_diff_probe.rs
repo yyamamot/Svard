@@ -77,28 +77,12 @@ fn numbered_lines(prefix: &str, count: usize) -> String {
 fn complexity_metrics(left: &str, right: &str) -> (usize, usize, u64, u64) {
     let left_line_count = split_lines(left).len();
     let right_line_count = split_lines(right).len();
-    if left == right {
-        return (left_line_count, right_line_count, 0, 0);
-    }
-    let left_lines = split_lines(left);
-    let right_lines = split_lines(right);
-    let common_edges = line_diff_effective_common_edges(&left_lines, &right_lines);
-    let left_middle_count = left_line_count - common_edges.prefix_lines - common_edges.suffix_lines;
-    let right_middle_count =
-        right_line_count - common_edges.prefix_lines - common_edges.suffix_lines;
-    let work_units = u64::try_from(left_middle_count)
-        .expect("left line count")
-        .checked_mul(u64::try_from(right_middle_count).expect("right line count"))
-        .expect("work units");
-    let peak_scratch_entries = u64::try_from(left_middle_count + 1)
-        .expect("left scratch dimension")
-        .checked_mul(u64::try_from(right_middle_count + 1).expect("right scratch dimension"))
-        .expect("scratch entries");
+    let (_, metrics) = line_diff_hunks_with_metrics_for_test(left, right);
     (
         left_line_count,
         right_line_count,
-        work_units,
-        peak_scratch_entries,
+        metrics.work_units,
+        metrics.peak_scratch_entries,
     )
 }
 
@@ -271,20 +255,24 @@ fn assert_report_is_privacy_safe(report: &ProbeReport) {
 }
 
 #[test]
-fn line_diff_probe_metrics_follow_the_current_common_edge_plan() {
+fn line_diff_probe_metrics_come_from_the_linear_memory_core() {
     assert_eq!(complexity_metrics("same\n", "same\n"), (1, 1, 0, 0));
-    assert_eq!(complexity_metrics("same", "same\n"), (1, 1, 1, 4));
-    assert_eq!(complexity_metrics("A\nA\n", "X\nA\n"), (2, 2, 4, 9));
+    assert_eq!(complexity_metrics("same", "same\n"), (1, 1, 0, 0));
+    let duplicate = complexity_metrics("A\nA\n", "X\nA\n");
+    assert_eq!(duplicate.0, 2);
+    assert_eq!(duplicate.1, 2);
+    assert!(duplicate.2 > 0);
+    assert_eq!(duplicate.3, 6);
 
     let single_edit = probe_fixture(FixtureKind::SingleEdit, 200);
-    assert_eq!(single_edit.work_units, 40_000);
-    assert_eq!(single_edit.peak_scratch_entries, 40_401);
+    assert_eq!(single_edit.work_units, 1);
+    assert_eq!(single_edit.peak_scratch_entries, 0);
     assert_eq!(single_edit.left_line_count, 200);
     assert_eq!(single_edit.right_line_count, 200);
 
     let disjoint = probe_fixture(FixtureKind::Disjoint, 5_000);
     assert_eq!(disjoint.work_units, 25_000_000);
-    assert_eq!(disjoint.peak_scratch_entries, 25_010_001);
+    assert_eq!(disjoint.peak_scratch_entries, 0);
     assert!(disjoint.left.len() < MAX_TEXT_DIFF_BYTES);
     assert!(disjoint.right.len() < MAX_TEXT_DIFF_BYTES);
 }
@@ -345,7 +333,7 @@ fn line_diff_probe_report_schema_is_minimal_and_privacy_safe() {
 }
 
 #[test]
-#[ignore = "writes the release-like IMP-415 performance artifact"]
+#[ignore = "writes the release-like line diff performance artifact"]
 fn line_diff_complexity_probe_writes_report() {
     let output = env::var("SVARD_LINE_DIFF_PROBE_OUT")
         .expect("SVARD_LINE_DIFF_PROBE_OUT must name summary.json");

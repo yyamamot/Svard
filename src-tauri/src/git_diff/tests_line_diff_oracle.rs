@@ -194,16 +194,61 @@ fn generated_documents(alphabet: &[&str], max_lines: usize) -> Vec<String> {
 }
 
 #[test]
-fn line_diff_common_edge_trim_matches_full_lcs_for_short_sequences() {
-    let documents = generated_documents(&["A", "B", "C"], 5);
+fn line_diff_linear_memory_matches_full_lcs_for_short_sequences() {
+    let documents = generated_documents(&["A", "B", "C"], 6);
     for (left_index, left) in documents.iter().enumerate() {
         for (right_index, right) in documents.iter().enumerate() {
             assert_eq!(
-                line_diff_hunks_unbounded_common_edges_for_test(left, right),
+                line_diff_hunks(left, right),
                 line_diff_hunks_full_lcs_for_test(left, right),
-                "trimmed LCS differs for generated fixture {left_index}/{right_index}"
+                "linear-memory LCS differs for generated fixture {left_index}/{right_index}"
             );
         }
+    }
+}
+
+fn next_deterministic_value(state: &mut u64) -> u64 {
+    *state = state
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1_442_695_040_888_963_407);
+    *state
+}
+
+fn deterministic_document(state: &mut u64, max_lines: usize) -> String {
+    const ALPHABET: [&str; 5] = ["A", "B", "C", "D", "E"];
+    let line_count = usize::try_from(
+        next_deterministic_value(state)
+            % u64::try_from(max_lines + 1).expect("deterministic maximum line count"),
+    )
+    .expect("deterministic line count");
+    let lines = (0..line_count)
+        .map(|_| {
+            let index = usize::try_from(
+                next_deterministic_value(state)
+                    % u64::try_from(ALPHABET.len()).expect("deterministic alphabet length"),
+            )
+            .expect("deterministic alphabet index");
+            ALPHABET[index]
+        })
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    }
+}
+
+#[test]
+fn line_diff_linear_memory_matches_full_lcs_for_longer_deterministic_sequences() {
+    let mut state = 0x41_73_76_61_72_u64;
+    for case_index in 0..20_000 {
+        let left = deterministic_document(&mut state, 29);
+        let right = deterministic_document(&mut state, 29);
+        assert_eq!(
+            line_diff_hunks(&left, &right),
+            line_diff_hunks_full_lcs_for_test(&left, &right),
+            "linear-memory LCS differs for deterministic fixture {case_index}"
+        );
     }
 }
 
@@ -250,23 +295,25 @@ fn line_diff_common_edge_plan_uses_guarded_suffix_fallback() {
 }
 
 #[test]
-fn line_diff_common_edge_trim_bypasses_small_inputs() {
-    let small_left = vec!["same"; 200];
-    let small_right = vec!["same"; 200];
-    assert_eq!(
-        line_diff_effective_common_edges(&small_left, &small_right),
-        LineDiffCommonEdges::default()
-    );
+fn line_diff_linear_memory_reports_core_owned_scratch() {
+    let left_lines = (0..201)
+        .map(|index| format!("line-{index:03}"))
+        .collect::<Vec<_>>();
+    let right_lines = left_lines[101..]
+        .iter()
+        .chain(&left_lines[..101])
+        .cloned()
+        .collect::<Vec<_>>();
+    let left = left_lines.join("\n") + "\n";
+    let right = right_lines.join("\n") + "\n";
+    let (actual, metrics) = line_diff_hunks_with_metrics_for_test(&left, &right);
 
-    let mut large_left = vec!["same"; 201];
-    let mut large_right = large_left.clone();
-    large_left[100] = "left";
-    large_right[100] = "right";
+    assert_eq!(actual, line_diff_hunks_full_lcs_for_test(&left, &right));
     assert_eq!(
-        line_diff_effective_common_edges(&large_left, &large_right),
-        LineDiffCommonEdges {
-            prefix_lines: 100,
-            suffix_lines: 100,
-        }
+        metrics.peak_scratch_entries,
+        u64::try_from(LINEAR_DIFF_SCRATCH_COEFFICIENT * (right_lines.len() + 1))
+            .expect("scratch entries")
     );
+    assert!(metrics.work_units > 0);
+    assert!(metrics.peak_scratch_entries < 202 * 202);
 }

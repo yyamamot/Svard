@@ -1,15 +1,29 @@
 export const lineDiffProbeFixtureIds: readonly string[];
+export const lineDiffProbeComparisonIds: readonly [
+  "imp416-common-edge-trim",
+  "imp417-linear-memory",
+];
+
+export type LineDiffProbeMode =
+  | "full-lcs"
+  | "common-edge-trim"
+  | "linear-memory";
+export type LineDiffProbeComparisonId =
+  | "imp416-common-edge-trim"
+  | "imp417-linear-memory";
 
 export function parseLineDiffProbeArgs(argv: string[]): {
   baseline: string | null;
+  comparison: LineDiffProbeComparisonId | null;
   out: string;
 };
 
-export function validateLineDiffProbeReport(
-  report: unknown,
-): "full-lcs" | "common-edge-trim";
+export function validateLineDiffProbeReport(report: unknown): LineDiffProbeMode;
 
 export interface LineDiffProbeComparison {
+  baselineMode: LineDiffProbeMode | "unknown";
+  candidateMode: LineDiffProbeMode | "unknown";
+  comparisonId: LineDiffProbeComparisonId;
   fixtures: Array<{
     baselineP95Ms: number;
     baselinePeakScratchEntries: number;
@@ -20,7 +34,7 @@ export interface LineDiffProbeComparison {
     fixtureId: string;
     p95RegressionPercent: number;
   }>;
-  schemaVersion: 1;
+  schemaVersion: 2;
   status: "go" | "no-go";
   violations: string[];
 }
@@ -28,6 +42,7 @@ export interface LineDiffProbeComparison {
 export function buildLineDiffProbeComparison(
   baseline: unknown,
   candidate: unknown,
+  requestedComparison?: LineDiffProbeComparisonId | null,
 ): LineDiffProbeComparison;
 
 export function validateLineDiffProbeComparison(comparison: unknown): void;
