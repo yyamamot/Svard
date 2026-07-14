@@ -45,6 +45,40 @@ export interface AsciiDocPrepareComparison {
   uniqueTotalP95RegressionPercent: number | null;
 }
 
+export interface AsciiDocResolverConcurrencyFixtureComparison {
+  boundedMaxConcurrency: number | null;
+  boundedPendingCount: number | null;
+  boundedResolverCallCount: number | null;
+  boundedResolverResolvedCount: number | null;
+  boundedResolverUniqueCount: number | null;
+  fixtureId: string;
+  imagesP50ImprovementPercent: number | null;
+  imagesSplitHalfDriftPercent: number | null;
+  linksP50ImprovementPercent: number | null;
+  linksSplitHalfDriftPercent: number | null;
+  orderingViolationCount: number | null;
+  prepareP50ImprovementPercent: number | null;
+  prepareSplitHalfDriftPercent: number | null;
+  profile: string;
+  resolverCountViolationCount: number | null;
+  serialMaxConcurrency: number | null;
+  serialPendingCount: number | null;
+  serialResolverCallCount: number | null;
+  serialResolverResolvedCount: number | null;
+  serialResolverUniqueCount: number | null;
+  splitHalfDriftPercent: number | null;
+  totalNoiseFloorMs: number | null;
+  totalP95DeltaMs: number | null;
+  totalP95RegressionPercent: number | null;
+}
+
+export interface AsciiDocResolverConcurrencyComparison {
+  fixtures: AsciiDocResolverConcurrencyFixtureComparison[];
+  productionWorkerP95RegressionPercent: number | null;
+  reasons: string[];
+  status: "go" | "no-go" | "needs-decision";
+}
+
 export function assertAsciiDocPrepareArtifactSafe(value: unknown): void;
 export function round(value: unknown): number | null;
 export function percentile(
@@ -57,6 +91,10 @@ export function buildAsciiDocPrepareComparison(
   baseline: unknown,
   current: unknown,
 ): AsciiDocPrepareComparison;
+export function buildAsciiDocResolverConcurrencyComparison(
+  baseline: unknown,
+  current: unknown,
+): AsciiDocResolverConcurrencyComparison;
 export function estimateBoundedConcurrencyMs(
   durations: number[],
   concurrency: number,

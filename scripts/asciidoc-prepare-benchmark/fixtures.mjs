@@ -95,12 +95,31 @@ function assets(duplicate) {
   };
 }
 
+function uniqueAssets(count) {
+  const rows = Array.from({ length: count }, (_, index) => [
+    `== Generated Unique Asset ${index + 1}`,
+    "",
+    `image::images/unique-${count}-${index}.png[Generated unique image ${index + 1}]`,
+    "",
+    `link:docs/unique-${count}-${index}.adoc[Generated unique document ${index + 1}]`,
+    "",
+  ]).flat();
+  return {
+    fixtureId: `assets-unique-${count}`,
+    source: ["= Generated Unique Assets", "", ...rows].join("\n"),
+    includeFiles: [],
+  };
+}
+
 export const asciidocPrepareFixtures = Object.freeze([
   plainLarge(),
   includeHeavy(),
   diagramHeavy(),
   assets(true),
   assets(false),
+  uniqueAssets(1),
+  uniqueAssets(10),
+  uniqueAssets(100),
 ]);
 
 export const asciidocPrepareFixtureIds = Object.freeze(

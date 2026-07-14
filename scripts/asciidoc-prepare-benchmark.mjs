@@ -7,6 +7,7 @@ import { asciidocPrepareFixtures } from "./asciidoc-prepare-benchmark/fixtures.m
 import {
   assertAsciiDocPrepareArtifactSafe,
   buildAsciiDocPrepareComparison,
+  buildAsciiDocResolverConcurrencyComparison,
   round,
   summarizeSamples,
 } from "./asciidoc-prepare-benchmark/report.mjs";
@@ -44,6 +45,7 @@ const workerCountKeys = [
 function parseArgs(argv) {
   const args = {
     baseline: null,
+    comparison: null,
     out: ".artifacts/perf/imp-411-baseline",
     port: 4293,
     profile: "full",
@@ -54,6 +56,8 @@ function parseArgs(argv) {
     if (value === "--") continue;
     if (value === "--baseline") {
       args.baseline = argv[++index] ?? null;
+    } else if (value === "--comparison") {
+      args.comparison = argv[++index] ?? null;
     } else if (value === "--out") {
       args.out = argv[++index] ?? args.out;
     } else if (value === "--port") {
@@ -68,6 +72,12 @@ function parseArgs(argv) {
   }
   if (!new Set(["full", "quick"]).has(args.profile)) {
     throw new Error(`Unsupported profile: ${args.profile}`);
+  }
+  if (args.comparison !== null && args.comparison !== "imp414-concurrency") {
+    throw new Error(`Unsupported comparison: ${args.comparison}`);
+  }
+  if (args.comparison && !args.baseline) {
+    throw new Error("--comparison requires --baseline");
   }
   return args;
 }
@@ -368,7 +378,12 @@ async function main() {
       "--reporter",
       "dot",
     ],
-    { SVARD_ASCIIDOC_PREPARE_BENCHMARK_OUT: summaryPath },
+    {
+      SVARD_ASCIIDOC_PREPARE_BENCHMARK_OUT: summaryPath,
+      ...(args.comparison
+        ? { SVARD_ASCIIDOC_PREPARE_COMPARISON: args.comparison }
+        : {}),
+    },
   );
   const server = args.url ? null : await startServer(args.port);
   try {
@@ -384,7 +399,10 @@ async function main() {
       productionWorker,
     };
     if (baseline) {
-      merged.comparison = buildAsciiDocPrepareComparison(baseline, merged);
+      merged.comparison =
+        args.comparison === "imp414-concurrency"
+          ? buildAsciiDocResolverConcurrencyComparison(baseline, merged)
+          : buildAsciiDocPrepareComparison(baseline, merged);
     }
     assertAsciiDocPrepareArtifactSafe(merged);
     const serialized = JSON.stringify(merged);

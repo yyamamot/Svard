@@ -13,6 +13,7 @@ import {
   estimateBoundedConcurrencyMs,
   evaluateHeadroom,
   round,
+  splitHalfDriftPercent,
   summarizeSamples,
 } from "../../scripts/asciidoc-prepare-benchmark/report.mjs";
 
@@ -56,6 +57,7 @@ interface ResolverMeasurement {
   durations: number[];
   maxConcurrency: number;
   seen: Set<string>;
+  startOrder: string[];
 }
 
 interface BenchmarkCase {
@@ -78,6 +80,8 @@ interface BenchmarkSample {
   iteration: number;
   linkElementCount: number;
   maxConcurrency: number;
+  mode: "bounded" | "serial";
+  pendingCount: number;
   preparePhases: Record<keyof typeof preparePhaseEvents, number>;
   prepareMs: number;
   profile: BenchmarkCase["profile"];
@@ -85,6 +89,7 @@ interface BenchmarkSample {
   resolverResolvedCount: number;
   resolverTotalMs: number;
   resolverUniqueCount: number;
+  resolverStartOrder: string[];
   sourceAnalysisMs: number;
   sourceAnalysisPasses: number;
   sourceAnalysisVisitedCodeUnitsEstimate: number;
@@ -122,6 +127,7 @@ function newResolverMeasurement(): ResolverMeasurement {
     durations: [],
     maxConcurrency: 0,
     seen: new Set(),
+    startOrder: [],
   };
 }
 
@@ -140,6 +146,7 @@ async function measuredResolve<Value>(
   const duplicate = measurement.seen.has(key);
   measurement.seen.add(key);
   measurement.callCount += 1;
+  measurement.startOrder.push(key);
   measurement.active += 1;
   measurement.maxConcurrency = Math.max(
     measurement.maxConcurrency,
@@ -176,7 +183,11 @@ async function measureCase(
   benchmarkCase: BenchmarkCase,
   iteration: number,
   allEvents: Array<Record<string, unknown>>,
+  concurrency: 1 | 4 = 1,
 ): Promise<BenchmarkSample> {
+  // The candidate arm is intentionally unwired after rollback. A future
+  // candidate must explicitly pass this mode into its benchmark-only hook;
+  // until then the comparator records bounded-concurrency-violation.
   const rootPath = `/perf/asciidoc/${benchmarkCase.fixtureId}.adoc`;
   const context = {
     attributes: {},
@@ -275,6 +286,8 @@ async function measureCase(
       "render.prepareDocumentHtml.links",
     ),
     maxConcurrency: resolver.maxConcurrency,
+    mode: concurrency === 1 ? "serial" : "bounded",
+    pendingCount: resolver.active,
     preparePhases: Object.fromEntries(
       Object.entries(preparePhaseEvents).map(([key, eventName]) => [
         key,
@@ -287,6 +300,7 @@ async function measureCase(
     resolverResolvedCount: resolver.callCount,
     resolverTotalMs: round(resolverTotalMs)!,
     resolverUniqueCount: resolver.seen.size,
+    resolverStartOrder: resolver.startOrder,
     sourceAnalysisMs: round(sourceAnalysisMs)!,
     sourceAnalysisPasses: phaseMetrics.sourceAnalysisPasses,
     sourceAnalysisVisitedCodeUnitsEstimate:
@@ -354,6 +368,7 @@ function summarizeCase(samples: BenchmarkSample[]) {
       maxConcurrency: Math.max(
         ...samples.map((sample) => sample.maxConcurrency),
       ),
+      pendingCount: Math.max(...samples.map((sample) => sample.pendingCount)),
       resolverCallCount: Math.max(
         ...samples.map((sample) => sample.resolverCallCount),
       ),
@@ -375,6 +390,112 @@ function summarizeCase(samples: BenchmarkSample[]) {
   };
 }
 
+interface BenchmarkPair {
+  bounded: BenchmarkSample;
+  orderingViolationCount: number;
+  serial: BenchmarkSample;
+}
+
+function summarizePairedDuration(
+  pairs: BenchmarkPair[],
+  read: (sample: BenchmarkSample) => number,
+) {
+  const serial = pairs.map((pair) => read(pair.serial));
+  const bounded = pairs.map((pair) => read(pair.bounded));
+  const pairedDeltaMs = pairs.map(
+    (pair) => read(pair.bounded) - read(pair.serial),
+  );
+  const pairedImprovementPercent = pairs
+    .map((pair) => {
+      const serialValue = read(pair.serial);
+      return serialValue > 0
+        ? ((serialValue - read(pair.bounded)) / serialValue) * 100
+        : null;
+    })
+    .filter((value): value is number => value !== null);
+  return {
+    bounded: summarizeSamples(bounded),
+    pairedDeltaMs: summarizeSamples(pairedDeltaMs),
+    pairedImprovementPercent: summarizeSamples(pairedImprovementPercent),
+    serial: summarizeSamples(serial),
+    splitHalfDriftPercent: splitHalfDriftPercent(pairedImprovementPercent),
+  };
+}
+
+function summarizeModeCounts(samples: BenchmarkSample[]) {
+  return {
+    maxConcurrency: Math.max(...samples.map((sample) => sample.maxConcurrency)),
+    pendingCount: Math.max(...samples.map((sample) => sample.pendingCount)),
+    resolverCallCount: Math.max(
+      ...samples.map((sample) => sample.resolverCallCount),
+    ),
+    resolverResolvedCount: Math.max(
+      ...samples.map((sample) => sample.resolverResolvedCount),
+    ),
+    resolverUniqueCount: Math.max(
+      ...samples.map((sample) => sample.resolverUniqueCount),
+    ),
+  };
+}
+
+const resolverCountContracts: Record<
+  string,
+  { calls: number; unique: number }
+> = {
+  "assets-duplicate": { calls: 120, unique: 20 },
+  "assets-unique": { calls: 120, unique: 120 },
+  "assets-unique-1": { calls: 2, unique: 2 },
+  "assets-unique-10": { calls: 20, unique: 20 },
+  "assets-unique-100": { calls: 200, unique: 200 },
+  "diagram-heavy": { calls: 0, unique: 0 },
+  "include-heavy": { calls: 0, unique: 0 },
+  "plain-large": { calls: 0, unique: 0 },
+};
+
+function resolverCountViolationCount(pairs: BenchmarkPair[]): number {
+  const expected = resolverCountContracts[pairs[0].serial.fixtureId];
+  return pairs.reduce(
+    (count, pair) =>
+      count +
+      [pair.serial, pair.bounded].filter(
+        (sample) =>
+          sample.resolverCallCount !== expected.calls ||
+          sample.resolverResolvedCount !== expected.calls ||
+          sample.resolverUniqueCount !== expected.unique,
+      ).length,
+    0,
+  );
+}
+
+function summarizeConcurrencyPairs(pairs: BenchmarkPair[]) {
+  const durationReaders = {
+    imagesMs: (sample: BenchmarkSample) => sample.preparePhases.imagesMs,
+    linksMs: (sample: BenchmarkSample) => sample.preparePhases.linksMs,
+    prepareMs: (sample: BenchmarkSample) => sample.prepareMs,
+    totalMs: (sample: BenchmarkSample) => sample.totalMs,
+  };
+  return {
+    counts: {
+      bounded: summarizeModeCounts(pairs.map((pair) => pair.bounded)),
+      orderingViolationCount: pairs.reduce(
+        (count, pair) => count + pair.orderingViolationCount,
+        0,
+      ),
+      resolverCountViolationCount: resolverCountViolationCount(pairs),
+      serial: summarizeModeCounts(pairs.map((pair) => pair.serial)),
+    },
+    durations: Object.fromEntries(
+      Object.entries(durationReaders).map(([key, read]) => [
+        key,
+        summarizePairedDuration(pairs, read),
+      ]),
+    ),
+    fixtureId: pairs[0].serial.fixtureId,
+    measurementCount: pairs.length,
+    profile: pairs[0].serial.profile,
+  };
+}
+
 function caseSamples(
   samples: BenchmarkSample[],
   fixtureId: string,
@@ -383,6 +504,31 @@ function caseSamples(
   return samples.filter(
     (sample) => sample.fixtureId === fixtureId && sample.profile === profile,
   );
+}
+
+function casePairs(
+  pairs: BenchmarkPair[],
+  fixtureId: string,
+  profile: BenchmarkCase["profile"],
+) {
+  return pairs.filter(
+    (pair) =>
+      pair.serial.fixtureId === fixtureId && pair.serial.profile === profile,
+  );
+}
+
+function startOrderViolationCount(
+  serial: BenchmarkSample,
+  bounded: BenchmarkSample,
+) {
+  if (serial.resolverStartOrder.length !== bounded.resolverStartOrder.length) {
+    return 1;
+  }
+  return serial.resolverStartOrder.some(
+    (key, index) => bounded.resolverStartOrder[index] !== key,
+  )
+    ? 1
+    : 0;
 }
 
 function decisionFor(
@@ -426,13 +572,19 @@ describe("AsciiDoc prepare phase benchmark", () => {
 
     try {
       const cases = createCases();
+      const comparisonMode =
+        process.env.SVARD_ASCIIDOC_PREPARE_COMPARISON === "imp414-concurrency";
       for (const benchmarkCase of cases) {
         for (let warmup = 0; warmup < warmupCount; warmup += 1) {
-          await measureCase(benchmarkCase, -1, events);
+          await measureCase(benchmarkCase, -1, events, 1);
+          if (comparisonMode) {
+            await measureCase(benchmarkCase, -1, events, 4);
+          }
         }
       }
 
       const samples: BenchmarkSample[] = [];
+      const pairs: BenchmarkPair[] = [];
       for (let iteration = 0; iteration < measurementCount; iteration += 1) {
         const offset = iteration % cases.length;
         const orderedCases = [
@@ -440,11 +592,52 @@ describe("AsciiDoc prepare phase benchmark", () => {
           ...cases.slice(0, offset),
         ];
         for (const benchmarkCase of orderedCases) {
-          samples.push(await measureCase(benchmarkCase, iteration + 1, events));
+          if (!comparisonMode) {
+            samples.push(
+              await measureCase(benchmarkCase, iteration + 1, events, 1),
+            );
+            continue;
+          }
+          const concurrencyOrder: Array<1 | 4> =
+            iteration % 2 === 0 ? [1, 4] : [4, 1];
+          let serial: BenchmarkSample | null = null;
+          let bounded: BenchmarkSample | null = null;
+          for (const concurrency of concurrencyOrder) {
+            const sample = await measureCase(
+              benchmarkCase,
+              iteration + 1,
+              events,
+              concurrency,
+            );
+            if (concurrency === 1) serial = sample;
+            else bounded = sample;
+          }
+          if (!serial || !bounded) {
+            throw new Error("AsciiDoc concurrency pair incomplete");
+          }
+          samples.push(serial);
+          pairs.push({
+            bounded,
+            orderingViolationCount: startOrderViolationCount(serial, bounded),
+            serial,
+          });
         }
       }
 
       const report = {
+        ...(comparisonMode
+          ? {
+              concurrencySummaries: createCases().map((benchmarkCase) =>
+                summarizeConcurrencyPairs(
+                  casePairs(
+                    pairs,
+                    benchmarkCase.fixtureId,
+                    benchmarkCase.profile,
+                  ),
+                ),
+              ),
+            }
+          : {}),
         decisions: {
           imp412SourceAnalysis: decisionFor(
             samples,
@@ -501,6 +694,13 @@ describe("AsciiDoc prepare phase benchmark", () => {
           .filter((summary) => summary.fixtureId.startsWith("assets-"))
           .every((summary) => summary.counts.maxConcurrency <= 1),
       ).toBe(true);
+      if (comparisonMode) {
+        expect(
+          report.concurrencySummaries?.every(
+            (summary) => summary.measurementCount === 20,
+          ),
+        ).toBe(true);
+      }
       await fs.mkdir(path.dirname(outPath), { recursive: true });
       await fs.writeFile(outPath, `${serialized}\n`);
     } finally {
@@ -510,5 +710,5 @@ describe("AsciiDoc prepare phase benchmark", () => {
         value: originalLocalStorage,
       });
     }
-  }, 120_000);
+  }, 240_000);
 });
