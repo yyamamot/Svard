@@ -298,6 +298,11 @@ export interface GitRenderedDiffSummary {
   fallbackMessage?: string;
 }
 
+export type GitDiffPerfOwner =
+  | "single-preview"
+  | "normal-viewer-marker"
+  | "all-diffs";
+
 export interface GitRenderedDiffSummaryOptions {
   config?: AppConfig | null;
   loadDocumentContext?: (
@@ -316,6 +321,8 @@ export interface GitRenderedDiffSummaryOptions {
   renderDiagram?: (request: KrokiRequest) => Promise<KrokiResult>;
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;
   krokiFallbackDiagramKeys?: ReadonlySet<string>;
+  perfOwner?: GitDiffPerfOwner;
+  perfEntryIndex?: number;
 }
 
 export interface RenderedBlockExtractionOptions {

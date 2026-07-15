@@ -1,6 +1,7 @@
 export type {
   GitRenderedDiffSummary,
   GitRenderedDiffSummaryOptions,
+  GitDiffPerfOwner,
   InlineDiffRange,
   RenderedBlock,
   RenderedBlockDiff,

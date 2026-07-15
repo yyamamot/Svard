@@ -1,6 +1,13 @@
 import { documentFormatForPath } from "../../core/documentFormat";
 import { renderDocument } from "../../core/renderDocument";
 import type { DocumentDiffPreview, DocumentFormat } from "../../core/types";
+import type { GitDiffPerfOwner } from "./gitRenderedDiff/types";
+import {
+  perfDuration,
+  perfNow,
+  perfTraceEnabled,
+  tracePerf,
+} from "./perfTrace";
 
 export type TableCellDiffKind = "unchanged" | "added" | "removed" | "changed";
 
@@ -43,6 +50,97 @@ export interface GitTableDiffSummary {
   renderedTables: RenderedTableDiff[];
   tableMarkers: TableBlockMarker[];
   fallbackReason?: TableFallbackReason;
+}
+
+export interface GitTableDiffSummaryOptions {
+  perfOwner?: GitDiffPerfOwner;
+}
+
+interface TableSidePhaseMetrics {
+  workflowStartedAt: number;
+  sourceScanCount: number;
+  sourceScanDurationMs: number;
+  // Repeated phase calls use a first-start to last-end bounding interval.
+  renderCount: number;
+  renderDurationMs: number;
+  renderStartOffsetMs: number | null;
+  renderEndOffsetMs: number | null;
+  blockParseCount: number;
+  blockParseDurationMs: number;
+  blockParseStartOffsetMs: number | null;
+  blockParseEndOffsetMs: number | null;
+}
+
+interface TableSummaryPerfMetrics {
+  owner: GitDiffPerfOwner;
+  format: DocumentFormat;
+  startedAt: number;
+  left: TableSidePhaseMetrics;
+  right: TableSidePhaseMetrics;
+}
+
+function phaseOffsetMs(workflowStartedAt: number, timestamp: number): number {
+  return Number((timestamp - workflowStartedAt).toFixed(2));
+}
+
+function phaseDurationMs(startedAt: number, endedAt: number): number {
+  return Number((endedAt - startedAt).toFixed(2));
+}
+
+function emptyTableSidePhaseMetrics(
+  workflowStartedAt: number,
+): TableSidePhaseMetrics {
+  return {
+    workflowStartedAt,
+    sourceScanCount: 0,
+    sourceScanDurationMs: 0,
+    renderCount: 0,
+    renderDurationMs: 0,
+    renderStartOffsetMs: null,
+    renderEndOffsetMs: null,
+    blockParseCount: 0,
+    blockParseDurationMs: 0,
+    blockParseStartOffsetMs: null,
+    blockParseEndOffsetMs: null,
+  };
+}
+
+function traceTableSummaryReady(
+  metrics: TableSummaryPerfMetrics | null,
+  summary: GitTableDiffSummary,
+): void {
+  if (!metrics) {
+    return;
+  }
+  tracePerf("table-summary-ready", {
+    owner: metrics.owner,
+    format: metrics.format,
+    outcome: summary.fallbackReason ? "fallback" : "ready",
+    fallbackReason: summary.fallbackReason ?? "none",
+    leftSourceScanCount: metrics.left.sourceScanCount,
+    leftSourceScanDurationMs: metrics.left.sourceScanDurationMs,
+    rightSourceScanCount: metrics.right.sourceScanCount,
+    rightSourceScanDurationMs: metrics.right.sourceScanDurationMs,
+    leftRenderCount: metrics.left.renderCount,
+    leftRenderDurationMs: metrics.left.renderDurationMs,
+    leftRenderStartOffsetMs: metrics.left.renderStartOffsetMs,
+    leftRenderEndOffsetMs: metrics.left.renderEndOffsetMs,
+    rightRenderCount: metrics.right.renderCount,
+    rightRenderDurationMs: metrics.right.renderDurationMs,
+    rightRenderStartOffsetMs: metrics.right.renderStartOffsetMs,
+    rightRenderEndOffsetMs: metrics.right.renderEndOffsetMs,
+    leftBlockParseCount: metrics.left.blockParseCount,
+    leftBlockParseDurationMs: metrics.left.blockParseDurationMs,
+    leftBlockParseStartOffsetMs: metrics.left.blockParseStartOffsetMs,
+    leftBlockParseEndOffsetMs: metrics.left.blockParseEndOffsetMs,
+    rightBlockParseCount: metrics.right.blockParseCount,
+    rightBlockParseDurationMs: metrics.right.blockParseDurationMs,
+    rightBlockParseStartOffsetMs: metrics.right.blockParseStartOffsetMs,
+    rightBlockParseEndOffsetMs: metrics.right.blockParseEndOffsetMs,
+    renderedTableCount: summary.renderedTables.length,
+    tableMarkerCount: summary.tableMarkers.length,
+    totalDurationMs: perfDuration(metrics.startedAt),
+  });
 }
 
 interface RenderedTable {
@@ -113,7 +211,10 @@ export function compareRenderedTable(
 ): RenderedTableCompareResult {
   const leftSignatures = leftRows.map(rowSignature);
   const rightSignatures = rightRows.map(rowSignature);
-  if (hasDuplicateValues(leftSignatures) || hasDuplicateValues(rightSignatures)) {
+  if (
+    hasDuplicateValues(leftSignatures) ||
+    hasDuplicateValues(rightSignatures)
+  ) {
     return { cells: [], rowChanges: [], fallbackReason: "ambiguous" };
   }
   if (hasReorderedCommonRows(leftSignatures, rightSignatures)) {
@@ -137,7 +238,9 @@ export function compareRenderedTable(
       return gap;
     }
     const rowIndex = cells.length;
-    cells.push(rowCells(leftRows[match.leftIndex], rightRows[match.rightIndex]));
+    cells.push(
+      rowCells(leftRows[match.leftIndex], rightRows[match.rightIndex]),
+    );
     if (rowHasChanges(cells[rowIndex])) {
       rowChanges.push({ kind: "changed", rowIndex, side: "both" });
     }
@@ -208,7 +311,11 @@ function alignRowsBySignature(
     Array.from({ length: columns }, () => 0),
   );
 
-  for (let leftIndex = leftSignatures.length - 1; leftIndex >= 0; leftIndex -= 1) {
+  for (
+    let leftIndex = leftSignatures.length - 1;
+    leftIndex >= 0;
+    leftIndex -= 1
+  ) {
     for (
       let rightIndex = rightSignatures.length - 1;
       rightIndex >= 0;
@@ -227,7 +334,10 @@ function alignRowsBySignature(
   const matches: Array<{ leftIndex: number; rightIndex: number }> = [];
   let leftIndex = 0;
   let rightIndex = 0;
-  while (leftIndex < leftSignatures.length && rightIndex < rightSignatures.length) {
+  while (
+    leftIndex < leftSignatures.length &&
+    rightIndex < rightSignatures.length
+  ) {
     if (
       leftSignatures[leftIndex] === rightSignatures[rightIndex] &&
       scores[leftIndex][rightIndex] ===
@@ -433,64 +543,176 @@ export function changedTableMarkers(
   ];
 }
 
+function measuredChangedTableMarkersForSide(
+  preview: DocumentDiffPreview,
+  side: "left" | "right",
+  format: DocumentFormat,
+  metrics: TableSidePhaseMetrics | null,
+): TableBlockMarker[] {
+  if (!metrics) {
+    return changedTableMarkersForSide(preview, side, format);
+  }
+  metrics.sourceScanCount += 1;
+  const startedAt = perfNow();
+  try {
+    return changedTableMarkersForSide(preview, side, format);
+  } finally {
+    metrics.sourceScanDurationMs += perfDuration(startedAt);
+  }
+}
+
 async function renderTablesFromSource(
   source: string | null | undefined,
   format: DocumentFormat,
+  metrics: TableSidePhaseMetrics | null = null,
 ): Promise<RenderedTable[]> {
   if (!source) {
     return [];
   }
-  const result = await renderDocument({ format, source });
-  return extractRenderedTablesFromHtml(result.html);
+  if (!metrics) {
+    const result = await renderDocument({ format, source });
+    return extractRenderedTablesFromHtml(result.html);
+  }
+  metrics.renderCount += 1;
+  const renderStartedAt = perfNow();
+  metrics.renderStartOffsetMs ??= phaseOffsetMs(
+    metrics.workflowStartedAt,
+    renderStartedAt,
+  );
+  const result = await renderDocument({ format, source }).finally(() => {
+    const renderEndedAt = perfNow();
+    metrics.renderDurationMs += phaseDurationMs(renderStartedAt, renderEndedAt);
+    metrics.renderEndOffsetMs = phaseOffsetMs(
+      metrics.workflowStartedAt,
+      renderEndedAt,
+    );
+  });
+  metrics.blockParseCount += 1;
+  const parseStartedAt = perfNow();
+  metrics.blockParseStartOffsetMs ??= phaseOffsetMs(
+    metrics.workflowStartedAt,
+    parseStartedAt,
+  );
+  try {
+    return extractRenderedTablesFromHtml(result.html);
+  } finally {
+    const parseEndedAt = perfNow();
+    metrics.blockParseDurationMs += phaseDurationMs(
+      parseStartedAt,
+      parseEndedAt,
+    );
+    metrics.blockParseEndOffsetMs = phaseOffsetMs(
+      metrics.workflowStartedAt,
+      parseEndedAt,
+    );
+  }
 }
 
 export async function deriveGitTableDiffSummary(
   preview: DocumentDiffPreview,
+  options: GitTableDiffSummaryOptions = {},
 ): Promise<GitTableDiffSummary> {
   const format = documentFormatForPath(preview.relativePath ?? "");
-  const tableMarkers = changedTableMarkers(preview, format);
+  let perfMetrics: TableSummaryPerfMetrics | null = null;
+  if (options.perfOwner && perfTraceEnabled()) {
+    const startedAt = perfNow();
+    perfMetrics = {
+      owner: options.perfOwner,
+      format,
+      startedAt,
+      left: emptyTableSidePhaseMetrics(startedAt),
+      right: emptyTableSidePhaseMetrics(startedAt),
+    };
+  }
+  const finish = (summary: GitTableDiffSummary): GitTableDiffSummary => {
+    traceTableSummaryReady(perfMetrics, summary);
+    return summary;
+  };
+  const tableMarkers = [
+    ...measuredChangedTableMarkersForSide(
+      preview,
+      "left",
+      format,
+      perfMetrics?.left ?? null,
+    ),
+    ...measuredChangedTableMarkersForSide(
+      preview,
+      "right",
+      format,
+      perfMetrics?.right ?? null,
+    ),
+  ];
 
   let leftTables: RenderedTable[];
   let rightTables: RenderedTable[];
   try {
-    [leftTables, rightTables] = await Promise.all([
-      renderTablesFromSource(preview.leftText, format),
-      renderTablesFromSource(preview.rightText, format),
-    ]);
+    const leftTablesPromise = renderTablesFromSource(
+      preview.leftText,
+      format,
+      perfMetrics?.left ?? null,
+    );
+    const rightTablesPromise = renderTablesFromSource(
+      preview.rightText,
+      format,
+      perfMetrics?.right ?? null,
+    );
+    if (perfMetrics) {
+      const [leftResult, rightResult] = await Promise.allSettled([
+        leftTablesPromise,
+        rightTablesPromise,
+      ]);
+      if (
+        leftResult.status === "rejected" ||
+        rightResult.status === "rejected"
+      ) {
+        return finish({
+          renderedTables: [],
+          tableMarkers,
+          fallbackReason: tableMarkers.length > 0 ? "render-error" : "no-table",
+        });
+      }
+      leftTables = leftResult.value;
+      rightTables = rightResult.value;
+    } else {
+      [leftTables, rightTables] = await Promise.all([
+        leftTablesPromise,
+        rightTablesPromise,
+      ]);
+    }
   } catch {
-    return {
+    return finish({
       renderedTables: [],
       tableMarkers,
       fallbackReason: tableMarkers.length > 0 ? "render-error" : "no-table",
-    };
+    });
   }
 
   if (
     leftTables.some((table) => table.complex) ||
     rightTables.some((table) => table.complex)
   ) {
-    return {
+    return finish({
       renderedTables: [],
       tableMarkers,
       fallbackReason: "complex-span",
-    };
+    });
   }
 
   const tableCount = Math.max(leftTables.length, rightTables.length);
   if (tableCount === 0) {
-    return {
+    return finish({
       renderedTables: [],
       tableMarkers,
       fallbackReason: tableMarkers.length > 0 ? "no-table" : undefined,
-    };
+    });
   }
 
   if (Math.abs(leftTables.length - rightTables.length) > 1) {
-    return {
+    return finish({
       renderedTables: [],
       tableMarkers,
       fallbackReason: "table-mismatch",
-    };
+    });
   }
 
   const renderedTables: RenderedTableDiff[] = [];
@@ -499,11 +721,11 @@ export async function deriveGitTableDiffSummary(
     const right = rightTables[index];
     const comparison = compareRenderedTable(left?.rows, right?.rows);
     if (comparison.fallbackReason) {
-      return {
+      return finish({
         renderedTables: [],
         tableMarkers,
         fallbackReason: comparison.fallbackReason,
-      };
+      });
     }
     renderedTables.push({
       id: `rendered-table:${index}`,
@@ -515,12 +737,12 @@ export async function deriveGitTableDiffSummary(
   }
   const changedTables = renderedTables.filter(hasTableChanges);
 
-  return {
+  return finish({
     renderedTables: changedTables,
     tableMarkers,
     fallbackReason:
       changedTables.length === 0 && tableMarkers.length > 0
         ? "no-table"
         : undefined,
-  };
+  });
 }

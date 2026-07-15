@@ -144,6 +144,7 @@ export function useDiffPreviewSummaries({
       renderDiagram,
       confirmedRemoteDiagramKeys,
       krokiFallbackDiagramKeys,
+      perfOwner: "single-preview",
     })
       .then((summary) => {
         if (!cancelled) {
@@ -188,7 +189,7 @@ export function useDiffPreviewSummaries({
     let cancelled = false;
     setTableSummary(emptyTableSummary);
     setTableSummaryLoading(true);
-    deriveGitTableDiffSummary(preview)
+    deriveGitTableDiffSummary(preview, { perfOwner: "single-preview" })
       .then((summary) => {
         if (!cancelled) {
           setTableSummary(summary);

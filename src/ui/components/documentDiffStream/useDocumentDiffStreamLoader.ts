@@ -146,9 +146,10 @@ export function useDocumentDiffStreamLoader({
       }
       const [key] = loadQueueRef.current.splice(nextIndex, 1);
       if (!key) continue;
-      const item = preview.items.find(
+      const perfEntryIndex = items.findIndex(
         (candidate) => (candidate.documentPath ?? candidate.path) === key,
       );
+      const item = items[perfEntryIndex];
       if (item?.kind !== "document" || !item.documentPath) {
         continue;
       }
@@ -218,6 +219,8 @@ export function useDocumentDiffStreamLoader({
               renderDiagram,
               confirmedRemoteDiagramKeys,
               krokiFallbackDiagramKeys,
+              perfOwner: "all-diffs",
+              perfEntryIndex,
             },
           );
           if (

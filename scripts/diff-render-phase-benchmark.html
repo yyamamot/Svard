@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Svard diff render phase benchmark</title>
+  </head>
+  <body>
+    <main aria-label="Diff render phase benchmark"></main>
+    <script type="module">
+      import { defaultConfig } from "/src/core/defaultConfig.ts";
+      import { diffHunksFromText } from "/src/core/documentDiff.ts";
+      import {
+        buildPostDiffGitMarkerContext,
+        buildRenderedDiffPresentation,
+        deriveGitRenderedDiffSummary,
+      } from "/src/ui/lib/gitRenderedDiff.ts";
+      import { deriveGitTableDiffSummary } from "/src/ui/lib/gitTableDiff.ts";
+
+      const encoder = new TextEncoder();
+
+      function contextFor(document) {
+        const slash = document.path.lastIndexOf("/");
+        const documentDir = slash > 0 ? document.path.slice(0, slash) : "/";
+        return {
+          attributes: {},
+          baseDir: documentDir,
+          documentDir,
+          resourceRoots: [documentDir],
+          workspaceRoot: "/perf/diff",
+        };
+      }
+
+      function previewForPair(pair) {
+        return {
+          hunks: diffHunksFromText(pair.left.source, pair.right.source),
+          leftLabel: "Before",
+          leftPath: pair.left.path,
+          leftRelativePath: pair.left.relativePath,
+          leftResourceSource: {
+            kind: "commit",
+            revision: "benchmark-base",
+          },
+          leftText: pair.left.source,
+          lineDiffAvailability: "available",
+          relativePath: pair.right.relativePath,
+          repositoryRoot: "/perf/diff",
+          rightLabel: "After",
+          rightPath: pair.right.path,
+          rightRelativePath: pair.right.relativePath,
+          rightResourceSource: { kind: "worktree" },
+          rightText: pair.right.source,
+          source: "git",
+          status: "modified",
+        };
+      }
+
+      function renderedOptions(pair, owner, perfEntryIndex) {
+        const documents = [pair.left, pair.right];
+        return {
+          config: defaultConfig,
+          loadDocumentContext: async (documentPath) => {
+            const document = documents.find(
+              (candidate) => candidate.path === documentPath,
+            );
+            if (!document) return null;
+            const asciidocContext = contextFor(document);
+            return {
+              asciidocContext:
+                document.format === "asciidoc" ? asciidocContext : null,
+              includeFiles: [],
+              resourceContext: {
+                documentDir: asciidocContext.documentDir,
+                resourceRoots: asciidocContext.resourceRoots,
+                workspaceRoot: asciidocContext.workspaceRoot,
+              },
+            };
+          },
+          perfEntryIndex,
+          perfOwner: owner,
+        };
+      }
+
+      async function renderedPair(pair, owner, perfEntryIndex = -1) {
+        return deriveGitRenderedDiffSummary(
+          previewForPair(pair),
+          renderedOptions(pair, owner, perfEntryIndex),
+        );
+      }
+
+      function estimatedBytes(value) {
+        return encoder.encode(JSON.stringify(value)).length;
+      }
+
+      async function runFixture(fixture) {
+        if (fixture.workflow === "all-diffs") {
+          await renderedPair(fixture.pairs[0], "single-preview", -1);
+          const startedAt = window.__SVARD_DIFF_PERF_BEGIN_SAMPLE__();
+          let firstUsefulMs = Number.POSITIVE_INFINITY;
+          const summaries = await Promise.all(
+            fixture.pairs.map((pair, index) =>
+              renderedPair(pair, "all-diffs", index).then((summary) => {
+                firstUsefulMs = Math.min(
+                  firstUsefulMs,
+                  performance.now() - startedAt,
+                );
+                return summary;
+              }),
+            ),
+          );
+          const workflowMs = performance.now() - startedAt;
+          return {
+            allDiffsForegroundReadyMs: workflowMs,
+            artifactEstimatedBytes: summaries.reduce(
+              (total, summary) => total + estimatedBytes(summary),
+              0,
+            ),
+            blockCount: summaries.reduce(
+              (total, summary) => total + summary.blocks.length,
+              0,
+            ),
+            diffArtifactReadyMs: firstUsefulMs,
+            events: window.__SVARD_DIFF_PERF_DRAIN__(),
+            firstUsefulMs,
+            itemBlockCounts: summaries.map((summary) => summary.blocks.length),
+            markerContextReadyMs: null,
+            markerCount: 0,
+            tableCount: 0,
+            tableSummaryReadyMs: null,
+            workflowMs,
+          };
+        }
+
+        const pair = fixture.pairs[0];
+        const preview = previewForPair(pair);
+        const startedAt = window.__SVARD_DIFF_PERF_BEGIN_SAMPLE__();
+
+        if (fixture.workflow === "rendered-table") {
+          let diffArtifactReadyMs = null;
+          let tableSummaryReadyMs = null;
+          const [rendered, table] = await Promise.all([
+            renderedPair(pair, "single-preview", -1).then((summary) => {
+              diffArtifactReadyMs = performance.now() - startedAt;
+              return summary;
+            }),
+            deriveGitTableDiffSummary(preview, {
+              perfOwner: "single-preview",
+            }).then((summary) => {
+              tableSummaryReadyMs = performance.now() - startedAt;
+              return summary;
+            }),
+          ]);
+          const workflowMs = performance.now() - startedAt;
+          return {
+            allDiffsForegroundReadyMs: null,
+            artifactEstimatedBytes:
+              estimatedBytes(rendered) + estimatedBytes(table),
+            blockCount: rendered.blocks.length,
+            diffArtifactReadyMs,
+            events: window.__SVARD_DIFF_PERF_DRAIN__(),
+            firstUsefulMs: Math.min(diffArtifactReadyMs, tableSummaryReadyMs),
+            itemBlockCounts: [rendered.blocks.length],
+            markerContextReadyMs: null,
+            markerCount: 0,
+            tableCount: table.renderedTables.length,
+            tableSummaryReadyMs,
+            workflowMs,
+          };
+        }
+
+        if (fixture.workflow === "marker-context") {
+          const rendered = await renderedPair(pair, "normal-viewer-marker", -1);
+          const diffArtifactReadyMs = performance.now() - startedAt;
+          const context = buildPostDiffGitMarkerContext({
+            activeDocumentPath: pair.right.path,
+            perfMode: "initial",
+            perfOwner: "normal-viewer-marker",
+            preview,
+            renderedPresentation: buildRenderedDiffPresentation(
+              rendered.blocks,
+            ),
+          });
+          const workflowMs = performance.now() - startedAt;
+          return {
+            allDiffsForegroundReadyMs: null,
+            artifactEstimatedBytes:
+              estimatedBytes(rendered) + estimatedBytes(context),
+            blockCount: rendered.blocks.length,
+            diffArtifactReadyMs,
+            events: window.__SVARD_DIFF_PERF_DRAIN__(),
+            firstUsefulMs: diffArtifactReadyMs,
+            itemBlockCounts: [rendered.blocks.length],
+            markerContextReadyMs: workflowMs,
+            markerCount: context?.totalCount ?? 0,
+            tableCount: 0,
+            tableSummaryReadyMs: null,
+            workflowMs,
+          };
+        }
+
+        const rendered = await renderedPair(pair, "single-preview", -1);
+        const workflowMs = performance.now() - startedAt;
+        return {
+          allDiffsForegroundReadyMs: null,
+          artifactEstimatedBytes: estimatedBytes(rendered),
+          blockCount: rendered.blocks.length,
+          diffArtifactReadyMs: workflowMs,
+          events: window.__SVARD_DIFF_PERF_DRAIN__(),
+          firstUsefulMs: workflowMs,
+          itemBlockCounts: [rendered.blocks.length],
+          markerContextReadyMs: null,
+          markerCount: 0,
+          tableCount: 0,
+          tableSummaryReadyMs: null,
+          workflowMs,
+        };
+      }
+
+      window.__SVARD_DIFF_RENDER_BENCHMARK__ = { runFixture };
+      window.__SVARD_DIFF_RENDER_BENCHMARK_READY__ = true;
+    </script>
+  </body>
+</html>

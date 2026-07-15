@@ -23,6 +23,12 @@ import type {
 } from "../../../core/types";
 import { applyInlineDiagramsToHtml } from "../diagramHtml";
 import { prepareDocumentHtml } from "../documentHtml";
+import {
+  perfDuration,
+  perfNow,
+  perfTraceEnabled,
+  tracePerf,
+} from "../perfTrace";
 import { extractRenderedBlocksFromHtml } from "./extraction";
 import { compareRenderedBlocks } from "./matching";
 import type {
@@ -30,6 +36,189 @@ import type {
   GitRenderedDiffSummaryOptions,
   RenderedBlock,
 } from "./types";
+
+interface DiffSidePhaseMetrics {
+  workflowStartedAt: number;
+  // Repeated phase calls use a first-start to last-end bounding interval.
+  renderCount: number;
+  renderDurationMs: number;
+  renderStartOffsetMs: number | null;
+  renderEndOffsetMs: number | null;
+  prepareCount: number;
+  prepareDurationMs: number;
+  prepareStartOffsetMs: number | null;
+  prepareEndOffsetMs: number | null;
+  blockParseCount: number;
+  blockParseDurationMs: number;
+  blockParseStartOffsetMs: number | null;
+  blockParseEndOffsetMs: number | null;
+}
+
+interface DiffArtifactPerfMetrics {
+  owner: NonNullable<GitRenderedDiffSummaryOptions["perfOwner"]>;
+  perfEntryIndex: number;
+  format: DocumentFormat;
+  startedAt: number;
+  left: DiffSidePhaseMetrics;
+  right: DiffSidePhaseMetrics;
+}
+
+function phaseOffsetMs(workflowStartedAt: number, timestamp: number): number {
+  return Number((timestamp - workflowStartedAt).toFixed(2));
+}
+
+function phaseDurationMs(startedAt: number, endedAt: number): number {
+  return Number((endedAt - startedAt).toFixed(2));
+}
+
+function emptySidePhaseMetrics(
+  workflowStartedAt: number,
+): DiffSidePhaseMetrics {
+  return {
+    workflowStartedAt,
+    renderCount: 0,
+    renderDurationMs: 0,
+    renderStartOffsetMs: null,
+    renderEndOffsetMs: null,
+    prepareCount: 0,
+    prepareDurationMs: 0,
+    prepareStartOffsetMs: null,
+    prepareEndOffsetMs: null,
+    blockParseCount: 0,
+    blockParseDurationMs: 0,
+    blockParseStartOffsetMs: null,
+    blockParseEndOffsetMs: null,
+  };
+}
+
+function measureRenderPhase<T>(
+  metrics: DiffSidePhaseMetrics | null,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (!metrics) {
+    return operation();
+  }
+  metrics.renderCount += 1;
+  const startedAt = perfNow();
+  metrics.renderStartOffsetMs ??= phaseOffsetMs(
+    metrics.workflowStartedAt,
+    startedAt,
+  );
+  const finish = () => {
+    const endedAt = perfNow();
+    metrics.renderDurationMs += phaseDurationMs(startedAt, endedAt);
+    metrics.renderEndOffsetMs = phaseOffsetMs(
+      metrics.workflowStartedAt,
+      endedAt,
+    );
+  };
+  try {
+    return operation().finally(finish);
+  } catch (error) {
+    finish();
+    throw error;
+  }
+}
+
+function measurePreparePhase<T>(
+  metrics: DiffSidePhaseMetrics | null,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (!metrics) {
+    return operation();
+  }
+  metrics.prepareCount += 1;
+  const startedAt = perfNow();
+  metrics.prepareStartOffsetMs ??= phaseOffsetMs(
+    metrics.workflowStartedAt,
+    startedAt,
+  );
+  const finish = () => {
+    const endedAt = perfNow();
+    metrics.prepareDurationMs += phaseDurationMs(startedAt, endedAt);
+    metrics.prepareEndOffsetMs = phaseOffsetMs(
+      metrics.workflowStartedAt,
+      endedAt,
+    );
+  };
+  try {
+    return operation().finally(finish);
+  } catch (error) {
+    finish();
+    throw error;
+  }
+}
+
+function measureBlockParsePhase<T>(
+  metrics: DiffSidePhaseMetrics | null,
+  operation: () => T,
+): T {
+  if (!metrics) {
+    return operation();
+  }
+  metrics.blockParseCount += 1;
+  const startedAt = perfNow();
+  metrics.blockParseStartOffsetMs ??= phaseOffsetMs(
+    metrics.workflowStartedAt,
+    startedAt,
+  );
+  try {
+    return operation();
+  } finally {
+    const endedAt = perfNow();
+    metrics.blockParseDurationMs += phaseDurationMs(startedAt, endedAt);
+    metrics.blockParseEndOffsetMs = phaseOffsetMs(
+      metrics.workflowStartedAt,
+      endedAt,
+    );
+  }
+}
+
+function traceDiffArtifactReady(
+  metrics: DiffArtifactPerfMetrics | null,
+  outcome: "ready" | "empty" | "fallback",
+  leftBlockCount: number,
+  rightBlockCount: number,
+  outputBlockCount: number,
+): void {
+  if (!metrics) {
+    return;
+  }
+  tracePerf("diff-artifact-ready", {
+    owner: metrics.owner,
+    perfEntryIndex: metrics.perfEntryIndex,
+    format: metrics.format,
+    outcome,
+    leftRenderCount: metrics.left.renderCount,
+    leftRenderDurationMs: metrics.left.renderDurationMs,
+    leftRenderStartOffsetMs: metrics.left.renderStartOffsetMs,
+    leftRenderEndOffsetMs: metrics.left.renderEndOffsetMs,
+    rightRenderCount: metrics.right.renderCount,
+    rightRenderDurationMs: metrics.right.renderDurationMs,
+    rightRenderStartOffsetMs: metrics.right.renderStartOffsetMs,
+    rightRenderEndOffsetMs: metrics.right.renderEndOffsetMs,
+    leftPrepareCount: metrics.left.prepareCount,
+    leftPrepareDurationMs: metrics.left.prepareDurationMs,
+    leftPrepareStartOffsetMs: metrics.left.prepareStartOffsetMs,
+    leftPrepareEndOffsetMs: metrics.left.prepareEndOffsetMs,
+    rightPrepareCount: metrics.right.prepareCount,
+    rightPrepareDurationMs: metrics.right.prepareDurationMs,
+    rightPrepareStartOffsetMs: metrics.right.prepareStartOffsetMs,
+    rightPrepareEndOffsetMs: metrics.right.prepareEndOffsetMs,
+    leftBlockParseCount: metrics.left.blockParseCount,
+    leftBlockParseDurationMs: metrics.left.blockParseDurationMs,
+    leftBlockParseStartOffsetMs: metrics.left.blockParseStartOffsetMs,
+    leftBlockParseEndOffsetMs: metrics.left.blockParseEndOffsetMs,
+    rightBlockParseCount: metrics.right.blockParseCount,
+    rightBlockParseDurationMs: metrics.right.blockParseDurationMs,
+    rightBlockParseStartOffsetMs: metrics.right.blockParseStartOffsetMs,
+    rightBlockParseEndOffsetMs: metrics.right.blockParseEndOffsetMs,
+    leftBlockCount,
+    rightBlockCount,
+    outputBlockCount,
+    totalDurationMs: perfDuration(metrics.startedAt),
+  });
+}
 
 function normalizedDiagramSource(value: string): string {
   return value.replace(/\r\n?/gu, "\n").trim();
@@ -106,6 +295,7 @@ async function renderBlocksFromSource(
     repositoryRoot: string;
     source: GitDiffResourceSource;
   } | null,
+  phaseMetrics: DiffSidePhaseMetrics | null = null,
 ): Promise<RenderedBlock[]> {
   if (!source) {
     return [];
@@ -114,22 +304,26 @@ async function renderBlocksFromSource(
     documentPath && options.loadDocumentContext
       ? await loadDiffDocumentContext(documentPath, options)
       : null;
-  const result = await renderDocument({
-    format,
-    source,
-    path: documentPath ?? undefined,
-    includeFiles: documentContext?.includeFiles,
-    resourceContext: documentContext?.resourceContext,
-    asciidocContext: documentContext?.asciidocContext,
-  });
+  const result = await measureRenderPhase(phaseMetrics, () =>
+    renderDocument({
+      format,
+      source,
+      path: documentPath ?? undefined,
+      includeFiles: documentContext?.includeFiles,
+      resourceContext: documentContext?.resourceContext,
+      asciidocContext: documentContext?.asciidocContext,
+    }),
+  );
   const diagramSignatures = diagramSignaturesForRenderResult(result);
   const showExternalImages = (options.config ?? defaultConfig).security
     .showExternalImages;
   if (!documentPath) {
-    return extractRenderedBlocksFromHtml(result.html, {
-      diagramSignatures,
-      showExternalImages,
-    });
+    return measureBlockParsePhase(phaseMetrics, () =>
+      extractRenderedBlocksFromHtml(result.html, {
+        diagramSignatures,
+        showExternalImages,
+      }),
+    );
   }
   const document: DocumentPayload = {
     path: documentPath,
@@ -146,11 +340,14 @@ async function renderBlocksFromSource(
     result,
     options,
     resourceContext,
+    phaseMetrics,
   });
-  return extractRenderedBlocksFromHtml(htmlWithDiagrams, {
-    diagramSignatures,
-    showExternalImages,
-  });
+  return measureBlockParsePhase(phaseMetrics, () =>
+    extractRenderedBlocksFromHtml(htmlWithDiagrams, {
+      diagramSignatures,
+      showExternalImages,
+    }),
+  );
 }
 
 async function loadDiffDocumentContext(
@@ -172,6 +369,7 @@ async function renderDiffDocumentHtml({
   result,
   options,
   resourceContext,
+  phaseMetrics,
 }: {
   document: DocumentPayload;
   result: RenderResult;
@@ -180,6 +378,7 @@ async function renderDiffDocumentHtml({
     repositoryRoot: string;
     source: GitDiffResourceSource;
   } | null;
+  phaseMetrics: DiffSidePhaseMetrics | null;
 }): Promise<string> {
   const effectiveConfig = options.config ?? defaultConfig;
   // Keep external image src in the in-memory diff HTML so signature comparison
@@ -197,23 +396,25 @@ async function renderDiffDocumentHtml({
         };
   const resolveLocalImage = options.resolveLocalImage;
 
-  const html = await prepareDocumentHtml(
-    result.html,
-    document,
-    diffPreparationConfig,
-    result,
-    resolveLocalImage
-      ? {
-          resolveLocalImage: (source, documentPath, context) =>
-            resolveGitRenderedDiffLocalImage(
-              resolveLocalImage,
-              source,
-              documentPath,
-              context,
-              resourceContext,
-            ),
-        }
-      : {},
+  const html = await measurePreparePhase(phaseMetrics, () =>
+    prepareDocumentHtml(
+      result.html,
+      document,
+      diffPreparationConfig,
+      result,
+      resolveLocalImage
+        ? {
+            resolveLocalImage: (source, documentPath, context) =>
+              resolveGitRenderedDiffLocalImage(
+                resolveLocalImage,
+                source,
+                documentPath,
+                context,
+                resourceContext,
+              ),
+          }
+        : {},
+    ),
   );
   const renderedDiagrams = await renderDiffDiagrams({
     document,
@@ -420,6 +621,18 @@ export async function deriveGitRenderedDiffSummary(
   options: GitRenderedDiffSummaryOptions = {},
 ): Promise<GitRenderedDiffSummary> {
   const format = documentFormatForPath(preview.relativePath ?? "");
+  let perfMetrics: DiffArtifactPerfMetrics | null = null;
+  if (options.perfOwner && perfTraceEnabled()) {
+    const startedAt = perfNow();
+    perfMetrics = {
+      owner: options.perfOwner,
+      perfEntryIndex: options.perfEntryIndex ?? -1,
+      format,
+      startedAt,
+      left: emptySidePhaseMetrics(startedAt),
+      right: emptySidePhaseMetrics(startedAt),
+    };
+  }
   try {
     const fallbackPath =
       preview.relativePath ??
@@ -428,30 +641,65 @@ export async function deriveGitRenderedDiffSummary(
     const rightPath = diffPreviewDocumentPath(preview, "right") ?? fallbackPath;
     const leftResourceContext = diffPreviewResourceContext(preview, "left");
     const rightResourceContext = diffPreviewResourceContext(preview, "right");
-    const [leftBlocks, rightBlocks] = await Promise.all([
-      renderBlocksFromSource(
-        preview.leftText,
-        format,
-        leftPath,
-        options,
-        leftResourceContext,
-      ),
-      renderBlocksFromSource(
-        preview.rightText,
-        format,
-        rightPath,
-        options,
-        rightResourceContext,
-      ),
-    ]);
+    const leftBlocksPromise = renderBlocksFromSource(
+      preview.leftText,
+      format,
+      leftPath,
+      options,
+      leftResourceContext,
+      perfMetrics?.left ?? null,
+    );
+    const rightBlocksPromise = renderBlocksFromSource(
+      preview.rightText,
+      format,
+      rightPath,
+      options,
+      rightResourceContext,
+      perfMetrics?.right ?? null,
+    );
+    let leftBlocks: RenderedBlock[];
+    let rightBlocks: RenderedBlock[];
+    if (perfMetrics) {
+      const [leftResult, rightResult] = await Promise.allSettled([
+        leftBlocksPromise,
+        rightBlocksPromise,
+      ]);
+      if (
+        leftResult.status === "rejected" ||
+        rightResult.status === "rejected"
+      ) {
+        traceDiffArtifactReady(perfMetrics, "fallback", 0, 0, 0);
+        return {
+          blocks: [],
+          fallbackMessage:
+            "Rendered document diff is not available. Use Source view.",
+        };
+      }
+      leftBlocks = leftResult.value;
+      rightBlocks = rightResult.value;
+    } else {
+      [leftBlocks, rightBlocks] = await Promise.all([
+        leftBlocksPromise,
+        rightBlocksPromise,
+      ]);
+    }
+    const blocks = compareRenderedBlocks(leftBlocks, rightBlocks);
+    traceDiffArtifactReady(
+      perfMetrics,
+      leftBlocks.length === 0 && rightBlocks.length === 0 ? "empty" : "ready",
+      leftBlocks.length,
+      rightBlocks.length,
+      blocks.length,
+    );
     return {
-      blocks: compareRenderedBlocks(leftBlocks, rightBlocks),
+      blocks,
       fallbackMessage:
         leftBlocks.length === 0 && rightBlocks.length === 0
           ? "No rendered document preview is available."
           : undefined,
     };
   } catch {
+    traceDiffArtifactReady(perfMetrics, "fallback", 0, 0, 0);
     return {
       blocks: [],
       fallbackMessage:

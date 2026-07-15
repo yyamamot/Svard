@@ -298,6 +298,8 @@ export function usePostDiffGitMarkerState({
             activeDocumentPath: activePath,
             preview: closeHandoff.preview,
             renderedPresentation: closeHandoff.renderedPresentation,
+            perfOwner: "normal-viewer-marker",
+            perfMode: "handoff",
           });
 
           if (!context) {
@@ -535,6 +537,7 @@ export function usePostDiffGitMarkerState({
           renderDiagram: renderDiffDiagram,
           confirmedRemoteDiagramKeys,
           krokiFallbackDiagramKeys,
+          perfOwner: "normal-viewer-marker",
         });
         if (
           cancelled ||
@@ -549,6 +552,8 @@ export function usePostDiffGitMarkerState({
           activeDocumentPath: activePath,
           preview,
           renderedPresentation,
+          perfOwner: "normal-viewer-marker",
+          perfMode: "initial",
         });
         if (!context) {
           pendingPostDiffGitMarkerRefreshPathsRef.current.delete(activePath);

@@ -1,5 +1,6 @@
 import type { DocumentDiffPreview } from "../../../core/types";
 import type {
+  GitDiffPerfOwner,
   PostDiffGitMarker,
   PostDiffGitMarkerContext,
   PostDiffGitTableClassificationReason,
@@ -9,8 +10,113 @@ import type {
   RenderedDiffPresentation,
 } from "./types";
 import { renderedInlineDiffRanges } from "./text";
+import {
+  perfDuration,
+  perfNow,
+  perfTraceEnabled,
+  tracePerf,
+} from "../perfTrace";
 
 export const postDiffGitMarkerBudget = 200;
+
+type PostDiffGitMarkerPerfMode = "initial" | "handoff";
+
+interface PostDiffGitMarkerPerfMetrics {
+  owner: GitDiffPerfOwner;
+  mode: PostDiffGitMarkerPerfMode;
+  startedAt: number;
+  blockCount: number;
+  leftBlockParseCount: number;
+  leftBlockParseDurationMs: number;
+  // Multiple parse calls use a first-start to last-end bounding interval.
+  leftBlockParseStartOffsetMs: number | null;
+  leftBlockParseEndOffsetMs: number | null;
+  rightBlockParseCount: number;
+  rightBlockParseDurationMs: number;
+  rightBlockParseStartOffsetMs: number | null;
+  rightBlockParseEndOffsetMs: number | null;
+}
+
+function phaseOffsetMs(workflowStartedAt: number, timestamp: number): number {
+  return Number((timestamp - workflowStartedAt).toFixed(2));
+}
+
+function phaseDurationMs(startedAt: number, endedAt: number): number {
+  return Number((endedAt - startedAt).toFixed(2));
+}
+
+function traceMarkerContextReady({
+  metrics,
+  context,
+  presentationEntryCount,
+  blockCount,
+}: {
+  metrics: PostDiffGitMarkerPerfMetrics | null;
+  context: PostDiffGitMarkerContext | null;
+  presentationEntryCount: number;
+  blockCount: number;
+}): void {
+  if (!metrics) {
+    return;
+  }
+  tracePerf("marker-context-ready", {
+    owner: metrics.owner,
+    mode: metrics.mode,
+    outcome: context ? "ready" : "not-applicable",
+    presentationEntryCount,
+    blockCount,
+    markerCount: context?.totalCount ?? 0,
+    renderedMarkerCount: context?.renderedCount ?? 0,
+    leftBlockParseCount: metrics.leftBlockParseCount,
+    leftBlockParseDurationMs: metrics.leftBlockParseDurationMs,
+    leftBlockParseStartOffsetMs: metrics.leftBlockParseStartOffsetMs,
+    leftBlockParseEndOffsetMs: metrics.leftBlockParseEndOffsetMs,
+    rightBlockParseCount: metrics.rightBlockParseCount,
+    rightBlockParseDurationMs: metrics.rightBlockParseDurationMs,
+    rightBlockParseStartOffsetMs: metrics.rightBlockParseStartOffsetMs,
+    rightBlockParseEndOffsetMs: metrics.rightBlockParseEndOffsetMs,
+    totalDurationMs: perfDuration(metrics.startedAt),
+  });
+}
+
+function parseMeasuredMarkerBlockHtml(
+  html: string,
+  side: "left" | "right",
+  metrics: PostDiffGitMarkerPerfMetrics,
+): Document {
+  const startedAt = perfNow();
+  if (side === "left") {
+    metrics.leftBlockParseCount += 1;
+    metrics.leftBlockParseStartOffsetMs ??= phaseOffsetMs(
+      metrics.startedAt,
+      startedAt,
+    );
+  } else {
+    metrics.rightBlockParseCount += 1;
+    metrics.rightBlockParseStartOffsetMs ??= phaseOffsetMs(
+      metrics.startedAt,
+      startedAt,
+    );
+  }
+  try {
+    return new DOMParser().parseFromString(html, "text/html");
+  } finally {
+    const endedAt = perfNow();
+    if (side === "left") {
+      metrics.leftBlockParseDurationMs += phaseDurationMs(startedAt, endedAt);
+      metrics.leftBlockParseEndOffsetMs = phaseOffsetMs(
+        metrics.startedAt,
+        endedAt,
+      );
+    } else {
+      metrics.rightBlockParseDurationMs += phaseDurationMs(startedAt, endedAt);
+      metrics.rightBlockParseEndOffsetMs = phaseOffsetMs(
+        metrics.startedAt,
+        endedAt,
+      );
+    }
+  }
+}
 
 function emptyTableSummary(): PostDiffGitTableClassificationSummary {
   return {
@@ -165,12 +271,15 @@ function topLevelListItemText(
   block: RenderedBlockDiff,
   side: "left" | "right",
   itemIndex: number,
+  perfMetrics: PostDiffGitMarkerPerfMetrics | null,
 ): string {
   const html = side === "left" ? block.left?.html : block.right?.html;
   if (!html) {
     return "";
   }
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = perfMetrics
+    ? parseMeasuredMarkerBlockHtml(html, side, perfMetrics)
+    : new DOMParser().parseFromString(html, "text/html");
   const list = doc.body.querySelector(":scope > ul, :scope > ol");
   const item = Array.from(list?.children ?? []).filter(
     (child) => child.tagName.toLowerCase() === "li",
@@ -182,12 +291,18 @@ function inlineDiffRangesForListItem(
   block: RenderedBlockDiff,
   side: "left" | "right",
   itemIndex: number,
+  perfMetrics: PostDiffGitMarkerPerfMetrics | null,
 ) {
   if (block.kind !== "changed") {
     return [];
   }
-  const leftText = topLevelListItemText(block, "left", itemIndex);
-  const rightText = topLevelListItemText(block, "right", itemIndex);
+  const leftText = topLevelListItemText(block, "left", itemIndex, perfMetrics);
+  const rightText = topLevelListItemText(
+    block,
+    "right",
+    itemIndex,
+    perfMetrics,
+  );
   if (!leftText || !rightText) {
     return [];
   }
@@ -199,12 +314,15 @@ function tableCellText(
   side: "left" | "right",
   rowIndex: number,
   cellIndex: number,
+  perfMetrics: PostDiffGitMarkerPerfMetrics | null,
 ): string {
   const html = side === "left" ? block.left?.html : block.right?.html;
   if (!html) {
     return "";
   }
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = perfMetrics
+    ? parseMeasuredMarkerBlockHtml(html, side, perfMetrics)
+    : new DOMParser().parseFromString(html, "text/html");
   const table = doc.body.querySelector("table");
   const cell = table?.rows[rowIndex]?.cells[cellIndex];
   return cell?.textContent ?? "";
@@ -215,12 +333,25 @@ function inlineDiffRangesForTableCell(
   side: "left" | "right",
   rowIndex: number,
   cellIndex: number,
+  perfMetrics: PostDiffGitMarkerPerfMetrics | null,
 ) {
   if (block.kind !== "changed") {
     return [];
   }
-  const leftText = tableCellText(block, "left", rowIndex, cellIndex);
-  const rightText = tableCellText(block, "right", rowIndex, cellIndex);
+  const leftText = tableCellText(
+    block,
+    "left",
+    rowIndex,
+    cellIndex,
+    perfMetrics,
+  );
+  const rightText = tableCellText(
+    block,
+    "right",
+    rowIndex,
+    cellIndex,
+    perfMetrics,
+  );
   if (!leftText || !rightText) {
     return [];
   }
@@ -308,11 +439,13 @@ function markersForListItemChanges({
   blocks,
   changeIndexStart,
   side,
+  perfMetrics,
 }: {
   block: RenderedBlockDiff;
   blocks: RenderedBlockDiff[];
   changeIndexStart: number;
   side: "left" | "right";
+  perfMetrics: PostDiffGitMarkerPerfMetrics | null;
 }): PostDiffGitMarker[] {
   if (
     block.kind !== "changed" ||
@@ -351,6 +484,7 @@ function markersForListItemChanges({
       block,
       side,
       itemIndex,
+      perfMetrics,
     );
     markers.push({
       id: `post-diff-marker:${changeIndex}:${block.id}:item:${itemIndex}`,
@@ -371,11 +505,13 @@ function markersForTableChanges({
   blocks,
   changeIndexStart,
   side,
+  perfMetrics,
 }: {
   block: RenderedBlockDiff;
   blocks: RenderedBlockDiff[];
   changeIndexStart: number;
   side: "left" | "right";
+  perfMetrics: PostDiffGitMarkerPerfMetrics | null;
 }): PostDiffGitMarker[] {
   if (
     block.kind !== "changed" ||
@@ -429,7 +565,13 @@ function markersForTableChanges({
         : markerKind;
     const inlineDiffRanges =
       tableChange.kind === "changed"
-        ? inlineDiffRangesForTableCell(block, side, rowIndex, cellIndex)
+        ? inlineDiffRangesForTableCell(
+            block,
+            side,
+            rowIndex,
+            cellIndex,
+            perfMetrics,
+          )
         : [];
     rowMarker.tableCellHighlights.push({
       cellIndex,
@@ -467,7 +609,11 @@ function markersForAddedTableRows({
   changeIndexStart: number;
   side: "left" | "right";
 }): PostDiffGitMarker[] {
-  if (side !== "right" || block.kind !== "added" || block.blockKind !== "table") {
+  if (
+    side !== "right" ||
+    block.kind !== "added" ||
+    block.blockKind !== "table"
+  ) {
     return [];
   }
   const rows = block.right?.tableRows;
@@ -555,15 +701,12 @@ function markerForBlock({
   };
 }
 
-export function buildPostDiffGitMarkerContext({
-  activeDocumentPath,
-  preview,
-  renderedPresentation,
-}: {
-  activeDocumentPath: string | null | undefined;
-  preview: DocumentDiffPreview;
-  renderedPresentation: RenderedDiffPresentation;
-}): PostDiffGitMarkerContext | null {
+function buildPostDiffGitMarkerContextCore(
+  activeDocumentPath: string | null | undefined,
+  preview: DocumentDiffPreview,
+  renderedPresentation: RenderedDiffPresentation,
+  perfMetrics: PostDiffGitMarkerPerfMetrics | null,
+): PostDiffGitMarkerContext | null {
   if (preview.status === "clean" || preview.hunks.length === 0) {
     return null;
   }
@@ -576,6 +719,9 @@ export function buildPostDiffGitMarkerContext({
   const blocks = renderedPresentation.entries.flatMap((entry) =>
     entry.kind === "block" ? [entry.block] : entry.blocks,
   );
+  if (perfMetrics) {
+    perfMetrics.blockCount = blocks.length;
+  }
   const markers: PostDiffGitMarker[] = [];
   const tableSummary = emptyTableSummary();
   for (const block of blocks) {
@@ -584,6 +730,7 @@ export function buildPostDiffGitMarkerContext({
       blocks,
       changeIndexStart: markers.length,
       side,
+      perfMetrics,
     });
     if (itemMarkers.length > 0) {
       markers.push(...itemMarkers);
@@ -611,6 +758,7 @@ export function buildPostDiffGitMarkerContext({
       blocks,
       changeIndexStart: markers.length,
       side,
+      perfMetrics,
     });
     if (tableMarkers.length > 0) {
       markers.push(...tableMarkers);
@@ -654,4 +802,55 @@ export function buildPostDiffGitMarkerContext({
     totalCount: markers.length,
     tableSummary,
   };
+}
+
+export function buildPostDiffGitMarkerContext({
+  activeDocumentPath,
+  preview,
+  renderedPresentation,
+  perfOwner,
+  perfMode = "initial",
+}: {
+  activeDocumentPath: string | null | undefined;
+  preview: DocumentDiffPreview;
+  renderedPresentation: RenderedDiffPresentation;
+  perfOwner?: GitDiffPerfOwner;
+  perfMode?: PostDiffGitMarkerPerfMode;
+}): PostDiffGitMarkerContext | null {
+  if (!perfOwner || !perfTraceEnabled()) {
+    return buildPostDiffGitMarkerContextCore(
+      activeDocumentPath,
+      preview,
+      renderedPresentation,
+      null,
+    );
+  }
+
+  const perfMetrics: PostDiffGitMarkerPerfMetrics = {
+    owner: perfOwner,
+    mode: perfMode,
+    startedAt: perfNow(),
+    blockCount: 0,
+    leftBlockParseCount: 0,
+    leftBlockParseDurationMs: 0,
+    leftBlockParseStartOffsetMs: null,
+    leftBlockParseEndOffsetMs: null,
+    rightBlockParseCount: 0,
+    rightBlockParseDurationMs: 0,
+    rightBlockParseStartOffsetMs: null,
+    rightBlockParseEndOffsetMs: null,
+  };
+  const context = buildPostDiffGitMarkerContextCore(
+    activeDocumentPath,
+    preview,
+    renderedPresentation,
+    perfMetrics,
+  );
+  traceMarkerContextReady({
+    metrics: perfMetrics,
+    context,
+    presentationEntryCount: renderedPresentation.entries.length,
+    blockCount: perfMetrics.blockCount,
+  });
+  return context;
 }

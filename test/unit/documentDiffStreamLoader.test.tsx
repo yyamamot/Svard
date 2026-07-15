@@ -234,7 +234,13 @@ describe("DocumentDiffStreamPanel loader", () => {
 
     await flushPreviewLoad();
 
-    expect(deriveGitRenderedDiffSummaryMock).toHaveBeenCalled();
+    expect(deriveGitRenderedDiffSummaryMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        perfOwner: "all-diffs",
+        perfEntryIndex: 0,
+      }),
+    );
   });
 
   it("blocks an over-budget section before rendered producers and continues the stream", async () => {
