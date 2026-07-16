@@ -185,6 +185,12 @@ function selectionBlockElement(node: Node) {
     node.nodeType === Node.ELEMENT_NODE
       ? (node as HTMLElement)
       : node.parentElement;
+  const mapped = element?.closest<HTMLElement>(
+    "[data-source-selection-block-id]",
+  );
+  if (mapped) {
+    return mapped.closest<HTMLElement>(".source-block-frame") ?? mapped;
+  }
   const unit = element?.closest<HTMLElement>(
     "h1,h2,h3,h4,h5,h6,p,.source-block-frame,pre[data-source-selection-block-id],ul,ol,table,.diagram-slot,.diagram-inline,.diagram-inline-image,.diagram-inline-diagnostic,blockquote,dl,.dlist,.admonitionblock,.admonition,.markdown-alert,.imageblock,img",
   );

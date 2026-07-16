@@ -331,6 +331,71 @@ describe("sourceTextBlockForSelection", () => {
     article.remove();
   });
 
+  it("copies a full AsciiDoc simple list after a paragraph despite DOM whitespace", () => {
+    const source = [
+      "Each path includes:",
+      "",
+      "* Deployable Helm charts and Kustomize manifests",
+      "* Primary settings for performance tuning",
+      "* Sample workloads and baseline comparisons",
+      "* Monitoring and observability configuration",
+      "",
+    ].join("\n");
+    const article = document.createElement("article");
+    article.innerHTML = `<div class="paragraph">
+<p data-source-selection-block-id="selection-paragraph-1">Each path includes:</p>
+</div>
+<div class="ulist">
+<ul data-source-selection-block-id="selection-list-1">
+<li><p>Deployable Helm charts and Kustomize manifests</p></li>
+<li><p>Primary settings for performance tuning</p></li>
+<li><p>Sample workloads and baseline comparisons</p></li>
+<li><p>Monitoring and observability configuration</p></li>
+</ul>
+</div>`;
+    const paragraph = article.querySelector("p")!;
+    const listItems = article.querySelectorAll("li p");
+    const lastText = listItems[listItems.length - 1].firstChild as Text;
+    document.body.append(article);
+    const range = document.createRange();
+    range.setStart(paragraph.firstChild!, 0);
+    range.setEnd(lastText, lastText.data.length);
+    window.getSelection()?.addRange(range);
+
+    const args = {
+      article,
+      document: { ...documentPayload, source },
+      renderResult: {
+        sourceTextBlocks: [],
+        sourceSelectionBlocks: [
+          {
+            id: "selection-paragraph-1",
+            kind: "paragraph" as const,
+            startLine: 1,
+            endLine: 1,
+          },
+          {
+            id: "selection-list-1",
+            kind: "list" as const,
+            startLine: 3,
+            endLine: 6,
+          },
+        ],
+      },
+    };
+    expect(originalTextReferenceForSelection(args)?.value).toBe(
+      `File: /workspace/docs/main.adoc:1-6\nOriginal text:\n${source.trimEnd()}`,
+    );
+
+    window.getSelection()?.removeAllRanges();
+    const partialRange = document.createRange();
+    partialRange.setStart(paragraph.firstChild!, 0);
+    partialRange.setEnd(lastText, lastText.data.length - 1);
+    window.getSelection()?.addRange(partialRange);
+    expect(originalTextReferenceForSelection(args)).toBeUndefined();
+    article.remove();
+  });
+
   it("copies consecutive AsciiDoc paragraph and code units with attributes", () => {
     const asciidocDocument = {
       ...documentPayload,
@@ -481,9 +546,7 @@ describe("sourceTextBlockForSelection", () => {
           ],
         },
       })?.value,
-    ).toBe(
-      "File: /workspace/docs/main.adoc:1\nOriginal text:\n*marked*",
-    );
+    ).toBe("File: /workspace/docs/main.adoc:1\nOriginal text:\n*marked*");
     article.remove();
   });
 });

@@ -113,14 +113,28 @@ export async function applyReaderActionsScenario(context) {
     await page
       .getByRole("heading", { name: "Copy Actions", exact: true })
       .waitFor();
-    const sourceBlock = page.locator(".source-block-frame pre");
-    await sourceBlock.scrollIntoViewIfNeeded();
-    await sourceBlock.selectText();
     const selectionPoint = await page.evaluate(() => {
-      const selection = window.getSelection();
-      const rect = selection?.rangeCount
-        ? selection.getRangeAt(0).getClientRects()[0]
+      const paragraph = Array.from(document.querySelectorAll("p")).find(
+        (element) => element.textContent === "Each path includes:",
+      );
+      const list = paragraph
+        ?.closest(".paragraph")
+        ?.nextElementSibling?.querySelector("ul");
+      const walker = list
+        ? document.createTreeWalker(list, NodeFilter.SHOW_TEXT)
         : null;
+      let lastText = null;
+      for (let node = walker?.nextNode(); node; node = walker?.nextNode()) {
+        if (/\S/u.test(node.textContent ?? "")) lastText = node;
+      }
+      if (!paragraph?.firstChild || !lastText) return null;
+      const range = document.createRange();
+      range.setStart(paragraph.firstChild, 0);
+      range.setEnd(lastText, lastText.data.length);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      const rect = range.getClientRects()[0];
       return rect
         ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
         : null;

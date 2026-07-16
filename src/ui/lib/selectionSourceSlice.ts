@@ -82,14 +82,8 @@ function sourceSliceForUnit(
     length,
   );
   if (!selectedText) return undefined;
-  if (unit.kind !== "code" && selectedText === renderedTextForUnit(unit)) {
-    return selectionSlice(
-      unit,
-      blockStart,
-      blockEnd,
-      blockStart,
-      blockEnd,
-    );
+  if (unit.kind !== "code" && selectionCoversVisibleText(range, unit.element)) {
+    return selectionSlice(unit, blockStart, blockEnd, blockStart, blockEnd);
   }
   const blockText = unit.source.slice(blockStart, blockEnd);
   const relativeStart = blockText.indexOf(selectedText);
@@ -110,12 +104,32 @@ function sourceSliceForUnit(
   );
 }
 
-function renderedTextForUnit(unit: SourceMappedSelectionUnit) {
-  const element =
-    unit.kind === "code" && unit.element.matches(".source-block-frame")
-      ? unit.element.querySelector("pre")
-      : unit.element;
-  return element?.textContent ?? "";
+function selectionCoversVisibleText(selection: Range, element: HTMLElement) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let first: Text | undefined;
+  let last: Text | undefined;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node as Text;
+    if (
+      !/\S/u.test(text.data) ||
+      text.parentElement?.closest(
+        '[data-selection-exclude], [hidden], [aria-hidden="true"]',
+      )
+    ) {
+      continue;
+    }
+    first ??= text;
+    last = text;
+  }
+  if (!first || !last) return false;
+
+  const visible = document.createRange();
+  visible.setStart(first, first.data.search(/\S/u));
+  visible.setEnd(last, last.data.search(/\s*$/u));
+  return (
+    selection.compareBoundaryPoints(Range.START_TO_START, visible) <= 0 &&
+    selection.compareBoundaryPoints(Range.END_TO_END, visible) >= 0
+  );
 }
 
 function selectedTextWithinUnit(

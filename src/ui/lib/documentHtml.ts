@@ -6,6 +6,8 @@ import type {
   RenderResult,
   SecurityConfig,
   SourceLocation,
+  SourceSelectionBlock,
+  SourceTextBlock,
 } from "../../core/types";
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import { highlightCodeContent } from "../../core/markdown/highlight";
@@ -44,6 +46,77 @@ function sourceReference(
   const lineSuffix = line ? `:${line}` : "";
   const hashSuffix = hash ? `#${encodeURIComponent(hash)}` : "";
   return `${sourceLocation?.sourcePath ?? document.path}${lineSuffix}${hashSuffix}`;
+}
+
+function normalizeSourcePath(path: string) {
+  return path.replace(/\\/gu, "/");
+}
+
+function sourceRangeMatches(
+  document: DocumentPayload,
+  left: SourceSelectionBlock | SourceTextBlock,
+  right: SourceSelectionBlock | SourceTextBlock,
+) {
+  return (
+    left.startLine === right.startLine &&
+    left.endLine === right.endLine &&
+    normalizeSourcePath(left.sourceLocation?.sourcePath ?? document.path) ===
+      normalizeSourcePath(right.sourceLocation?.sourcePath ?? document.path)
+  );
+}
+
+function attachSourceSelectionBlock(
+  element: HTMLElement,
+  block: SourceSelectionBlock,
+) {
+  element.setAttribute("data-source-selection-block-id", block.id);
+  element.setAttribute("data-source-selection-start", String(block.startLine));
+  element.setAttribute("data-source-selection-end", String(block.endLine));
+  if (block.sourceLocation?.sourcePath) {
+    element.setAttribute(
+      "data-source-selection-source-path",
+      block.sourceLocation.sourcePath,
+    );
+  }
+}
+
+function sourceForSelectionBlock(
+  document: DocumentPayload,
+  block: SourceSelectionBlock,
+) {
+  const sourcePath = block.sourceLocation?.sourcePath;
+  if (
+    !sourcePath ||
+    normalizeSourcePath(sourcePath) === normalizeSourcePath(document.path)
+  ) {
+    return document.source;
+  }
+  return document.includeFiles?.find(
+    (file) =>
+      normalizeSourcePath(file.path) === normalizeSourcePath(sourcePath),
+  )?.source;
+}
+
+function isSupportedSelectionListBlock(
+  document: DocumentPayload,
+  block: SourceSelectionBlock,
+) {
+  const source = sourceForSelectionBlock(document, block);
+  if (!source) return false;
+  const lines = source.split("\n").slice(block.startLine - 1, block.endLine);
+  return !lines.some((line) =>
+    /^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]\s/u.test(line),
+  );
+}
+
+function isSimpleSelectionListElement(element: HTMLElement) {
+  return (
+    !element.closest("li") &&
+    !element.matches(".checklist,.contains-task-list") &&
+    !element.querySelector(
+      'ul,ol,dl,table,pre,input[type="checkbox"],.task-list-item,.admonitionblock,.admonition,.markdown-alert',
+    )
+  );
 }
 
 function tableSourceLines(source: string, format: DocumentPayload["format"]) {
@@ -483,11 +556,11 @@ export async function prepareDocumentHtml(
   });
 
   const sourceTextBlocksStartedAt = perfNow();
+  const sourceTextBlocks = renderResult?.sourceTextBlocks ?? [];
   if (document.format === "asciidoc") {
     const paragraphs = Array.from(
       doc.querySelectorAll<HTMLElement>("div.paragraph > p"),
     );
-    const sourceTextBlocks = renderResult?.sourceTextBlocks ?? [];
     if (paragraphs.length === sourceTextBlocks.length) {
       paragraphs.forEach((paragraph, index) => {
         paragraph.setAttribute(
@@ -506,28 +579,41 @@ export async function prepareDocumentHtml(
 
   const selectionBlocksStartedAt = perfNow();
   const selectionBlocks = renderResult?.sourceSelectionBlocks ?? [];
-  const attachSelectionBlocks = (selector: string, kind: string) => {
-    const elements = Array.from(doc.querySelectorAll<HTMLElement>(selector));
-    const blocks = selectionBlocks.filter((block) => block.kind === kind);
+  const attachSelectionBlocks = (
+    selector: string,
+    kind: string,
+    elementFilter: (element: HTMLElement) => boolean = () => true,
+    blockFilter: (block: SourceSelectionBlock) => boolean = () => true,
+  ) => {
+    const elements = Array.from(
+      doc.querySelectorAll<HTMLElement>(selector),
+    ).filter(elementFilter);
+    const blocks = selectionBlocks.filter(
+      (block) => block.kind === kind && blockFilter(block),
+    );
     if (elements.length !== blocks.length) return;
     elements.forEach((element, index) => {
-      const block = blocks[index];
-      element.setAttribute("data-source-selection-block-id", block.id);
-      element.setAttribute(
-        "data-source-selection-start",
-        String(block.startLine),
-      );
-      element.setAttribute("data-source-selection-end", String(block.endLine));
-      if (block.sourceLocation?.sourcePath) {
-        element.setAttribute(
-          "data-source-selection-source-path",
-          block.sourceLocation.sourcePath,
-        );
-      }
+      attachSourceSelectionBlock(element, blocks[index]);
     });
   };
   attachSelectionBlocks("h1,h2,h3,h4,h5,h6", "heading");
-  attachSelectionBlocks("p[data-source-text-block-id]", "paragraph");
+  doc
+    .querySelectorAll<HTMLElement>("p[data-source-text-block-id]")
+    .forEach((paragraph) => {
+      const sourceTextBlock = sourceTextBlocks.find(
+        (block) =>
+          block.id === paragraph.getAttribute("data-source-text-block-id"),
+      );
+      if (!sourceTextBlock) return;
+      const matches = selectionBlocks.filter(
+        (block) =>
+          block.kind === "paragraph" &&
+          sourceRangeMatches(document, block, sourceTextBlock),
+      );
+      if (matches.length === 1) {
+        attachSourceSelectionBlock(paragraph, matches[0]);
+      }
+    });
   attachSelectionBlocks(".source-block-frame", "code");
   doc.querySelectorAll<HTMLElement>(".source-block-frame").forEach((frame) => {
     const id = frame.getAttribute("data-source-selection-block-id");
@@ -543,7 +629,12 @@ export async function prepareDocumentHtml(
       if (value) pre.setAttribute(name, value);
     });
   });
-  attachSelectionBlocks("ul,ol", "list");
+  attachSelectionBlocks(
+    "ul,ol",
+    "list",
+    isSimpleSelectionListElement,
+    (block) => isSupportedSelectionListBlock(document, block),
+  );
   attachSelectionBlocks("table", "table");
   attachSelectionBlocks(".diagram-slot", "diagram");
   tracePerf("render.prepareDocumentHtml.sourceSelectionBlocks", {

@@ -551,6 +551,59 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
     "Section:",
   );
 
+  const paragraphListSelectionPoint = await page.evaluate(() => {
+    const paragraph = Array.from(document.querySelectorAll("p")).find(
+      (element) => element.textContent === "Each path includes:",
+    );
+    const list = paragraph
+      ?.closest(".paragraph")
+      ?.nextElementSibling?.querySelector("ul");
+    const walker = list
+      ? document.createTreeWalker(list, NodeFilter.SHOW_TEXT)
+      : null;
+    let lastText: Text | null = null;
+    for (let node = walker?.nextNode(); node; node = walker?.nextNode()) {
+      if (/\S/u.test(node.textContent ?? "")) lastText = node as Text;
+    }
+    if (!paragraph?.firstChild || !lastText) return null;
+    const range = document.createRange();
+    range.setStart(paragraph.firstChild, 0);
+    range.setEnd(lastText, lastText.data.length);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const rect = range.getClientRects()[0];
+    return rect ? { x: rect.left + 8, y: rect.top + rect.height / 2 } : null;
+  });
+  expect(paragraphListSelectionPoint).not.toBeNull();
+  await page.mouse.click(
+    paragraphListSelectionPoint!.x,
+    paragraphListSelectionPoint!.y,
+    { button: "right" },
+  );
+  await expect(
+    page.getByRole("menuitem", { name: "Copy Text Reference" }),
+  ).toBeVisible();
+  await page
+    .getByRole("menuitem", { name: "Copy Original Text Reference" })
+    .click();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Original text reference copied",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    [
+      "File: /workspace/docs/copy-actions.adoc:12-17",
+      "Section: Code",
+      "Original text:",
+      "Each path includes:",
+      "",
+      "* Deployable Helm charts and Kustomize manifests",
+      "* Primary settings for performance tuning",
+      "* Sample workloads and baseline comparisons",
+      "* Monitoring and observability configuration",
+    ].join("\n"),
+  );
+
   await sourceBlock.selectText();
   const sourceRangeSelectionPoint = await page.evaluate(() => {
     const selection = window.getSelection();
@@ -611,7 +664,7 @@ test("viewer-copy-actions covers source, reference, selection, path, and links",
   );
   await expect(
     page.getByRole("menuitem", { name: "Copy Original Text Reference" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await page.keyboard.press("Escape");
 
   await sourceBlock.selectText();

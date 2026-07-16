@@ -71,6 +71,112 @@ describe("prepareDocumentHtml", () => {
     ).toBe("Collapse");
   });
 
+  it("maps a simple list independently from nested and task lists", async () => {
+    const source = [
+      "Intro.",
+      "",
+      "* one",
+      "* two",
+      "",
+      "Nested:",
+      "",
+      "* outer",
+      "** inner",
+      "",
+      "Tasks:",
+      "",
+      "* [ ] pending",
+      "",
+    ].join("\n");
+    const html = await prepareDocumentHtml(
+      `<div class="paragraph"><p>Intro.</p></div>
+<div class="ulist"><ul><li><p>one</p></li><li><p>two</p></li></ul></div>
+<div class="paragraph"><p>Nested:</p></div>
+<div class="ulist"><ul><li><p>outer</p><div class="ulist"><ul><li><p>inner</p></li></ul></div></li></ul></div>
+<div class="paragraph"><p>Tasks:</p></div>
+<div class="ulist checklist"><ul class="checklist"><li><p>pending</p></li></ul></div>`,
+      { ...documentPayload, source },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      {
+        headings: [],
+        sourceBlocks: [],
+        sourceTextBlocks: [],
+        sourceSelectionBlocks: [
+          {
+            id: "selection-list-1",
+            kind: "list",
+            startLine: 3,
+            endLine: 4,
+          },
+          {
+            id: "selection-list-2",
+            kind: "list",
+            startLine: 13,
+            endLine: 13,
+          },
+        ],
+      },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const lists = doc.querySelectorAll("ul");
+
+    expect(lists[0].getAttribute("data-source-selection-block-id")).toBe(
+      "selection-list-1",
+    );
+    expect(lists[0].getAttribute("data-source-selection-start")).toBe("3");
+    expect(lists[0].getAttribute("data-source-selection-end")).toBe("4");
+    expect(lists[1].hasAttribute("data-source-selection-block-id")).toBe(false);
+    expect(lists[2].hasAttribute("data-source-selection-block-id")).toBe(false);
+    expect(lists[3].hasAttribute("data-source-selection-block-id")).toBe(false);
+  });
+
+  it("maps paragraphs by source range when other rendered paragraphs are unsupported", async () => {
+    const html = await prepareDocumentHtml(
+      `<div class="paragraph"><p>Mapped paragraph.</p></div>
+<div class="paragraph"><p>Rendered-only paragraph.</p></div>`,
+      {
+        ...documentPayload,
+        source: "Mapped paragraph.\n\nRendered-only paragraph.\n",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      {
+        headings: [],
+        sourceBlocks: [],
+        sourceTextBlocks: [
+          {
+            id: "text-1",
+            kind: "paragraph",
+            startLine: 1,
+            endLine: 1,
+          },
+          {
+            id: "text-2",
+            kind: "paragraph",
+            startLine: 3,
+            endLine: 3,
+          },
+        ],
+        sourceSelectionBlocks: [
+          {
+            id: "selection-paragraph-1",
+            kind: "paragraph",
+            startLine: 1,
+            endLine: 1,
+          },
+        ],
+      },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const paragraphs = doc.querySelectorAll("p");
+
+    expect(paragraphs[0].getAttribute("data-source-selection-block-id")).toBe(
+      "selection-paragraph-1",
+    );
+    expect(paragraphs[1].hasAttribute("data-source-selection-block-id")).toBe(
+      false,
+    );
+  });
+
   it("uses a Source label and disables source reference actions without source metadata", async () => {
     const html = await prepareDocumentHtml(
       "<pre>plain source block</pre>",

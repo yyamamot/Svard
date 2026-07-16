@@ -1352,6 +1352,13 @@ const product = "Svard";
 
 A *source* paragraph for copy actions.
 
+Each path includes:
+
+* Deployable Helm charts and Kustomize manifests
+* Primary settings for performance tuning
+* Sample workloads and baseline comparisons
+* Monitoring and observability configuration
+
 image::diagram.svg[]
 
 https://example.com[External link]
