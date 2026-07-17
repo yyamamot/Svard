@@ -501,6 +501,7 @@ export function App() {
     refreshActiveDiffPreview,
     refreshDocumentDiffStream,
     refreshSourceControlFromFileTree,
+    resolveRevisionLensTargets,
     sourceControl,
     activeDiffPreviewWatchPath,
   } = useAppSourceControlReview({
@@ -1138,6 +1139,7 @@ export function App() {
         documentHtml,
         captureAreaRequest,
         postDiffGitMarkers: activePostDiffGitMarkers,
+        resolveRevisionLensTargets,
         query,
         searchHits,
         searchIndex,

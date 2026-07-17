@@ -81,39 +81,41 @@ describe("capture area geometry", () => {
     expect(captureAreaFailureNotice).toContain("clipboard was not changed");
   });
 
-  it("adds intersecting subtle Change Review markers to the capture frame", () => {
-    const pane = document.createElement("div");
-    pane.className = "viewer-pane";
-    const markers = document.createElement("nav");
-    markers.className = "post-diff-git-markers subtle";
-    const intersecting = captureMarker(rect(10, 128, 24, 24), 80);
-    const outside = captureMarker(rect(10, 328, 24, 24), 40);
-    markers.append(intersecting, outside);
-    const article = document.createElement("article");
-    article.className = "document-body";
-    pane.append(markers, article);
-    document.body.append(pane);
+  it("adds intersecting Detailed and Subtle Change Review markers to the capture frame", () => {
+    for (const mode of ["detailed", "subtle"]) {
+      const pane = document.createElement("div");
+      pane.className = "viewer-pane";
+      const markers = document.createElement("nav");
+      markers.className = `post-diff-git-markers ${mode}`;
+      const intersecting = captureMarker(rect(10, 128, 24, 24), 80);
+      const outside = captureMarker(rect(10, 328, 24, 24), 40);
+      markers.append(intersecting, outside);
+      const article = document.createElement("article");
+      article.className = "document-body";
+      pane.append(markers, article);
+      document.body.append(pane);
 
-    const [overlay] = createCaptureCompanionOverlays(article, {
-      left: 0,
-      top: 100,
-      width: 300,
-      height: 100,
-    });
-    const clonedMarkers = overlay?.querySelectorAll<HTMLElement>(
-      ".post-diff-git-marker",
-    );
+      const [overlay] = createCaptureCompanionOverlays(article, {
+        left: 0,
+        top: 100,
+        width: 300,
+        height: 100,
+      });
+      const clonedMarkers = overlay?.querySelectorAll<HTMLElement>(
+        ".post-diff-git-marker",
+      );
 
-    expect(overlay?.dataset.captureCompanion).toBe("post-diff-git-markers");
-    expect(clonedMarkers).toHaveLength(1);
-    expect(clonedMarkers?.[0]?.style.left).toBe("10px");
-    expect(clonedMarkers?.[0]?.style.top).toBe("28px");
-    expect(
-      clonedMarkers?.[0]?.style.getPropertyValue(
-        "--post-diff-marker-range-height",
-      ),
-    ).toBe("80px");
-    pane.remove();
+      expect(overlay?.dataset.captureCompanion).toBe("post-diff-git-markers");
+      expect(clonedMarkers).toHaveLength(1);
+      expect(clonedMarkers?.[0]?.style.left).toBe("10px");
+      expect(clonedMarkers?.[0]?.style.top).toBe("28px");
+      expect(
+        clonedMarkers?.[0]?.style.getPropertyValue(
+          "--post-diff-marker-range-height",
+        ),
+      ).toBe("80px");
+      pane.remove();
+    }
   });
 
   it("does not duplicate Change Review markers already inside the capture target", () => {

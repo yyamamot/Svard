@@ -160,15 +160,22 @@ function renderHookHarness({
   document = documentPayload(),
   getGitDiffPreview = vi.fn(async () => preview()),
   rendered = null,
+  deriveRenderedDiffSummary,
 }: {
   config?: AppConfig | null;
   document?: DocumentPayload | null;
   getGitDiffPreview?: (path: string) => Promise<DocumentDiffPreview>;
   rendered?: RenderResult | null;
+  deriveRenderedDiffSummary?: Parameters<
+    typeof usePostDiffGitMarkerState
+  >[0]["deriveRenderedDiffSummary"];
 } = {}) {
   const harness = createReactRootHarness();
   const loadDiffDocumentContext = vi.fn(async () => null);
-  const resolveDiffLocalImage = vi.fn();
+  const resolveDiffLocalImage = vi.fn(async () => ({
+    status: "blocked" as const,
+    placeholderText: "Local image is not available.",
+  }));
   const renderDiffDiagram = vi.fn();
   let api: HookApi | null = null;
 
@@ -193,6 +200,7 @@ function renderHookHarness({
       resolveDiffLocalImage,
       renderDiffDiagram,
       setDocumentDiffPreview,
+      deriveRenderedDiffSummary,
     });
     api = {
       ...hook,
@@ -343,6 +351,66 @@ describe("usePostDiffGitMarkerState", () => {
         },
       ],
     });
+
+    cleanup();
+  });
+
+  it("resolves only requested Revision Lens blocks without remote diagram rendering", async () => {
+    const deriveRenderedDiffSummary = vi.fn(async () => ({
+      blocks: [block("rendered-diff:1")],
+    }));
+    const getGitDiffPreview = vi.fn(async () =>
+      preview({ leftPath: undefined, rightPath: undefined }),
+    );
+    const { api, cleanup, renderDiffDiagram } = renderHookHarness({
+      deriveRenderedDiffSummary,
+      getGitDiffPreview,
+    });
+
+    const resolved = await api().resolveRevisionLensTargets([
+      {
+        markerId: "marker:changed",
+        diffBlockId: "rendered-diff:1",
+        anchorBlockId: "rendered-block:1",
+        kind: "changed",
+      },
+      {
+        markerId: "marker:missing",
+        diffBlockId: "rendered-diff:99",
+        anchorBlockId: "rendered-block:99",
+        kind: "changed",
+      },
+      {
+        markerId: "marker:removed-child",
+        diffBlockId: "rendered-diff:1",
+        anchorBlockId: "rendered-block:1",
+        kind: "removed",
+      },
+    ]);
+
+    expect(resolved[0]).toMatchObject({
+      markerId: "marker:changed",
+      status: "base",
+      blockKind: "paragraph",
+      html: expect.stringContaining("Old text"),
+    });
+    expect(resolved[1]).toMatchObject({
+      markerId: "marker:missing",
+      status: "unavailable",
+    });
+    expect(resolved[2]).toMatchObject({
+      markerId: "marker:removed-child",
+      status: "removed",
+      html: expect.stringContaining("Old text"),
+      hideCurrent: true,
+    });
+    expect(renderDiffDiagram).not.toHaveBeenCalled();
+    expect(deriveRenderedDiffSummary).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        perfOwner: "normal-viewer-marker",
+      }),
+    );
 
     cleanup();
   });

@@ -1,6 +1,7 @@
 const markerScenarios = new Set([
   "viewer-normal-git-markers-initial-working-tree-opt-in",
   "viewer-normal-git-markers-subtle",
+  "viewer-change-review-revision-lens",
   "viewer-normal-git-markers-after-diff-opt-in",
   "viewer-normal-git-markers-disabled",
   "viewer-normal-git-markers-no-prior-diff",
@@ -55,6 +56,9 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.initialWorkingTree === true &&
           summary?.markerCount > 0 &&
           summary?.renderedMarkerCount > 0 &&
+          summary?.markerOpacity > 0 &&
+          summary?.markerOpacity < 1 &&
+          summary?.bodyAccentVisible === false &&
           summary?.blockHighlightCount > 0 &&
           summary?.inlineAddedCount > 0 &&
           summary?.clickResult === true
@@ -76,6 +80,20 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.inlineAddedCount === 0 &&
           summary?.inlineRemovedCount === 0 &&
           summary?.clickResult === true
+        : true,
+    hasHoldToRevealRevisionLens:
+      scenario === "viewer-change-review-revision-lens"
+        ? summary?.revisionLens === true &&
+          summary?.targetCount === 1 &&
+          summary?.markerPressGesture === true &&
+          summary?.subtlePressRevealSucceeded === true &&
+          summary?.workingTreeRestoredOnRelease === true &&
+          summary?.repeatRevealSucceeded === true &&
+          summary?.detailedBaseVisible === true &&
+          summary?.removedMarkerBaseVisible === true &&
+          summary?.finalCategory === "removed" &&
+          summary?.privacySafe === true &&
+          privacySafe
         : true,
     hasPostDiffGitMarkersWhenOptedIn:
       scenario === "viewer-normal-git-markers-after-diff-opt-in"
@@ -249,10 +267,9 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           visualContract?.rendered?.blockCount > 0 &&
           visualContract?.normal?.blockCount > 0 &&
           visualContract?.normal?.tokenCount === 5 &&
-          visualContract?.rendered?.blockBar?.width ===
-            visualContract?.normal?.blockBar?.width &&
-          visualContract?.rendered?.blockBar?.left ===
-            visualContract?.normal?.blockBar?.left
+          visualContract?.normal?.blockBar?.content === "none" &&
+          visualContract?.normal?.marginMarker?.opacity > 0 &&
+          visualContract?.normal?.marginMarker?.opacity < 1
         : true,
     hasGitChangeVisualContractListItem:
       scenario === "viewer-git-change-visual-contract-list-item"
@@ -261,10 +278,9 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           visualContract?.normal?.itemCount > 0 &&
           visualContract?.rendered?.parentListTargetCount === 0 &&
           visualContract?.normal?.parentListTargetCount === 0 &&
-          visualContract?.rendered?.itemBar?.width ===
-            visualContract?.normal?.itemBar?.width &&
-          visualContract?.rendered?.itemBar?.left ===
-            visualContract?.normal?.itemBar?.left
+          visualContract?.normal?.itemBar?.content === "none" &&
+          visualContract?.normal?.marginMarker?.opacity > 0 &&
+          visualContract?.normal?.marginMarker?.opacity < 1
         : true,
     hasGitChangeVisualContractInline:
       scenario === "viewer-git-change-visual-contract-inline"

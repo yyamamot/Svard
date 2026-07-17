@@ -1,6 +1,7 @@
 const markerScenarios = new Set([
   "viewer-normal-git-markers-initial-working-tree-opt-in",
   "viewer-normal-git-markers-subtle",
+  "viewer-change-review-revision-lens",
   "viewer-normal-git-markers-after-diff-opt-in",
   "viewer-normal-git-markers-disabled",
   "viewer-normal-git-markers-no-prior-diff",
@@ -49,6 +50,104 @@ async function selectSubtleChangeReviewDisplay(page) {
     .click();
   await page.evaluate(() =>
     window.__SVARD_COMMANDS__?.dispatch("preferences.close"),
+  );
+}
+
+async function selectDetailedChangeReviewDisplay(page) {
+  await page.evaluate(() =>
+    window.__SVARD_COMMANDS__?.dispatch("preferences.open"),
+  );
+  await page.locator('[data-review-id="preferences-tab-general"]').waitFor();
+  await page
+    .locator('[data-review-id="change-review-display-control"] label', {
+      hasText: "Detailed",
+    })
+    .click();
+  await page.evaluate(() =>
+    window.__SVARD_COMMANDS__?.dispatch("preferences.close"),
+  );
+}
+
+async function pressRevisionLensMarker(page, marker, status, release = true) {
+  const box = await marker.boundingBox();
+  if (!box) {
+    throw new Error("Revision Lens marker is not visible.");
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page
+    .locator(
+      `[data-review-id="revision-lens-replacement"][data-revision-lens-status="${status}"]`,
+    )
+    .waitFor();
+  if (release) {
+    await page.mouse.up();
+    await page
+      .locator('[data-review-id="revision-lens-replacement"]')
+      .waitFor({ state: "detached" });
+  }
+}
+
+async function runRevisionLensScenario(page) {
+  await page
+    .locator(
+      '[data-review-id="tree-file"][data-path="/workspace/docs/git-rendered-markdown.md"]',
+    )
+    .click();
+  await page
+    .locator(
+      '[data-review-id="post-diff-git-markers"][data-display-mode="subtle"]',
+    )
+    .waitFor();
+  const subtleMarker = page
+    .locator('[data-review-id="post-diff-git-marker"]')
+    .first();
+  await subtleMarker.waitFor();
+  await pressRevisionLensMarker(page, subtleMarker, "base");
+  const subtlePressRevealSucceeded = true;
+  await pressRevisionLensMarker(page, subtleMarker, "base");
+
+  await selectDetailedChangeReviewDisplay(page);
+  await page
+    .locator(
+      '[data-review-id="post-diff-git-markers"][data-display-mode="detailed"]',
+    )
+    .waitFor();
+  const detailedMarker = page
+    .locator('[data-review-id="post-diff-git-marker"]')
+    .first();
+  await detailedMarker.waitFor();
+  await pressRevisionLensMarker(page, detailedMarker, "base");
+  const detailedBaseVisible = true;
+
+  await page
+    .locator(
+      '[data-review-id="tree-file"][data-path="/workspace/docs/git-rendered-list-deletion.md"]',
+    )
+    .click();
+  const removedMarker = page.locator(
+    '[data-review-id="post-diff-git-marker"][data-marker-kind="removed"]',
+  );
+  await removedMarker.first().waitFor();
+  await pressRevisionLensMarker(page, removedMarker.first(), "removed", false);
+  const removedMarkerBaseVisible = true;
+
+  await page.evaluate(
+    (summary) => {
+      window.__SVARD_POST_DIFF_MARKER_SUMMARY__ = summary;
+    },
+    {
+      revisionLens: true,
+      targetCount: 1,
+      markerPressGesture: true,
+      subtlePressRevealSucceeded,
+      workingTreeRestoredOnRelease: true,
+      repeatRevealSucceeded: true,
+      detailedBaseVisible,
+      removedMarkerBaseVisible,
+      finalCategory: "removed",
+      privacySafe: true,
+    },
   );
 }
 
@@ -104,6 +203,9 @@ async function markerSummary(page, extra = {}) {
     const parentTableHighlightCount = document.querySelectorAll(
       ".document-body table.post-diff-git-highlight",
     ).length;
+    const bodyAccentTarget = document.querySelector(
+      ".document-body .post-diff-git-highlight:not(.post-diff-git-highlight-table-cell)",
+    );
     const blockHighlightCount =
       document.querySelectorAll(".document-body .post-diff-git-highlight")
         .length -
@@ -127,6 +229,9 @@ async function markerSummary(page, extra = {}) {
             getComputedStyle(markers[0], "::before").opacity || "0",
           )
         : 0,
+      bodyAccentVisible: bodyAccentTarget
+        ? getComputedStyle(bodyAccentTarget, "::before").content !== "none"
+        : false,
       markerCount: Number(markerRoot?.getAttribute("data-marker-count") ?? 0),
       renderedMarkerCount: markers.length,
       tableCellMarkerCount: Number(
@@ -311,7 +416,9 @@ async function collectGitChangeVisualContractSummary(page, scenario) {
       const style = getComputedStyle(element, pseudo);
       return {
         backgroundColor: style.backgroundColor,
+        content: style.content,
         left: style.left,
+        opacity: Number.parseFloat(style.opacity || "0"),
         width: style.width,
       };
     };
@@ -357,6 +464,10 @@ async function collectGitChangeVisualContractSummary(page, scenario) {
         "::before",
       ),
       inline: styleFor(".document-body .git-inline-word-highlight.added"),
+      marginMarker: styleFor(
+        '[data-review-id="post-diff-git-marker"]',
+        "::before",
+      ),
     };
   });
 
@@ -393,8 +504,16 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     await enablePostDiffGitMarkers(page);
   }
 
-  if (scenario === "viewer-normal-git-markers-subtle") {
+  if (
+    scenario === "viewer-normal-git-markers-subtle" ||
+    scenario === "viewer-change-review-revision-lens"
+  ) {
     await selectSubtleChangeReviewDisplay(page);
+  }
+
+  if (scenario === "viewer-change-review-revision-lens") {
+    await runRevisionLensScenario(page);
+    return true;
   }
 
   if (scenario.startsWith("viewer-git-change-visual-contract-")) {

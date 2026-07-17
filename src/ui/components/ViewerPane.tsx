@@ -53,6 +53,7 @@ import type {
   LightweightActionFeedback,
   PaneId,
   SearchHitSummary,
+  ResolveRevisionLensTargets,
   ViewerPaneSnapshot,
   ViewerPostDiffGitMarkerContext,
 } from "../types";
@@ -79,6 +80,7 @@ interface ViewerPaneProps {
   renderResult: ViewerPaneSnapshot["renderResult"];
   documentHtml: SafeHtml;
   postDiffGitMarkers: ViewerPostDiffGitMarkerContext | null;
+  resolveRevisionLensTargets?: ResolveRevisionLensTargets;
   captureAreaRequest?: CaptureAreaRequest | null;
   query: string;
   searchHits: SearchHitSummary[];
@@ -168,6 +170,7 @@ export function ViewerPane({
   onPickDocument,
   onClearRecentDocuments,
   onClearRecentDirectories,
+  resolveRevisionLensTargets,
 }: ViewerPaneProps) {
   const isFocused = !splitEnabled || paneId === focusedPaneId;
   const payload = isFocused ? documentPayload : snapshot.documentPayload;
@@ -539,6 +542,7 @@ export function ViewerPane({
           articleRef={articleNodeRef}
           context={activePostDiffGitMarkers}
           displayMode={config?.experimental.changeReviewDisplay ?? "detailed"}
+          resolveRevisionLensTargets={resolveRevisionLensTargets}
         />
       )}
       {result && payload && (

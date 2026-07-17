@@ -358,7 +358,7 @@ export function createCaptureCompanionOverlays(
   }
   const pane = article.closest<HTMLElement>(".viewer-pane");
   const markerRoot = pane?.querySelector<HTMLElement>(
-    ":scope > .post-diff-git-markers.subtle",
+    ":scope > .post-diff-git-markers",
   );
   if (!markerRoot) {
     return [];

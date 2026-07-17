@@ -24,7 +24,11 @@ import {
   shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange,
   shouldRefreshPostDiffGitMarkersForGitChanges,
 } from "../lib/postDiffGitMarkerRefresh";
-import type { ViewerPostDiffGitMarkerContext } from "../types";
+import type {
+  ResolveRevisionLensTargets,
+  RevisionLensResolvedTarget,
+  ViewerPostDiffGitMarkerContext,
+} from "../types";
 
 interface WorkspaceFileChangeRefreshEvent {
   reason: string;
@@ -52,10 +56,12 @@ interface UsePostDiffGitMarkerStateInput {
   ) => Promise<LocalImageResult>;
   renderDiffDiagram: (request: KrokiRequest) => Promise<KrokiResult>;
   setDocumentDiffPreview: (preview: DocumentDiffPreview | null) => void;
+  deriveRenderedDiffSummary?: typeof deriveGitRenderedDiffSummary;
 }
 
 interface UsePostDiffGitMarkerStateResult {
   activePostDiffGitMarkers: ViewerPostDiffGitMarkerContext | null;
+  resolveRevisionLensTargets: ResolveRevisionLensTargets;
   closeDocumentDiffPreview: (handoff?: DiffPreviewCloseHandoff) => void;
   invalidatePostDiffGitMarkersForActiveDocument: (reason: string) => void;
   handleGitChangesRefreshComplete: (
@@ -108,8 +114,21 @@ function previewTargetsDocument(
   preview: DocumentDiffPreview,
   documentPath: string,
 ): boolean {
-  return (
-    preview.leftPath === documentPath || preview.rightPath === documentPath
+  if (preview.leftPath === documentPath || preview.rightPath === documentPath) {
+    return true;
+  }
+  if (preview.source === "file" || !preview.relativePath) {
+    return false;
+  }
+  const normalizedDocumentPath = documentPath.replaceAll("\\", "/");
+  const normalizedRelativePath = preview.relativePath
+    .replaceAll("\\", "/")
+    .replace(/^\.\//u, "")
+    .replace(/^\/+|\/+$/gu, "");
+  return Boolean(
+    normalizedRelativePath &&
+    (normalizedDocumentPath === normalizedRelativePath ||
+      normalizedDocumentPath.endsWith(`/${normalizedRelativePath}`)),
   );
 }
 
@@ -136,6 +155,7 @@ export function usePostDiffGitMarkerState({
   resolveDiffLocalImage,
   renderDiffDiagram,
   setDocumentDiffPreview,
+  deriveRenderedDiffSummary = deriveGitRenderedDiffSummary,
 }: UsePostDiffGitMarkerStateInput): UsePostDiffGitMarkerStateResult {
   const [postDiffGitMarkersByPath, setPostDiffGitMarkersByPath] = useState<
     Record<string, ViewerPostDiffGitMarkerContext>
@@ -163,6 +183,90 @@ export function usePostDiffGitMarkerState({
     const path = documentPayload?.path ?? null;
     return path ? (postDiffGitMarkersByPath[path] ?? null) : null;
   }, [documentPayload?.path, postDiffGitMarkersByPath]);
+
+  const resolveRevisionLensTargets = useCallback<ResolveRevisionLensTargets>(
+    async (targets) => {
+      const activePath = documentPayload?.path ?? null;
+      const unavailable = (): RevisionLensResolvedTarget[] =>
+        targets.map((target) => ({ ...target, status: "unavailable" }));
+      if (
+        !activePath ||
+        !config?.experimental.postDiffGitMarkers ||
+        targets.length === 0
+      ) {
+        return unavailable();
+      }
+      try {
+        const preview = await getGitDiffPreview(activePath);
+        if (
+          activeDocumentPathRef.current !== activePath ||
+          preview.rightLabel !== "Working Tree" ||
+          isLineDiffTooComplex(preview) ||
+          !previewTargetsDocument(preview, activePath)
+        ) {
+          return unavailable();
+        }
+        const summary = await deriveRenderedDiffSummary(preview, {
+          config,
+          loadDocumentContext: loadDiffDocumentContext,
+          resolveLocalImage: resolveDiffLocalImage,
+          renderDiagram: async () => ({
+            status: "disabled",
+            cacheStatus: "disabled",
+          }),
+          confirmedRemoteDiagramKeys: new Set<string>(),
+          krokiFallbackDiagramKeys: new Set<string>(),
+          perfOwner: "normal-viewer-marker",
+        });
+        if (activeDocumentPathRef.current !== activePath) {
+          return unavailable();
+        }
+        const blocks = new Map(
+          summary.blocks.map((block) => [block.id, block]),
+        );
+        return targets.map((target): RevisionLensResolvedTarget => {
+          const block = blocks.get(target.diffBlockId);
+          if (!block) {
+            return { ...target, status: "unavailable" };
+          }
+          if (block.kind === "added") {
+            return { ...target, status: "added", blockKind: block.blockKind };
+          }
+          const base = block.left;
+          if (!base) {
+            return { ...target, status: "unavailable" };
+          }
+          if (block.blockKind === "diagram" && !/<svg\b/iu.test(base.html)) {
+            return {
+              ...target,
+              status: "unavailable",
+              blockKind: block.blockKind,
+            };
+          }
+          return {
+            ...target,
+            status:
+              target.kind === "removed" || block.kind === "removed"
+                ? "removed"
+                : "base",
+            blockKind: block.blockKind,
+            html: base.html,
+            hideCurrent: block.kind !== "removed",
+          };
+        });
+      } catch {
+        return unavailable();
+      }
+    },
+    [
+      config,
+      documentPayload?.path,
+      deriveRenderedDiffSummary,
+      getGitDiffPreview,
+      loadDiffDocumentContext,
+      resolveDiffLocalImage,
+    ],
+  );
 
   const clearPostDiffGitMarkers = useCallback(
     (reason: string) => {
@@ -311,6 +415,7 @@ export function usePostDiffGitMarkerState({
             ...context,
             documentPath: activePath,
             documentUpdatedAt,
+            revisionLensGeneration: generation,
           };
           setPostDiffGitMarkersByPath((current) => ({
             ...current,
@@ -577,6 +682,7 @@ export function usePostDiffGitMarkerState({
           ...context,
           documentPath: activePath,
           documentUpdatedAt,
+          revisionLensGeneration: generation,
         };
         initialPostDiffGitMarkerSignaturesRef.current[activePath] =
           requestSignature;
@@ -594,7 +700,13 @@ export function usePostDiffGitMarkerState({
               markerCount: context.totalCount,
               renderedCount: context.renderedCount,
             });
-            return current;
+            return {
+              ...current,
+              [activePath]: {
+                ...previousContext,
+                revisionLensGeneration: generation,
+              },
+            };
           }
           return {
             ...current,
@@ -655,5 +767,6 @@ export function usePostDiffGitMarkerState({
     handleGitChangesRefreshComplete,
     invalidatePostDiffGitMarkersForActiveDocument,
     handleWorkspaceFileChangeRefresh,
+    resolveRevisionLensTargets,
   };
 }

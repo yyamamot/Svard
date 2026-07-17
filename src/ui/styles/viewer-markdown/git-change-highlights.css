@@ -8,45 +8,6 @@
 
 .document-body
   :where(
-    .post-diff-git-highlight:not(
-      .post-diff-git-highlight-list-item,
-      .post-diff-git-highlight-table-cell
-    )
-  )::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--git-change-accent-offset);
-  width: var(--git-change-accent-width);
-  border-radius: 999px;
-  background: var(--git-change-target-accent);
-  content: "";
-}
-
-.document-body
-  :where(
-    .post-diff-git-highlight:not(
-        .post-diff-git-highlight-list-item,
-        .post-diff-git-highlight-table-cell
-      ):has(
-        + .post-diff-git-highlight:not(
-            .post-diff-git-highlight-list-item,
-            .post-diff-git-highlight-table-cell
-          )
-      )
-  )::after {
-  position: absolute;
-  bottom: -1.2em;
-  left: var(--git-change-accent-offset);
-  width: var(--git-change-accent-width);
-  height: 1.2em;
-  background: var(--git-change-target-accent);
-  content: "";
-  pointer-events: none;
-}
-
-.document-body
-  :where(
     .post-diff-git-highlight.post-diff-git-highlight-added,
     .post-diff-git-highlight.post-diff-git-highlight-changed
   ) {
@@ -71,17 +32,6 @@
   background: var(--git-change-item-bg-added);
 }
 
-.document-body :where(.post-diff-git-highlight-list-item)::before {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: var(--git-change-accent-offset);
-  width: var(--git-change-accent-width);
-  border-radius: 999px;
-  background: var(--git-change-target-accent);
-  content: "";
-}
-
 .document-body
   :where(.post-diff-git-highlight-list-item.post-diff-git-highlight-removed) {
   --git-change-target-accent: var(--git-change-removed-accent);
@@ -91,22 +41,6 @@
 .document-body :where(.post-diff-git-highlight-table-row) {
   --git-change-target-accent: var(--git-change-added-accent);
   scroll-margin: 72px;
-}
-
-.document-body :where(.post-diff-git-highlight-table-row > :first-child) {
-  position: relative;
-}
-
-.document-body
-  :where(.post-diff-git-highlight-table-row > :first-child)::before {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 3px;
-  width: var(--git-change-accent-width);
-  border-radius: 999px;
-  background: var(--git-change-target-accent);
-  content: "";
 }
 
 .document-body :where(.post-diff-git-highlight-table-cell) {

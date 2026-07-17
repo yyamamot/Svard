@@ -6,7 +6,10 @@ import type {
 } from "../core/types";
 import type { ReactNode } from "react";
 import type { SafeHtml } from "./lib/safeHtml";
-import type { PostDiffGitMarkerContext } from "./lib/gitRenderedDiff";
+import type {
+  PostDiffGitMarkerContext,
+  PostDiffGitMarkerKind,
+} from "./lib/gitRenderedDiff";
 
 export type PaneId = "left" | "right";
 
@@ -68,7 +71,26 @@ export interface LightweightActionFeedback {
 export interface ViewerPostDiffGitMarkerContext extends PostDiffGitMarkerContext {
   documentPath: string;
   documentUpdatedAt?: string | null;
+  revisionLensGeneration?: number;
 }
+
+export interface RevisionLensTargetRequest {
+  markerId: string;
+  diffBlockId: string;
+  anchorBlockId: string | null;
+  kind: PostDiffGitMarkerKind;
+}
+
+export interface RevisionLensResolvedTarget extends RevisionLensTargetRequest {
+  status: "base" | "added" | "removed" | "unavailable";
+  blockKind?: string;
+  html?: string;
+  hideCurrent?: boolean;
+}
+
+export type ResolveRevisionLensTargets = (
+  targets: RevisionLensTargetRequest[],
+) => Promise<RevisionLensResolvedTarget[]>;
 
 export type OpenFileReloadStatus = "reloading" | "reloaded" | "error";
 

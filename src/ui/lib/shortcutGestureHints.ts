@@ -107,22 +107,32 @@ export function buildShortcutGestureHintModel({
       : viewerGestureActions;
 
   return {
-    keyboard: keyboardActions.flatMap((action) => {
-      const binding = keybindings.find(
-        (candidate) =>
-          candidate.commandId === action.commandId && candidate.keys.trim(),
-      );
-      if (!binding) {
-        return [];
-      }
-      return [
-        {
-          commandId: action.commandId,
-          label: labelForAction(action),
-          value: formatShortcut(binding.keys, platform),
-        },
-      ];
-    }),
+    keyboard: [
+      ...(context === "viewer" && config?.experimental.postDiffGitMarkers
+        ? [
+            {
+              label: "Reveal Base for change marker",
+              value: "Press and hold · Hold B",
+            },
+          ]
+        : []),
+      ...keyboardActions.flatMap((action) => {
+        const binding = keybindings.find(
+          (candidate) =>
+            candidate.commandId === action.commandId && candidate.keys.trim(),
+        );
+        if (!binding) {
+          return [];
+        }
+        return [
+          {
+            commandId: action.commandId,
+            label: labelForAction(action),
+            value: formatShortcut(binding.keys, platform),
+          },
+        ];
+      }),
+    ],
     mouseGestures: mouseGestures.enabled
       ? gestureActions.flatMap((action) => {
           const mapping = gestureMappings.find(

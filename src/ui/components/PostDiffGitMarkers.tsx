@@ -6,7 +6,11 @@ import type {
 } from "../lib/gitRenderedDiff";
 import { applyInlineDiffHighlights } from "../lib/gitRenderedDiff";
 import { perfBasename, tracePerf } from "../lib/perfTrace";
-import type { ViewerPostDiffGitMarkerContext } from "../types";
+import { useRevisionLens } from "../hooks/useRevisionLens";
+import type {
+  ResolveRevisionLensTargets,
+  ViewerPostDiffGitMarkerContext,
+} from "../types";
 
 interface PositionedPostDiffGitMarker extends PostDiffGitMarker {
   top: number;
@@ -14,6 +18,7 @@ interface PositionedPostDiffGitMarker extends PostDiffGitMarker {
   rangeEnd: number;
   rangeHeight: number;
   target: HTMLElement;
+  blockTarget: HTMLElement;
 }
 
 interface DisplayPostDiffGitMarker extends PositionedPostDiffGitMarker {
@@ -25,6 +30,7 @@ interface PostDiffGitMarkersProps {
   articleRef: RefObject<HTMLElement | null>;
   context: ViewerPostDiffGitMarkerContext | null;
   displayMode: "detailed" | "subtle";
+  resolveRevisionLensTargets?: ResolveRevisionLensTargets;
 }
 
 const blockSelector =
@@ -61,6 +67,9 @@ function blockKindForElement(element: Element): string | null {
 }
 
 function shouldSkipDescendantBlock(element: Element): boolean {
+  if (element.closest(".revision-lens-replacement")) {
+    return true;
+  }
   if (
     element.tagName.toLowerCase() === "img" &&
     element.parentElement &&
@@ -310,12 +319,27 @@ export function PostDiffGitMarkers({
   articleRef,
   context,
   displayMode,
+  resolveRevisionLensTargets,
 }: PostDiffGitMarkersProps) {
   const [markers, setMarkers] = useState<DisplayPostDiffGitMarker[]>([]);
   const [overlayStyle, setOverlayStyle] = useState<CSSProperties | null>(null);
   const highlightedContextRef = useRef<ViewerPostDiffGitMarkerContext | null>(
     null,
   );
+  const activePointerIdRef = useRef<number | null>(null);
+  const suppressNextClickRef = useRef(false);
+  const {
+    hint: revisionLensHint,
+    beginPointerHold,
+    cancelPointerHold,
+    endPointerHold,
+    movePointerHold,
+    prepareMarkers: prepareRevisionLensMarkers,
+  } = useRevisionLens({
+    articleRef,
+    contextIdentity: `${context?.documentPath ?? "none"}:${context?.documentUpdatedAt ?? "none"}:${context?.revisionLensGeneration ?? 0}:${displayMode}:${context?.markers.map((marker) => marker.id).join("|") ?? ""}`,
+    resolveTargets: resolveRevisionLensTargets,
+  });
 
   useLayoutEffect(() => {
     if (!context || context.markers.length === 0) {
@@ -384,6 +408,7 @@ export function PostDiffGitMarkers({
           const rect = target.getBoundingClientRect();
           return {
             ...marker,
+            blockTarget,
             target,
             top: rect.top + rect.height / 2,
             rangeStart: rect.top,
@@ -431,58 +456,137 @@ export function PostDiffGitMarkers({
   }
 
   return (
-    <nav
-      className={`post-diff-git-markers ${displayMode}`}
-      data-review-id="post-diff-git-markers"
-      data-display-mode={displayMode}
-      data-marker-count={String(context.totalCount)}
-      data-rendered-marker-count={String(markers.length)}
-      data-table-cell-marker-count={String(
-        context.tableSummary.tableCellMarkerCount,
+    <>
+      <nav
+        className={`post-diff-git-markers ${displayMode}`}
+        data-review-id="post-diff-git-markers"
+        data-display-mode={displayMode}
+        data-marker-count={String(context.totalCount)}
+        data-rendered-marker-count={String(markers.length)}
+        data-table-cell-marker-count={String(
+          context.tableSummary.tableCellMarkerCount,
+        )}
+        data-table-added-row-marker-count={String(
+          context.tableSummary.tableAddedRowMarkerCount,
+        )}
+        data-table-block-fallback-count={String(
+          context.tableSummary.tableBlockFallbackCount,
+        )}
+        data-table-not-applicable-count={String(
+          context.tableSummary.tableNotApplicableCount,
+        )}
+        data-table-reason-counts={JSON.stringify(
+          context.tableSummary.reasonCounts,
+        )}
+        aria-label="Post-diff git markers"
+        style={overlayStyle}
+      >
+        {markers.map((marker) => (
+          <button
+            key={marker.id}
+            type="button"
+            className={`post-diff-git-marker ${marker.kind}`}
+            data-review-id="post-diff-git-marker"
+            data-marker-kind={marker.kind}
+            aria-label={`${markerLabel(marker.kind)} ${marker.changeIndex + 1} of ${context.totalCount}. Press and hold to view Base. Hold B while focused.`}
+            title={`${markerLabel(marker.kind)}. Press and hold to view Base.`}
+            style={
+              {
+                top: `${marker.top}px`,
+                "--post-diff-marker-range-height": `${marker.rangeHeight}px`,
+              } as CSSProperties
+            }
+            onClick={() => {
+              if (suppressNextClickRef.current) {
+                suppressNextClickRef.current = false;
+                return;
+              }
+              const target = marker.targetMarkers[0]?.target ?? marker.target;
+              target.scrollIntoView({ block: "center" });
+              prepareRevisionLensMarkers(
+                marker.targetMarkers.map((lensTarget) => ({
+                  marker: lensTarget,
+                  blockTarget: lensTarget.blockTarget,
+                  interactionTarget: lensTarget.target,
+                })),
+              );
+              tracePerf("postDiffGitMarkers.click", {
+                basename: perfBasename(context.documentPath),
+                kind: marker.kind,
+                markerCount: context.totalCount,
+                renderedCount: context.renderedCount,
+                clicked: true,
+              });
+            }}
+            onFocus={() => {
+              prepareRevisionLensMarkers(
+                marker.targetMarkers.map((lensTarget) => ({
+                  marker: lensTarget,
+                  blockTarget: lensTarget.blockTarget,
+                  interactionTarget: lensTarget.target,
+                })),
+              );
+            }}
+            onPointerDown={(event) => {
+              if (event.button !== 0) {
+                return;
+              }
+              event.stopPropagation();
+              activePointerIdRef.current = event.pointerId;
+              suppressNextClickRef.current = false;
+              try {
+                event.currentTarget.setPointerCapture(event.pointerId);
+              } catch {
+                // Pointer capture is not available in every browser harness.
+              }
+              beginPointerHold(
+                marker.targetMarkers.map((lensTarget) => ({
+                  marker: lensTarget,
+                  blockTarget: lensTarget.blockTarget,
+                  interactionTarget: lensTarget.target,
+                })),
+                { x: event.clientX, y: event.clientY },
+              );
+            }}
+            onPointerMove={(event) => {
+              if (activePointerIdRef.current === event.pointerId) {
+                event.stopPropagation();
+                movePointerHold({ x: event.clientX, y: event.clientY });
+              }
+            }}
+            onPointerUp={(event) => {
+              if (activePointerIdRef.current !== event.pointerId) {
+                return;
+              }
+              event.stopPropagation();
+              suppressNextClickRef.current = endPointerHold();
+              activePointerIdRef.current = null;
+              try {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              } catch {
+                // Pointer capture is not available in every browser harness.
+              }
+            }}
+            onPointerCancel={(event) => {
+              event.stopPropagation();
+              activePointerIdRef.current = null;
+              suppressNextClickRef.current = false;
+              cancelPointerHold();
+            }}
+          />
+        ))}
+      </nav>
+      {revisionLensHint && (
+        <div
+          className={`revision-lens-hint ${revisionLensHint.tone}`}
+          data-review-id="revision-lens-hint"
+          data-revision-lens-phase={revisionLensHint.tone}
+          data-selection-exclude="true"
+          style={{ left: revisionLensHint.left, top: revisionLensHint.top }}
+        >
+          {revisionLensHint.message}
+        </div>
       )}
-      data-table-added-row-marker-count={String(
-        context.tableSummary.tableAddedRowMarkerCount,
-      )}
-      data-table-block-fallback-count={String(
-        context.tableSummary.tableBlockFallbackCount,
-      )}
-      data-table-not-applicable-count={String(
-        context.tableSummary.tableNotApplicableCount,
-      )}
-      data-table-reason-counts={JSON.stringify(
-        context.tableSummary.reasonCounts,
-      )}
-      aria-label="Post-diff git markers"
-      style={overlayStyle}
-    >
-      {markers.map((marker) => (
-        <button
-          key={marker.id}
-          type="button"
-          className={`post-diff-git-marker ${marker.kind}`}
-          data-review-id="post-diff-git-marker"
-          data-marker-kind={marker.kind}
-          aria-label={`${markerLabel(marker.kind)} ${marker.changeIndex + 1} of ${context.totalCount}`}
-          title={markerLabel(marker.kind)}
-          style={
-            {
-              top: `${marker.top}px`,
-              "--post-diff-marker-range-height": `${marker.rangeHeight}px`,
-            } as CSSProperties
-          }
-          onClick={() => {
-            const target = marker.targetMarkers[0]?.target ?? marker.target;
-            target.scrollIntoView({ block: "center" });
-            tracePerf("postDiffGitMarkers.click", {
-              basename: perfBasename(context.documentPath),
-              kind: marker.kind,
-              markerCount: context.totalCount,
-              renderedCount: context.renderedCount,
-              clicked: true,
-            });
-          }}
-        />
-      ))}
-    </nav>
+    </>
   );
 }

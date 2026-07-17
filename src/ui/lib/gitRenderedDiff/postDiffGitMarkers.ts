@@ -426,6 +426,7 @@ function markerFallbackForHiddenChild({
   }
   return {
     id: `post-diff-marker:${changeIndex}:${block.id}:child:${childIndex}:fallback`,
+    diffBlockId: block.id,
     kind: "removed",
     anchorBlockId,
     changeIndex,
@@ -488,6 +489,7 @@ function markersForListItemChanges({
     );
     markers.push({
       id: `post-diff-marker:${changeIndex}:${block.id}:item:${itemIndex}`,
+      diffBlockId: block.id,
       kind: markerKindForChildChange(childChange, side),
       anchorBlockId,
       anchorItemIndex: itemIndex,
@@ -586,6 +588,7 @@ function markersForTableChanges({
     const changeIndex = changeIndexStart + markers.length;
     markers.push({
       id: `post-diff-marker:${changeIndex}:${block.id}:table-row:${rowIndex}`,
+      diffBlockId: block.id,
       kind: rowMarker.kind,
       anchorBlockId,
       anchorTableRowIndex: rowIndex,
@@ -629,6 +632,7 @@ function markersForAddedTableRows({
     const changeIndex = changeIndexStart + rowOffset;
     return {
       id: `post-diff-marker:${changeIndex}:${block.id}:table-row:${row.index}`,
+      diffBlockId: block.id,
       kind: "added",
       anchorBlockId,
       anchorTableRowIndex: row.index,
@@ -673,6 +677,7 @@ function markerForBlock({
     const anchorBlockId = visibleAnchorForBlock(blocks, block, side);
     return {
       id: `post-diff-marker:${changeIndex}:${block.id}`,
+      diffBlockId: block.id,
       kind: "removed",
       anchorBlockId,
       changeIndex,
@@ -691,6 +696,7 @@ function markerForBlock({
       : [];
   return {
     id: `post-diff-marker:${changeIndex}:${block.id}`,
+    diffBlockId: block.id,
     kind: block.kind,
     anchorBlockId,
     changeIndex,

@@ -122,6 +122,7 @@ export function useAppSourceControlReview({
     handleGitChangesRefreshComplete,
     handleWorkspaceFileChangeRefresh,
     invalidatePostDiffGitMarkersForActiveDocument,
+    resolveRevisionLensTargets,
   } = usePostDiffGitMarkerState({
     config,
     documentPayload,
@@ -355,6 +356,7 @@ export function useAppSourceControlReview({
     refreshActiveDiffPreview,
     refreshDocumentDiffStream,
     refreshSourceControlFromFileTree,
+    resolveRevisionLensTargets,
     sourceControl,
   };
 }

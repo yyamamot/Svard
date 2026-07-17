@@ -258,6 +258,7 @@ export interface PostDiffGitTableCellHighlight {
 
 export interface PostDiffGitMarker {
   id: string;
+  diffBlockId?: string;
   kind: PostDiffGitMarkerKind;
   anchorBlockId: string | null;
   anchorItemIndex?: number;
