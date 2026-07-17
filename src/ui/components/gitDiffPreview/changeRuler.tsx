@@ -207,7 +207,7 @@ export function DiffChangeRuler({
           ? ([renderedLeftRef] as const)
           : renderedSide === "right"
             ? ([renderedRightRef] as const)
-        : ([renderedRightRef, renderedLeftRef] as const),
+            : ([renderedRightRef, renderedLeftRef] as const),
     [leftRef, renderedLeftRef, renderedRightRef, renderedSide, rightRef, view],
   );
 

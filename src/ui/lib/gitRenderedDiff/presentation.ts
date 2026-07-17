@@ -102,7 +102,11 @@ function renderedHeadingLabel(block: RenderedBlockDiff): string {
 }
 
 function renderedHeadingLevel(block: RenderedBlockDiff): number {
-  const tagName = (block.right?.tagName || block.left?.tagName || "").toLowerCase();
+  const tagName = (
+    block.right?.tagName ||
+    block.left?.tagName ||
+    ""
+  ).toLowerCase();
   const match = /^h([1-6])$/.exec(tagName);
   return match ? Number(match[1]) : 0;
 }
@@ -216,9 +220,7 @@ function listItemTargetSideAndIndex(
   return null;
 }
 
-function childNavigationTargetsForBlock(
-  block: RenderedBlockDiff,
-): Array<{
+function childNavigationTargetsForBlock(block: RenderedBlockDiff): Array<{
   childChangeIndex: number;
   itemIndex: number;
   side: "left" | "right";
@@ -243,7 +245,10 @@ function childNavigationTargetsForBlock(
 function tableRowChangeSideAndIndex(
   tableChange: NonNullable<RenderedBlockDiff["tableChanges"]>[number],
 ): { side: "left" | "right"; rowIndex: number } | null {
-  if (tableChange.kind === "removed" && tableChange.leftRowIndex !== undefined) {
+  if (
+    tableChange.kind === "removed" &&
+    tableChange.leftRowIndex !== undefined
+  ) {
     return { side: "left", rowIndex: tableChange.leftRowIndex };
   }
   if (tableChange.rightRowIndex !== undefined) {
@@ -265,9 +270,7 @@ function tableRowTargetSideAndIndex(
   return null;
 }
 
-function tableRowNavigationTargetsForBlock(
-  block: RenderedBlockDiff,
-): Array<{
+function tableRowNavigationTargetsForBlock(block: RenderedBlockDiff): Array<{
   side: "left" | "right";
   tableRowIndex: number;
 }> {
@@ -290,9 +293,7 @@ function tableRowNavigationTargetsForBlock(
 }
 
 function structuredChildChangeSideAndIndex(
-  structuredChange: NonNullable<
-    RenderedBlockDiff["structuredChanges"]
-  >[number],
+  structuredChange: NonNullable<RenderedBlockDiff["structuredChanges"]>[number],
 ): { side: "left" | "right"; structuredChildIndex: number } | null {
   if (
     structuredChange.kind === "removed" &&
@@ -307,9 +308,7 @@ function structuredChildChangeSideAndIndex(
 }
 
 function structuredChildTargetSideAndIndex(
-  structuredChange: NonNullable<
-    RenderedBlockDiff["structuredChanges"]
-  >[number],
+  structuredChange: NonNullable<RenderedBlockDiff["structuredChanges"]>[number],
   side: "left" | "right",
 ): { side: "left" | "right"; structuredChildIndex: number } | null {
   if (side === "left" && structuredChange.leftIndex !== undefined) {

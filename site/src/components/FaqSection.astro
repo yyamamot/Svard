@@ -1,15 +1,17 @@
 ---
-const { items, label = 'FAQ' } = Astro.props;
+const { items, label = "FAQ" } = Astro.props;
 ---
 
 <section class="section-shell faq-section">
   <p class="eyebrow">{label}</p>
   <div class="faq-list">
-    {items.map((item) => (
-      <article>
-        <h2>{item.question}</h2>
-        <p>{item.answer}</p>
-      </article>
-    ))}
+    {
+      items.map((item) => (
+        <article>
+          <h2>{item.question}</h2>
+          <p>{item.answer}</p>
+        </article>
+      ))
+    }
   </div>
 </section>

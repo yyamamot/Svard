@@ -18,7 +18,9 @@ describe("post-diff git markers", () => {
     const context = buildPostDiffGitMarkerContext({
       activeDocumentPath: "/workspace/docs/other.md",
       preview: preview(),
-      renderedPresentation: presentation([block("rendered-block:0", "changed")]),
+      renderedPresentation: presentation([
+        block("rendered-block:0", "changed"),
+      ]),
     });
 
     expect(context).toBeNull();
@@ -58,7 +60,9 @@ describe("post-diff git markers", () => {
         rightPath: null,
         relativePath: "docs/current.md",
       }),
-      renderedPresentation: presentation([block("rendered-block:0", "changed")]),
+      renderedPresentation: presentation([
+        block("rendered-block:0", "changed"),
+      ]),
     });
 
     expect(context?.markers).toEqual([
@@ -78,7 +82,9 @@ describe("post-diff git markers", () => {
         rightPath: "/workspace/docs/other.md",
         relativePath: "docs/current.md",
       }),
-      renderedPresentation: presentation([block("rendered-block:0", "changed")]),
+      renderedPresentation: presentation([
+        block("rendered-block:0", "changed"),
+      ]),
     });
 
     expect(context).toBeNull();
@@ -150,7 +156,9 @@ describe("post-diff git markers", () => {
         status: "clean",
         hunks: [],
       }),
-      renderedPresentation: presentation([block("rendered-block:0", "changed")]),
+      renderedPresentation: presentation([
+        block("rendered-block:0", "changed"),
+      ]),
     });
 
     expect(context).toBeNull();
@@ -160,7 +168,9 @@ describe("post-diff git markers", () => {
     const context = buildPostDiffGitMarkerContext({
       activeDocumentPath: activePath,
       preview: preview(),
-      renderedPresentation: presentation([block("rendered-block:0", "unchanged")]),
+      renderedPresentation: presentation([
+        block("rendered-block:0", "unchanged"),
+      ]),
     });
 
     expect(context).toBeNull();
@@ -376,9 +386,9 @@ describe("post-diff git markers", () => {
       ],
     });
     expect(context?.markers[0]?.inlineDiffRanges).toBeUndefined();
-    expect(context?.markers[0]?.tableCellHighlights?.[0]?.inlineDiffRanges).toEqual([
-      expect.objectContaining({ kind: "added" }),
-    ]);
+    expect(
+      context?.markers[0]?.tableCellHighlights?.[0]?.inlineDiffRanges,
+    ).toEqual([expect.objectContaining({ kind: "added" })]);
   });
 
   it("groups multiple changed table cells in the same row into one marker", () => {
@@ -549,7 +559,9 @@ describe("post-diff git markers", () => {
         ],
       }),
     ]);
-    expect(context?.markers[0]?.tableCellHighlights?.[0]?.inlineDiffRanges).toBeUndefined();
+    expect(
+      context?.markers[0]?.tableCellHighlights?.[0]?.inlineDiffRanges,
+    ).toBeUndefined();
     expect(context?.tableSummary).toMatchObject({
       tableCellMarkerCount: 0,
       tableAddedRowMarkerCount: 2,
@@ -613,7 +625,7 @@ describe("post-diff git markers", () => {
             kind: "table",
             tagName: "table",
             text: "Name Status Feature Status Done review",
-            html: '<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>',
+            html: "<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>",
           },
           tableChanges: undefined,
           tableChangeFallback: undefined,
@@ -877,8 +889,9 @@ describe("post-diff git markers", () => {
   });
 
   it("caps rendered markers at the marker budget", () => {
-    const blocks = Array.from({ length: postDiffGitMarkerBudget + 5 }, (_, index) =>
-      block(`rendered-block:${index}`, "changed"),
+    const blocks = Array.from(
+      { length: postDiffGitMarkerBudget + 5 },
+      (_, index) => block(`rendered-block:${index}`, "changed"),
     );
     const context = buildPostDiffGitMarkerContext({
       activeDocumentPath: activePath,

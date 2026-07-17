@@ -108,9 +108,7 @@ describe("ViewerPane post-diff git markers", () => {
     error?: string | null;
     isLoading?: boolean;
     renderResult?: RenderResult | null;
-    postDiffGitMarkers?: Parameters<
-      typeof ViewerPane
-    >[0]["postDiffGitMarkers"];
+    postDiffGitMarkers?: Parameters<typeof ViewerPane>[0]["postDiffGitMarkers"];
   } = {}) {
     root.render(
       <ViewerPane

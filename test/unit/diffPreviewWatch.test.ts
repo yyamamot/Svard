@@ -44,9 +44,7 @@ describe("diff preview watch", () => {
     expect(diffPreviewWatchMessage({ status: "stale" })).toBe(
       "Preview changed on disk",
     );
-    expect(diffPreviewWatchLabel({ status: "refreshing" })).toBe(
-      "Refreshing",
-    );
+    expect(diffPreviewWatchLabel({ status: "refreshing" })).toBe("Refreshing");
     expect(diffPreviewWatchLabel({ status: "blocked" })).toBe(
       "Preview refresh blocked",
     );

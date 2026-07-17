@@ -19,13 +19,19 @@ export function matchRenderedStructuredChanges(
   if (leftChildren.length === 0 && rightChildren.length === 0) {
     return { structuredChanges: [], fallback: { reason: "no-children" } };
   }
-  if (hasShortOrEmptyChildren(leftChildren) || hasShortOrEmptyChildren(rightChildren)) {
+  if (
+    hasShortOrEmptyChildren(leftChildren) ||
+    hasShortOrEmptyChildren(rightChildren)
+  ) {
     return { structuredChanges: [], fallback: { reason: "short-or-empty" } };
   }
   if (!sameRoleSet(leftChildren, rightChildren)) {
     return { structuredChanges: [], fallback: { reason: "role-mismatch" } };
   }
-  if (hasDuplicatePrimaryHashes(leftChildren) || hasDuplicatePrimaryHashes(rightChildren)) {
+  if (
+    hasDuplicatePrimaryHashes(leftChildren) ||
+    hasDuplicatePrimaryHashes(rightChildren)
+  ) {
     return { structuredChanges: [], fallback: { reason: "ambiguous" } };
   }
   if (hasReorderedCommonChildren(leftChildren, rightChildren)) {
@@ -137,7 +143,9 @@ export function matchRenderedStructuredChanges(
 function hasShortOrEmptyChildren(
   children: readonly RenderedStructuredChildSnapshot[],
 ): boolean {
-  return children.some((child) => child.textLength < changedStructuredMinimumLength);
+  return children.some(
+    (child) => child.textLength < changedStructuredMinimumLength,
+  );
 }
 
 function sameRoleSet(
@@ -178,7 +186,9 @@ function hasReorderedCommonChildren(
   );
   let previousRightIndex = -1;
   for (const leftChild of leftChildren) {
-    const rightIndex = rightOrder.get(`${leftChild.role}:${leftChild.primaryHash}`);
+    const rightIndex = rightOrder.get(
+      `${leftChild.role}:${leftChild.primaryHash}`,
+    );
     if (rightIndex === undefined) {
       continue;
     }
@@ -229,7 +239,12 @@ function isAnchoredReplacement({
     (matchedBefore &&
       leftIndex === leftChildren.length - 1 &&
       rightIndex === rightChildren.length - 1) ||
-    hasCommonChildAfter(leftChildren, rightChildren, leftIndex + 1, rightIndex + 1)
+    hasCommonChildAfter(
+      leftChildren,
+      rightChildren,
+      leftIndex + 1,
+      rightIndex + 1,
+    )
   );
 }
 
@@ -254,13 +269,14 @@ function isHighConfidenceChangedChild(
   right: RenderedStructuredChildSnapshot,
 ): boolean {
   if (
-    Math.min(left.textLength, right.textLength) <
-    changedStructuredMinimumLength
+    Math.min(left.textLength, right.textLength) < changedStructuredMinimumLength
   ) {
     return false;
   }
-  return segmentOverlap(left.textSegmentHashes, right.textSegmentHashes) >=
-    changedStructuredMinimumOverlap;
+  return (
+    segmentOverlap(left.textSegmentHashes, right.textSegmentHashes) >=
+    changedStructuredMinimumOverlap
+  );
 }
 
 function segmentOverlap(left: readonly string[], right: readonly string[]) {

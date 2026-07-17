@@ -52,12 +52,11 @@ img.diagram-inline-image.diagram-scale-fit-width {
   border: 1px dashed var(--diagram-canvas-border);
   border-radius: 8px;
   padding: 12px;
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--diagram-canvas-bg) 92%, transparent),
-      color-mix(in srgb, var(--notice-bg) 72%, transparent)
-    );
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--diagram-canvas-bg) 92%, transparent),
+    color-mix(in srgb, var(--notice-bg) 72%, transparent)
+  );
 }
 
 .diagram-slot.diagram-placeholder-mermaid,

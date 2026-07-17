@@ -12,7 +12,10 @@ export function scrollStreamTargetIntoView(
   }
 }
 
-export function diffStreamSection(panel: HTMLElement | null, fileIndex: number) {
+export function diffStreamSection(
+  panel: HTMLElement | null,
+  fileIndex: number,
+) {
   return panel?.querySelector<HTMLElement>(
     `[data-review-id="diff-stream-file-section"][data-stream-index="${fileIndex}"]`,
   );

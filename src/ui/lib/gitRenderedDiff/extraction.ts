@@ -249,7 +249,9 @@ function listItemSnapshots(element: Element): RenderedListItemSnapshot[] {
     });
 }
 
-function tableRowSnapshots(element: Element): RenderedTableRowSnapshot[] | undefined {
+function tableRowSnapshots(
+  element: Element,
+): RenderedTableRowSnapshot[] | undefined {
   if (blockKindForElement(element) !== "table") {
     return undefined;
   }
@@ -362,9 +364,9 @@ function admonitionContentElement(element: Element): Element | null {
 
 function markdownAlertContentText(element: Element): string {
   const clone = element.cloneNode(true) as Element;
-  clone.querySelectorAll(".markdown-alert-title").forEach((item) =>
-    item.remove(),
-  );
+  clone
+    .querySelectorAll(".markdown-alert-title")
+    .forEach((item) => item.remove());
   return normalizedText(clone.textContent);
 }
 
@@ -438,7 +440,9 @@ function isRenderedBlockCandidateElement(element: Element): boolean {
   const tagName = element.tagName.toLowerCase();
   return (
     /^h[1-6]$/.test(tagName) ||
-    ["p", "ul", "ol", "dl", "table", "pre", "blockquote", "img"].includes(tagName) ||
+    ["p", "ul", "ol", "dl", "table", "pre", "blockquote", "img"].includes(
+      tagName,
+    ) ||
     element.classList.contains("math-block") ||
     element.classList.contains("dlist") ||
     element.classList.contains("admonitionblock") ||

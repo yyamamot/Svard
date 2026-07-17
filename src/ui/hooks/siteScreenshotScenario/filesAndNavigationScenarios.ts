@@ -111,9 +111,7 @@ export async function runFilesAndNavigationScenarios(
         document.querySelectorAll<HTMLElement>(
           '[data-review-id="documents-mkdocs-section"]',
         ),
-      ).find((candidate) =>
-        candidate.textContent?.includes("Review workflow"),
-      );
+      ).find((candidate) => candidate.textContent?.includes("Review workflow"));
       const toggle = section?.querySelector<HTMLButtonElement>(
         '[data-review-id="documents-order-section-toggle"]',
       );

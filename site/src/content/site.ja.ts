@@ -778,7 +778,11 @@ export const site = {
         ],
         limitations:
           "このページは Docs 公開時の考え方を説明するものです。完全なセキュリティ機能一覧、監査手順、組織ポリシーの代替ではありません。",
-        related: ["Svard とは", "明示的な Kroki フォールバック", "セキュリティ設定"],
+        related: [
+          "Svard とは",
+          "明示的な Kroki フォールバック",
+          "セキュリティ設定",
+        ],
         screenshots: [
           screenshot(
             "files.png",
@@ -1093,11 +1097,7 @@ export const site = {
               "コマンド",
               "Preferences を開く、Source Control を表示する、ファイル比較を開始するなどの操作を実行します。",
             ],
-            [
-              "@",
-              "見出し",
-              "現在の文書内の見出しへ移動します。",
-            ],
+            ["@", "見出し", "現在の文書内の見出しへ移動します。"],
             [
               ":N",
               "ソース行",
@@ -1165,7 +1165,11 @@ export const site = {
         ],
         limitations:
           "Svard はエディタではありません。執筆機能、共同編集、すべての公開システムとの完全互換は約束しません。公開ページでは、表示結果が分かる短いサンプルだけを使います。",
-        related: ["Contents サイドバー", "タブと開いているファイル", "文書内検索"],
+        related: [
+          "Contents サイドバー",
+          "タブと開いているファイル",
+          "文書内検索",
+        ],
         screenshots: [
           screenshot(
             "reading-markup-markdown.png",
@@ -1398,7 +1402,11 @@ export const site = {
         ],
         limitations:
           "検索例とスクリーンショットには、公開してよい語だけを使います。ローカル文書の検索一致テキストは、公開用サンプルとして準備した場合だけ公開成果物に出します。",
-        related: ["ワークスペース検索", "検索結果の移動", "Contents サイドバー"],
+        related: [
+          "ワークスペース検索",
+          "検索結果の移動",
+          "Contents サイドバー",
+        ],
         screenshots: [
           screenshot(
             "search.png",
@@ -2042,11 +2050,7 @@ export const site = {
           lead: "プレビュー差分を開いた後、ボタンまたはキーボードで変更箇所を移動できます。",
           columns: ["操作", "移動先", "使う場面"],
           rows: [
-            [
-              "Next",
-              "次の変更",
-              "上から順に差分を確認したい時に使います。",
-            ],
+            ["Next", "次の変更", "上から順に差分を確認したい時に使います。"],
             [
               "Previous",
               "前の変更",
@@ -2140,7 +2144,11 @@ export const site = {
         ],
         limitations:
           "フォールバック表示は精度を過剰に見せないための表示です。すべての複雑な表、リスト、図表を細かい単位へ分解する保証はありません。公開Docsではソース本文や差分ハンク全文を見せません。",
-        related: ["表とリストの差分確認", "変更ナビゲータ", "プレビューベースの差分確認"],
+        related: [
+          "表とリストの差分確認",
+          "変更ナビゲータ",
+          "プレビューベースの差分確認",
+        ],
         screenshots: [
           screenshot(
             "table-list-diff-review.png",
@@ -2993,7 +3001,11 @@ export const site = {
         ],
         limitations:
           "このページは公開Docs向けの概要です。内部サンドボックス仕様、脅威モデル全文、監査ログ仕様、具体的な秘密値は扱いません。",
-        related: ["ローカルファーストの考え方", "Kroki 設定", "ネットワークとプロバイダ設定"],
+        related: [
+          "ローカルファーストの考え方",
+          "Kroki 設定",
+          "ネットワークとプロバイダ設定",
+        ],
         screenshots: [
           screenshot(
             "privacy-boundary.png",
@@ -3073,11 +3085,7 @@ export const site = {
               "右ボタンドラッグのジェスチャーを有効化します。",
               "Off",
             ],
-            [
-              "Show gesture trail",
-              "ドラッグ中の軌跡を表示します。",
-              "On",
-            ],
+            ["Show gesture trail", "ドラッグ中の軌跡を表示します。", "On"],
             [
               "Minimum distance",
               "ジェスチャーとして認識する最小移動距離を調整します。",
@@ -3115,7 +3123,11 @@ export const site = {
         ],
         limitations:
           "マウスジェスチャーは初期状態では無効です。右クリックメニューやブラウザー/OS の操作と競合する場合があるため、必要なユーザーだけが明示的に有効化する設定として扱います。",
-        related: ["ショートカット設定", "タブと開いているファイル", "クイックオープン"],
+        related: [
+          "ショートカット設定",
+          "タブと開いているファイル",
+          "クイックオープン",
+        ],
       },
       networkProviderSettings: {
         title: "ネットワーク設定",
@@ -3215,11 +3227,7 @@ export const site = {
         ],
         limitations:
           "PR / MR Providers は Branch Diff の比較対象検出を補助する設定です。stage、commit、merge、provider 上のレビュー操作は扱いません。認証情報や接続先の実値は公開Docsに含めません。",
-        related: [
-          "ブランチ差分",
-          "ネットワーク設定",
-          "変更一覧",
-        ],
+        related: ["ブランチ差分", "ネットワーク設定", "変更一覧"],
         screenshots: [
           screenshot(
             "pr-mr-providers.png",
@@ -3342,7 +3350,11 @@ export const site = {
         ],
         limitations:
           "コマンドパレットはクイックオープンのコマンド実行モードです。このページではコマンド候補の呼び出し方だけを扱い、文書移動、見出し移動、ソース行への移動はクイックオープンのページに分けています。利用できるコマンドや表示名は、OS や設定により変わる場合があります。",
-        related: ["クイックオープン", "タブと開いているファイル", "キーバインド"],
+        related: [
+          "クイックオープン",
+          "タブと開いているファイル",
+          "キーバインド",
+        ],
         screenshots: [
           screenshot(
             "command-palette.png",

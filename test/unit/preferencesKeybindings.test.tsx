@@ -273,7 +273,9 @@ describe("PreferencesPanel settings and recording", () => {
     await harness.click(diagramPlaceholderRendering);
 
     expect(config.experimental.diagramPlaceholderRendering).toBe(false);
-    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(true);
+    expect(config.experimental.diagramPlaceholderRenderingConfigured).toBe(
+      true,
+    );
   });
 
   it("stores remote provider tokens outside config metadata", async () => {

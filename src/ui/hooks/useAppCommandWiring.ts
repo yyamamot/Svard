@@ -8,15 +8,14 @@ import {
   type UseCommandDispatcherOptions,
 } from "./useCommandDispatcher";
 
-interface UseAppCommandWiringOptions
-  extends Omit<
-    UseCommandDispatcherOptions,
-    | "canSwitchToRecentTab"
-    | "documentPayload"
-    | "onOpenWebsite"
-    | "onScrollViewer"
-    | "onSwitchToRecentTab"
-  > {
+interface UseAppCommandWiringOptions extends Omit<
+  UseCommandDispatcherOptions,
+  | "canSwitchToRecentTab"
+  | "documentPayload"
+  | "onOpenWebsite"
+  | "onScrollViewer"
+  | "onSwitchToRecentTab"
+> {
   activeDocumentPayload: DocumentPayload | null;
   config: AppConfig | null;
   orderedTabs: DocumentPayload[];

@@ -107,7 +107,16 @@ function DiagramInspectorDetails({
     }
     if (onSaveSvg) {
       try {
-        if (await onSaveSvg(diagramSvgFileName({ documentPath: item.sourceLocation?.sourcePath, diagramType: item.diagramType, sourceReference: item.sourceReference }), item.svg)) {
+        if (
+          await onSaveSvg(
+            diagramSvgFileName({
+              documentPath: item.sourceLocation?.sourcePath,
+              diagramType: item.diagramType,
+              sourceReference: item.sourceReference,
+            }),
+            item.svg,
+          )
+        ) {
           onShowNotice("Diagram SVG saved", { tone: "success" });
           return;
         }
@@ -186,11 +195,40 @@ function DiagramInspectorDetails({
         ) : null}
         {item.sourceReference || item.source || item.svg ? (
           <details className="diagram-inspector-more">
-            <summary aria-label="More diagram actions"><MoreHorizontal size={16} /></summary>
+            <summary aria-label="More diagram actions">
+              <MoreHorizontal size={16} />
+            </summary>
             <div>
-              {item.sourceReference ? <button type="button" onClick={() => onCopyText("Diagram reference", item.sourceReference)}><Copy size={14} />Copy Reference</button> : null}
-              {item.source ? <button type="button" onClick={() => onCopyText("Diagram source", item.source)}><FileCode2 size={14} />Copy Source</button> : null}
-              {item.svg ? <button type="button" data-review-id="diagram-inspector-save-svg" onClick={() => void saveSvg()}><Save size={14} />Save SVG</button> : null}
+              {item.sourceReference ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onCopyText("Diagram reference", item.sourceReference)
+                  }
+                >
+                  <Copy size={14} />
+                  Copy Reference
+                </button>
+              ) : null}
+              {item.source ? (
+                <button
+                  type="button"
+                  onClick={() => onCopyText("Diagram source", item.source)}
+                >
+                  <FileCode2 size={14} />
+                  Copy Source
+                </button>
+              ) : null}
+              {item.svg ? (
+                <button
+                  type="button"
+                  data-review-id="diagram-inspector-save-svg"
+                  onClick={() => void saveSvg()}
+                >
+                  <Save size={14} />
+                  Save SVG
+                </button>
+              ) : null}
             </div>
           </details>
         ) : null}

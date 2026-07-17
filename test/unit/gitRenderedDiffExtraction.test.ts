@@ -6,9 +6,7 @@ import {
   changedRenderedBlocks,
   compareRenderedBlocks,
 } from "../../src/ui/lib/gitRenderedDiff";
-import {
-  sanitizeRenderedBlockHtml,
-} from "../../src/ui/lib/sanitizeHtml";
+import { sanitizeRenderedBlockHtml } from "../../src/ui/lib/sanitizeHtml";
 import { blocksFromHtml } from "./helpers/gitRenderedDiffFixtures";
 
 describe("git rendered diff extraction", () => {
@@ -40,7 +38,9 @@ describe("git rendered diff extraction", () => {
 
     const diff = compareRenderedBlocks(left, right);
 
-    expect(diff.map((block) => [block.kind, block.right?.text ?? block.left?.text])).toEqual([
+    expect(
+      diff.map((block) => [block.kind, block.right?.text ?? block.left?.text]),
+    ).toEqual([
       ["added", "Inserted."],
       ["unchanged", "Before."],
       ["unchanged", "Appendix:"],
@@ -379,5 +379,4 @@ export function readLabel() {
     });
     expect(blocks[2]?.html).toContain("Diagram placeholder");
   });
-
 });

@@ -139,7 +139,6 @@ describe("app menu model", () => {
     );
   });
 
-
   it("keeps native text editing actions in the Edit menu", () => {
     const model = buildAppMenuModel({
       config: defaultConfig,

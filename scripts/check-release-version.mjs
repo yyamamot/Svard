@@ -39,7 +39,9 @@ function readCargoLockPackageVersion(packageName) {
     const version = body.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
     if (version) return version;
   }
-  throw new Error(`Could not find ${packageName} package version in src-tauri/Cargo.lock`);
+  throw new Error(
+    `Could not find ${packageName} package version in src-tauri/Cargo.lock`,
+  );
 }
 
 function normalizeVersion(value) {

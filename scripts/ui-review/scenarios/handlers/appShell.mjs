@@ -512,7 +512,10 @@ export async function applyAppShellScenario(context) {
     );
     const resultListStartedAt = Date.now();
     await page.locator('[data-review-id="search-hit"]').first().waitFor();
-    await page.locator('[data-review-id="search-result-item"]').first().waitFor();
+    await page
+      .locator('[data-review-id="search-result-item"]')
+      .first()
+      .waitFor();
     await recordPhase("result-list-rendered", resultListStartedAt);
     await recordPhase("search-results-visible", inputStartedAt);
     const clickStartedAt = Date.now();
@@ -586,7 +589,9 @@ export async function applyAppShellScenario(context) {
       .locator('[data-review-id="preferences-nav-item"]')
       .filter({ hasText: "Experimental" })
       .click();
-    await page.locator('[data-review-id="preferences-tab-experimental"]').waitFor();
+    await page
+      .locator('[data-review-id="preferences-tab-experimental"]')
+      .waitFor();
     await page
       .locator('[data-review-id="experimental-search-hit-ruler-control"]')
       .check();
@@ -822,7 +827,9 @@ export async function applyAppShellScenario(context) {
       .locator('[data-review-id="preferences-nav-item"]')
       .filter({ hasText: "Experimental" })
       .click();
-    await page.locator('[data-review-id="preferences-tab-experimental"]').waitFor();
+    await page
+      .locator('[data-review-id="preferences-tab-experimental"]')
+      .waitFor();
     await page.evaluate(() => {
       const requests = globalThis.__SVARD_NEW_WINDOW_OPEN_REQUESTS__ ?? [];
       window.__SVARD_RESTORE_ADDITIONAL_WINDOWS_CHECK__ = {

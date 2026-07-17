@@ -142,13 +142,12 @@ function isAnchoredReplacement({
   if (!left || !right) {
     return false;
   }
-  if (
-    Math.min(left.textLength, right.textLength) < changedItemMinimumLength
-  ) {
+  if (Math.min(left.textLength, right.textLength) < changedItemMinimumLength) {
     return false;
   }
   return (
-    (matchedBefore && isEndPair(leftItems, rightItems, leftIndex, rightIndex)) ||
+    (matchedBefore &&
+      isEndPair(leftItems, rightItems, leftIndex, rightIndex)) ||
     hasCommonItemAfter(leftItems, rightItems, leftIndex + 1, rightIndex + 1)
   );
 }
@@ -159,7 +158,9 @@ function isEndPair(
   leftIndex: number,
   rightIndex: number,
 ): boolean {
-  return leftIndex === leftItems.length - 1 && rightIndex === rightItems.length - 1;
+  return (
+    leftIndex === leftItems.length - 1 && rightIndex === rightItems.length - 1
+  );
 }
 
 function hasCommonItemAfter(
@@ -237,9 +238,7 @@ function isHighConfidenceChangedItem(
   ) {
     return true;
   }
-  if (
-    Math.min(left.textLength, right.textLength) < changedItemMinimumLength
-  ) {
+  if (Math.min(left.textLength, right.textLength) < changedItemMinimumLength) {
     return false;
   }
   return (

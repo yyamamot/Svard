@@ -25,7 +25,9 @@ describe("DocumentDiffStreamPanel shell", () => {
     expect(
       test.container.querySelector('[data-review-id="diff-stream-navigation"]'),
     ).not.toBeNull();
-    expect(test.container.querySelector(".diff-stream-view-toggle")).not.toBeNull();
+    expect(
+      test.container.querySelector(".diff-stream-view-toggle"),
+    ).not.toBeNull();
     expect(test.container.textContent).toContain("All diffs");
     expect(test.container.textContent).toContain("0 document diffs");
   });
@@ -57,7 +59,9 @@ describe("DocumentDiffStreamPanel shell", () => {
         ?.textContent,
     ).toContain("Preview diff is available for markup documents only.");
     expect(
-      test.container.querySelector('[data-review-id="diff-stream-change-ruler"]'),
+      test.container.querySelector(
+        '[data-review-id="diff-stream-change-ruler"]',
+      ),
     ).toBeNull();
   });
 });

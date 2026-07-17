@@ -93,12 +93,7 @@ export function useSourceControlChangesLoader({
           });
         });
     },
-    [
-      onGitChangesRefreshComplete,
-      requestsRef,
-      rootDirectoryRef,
-      setGitChanges,
-    ],
+    [onGitChangesRefreshComplete, requestsRef, rootDirectoryRef, setGitChanges],
   );
 
   const scheduleSilentGitChangesRefresh = useCallback(
@@ -421,12 +416,7 @@ export function useSourceControlChangesLoader({
       disposed = true;
       handle?.dispose();
     };
-  }, [
-    host,
-    isWslMitigated,
-    rootDirectory,
-    scheduleSilentGitChangesRefresh,
-  ]);
+  }, [host, isWslMitigated, rootDirectory, scheduleSilentGitChangesRefresh]);
 
   useEffect(() => {
     function refreshStaleChangesOnVisible() {

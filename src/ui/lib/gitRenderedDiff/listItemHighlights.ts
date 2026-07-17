@@ -39,8 +39,7 @@ export function renderedListItemHighlightsForSide({
     const changeIndex = changeIndexForItem(itemIndex) ?? undefined;
     return [
       {
-        active:
-          changeIndex !== undefined && activeChangeIndex === changeIndex,
+        active: changeIndex !== undefined && activeChangeIndex === changeIndex,
         changeIndex,
         contentCursorActive: contentCursorActiveForItem?.(
           childChangeIndex,

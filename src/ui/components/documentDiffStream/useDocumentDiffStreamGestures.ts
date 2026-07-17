@@ -29,9 +29,12 @@ export function useDocumentDiffStreamGestures({
   scrollPane: (action: DiffPreviewMouseGestureScrollAction) => boolean;
   setLastMouseGesture?: (gesture: MouseGestureAutomation | null) => void;
 }) {
-  const [mouseGestureTrail, setMouseGestureTrail] = useState<GesturePoint[]>([]);
-  const mouseGestureSessionRef =
-    useRef<DiffStreamMouseGestureSession | null>(null);
+  const [mouseGestureTrail, setMouseGestureTrail] = useState<GesturePoint[]>(
+    [],
+  );
+  const mouseGestureSessionRef = useRef<DiffStreamMouseGestureSession | null>(
+    null,
+  );
   const suppressNextContextMenuRef = useRef(false);
 
   function mouseGestureConfig() {

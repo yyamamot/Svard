@@ -1,9 +1,13 @@
 ---
-import { site } from '../../content/site.en';
-import LandingLayout from '../../layouts/LandingLayout.astro';
+import { site } from "../../content/site.en";
+import LandingLayout from "../../layouts/LandingLayout.astro";
 ---
 
-<LandingLayout site={site} pageTitle="Download" pageDescription={site.download.lead}>
+<LandingLayout
+  site={site}
+  pageTitle="Download"
+  pageDescription={site.download.lead}
+>
   <section class="download-hero section-shell">
     <p class="eyebrow">{site.download.eyebrow}</p>
     <h1>{site.download.heading}</h1>
@@ -12,38 +16,52 @@ import LandingLayout from '../../layouts/LandingLayout.astro';
   <section class="section-shell resource-section">
     <h2>{site.download.resources.heading}</h2>
     <div class="resource-grid">
-      {site.download.resources.items.map((item) => (
-        <article>
-          <span class="status-pill" aria-disabled="true">{item.state}</span>
-          <h3>{item.title}</h3>
-          <p>{item.body}</p>
-          {item.href && <a class="resource-link" href={item.href}>Open</a>}
-          {item.details && (
-            <ul>
-              {item.details.map((detail) => <li>{detail}</li>)}
-            </ul>
-          )}
-        </article>
-      ))}
+      {
+        site.download.resources.items.map((item) => (
+          <article>
+            <span class="status-pill" aria-disabled="true">
+              {item.state}
+            </span>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+            {item.href && (
+              <a class="resource-link" href={item.href}>
+                Open
+              </a>
+            )}
+            {item.details && (
+              <ul>
+                {item.details.map((detail) => (
+                  <li>{detail}</li>
+                ))}
+              </ul>
+            )}
+          </article>
+        ))
+      }
     </div>
   </section>
   <section class="section-shell platform-support">
     <h2>{site.download.platformSupport.heading}</h2>
     <div class="platform-list">
-      {site.download.platformSupport.rows.map((row) => (
-        <article>
-          <div>
-            <h3>{row.platform}</h3>
-            <span class="platform-status">{row.status}</span>
-          </div>
-          <dl>
-            <dt>Command</dt>
-            <dd><code>{row.command}</code></dd>
-            <dt>Notes</dt>
-            <dd>{row.note}</dd>
-          </dl>
-        </article>
-      ))}
+      {
+        site.download.platformSupport.rows.map((row) => (
+          <article>
+            <div>
+              <h3>{row.platform}</h3>
+              <span class="platform-status">{row.status}</span>
+            </div>
+            <dl>
+              <dt>Command</dt>
+              <dd>
+                <code>{row.command}</code>
+              </dd>
+              <dt>Notes</dt>
+              <dd>{row.note}</dd>
+            </dl>
+          </article>
+        ))
+      }
     </div>
   </section>
 </LandingLayout>

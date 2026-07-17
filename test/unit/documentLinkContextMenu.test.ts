@@ -59,10 +59,7 @@ describe("document link context menu", () => {
   it("does not add Open Link in New Window for external links", () => {
     const { items } = buildLinkItems("https://example.com/docs");
 
-    expect(items.map((item) => item.label)).toEqual([
-      "Open Link",
-      "Copy Link",
-    ]);
+    expect(items.map((item) => item.label)).toEqual(["Open Link", "Copy Link"]);
   });
 
   it("does not add Open Link in New Window for same-document anchors", () => {

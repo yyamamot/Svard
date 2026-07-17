@@ -258,7 +258,9 @@ describe("diff preview labels", () => {
       "List fallback: low overlap (2)",
       "Table fallback: complex",
     ]);
-    expect(renderedPresentation.inlineDiagnostics.map((item) => item.label)).toEqual([
+    expect(
+      renderedPresentation.inlineDiagnostics.map((item) => item.label),
+    ).toEqual([
       "List fallback: low overlap",
       "Table fallback: complex",
       "List fallback: low overlap",
@@ -271,8 +273,8 @@ describe("diff preview labels", () => {
       "Svard kept this change at block level because detailed matching was not reliable for this target.",
     ]);
     expect(JSON.stringify(overview.fallbackReasons)).not.toContain("Secret");
-    expect(JSON.stringify(renderedPresentation.inlineDiagnostics)).not.toContain(
-      "Secret",
-    );
+    expect(
+      JSON.stringify(renderedPresentation.inlineDiagnostics),
+    ).not.toContain("Secret");
   });
 });

@@ -606,6 +606,21 @@ export async function prepareScreenshotFixture({
   fixturePath,
 }) {
   if (
+    capture.id === "hero-plantuml" ||
+    capture.id === "reader-main" ||
+    capture.id === "search"
+  ) {
+    await ensureDir(path.dirname(fixturePath));
+    const content =
+      capture.id === "hero-plantuml"
+        ? `= Diagram preview\n\n[plantuml]\n----\nAlice -> Bob: Review locally\nBob --> Alice: Rendered result\n----\n`
+        : capture.id === "reader-main"
+          ? `# Product guide\n\n## Read technical documents\n\nSvard keeps document reading local and focused.\n\n## Review rendered changes\n\nCompare the result readers see.\n`
+          : `# Search guide\n\n## Review notes\n\nSearch within the current document without leaving the reading flow.\n\n## Review results\n\nUse a short public-safe term for screenshots.\n`;
+    await fs.writeFile(fixturePath, content);
+    return fixturePath;
+  }
+  if (
     capture.id === "source-control" ||
     capture.id === "source-control-changes" ||
     capture.id === "source-control-ref-context-menu" ||

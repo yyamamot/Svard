@@ -101,7 +101,9 @@ function pluralizeBlockCount(count: number): string {
   return `${count} ${count === 1 ? "block" : "blocks"}`;
 }
 
-function fallbackReasonText(reason: RenderedDiffFallbackReason["reason"]): string {
+function fallbackReasonText(
+  reason: RenderedDiffFallbackReason["reason"],
+): string {
   return reason.replace(/-/g, " ");
 }
 
@@ -248,8 +250,7 @@ export function RenderedDiffPane({
     const tableHighlights = renderedTableHighlightsForSide({
       activeChangeIndex,
       block,
-      changeIndexForRow: (rowIndex) =>
-        changeIndexForTableRow(entry, rowIndex),
+      changeIndexForRow: (rowIndex) => changeIndexForTableRow(entry, rowIndex),
       contentCursorActiveForRow: (rowIndex) =>
         contentCursorActive?.side === side &&
         contentCursorActive.entryId === entry.id &&
@@ -456,13 +457,9 @@ export function RenderedDiffPane({
                 changeIndex !== null ? "change-target" : ""
               } ${hasListItemChanges ? "has-list-item-changes" : ""} ${
                 hasStructuredChildChanges ? "has-structured-child-changes" : ""
-              } ${
-                hasTableRowChanges ? "has-table-row-changes" : ""
-              } ${
+              } ${hasTableRowChanges ? "has-table-row-changes" : ""} ${
                 isActiveChange ? "active-change" : ""
-              } ${
-                isContentCursorActive ? "content-cursor-active" : ""
-              }`}
+              } ${isContentCursorActive ? "content-cursor-active" : ""}`}
               data-review-id={
                 isContentCursorActive ? "content-cursor-active" : blockReviewId
               }

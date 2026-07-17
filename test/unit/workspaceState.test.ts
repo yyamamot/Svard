@@ -116,10 +116,10 @@ describe("workspace state helpers", () => {
 
   it("prunes missing and duplicate recent tabs", () => {
     expect(
-      pruneRecentTabs(["/a.adoc", "/missing.adoc", "/a.adoc", "/b.adoc"], [
-        "/a.adoc",
-        "/b.adoc",
-      ]),
+      pruneRecentTabs(
+        ["/a.adoc", "/missing.adoc", "/a.adoc", "/b.adoc"],
+        ["/a.adoc", "/b.adoc"],
+      ),
     ).toEqual(["/a.adoc", "/b.adoc"]);
   });
 
@@ -131,7 +131,9 @@ describe("workspace state helpers", () => {
         ["/active.adoc", "/previous.adoc"],
       ),
     ).toBe("/previous.adoc");
-    expect(nextRecentTabPath(["/active.adoc"], "/active.adoc", ["/active.adoc"])).toBeNull();
+    expect(
+      nextRecentTabPath(["/active.adoc"], "/active.adoc", ["/active.adoc"]),
+    ).toBeNull();
   });
 
   it("adds a new open tab at the end", () => {

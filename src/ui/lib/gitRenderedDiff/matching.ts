@@ -339,10 +339,13 @@ function withListItemChildChanges(block: RenderedBlockDiff): RenderedBlockDiff {
   return block;
 }
 
-function withStructuredChildChanges(block: RenderedBlockDiff): RenderedBlockDiff {
+function withStructuredChildChanges(
+  block: RenderedBlockDiff,
+): RenderedBlockDiff {
   if (
     block.kind !== "changed" ||
-    (block.blockKind !== "definition-list" && block.blockKind !== "admonition") ||
+    (block.blockKind !== "definition-list" &&
+      block.blockKind !== "admonition") ||
     !block.left?.structuredChildren ||
     !block.right?.structuredChildren
   ) {

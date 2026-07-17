@@ -151,7 +151,9 @@ image::../images/sample.svg[]
 
     expect(expanded.diagnostics).toEqual([]);
     expect(doc.querySelector(".asciidoc-document-attributes")).toBeTruthy();
-    expect(doc.querySelector(".asciidoc-document-attributes table")).toBeTruthy();
+    expect(
+      doc.querySelector(".asciidoc-document-attributes table"),
+    ).toBeTruthy();
     expect(doc.body.textContent).toContain("Document Attributes");
     expect(
       renderResult.headings.some(

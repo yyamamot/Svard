@@ -6,6 +6,12 @@ const links = site.footer.links ?? [];
 <footer class="site-footer">
   <p>{site.footer.summary}</p>
   <div class="footer-links" aria-label="Project placeholders">
-    {links.map((link) => <a href={link.href} data-astro-reload>{link.label}</a>)}
+    {
+      links.map((link) => (
+        <a href={link.href} data-astro-reload>
+          {link.label}
+        </a>
+      ))
+    }
   </div>
 </footer>

@@ -7,8 +7,12 @@ export async function applyGitDiffRenderedCoreScenario(context) {
   }
   if (scenario === "viewer-git-diff-large-markdown-table-row-addition") {
     const path = "/workspace/docs/git-large-table-row-addition.md";
-    const leftText = largeMarkdownTableSource({ includeLocalPlantUmlCache: false });
-    const rightText = largeMarkdownTableSource({ includeLocalPlantUmlCache: true });
+    const leftText = largeMarkdownTableSource({
+      includeLocalPlantUmlCache: false,
+    });
+    const rightText = largeMarkdownTableSource({
+      includeLocalPlantUmlCache: true,
+    });
     await page.evaluate(
       ({ leftText, path, rightText }) => {
         window.__SVARD_PICK_DOCUMENT__ = path;
@@ -37,15 +41,55 @@ export async function applyGitDiffRenderedCoreScenario(context) {
                 newStart: 1,
                 newLines: 19,
                 lines: [
-                  { kind: "context", oldLine: 1, newLine: 1, text: "# Large Table Row Addition" },
+                  {
+                    kind: "context",
+                    oldLine: 1,
+                    newLine: 1,
+                    text: "# Large Table Row Addition",
+                  },
                   { kind: "context", oldLine: 2, newLine: 2, text: "" },
-                  { kind: "context", oldLine: 3, newLine: 3, text: "| Area | Feature | Status |" },
-                  { kind: "context", oldLine: 4, newLine: 4, text: "| --- | --- | --- |" },
-                  { kind: "context", oldLine: 5, newLine: 5, text: "| Documents | Open files | Stable |" },
-                  { kind: "context", oldLine: 6, newLine: 6, text: "| Diagrams | Fast diagram loading | Stable |" },
-                  { kind: "added", oldLine: null, newLine: 7, text: "| Diagrams | Local PlantUML SVG cache | Stable |" },
-                  { kind: "context", oldLine: 7, newLine: 8, text: "| Files | File tree | Stable |" },
-                  { kind: "context", oldLine: 8, newLine: 9, text: "| Search | Quick Open | Stable |" },
+                  {
+                    kind: "context",
+                    oldLine: 3,
+                    newLine: 3,
+                    text: "| Area | Feature | Status |",
+                  },
+                  {
+                    kind: "context",
+                    oldLine: 4,
+                    newLine: 4,
+                    text: "| --- | --- | --- |",
+                  },
+                  {
+                    kind: "context",
+                    oldLine: 5,
+                    newLine: 5,
+                    text: "| Documents | Open files | Stable |",
+                  },
+                  {
+                    kind: "context",
+                    oldLine: 6,
+                    newLine: 6,
+                    text: "| Diagrams | Fast diagram loading | Stable |",
+                  },
+                  {
+                    kind: "added",
+                    oldLine: null,
+                    newLine: 7,
+                    text: "| Diagrams | Local PlantUML SVG cache | Stable |",
+                  },
+                  {
+                    kind: "context",
+                    oldLine: 7,
+                    newLine: 8,
+                    text: "| Files | File tree | Stable |",
+                  },
+                  {
+                    kind: "context",
+                    oldLine: 8,
+                    newLine: 9,
+                    text: "| Search | Quick Open | Stable |",
+                  },
                 ],
               },
             ],
@@ -74,12 +118,13 @@ export async function applyGitDiffRenderedCoreScenario(context) {
       );
       window.__SVARD_LARGE_TABLE_ROW_DIFF__ = {
         changesOnlyText: rightPane?.textContent ?? "",
-        changesOnlyRows: Array.from(rightPane?.querySelectorAll("tr") ?? []).map(
-          (row) => row.textContent?.replace(/\s+/g, " ").trim() ?? "",
-        ),
-        renderedChangedRows: rightPane?.querySelectorAll(
-          '[data-review-id="git-rendered-table-row-change"]',
-        ).length ?? 0,
+        changesOnlyRows: Array.from(
+          rightPane?.querySelectorAll("tr") ?? [],
+        ).map((row) => row.textContent?.replace(/\s+/g, " ").trim() ?? ""),
+        renderedChangedRows:
+          rightPane?.querySelectorAll(
+            '[data-review-id="git-rendered-table-row-change"]',
+          ).length ?? 0,
       };
     });
     await page.locator('[data-review-id="git-diff-table-view"]').click();
@@ -97,9 +142,10 @@ export async function applyGitDiffRenderedCoreScenario(context) {
             tablePane?.querySelectorAll("[data-change-index]") ?? [],
           ).map((cell) => cell.getAttribute("data-change-index")),
         ).size,
-        tableChangedCells: tablePane?.querySelectorAll(
-          '[data-review-id="git-diff-table-cell"].added, [data-review-id="git-diff-table-cell"].changed, [data-review-id="git-diff-table-cell"].removed',
-        ).length ?? 0,
+        tableChangedCells:
+          tablePane?.querySelectorAll(
+            '[data-review-id="git-diff-table-cell"].added, [data-review-id="git-diff-table-cell"].changed, [data-review-id="git-diff-table-cell"].removed',
+          ).length ?? 0,
       };
     });
     await page.getByRole("button", { name: "Changes Only" }).click();

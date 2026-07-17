@@ -43,9 +43,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
   const visualContract = await page.evaluate(
     () => window.__SVARD_GIT_CHANGE_VISUAL_CONTRACT__ ?? null,
   );
-  const visualContractPrivate = !JSON.stringify(visualContract).includes(
-    "/workspace/",
-  );
+  const visualContractPrivate =
+    !JSON.stringify(visualContract).includes("/workspace/");
 
   return {
     hasPostDiffGitMarkerSummary: Boolean(summary),
@@ -120,7 +119,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.itemHighlightCount > 0
         : true,
     hasInitialWorkingTreeTableCellGitMarkers:
-      scenario === "viewer-normal-git-markers-table-row-cell-initial-working-tree"
+      scenario ===
+      "viewer-normal-git-markers-table-row-cell-initial-working-tree"
         ? summary?.visible === true &&
           summary?.initialWorkingTree === true &&
           summary?.tableMarker === true &&
@@ -174,7 +174,8 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.clickResult === true
         : true,
     rendersUntrackedTableAsAddedRowMarkers:
-      scenario === "viewer-normal-git-markers-table-cell-untracked-not-applicable"
+      scenario ===
+      "viewer-normal-git-markers-table-cell-untracked-not-applicable"
         ? privacySafe &&
           summary?.visible === true &&
           summary?.wholeFileAddedTableRows === true &&

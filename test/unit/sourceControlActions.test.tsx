@@ -778,5 +778,4 @@ describe("useSourceControlActions", () => {
     expect(actions?.gitBranchDiff?.items).toHaveLength(1);
     expect(actions?.gitBranchDiffLoading).toBe(false);
   });
-
 });

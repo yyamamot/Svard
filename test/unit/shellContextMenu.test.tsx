@@ -105,7 +105,9 @@ function ContextMenuHarness({
   openContextMenu,
 }: {
   documentReviewTarget: boolean;
-  documentReviewSession?: Parameters<typeof useShellContextMenu>[0]["documentReviewSession"];
+  documentReviewSession?: Parameters<
+    typeof useShellContextMenu
+  >[0]["documentReviewSession"];
   openContextMenu: Parameters<typeof useShellContextMenu>[0]["openContextMenu"];
 }) {
   const { handleShellContextMenu } = useShellContextMenu({

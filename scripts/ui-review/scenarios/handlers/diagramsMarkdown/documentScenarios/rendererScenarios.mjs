@@ -412,7 +412,8 @@ export async function applyRendererScenario(context) {
 async function openDiagramFixture(page, input) {
   const fileName = typeof input === "string" ? input : input.fileName;
   const recordPhase = typeof input === "string" ? null : input.recordPhase;
-  const beforeFileClick = typeof input === "string" ? null : input.beforeFileClick;
+  const beforeFileClick =
+    typeof input === "string" ? null : input.beforeFileClick;
   let phaseStartedAt = Date.now();
   await page.locator('[data-review-id="file-tree"]').waitFor();
   await recordPhase?.("file-tree-ready", phaseStartedAt);
@@ -472,10 +473,7 @@ async function recordDocumentOpenPerfPhases(
     ["article-ref-ready-seen", details.articleRefReadyAtMs],
     ["layout-effect-start-seen", details.layoutEffectStartAtMs],
     ["layout-effect-done-seen", details.layoutEffectDoneAtMs],
-    [
-      "post-commit-animation-frame-seen",
-      details.postCommitAnimationFrameAtMs,
-    ],
+    ["post-commit-animation-frame-seen", details.postCommitAnimationFrameAtMs],
   ];
   for (const [name, offsetMs] of timelinePhases) {
     if (typeof offsetMs === "number" && Number.isFinite(offsetMs)) {
@@ -537,7 +535,11 @@ async function recordAfterOpenDiagramPerfPhases(
   started,
   baseline,
 ) {
-  const details = await readAfterOpenDiagramPerfSummary(page, baseline, started);
+  const details = await readAfterOpenDiagramPerfSummary(
+    page,
+    baseline,
+    started,
+  );
   const timelinePhases = [
     ["render-diagrams-async-done-seen", details.diagramsAsyncDoneAtMs],
     ["diagram-html-apply-done-seen", details.diagramHtmlApplyDoneAtMs],
@@ -613,171 +615,202 @@ async function readPerfEventBaseline(page) {
 }
 
 async function readDocumentOpenPerfSummary(page, baseline, clickStartedAt) {
-  return page.evaluate(({ baselineSnapshot, clickStartedAtMs }) => {
-    const allEvents = window.__SVARD_PERF_EVENTS__ ?? [];
-    const events = allEvents.slice(baselineSnapshot?.eventCount ?? 0);
-    const allowedOpenDocumentEvents = new Set([
-      "openDocument.host.openDocument",
-      "openDocument.state.beforeSetPayload",
-      "openDocument.state.afterSetPayloadQueued",
-      "openDocument.total",
-    ]);
-    const allowedEvents = events.filter((event) => {
-      const eventName = event?.event;
-      return (
-        typeof eventName === "string" &&
-        (eventName.startsWith("openDocument.dispatch.") ||
-          allowedOpenDocumentEvents.has(eventName) ||
-          eventName.startsWith("render.") ||
-          eventName === "viewer.render")
-      );
-    });
-    const countEvent = (predicate) =>
-      allowedEvents.filter((event) => predicate(event?.event)).length;
-    const firstEventOffset = (eventName) => {
-      const matched = allowedEvents.find((event) => event?.event === eventName);
-      if (
-        !matched ||
-        typeof matched.collectedAtMs !== "number" ||
-        !Number.isFinite(matched.collectedAtMs)
-      ) {
-        return undefined;
-      }
-      return Math.max(0, Math.round(matched.collectedAtMs - clickStartedAtMs));
-    };
-    const durations = allowedEvents
-      .map((event) => event?.durationMs)
-      .filter(
-        (duration) => typeof duration === "number" && Number.isFinite(duration),
-      );
-    return {
-      articleCommitCount: countEvent(
-        (eventName) => eventName === "render.articleInnerHtmlCommit",
-      ),
-      articleHtmlCommitAtMs: firstEventOffset("render.articleInnerHtmlCommit"),
-      articleRefReadyAtMs: firstEventOffset("render.articleRefReady"),
-      articleRefReadyCount: countEvent(
-        (eventName) => eventName === "render.articleRefReady",
-      ),
-      eventCount: allowedEvents.length,
-      layoutEffectDoneAtMs: firstEventOffset("render.layoutEffect.done"),
-      layoutEffectDoneCount: countEvent(
-        (eventName) => eventName === "render.layoutEffect.done",
-      ),
-      layoutEffectStartAtMs: firstEventOffset("render.layoutEffect.start"),
-      layoutEffectStartCount: countEvent(
-        (eventName) => eventName === "render.layoutEffect.start",
-      ),
-      openDispatchEventCount: countEvent((eventName) =>
-        eventName?.startsWith("openDocument.dispatch."),
-      ),
-      openDocumentEventCount: countEvent((eventName) =>
-        allowedOpenDocumentEvents.has(eventName),
-      ),
-      openDocumentHostDoneAtMs: firstEventOffset(
+  return page.evaluate(
+    ({ baselineSnapshot, clickStartedAtMs }) => {
+      const allEvents = window.__SVARD_PERF_EVENTS__ ?? [];
+      const events = allEvents.slice(baselineSnapshot?.eventCount ?? 0);
+      const allowedOpenDocumentEvents = new Set([
         "openDocument.host.openDocument",
-      ),
-      openDocumentHostDoneCount: countEvent(
-        (eventName) => eventName === "openDocument.host.openDocument",
-      ),
-      openDocumentStateAfterSetPayloadQueuedAtMs: firstEventOffset(
-        "openDocument.state.afterSetPayloadQueued",
-      ),
-      openDocumentStateAfterSetPayloadQueuedCount: countEvent(
-        (eventName) =>
-          eventName === "openDocument.state.afterSetPayloadQueued",
-      ),
-      openDocumentStateBeforeSetPayloadAtMs: firstEventOffset(
         "openDocument.state.beforeSetPayload",
-      ),
-      openDocumentStateBeforeSetPayloadCount: countEvent(
-        (eventName) => eventName === "openDocument.state.beforeSetPayload",
-      ),
-      openDocumentTotalAtMs: firstEventOffset("openDocument.total"),
-      openDocumentTotalCount: countEvent(
-        (eventName) => eventName === "openDocument.total",
-      ),
-      postCommitAnimationFrameAtMs: firstEventOffset(
-        "render.postCommitAnimationFrame",
-      ),
-      postCommitAnimationFrameCount: countEvent(
-        (eventName) => eventName === "render.postCommitAnimationFrame",
-      ),
-      renderEventCount: countEvent((eventName) =>
-        eventName?.startsWith("render."),
-      ),
-      renderEffectStartAtMs: firstEventOffset("render.effect.start"),
-      renderHtmlStateQueuedAtMs: firstEventOffset(
-        "render.afterHtmlStateSetQueued",
-      ),
-      renderPrepareHtmlDoneAtMs: firstEventOffset("render.prepareDocumentHtml"),
-      renderWorkerResponseAtMs: firstEventOffset("render.workerPool.response"),
-      slowestDurationMs: durations.length > 0 ? Math.max(...durations) : 0,
-      status:
-        countEvent((eventName) => eventName === "render.articleInnerHtmlCommit") > 0
-          ? "seen"
-          : "not-seen",
-      viewerRenderCount: countEvent((eventName) => eventName === "viewer.render"),
-    };
-  }, { baselineSnapshot: baseline, clickStartedAtMs: clickStartedAt });
+        "openDocument.state.afterSetPayloadQueued",
+        "openDocument.total",
+      ]);
+      const allowedEvents = events.filter((event) => {
+        const eventName = event?.event;
+        return (
+          typeof eventName === "string" &&
+          (eventName.startsWith("openDocument.dispatch.") ||
+            allowedOpenDocumentEvents.has(eventName) ||
+            eventName.startsWith("render.") ||
+            eventName === "viewer.render")
+        );
+      });
+      const countEvent = (predicate) =>
+        allowedEvents.filter((event) => predicate(event?.event)).length;
+      const firstEventOffset = (eventName) => {
+        const matched = allowedEvents.find(
+          (event) => event?.event === eventName,
+        );
+        if (
+          !matched ||
+          typeof matched.collectedAtMs !== "number" ||
+          !Number.isFinite(matched.collectedAtMs)
+        ) {
+          return undefined;
+        }
+        return Math.max(
+          0,
+          Math.round(matched.collectedAtMs - clickStartedAtMs),
+        );
+      };
+      const durations = allowedEvents
+        .map((event) => event?.durationMs)
+        .filter(
+          (duration) =>
+            typeof duration === "number" && Number.isFinite(duration),
+        );
+      return {
+        articleCommitCount: countEvent(
+          (eventName) => eventName === "render.articleInnerHtmlCommit",
+        ),
+        articleHtmlCommitAtMs: firstEventOffset(
+          "render.articleInnerHtmlCommit",
+        ),
+        articleRefReadyAtMs: firstEventOffset("render.articleRefReady"),
+        articleRefReadyCount: countEvent(
+          (eventName) => eventName === "render.articleRefReady",
+        ),
+        eventCount: allowedEvents.length,
+        layoutEffectDoneAtMs: firstEventOffset("render.layoutEffect.done"),
+        layoutEffectDoneCount: countEvent(
+          (eventName) => eventName === "render.layoutEffect.done",
+        ),
+        layoutEffectStartAtMs: firstEventOffset("render.layoutEffect.start"),
+        layoutEffectStartCount: countEvent(
+          (eventName) => eventName === "render.layoutEffect.start",
+        ),
+        openDispatchEventCount: countEvent((eventName) =>
+          eventName?.startsWith("openDocument.dispatch."),
+        ),
+        openDocumentEventCount: countEvent((eventName) =>
+          allowedOpenDocumentEvents.has(eventName),
+        ),
+        openDocumentHostDoneAtMs: firstEventOffset(
+          "openDocument.host.openDocument",
+        ),
+        openDocumentHostDoneCount: countEvent(
+          (eventName) => eventName === "openDocument.host.openDocument",
+        ),
+        openDocumentStateAfterSetPayloadQueuedAtMs: firstEventOffset(
+          "openDocument.state.afterSetPayloadQueued",
+        ),
+        openDocumentStateAfterSetPayloadQueuedCount: countEvent(
+          (eventName) =>
+            eventName === "openDocument.state.afterSetPayloadQueued",
+        ),
+        openDocumentStateBeforeSetPayloadAtMs: firstEventOffset(
+          "openDocument.state.beforeSetPayload",
+        ),
+        openDocumentStateBeforeSetPayloadCount: countEvent(
+          (eventName) => eventName === "openDocument.state.beforeSetPayload",
+        ),
+        openDocumentTotalAtMs: firstEventOffset("openDocument.total"),
+        openDocumentTotalCount: countEvent(
+          (eventName) => eventName === "openDocument.total",
+        ),
+        postCommitAnimationFrameAtMs: firstEventOffset(
+          "render.postCommitAnimationFrame",
+        ),
+        postCommitAnimationFrameCount: countEvent(
+          (eventName) => eventName === "render.postCommitAnimationFrame",
+        ),
+        renderEventCount: countEvent((eventName) =>
+          eventName?.startsWith("render."),
+        ),
+        renderEffectStartAtMs: firstEventOffset("render.effect.start"),
+        renderHtmlStateQueuedAtMs: firstEventOffset(
+          "render.afterHtmlStateSetQueued",
+        ),
+        renderPrepareHtmlDoneAtMs: firstEventOffset(
+          "render.prepareDocumentHtml",
+        ),
+        renderWorkerResponseAtMs: firstEventOffset(
+          "render.workerPool.response",
+        ),
+        slowestDurationMs: durations.length > 0 ? Math.max(...durations) : 0,
+        status:
+          countEvent(
+            (eventName) => eventName === "render.articleInnerHtmlCommit",
+          ) > 0
+            ? "seen"
+            : "not-seen",
+        viewerRenderCount: countEvent(
+          (eventName) => eventName === "viewer.render",
+        ),
+      };
+    },
+    { baselineSnapshot: baseline, clickStartedAtMs: clickStartedAt },
+  );
 }
 
 async function readAfterOpenDiagramPerfSummary(page, baseline, clickStartedAt) {
-  return page.evaluate(({ baselineSnapshot, clickStartedAtMs }) => {
-    const allEvents = window.__SVARD_PERF_EVENTS__ ?? [];
-    const events = allEvents.slice(baselineSnapshot?.eventCount ?? 0);
-    const allowedEvents = events.filter((event) => {
-      const eventName = event?.event;
-      return typeof eventName === "string" && eventName.startsWith("render.");
-    });
-    const countEvent = (predicate) =>
-      allowedEvents.filter((event) => predicate(event?.event)).length;
-    const firstEventOffset = (eventName) => {
-      const matched = allowedEvents.find((event) => event?.event === eventName);
-      if (
-        !matched ||
-        typeof matched.collectedAtMs !== "number" ||
-        !Number.isFinite(matched.collectedAtMs)
-      ) {
-        return undefined;
-      }
-      return Math.max(0, Math.round(matched.collectedAtMs - clickStartedAtMs));
-    };
-    const durations = allowedEvents
-      .map((event) => event?.durationMs)
-      .filter(
-        (duration) => typeof duration === "number" && Number.isFinite(duration),
-      );
-    return {
-      articleCommitCount: countEvent(
-        (eventName) => eventName === "render.articleInnerHtmlCommit",
-      ),
-      diagramDomCommitAtMs: firstEventOffset("render.articleInnerHtmlCommit"),
-      diagramHtmlApplyDoneAtMs: firstEventOffset(
-        "render.applyInlineDiagramsToHtml",
-      ),
-      diagramPostCommitFrameAtMs: firstEventOffset(
-        "render.postCommitAnimationFrame",
-      ),
-      diagramsAsyncDoneAtMs: firstEventOffset("render.diagramsAsyncDone"),
-      eventCount: allowedEvents.length,
-      htmlApplyCount: countEvent(
-        (eventName) => eventName === "render.applyInlineDiagramsToHtml",
-      ),
-      postCommitFrameCount: countEvent(
-        (eventName) => eventName === "render.postCommitAnimationFrame",
-      ),
-      renderDiagramsAsyncDoneCount: countEvent(
-        (eventName) => eventName === "render.diagramsAsyncDone",
-      ),
-      renderEventCount: countEvent((eventName) => eventName?.startsWith("render.")),
-      slowestDurationMs: durations.length > 0 ? Math.max(...durations) : 0,
-      status:
-        countEvent((eventName) => eventName === "render.diagramsAsyncDone") > 0
-          ? "seen"
-          : "not-seen",
-    };
-  }, { baselineSnapshot: baseline, clickStartedAtMs: clickStartedAt });
+  return page.evaluate(
+    ({ baselineSnapshot, clickStartedAtMs }) => {
+      const allEvents = window.__SVARD_PERF_EVENTS__ ?? [];
+      const events = allEvents.slice(baselineSnapshot?.eventCount ?? 0);
+      const allowedEvents = events.filter((event) => {
+        const eventName = event?.event;
+        return typeof eventName === "string" && eventName.startsWith("render.");
+      });
+      const countEvent = (predicate) =>
+        allowedEvents.filter((event) => predicate(event?.event)).length;
+      const firstEventOffset = (eventName) => {
+        const matched = allowedEvents.find(
+          (event) => event?.event === eventName,
+        );
+        if (
+          !matched ||
+          typeof matched.collectedAtMs !== "number" ||
+          !Number.isFinite(matched.collectedAtMs)
+        ) {
+          return undefined;
+        }
+        return Math.max(
+          0,
+          Math.round(matched.collectedAtMs - clickStartedAtMs),
+        );
+      };
+      const durations = allowedEvents
+        .map((event) => event?.durationMs)
+        .filter(
+          (duration) =>
+            typeof duration === "number" && Number.isFinite(duration),
+        );
+      return {
+        articleCommitCount: countEvent(
+          (eventName) => eventName === "render.articleInnerHtmlCommit",
+        ),
+        diagramDomCommitAtMs: firstEventOffset("render.articleInnerHtmlCommit"),
+        diagramHtmlApplyDoneAtMs: firstEventOffset(
+          "render.applyInlineDiagramsToHtml",
+        ),
+        diagramPostCommitFrameAtMs: firstEventOffset(
+          "render.postCommitAnimationFrame",
+        ),
+        diagramsAsyncDoneAtMs: firstEventOffset("render.diagramsAsyncDone"),
+        eventCount: allowedEvents.length,
+        htmlApplyCount: countEvent(
+          (eventName) => eventName === "render.applyInlineDiagramsToHtml",
+        ),
+        postCommitFrameCount: countEvent(
+          (eventName) => eventName === "render.postCommitAnimationFrame",
+        ),
+        renderDiagramsAsyncDoneCount: countEvent(
+          (eventName) => eventName === "render.diagramsAsyncDone",
+        ),
+        renderEventCount: countEvent((eventName) =>
+          eventName?.startsWith("render."),
+        ),
+        slowestDurationMs: durations.length > 0 ? Math.max(...durations) : 0,
+        status:
+          countEvent((eventName) => eventName === "render.diagramsAsyncDone") >
+          0
+            ? "seen"
+            : "not-seen",
+      };
+    },
+    { baselineSnapshot: baseline, clickStartedAtMs: clickStartedAt },
+  );
 }
 
 async function readPlaceholderStartupMetrics(page) {

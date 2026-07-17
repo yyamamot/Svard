@@ -7,10 +7,12 @@ export function useDiffOverlayCommandRefs() {
   const diffContentCursorCommandRef =
     useRef<ContentCursorCommandHandler | null>(null);
   const diffContentCursorClearRef = useRef<(() => void) | null>(null);
-  const diffCaptureAreaCommandRef =
-    useRef<CaptureAreaCommandHandler | null>(null);
-  const diffStreamCommandRef =
-    useRef<DocumentDiffStreamCommandBridge | null>(null);
+  const diffCaptureAreaCommandRef = useRef<CaptureAreaCommandHandler | null>(
+    null,
+  );
+  const diffStreamCommandRef = useRef<DocumentDiffStreamCommandBridge | null>(
+    null,
+  );
 
   return useMemo(
     () => ({

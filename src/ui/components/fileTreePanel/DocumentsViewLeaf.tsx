@@ -106,7 +106,10 @@ export function DocumentsSourceFilterHeader({
     targetPaths: reviewTargetPaths,
   });
   return (
-    <div className="documents-view-header" data-review-id="documents-view-header">
+    <div
+      className="documents-view-header"
+      data-review-id="documents-view-header"
+    >
       <span className="documents-view-heading">
         {documentsViewHeading(viewMode)}
       </span>

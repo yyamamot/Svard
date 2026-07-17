@@ -85,7 +85,7 @@ export function tableBlock(
       kind: "table",
       tagName: "table",
       text: "Name Status Feature Status Draft review",
-      html: '<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Draft review</td></tr></tbody></table>',
+      html: "<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Draft review</td></tr></tbody></table>",
       tableRows: [
         {
           index: 0,
@@ -136,7 +136,7 @@ export function tableBlock(
       kind: "table",
       tagName: "table",
       text: "Name Status Feature Status Done review",
-      html: '<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>',
+      html: "<table><tbody><tr><th>Name</th><th>Status</th></tr><tr><td>Feature</td><td>Status Done review</td></tr></tbody></table>",
       tableRows: [
         {
           index: 0,
@@ -220,7 +220,7 @@ export function presentation(
         primarySide: item.kind === "removed" ? "left" : "right",
         targetKind: "block" as const,
         block: item,
-    })),
+      })),
     sectionOutline: [],
     fallbackReasons: [],
     inlineDiagnostics: [],

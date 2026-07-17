@@ -34,14 +34,21 @@ export function resolveRenderedChangeAnchor({
   rightPane: HTMLDivElement | null;
 }): RenderedChangeAnchor | null {
   const primaryPane = navigationTarget
-    ? renderedPaneForTargetSide(navigationTarget.primarySide, leftPane, rightPane)
+    ? renderedPaneForTargetSide(
+        navigationTarget.primarySide,
+        leftPane,
+        rightPane,
+      )
     : null;
   const primaryTarget =
     resolveChangeTargetInPane(primaryPane, changeIndex) ?? null;
   const leftTarget = resolveChangeTargetInPane(leftPane, changeIndex) ?? null;
   const rightTarget = resolveChangeTargetInPane(rightPane, changeIndex) ?? null;
   const semanticTarget =
-    primaryTarget ?? rightTarget ?? leftTarget ?? renderedSideTarget({
+    primaryTarget ??
+    rightTarget ??
+    leftTarget ??
+    renderedSideTarget({
       changeIndex,
       leftPane,
       renderedSide,
@@ -130,7 +137,11 @@ function renderedMarkerCandidate({
   }
 
   const primaryPane = navigationTarget
-    ? renderedPaneForTargetSide(navigationTarget.primarySide, leftPane, rightPane)
+    ? renderedPaneForTargetSide(
+        navigationTarget.primarySide,
+        leftPane,
+        rightPane,
+      )
     : null;
   return primaryPane && primaryTarget
     ? { pane: primaryPane, target: primaryTarget }

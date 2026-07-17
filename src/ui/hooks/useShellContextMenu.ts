@@ -281,8 +281,7 @@ export function useShellContextMenu({
         {
           id: "mark-review-needs-attention",
           label: "Mark needs attention",
-          onSelect: () =>
-            documentReviewSession.markNeedsAttention(targetPath),
+          onSelect: () => documentReviewSession.markNeedsAttention(targetPath),
         },
         {
           id: "reset-review-state",

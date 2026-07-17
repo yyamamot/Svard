@@ -33,11 +33,7 @@ export function transformSimpleAdmonitions(source: string): string {
       ? trimmed.match(mkDocsAdmonitionPattern)
       : null;
     if (mkDocsMatch) {
-      const title = (
-        mkDocsMatch[2] ??
-        mkDocsMatch[3] ??
-        ""
-      ).trim();
+      const title = (mkDocsMatch[2] ?? mkDocsMatch[3] ?? "").trim();
 
       transformed.push(`> [!${mkDocsMatch[1].toUpperCase()}]`);
       if (title) {

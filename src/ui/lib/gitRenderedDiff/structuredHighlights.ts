@@ -34,15 +34,16 @@ export function renderedStructuredChildHighlightsForSide({
   }
   return (block.structuredChanges ?? []).flatMap((structuredChange) => {
     const childIndex =
-      side === "left" ? structuredChange.leftIndex : structuredChange.rightIndex;
+      side === "left"
+        ? structuredChange.leftIndex
+        : structuredChange.rightIndex;
     if (childIndex === undefined) {
       return [];
     }
     const changeIndex = changeIndexForChild(childIndex) ?? undefined;
     return [
       {
-        active:
-          changeIndex !== undefined && activeChangeIndex === changeIndex,
+        active: changeIndex !== undefined && activeChangeIndex === changeIndex,
         changeIndex,
         childIndex,
         contentCursorActive: contentCursorActiveForChild?.(childIndex),
@@ -75,10 +76,7 @@ function applyTargetMetadata(
   element: Element,
   highlight: RenderedStructuredChildHighlight,
 ) {
-  element.classList.add(
-    "git-rendered-structured-child-change",
-    highlight.kind,
-  );
+  element.classList.add("git-rendered-structured-child-change", highlight.kind);
   element.setAttribute(
     "data-review-id",
     "git-rendered-structured-child-change",
@@ -110,9 +108,7 @@ function definitionItems(doc: Document): Array<{
   descriptions: Element[];
   term: Element;
 }> {
-  const list = doc.body.matches("dl")
-    ? doc.body
-    : doc.body.querySelector("dl");
+  const list = doc.body.matches("dl") ? doc.body : doc.body.querySelector("dl");
   if (!list) {
     return [];
   }

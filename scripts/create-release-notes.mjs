@@ -4,9 +4,15 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const args = parseArgs(process.argv.slice(2));
 const version = requiredArg("version").replace(/^v/, "");
-const outPath = path.resolve(repoRoot, args.out ?? ".artifacts/release-notes.md");
+const outPath = path.resolve(
+  repoRoot,
+  args.out ?? ".artifacts/release-notes.md",
+);
 const changelogPath = path.resolve(repoRoot, args.changelog ?? "CHANGELOG.md");
-const checksumsPath = path.resolve(repoRoot, args.checksums ?? "SHA256SUMS.txt");
+const checksumsPath = path.resolve(
+  repoRoot,
+  args.checksums ?? "SHA256SUMS.txt",
+);
 
 function parseArgs(argv) {
   const parsed = {};
@@ -45,7 +51,9 @@ function extractChangelogSection(markdown, sectionVersion) {
   const match = markdown.match(pattern);
   const section = match?.[1]?.trim();
   if (!section) {
-    throw new Error(`CHANGELOG.md does not contain a non-empty ## ${sectionVersion} section`);
+    throw new Error(
+      `CHANGELOG.md does not contain a non-empty ## ${sectionVersion} section`,
+    );
   }
   return section;
 }

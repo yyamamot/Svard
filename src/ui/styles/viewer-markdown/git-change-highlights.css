@@ -9,9 +9,9 @@
 .document-body
   :where(
     .post-diff-git-highlight:not(
-        .post-diff-git-highlight-list-item,
-        .post-diff-git-highlight-table-cell
-      )
+      .post-diff-git-highlight-list-item,
+      .post-diff-git-highlight-table-cell
+    )
   )::before {
   position: absolute;
   top: 0;
@@ -24,15 +24,17 @@
 }
 
 .document-body
-  :where(.post-diff-git-highlight:not(
+  :where(
+    .post-diff-git-highlight:not(
         .post-diff-git-highlight-list-item,
         .post-diff-git-highlight-table-cell
       ):has(
         + .post-diff-git-highlight:not(
-          .post-diff-git-highlight-list-item,
-          .post-diff-git-highlight-table-cell
-        )
-      ))::after {
+            .post-diff-git-highlight-list-item,
+            .post-diff-git-highlight-table-cell
+          )
+      )
+  )::after {
   position: absolute;
   bottom: -1.2em;
   left: var(--git-change-accent-offset);
@@ -109,7 +111,8 @@
 
 .document-body :where(.post-diff-git-highlight-table-cell) {
   background: var(--git-change-item-bg-added);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--git-change-target-accent) 18%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--git-change-target-accent) 18%, transparent);
 }
 
 .document-body

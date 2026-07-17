@@ -12,7 +12,10 @@ import {
   sanitizeRenderedBlockHtml,
   unwrapSafeHtml,
 } from "../../src/ui/lib/sanitizeHtml";
-import { blocksFromHtml, parseHtmlBody } from "./helpers/gitRenderedDiffFixtures";
+import {
+  blocksFromHtml,
+  parseHtmlBody,
+} from "./helpers/gitRenderedDiffFixtures";
 
 describe("git rendered diff structured blocks", () => {
   it("extracts privacy-safe definition list item snapshots", () => {
@@ -85,7 +88,9 @@ describe("git rendered diff structured blocks", () => {
         structuredChildRole: "definition-item",
       }),
     ]);
-    expect(presentation.entryChangeIndexes.get(entry?.id ?? "")).toBeUndefined();
+    expect(
+      presentation.entryChangeIndexes.get(entry?.id ?? ""),
+    ).toBeUndefined();
     expect(
       entry
         ? renderedDiffStructuredChildChangeIndex(
@@ -186,7 +191,9 @@ describe("git rendered diff structured blocks", () => {
     expect(body.querySelector("td.content")?.className).toContain(
       "git-rendered-structured-child-change",
     );
-    expect(body.querySelector("td.icon")?.getAttribute("data-change-index")).toBeNull();
+    expect(
+      body.querySelector("td.icon")?.getAttribute("data-change-index"),
+    ).toBeNull();
   });
 
   it("falls back when admonition type changes", () => {
@@ -222,7 +229,9 @@ describe("git rendered diff structured blocks", () => {
     );
 
     expect(sanitized).toContain("git-rendered-structured-child-change");
-    expect(sanitized).toContain('data-review-id="git-rendered-structured-child-change"');
+    expect(sanitized).toContain(
+      'data-review-id="git-rendered-structured-child-change"',
+    );
     expect(sanitized).toContain('data-change-index="4"');
     expect(sanitized).toContain('data-active-change="true"');
     expect(sanitized).toContain('data-content-cursor-active="true"');

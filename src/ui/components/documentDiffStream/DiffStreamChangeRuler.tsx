@@ -131,9 +131,7 @@ export function DiffStreamChangeRuler({
   );
 }
 
-function diffStreamMarkerKind(
-  target: HTMLElement,
-): DiffChangeRulerMarkerKind {
+function diffStreamMarkerKind(target: HTMLElement): DiffChangeRulerMarkerKind {
   if (
     target.classList.contains("has-table-row-changes") ||
     target.querySelector('[data-review-id="git-diff-table-cell"]')

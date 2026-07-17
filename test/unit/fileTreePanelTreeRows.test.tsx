@@ -93,7 +93,6 @@ describe("FileTreePanel tree rows", () => {
     expect(directory?.textContent).toContain("2");
   });
 
-
   it("uses cached Source Control changes for collapsed directory badges", async () => {
     await act(async () => {
       root.render(
@@ -155,7 +154,6 @@ describe("FileTreePanel tree rows", () => {
       "1 changed document under docs: 1 modified",
     );
   });
-
 
   it("opens diff from a changed file badge without opening the file", async () => {
     const onOpenFile = vi.fn();
@@ -222,7 +220,6 @@ describe("FileTreePanel tree rows", () => {
     expect(onOpenFile).not.toHaveBeenCalled();
   });
 
-
   it("marks open documents in the regular File Tree", async () => {
     await act(async () => {
       root.render(
@@ -267,7 +264,6 @@ describe("FileTreePanel tree rows", () => {
     expect(docsRow?.getAttribute("data-document-open")).toBeNull();
     expect(docsRow?.textContent).not.toContain("open");
   });
-
 
   it("keeps directory count badges non-clickable", async () => {
     await act(async () => {
@@ -317,5 +313,4 @@ describe("FileTreePanel tree rows", () => {
       directory?.querySelector('[data-review-id="git-status-diff-button"]'),
     ).toBeNull();
   });
-
 });

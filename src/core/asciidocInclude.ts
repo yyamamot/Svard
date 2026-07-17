@@ -187,7 +187,10 @@ function applyAttributeDirective(
   if (!assignment) {
     return false;
   }
-  attributes.set(assignment.name, substituteAttributes(assignment.value, attributes));
+  attributes.set(
+    assignment.name,
+    substituteAttributes(assignment.value, attributes),
+  );
   return true;
 }
 
@@ -221,9 +224,10 @@ function evaluateIfeval(
   attributes: Map<string, string>,
 ): boolean {
   const substituted = substituteAttributes(expression, attributes).trim();
-  const match = /^['"]?([^'"]*?)['"]?\s*(==|!=|>=|<=|>|<)\s*['"]?([^'"]*?)['"]?\s*$/.exec(
-    substituted,
-  );
+  const match =
+    /^['"]?([^'"]*?)['"]?\s*(==|!=|>=|<=|>|<)\s*['"]?([^'"]*?)['"]?\s*$/.exec(
+      substituted,
+    );
   if (!match) {
     return false;
   }
@@ -306,7 +310,9 @@ export function expandAsciiDocIncludes(
         }
         const conditional = evaluateConditional(trimmed, attributes);
         if (conditional !== null) {
-          conditionStack.push(isConditionalActive(conditionStack) && conditional);
+          conditionStack.push(
+            isConditionalActive(conditionStack) && conditional,
+          );
           return;
         }
         if (!isConditionalActive(conditionStack)) {

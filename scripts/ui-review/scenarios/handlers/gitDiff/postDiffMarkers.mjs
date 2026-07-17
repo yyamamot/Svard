@@ -46,7 +46,9 @@ async function openDiffAndClose(page) {
     .locator('[data-review-id="document-body"]')
     .filter({ hasText: "Git Rendered Markdown Diff Fixture" })
     .waitFor();
-  await page.evaluate(() => window.__SVARD_COMMANDS__?.dispatch("git.showDiff"));
+  await page.evaluate(() =>
+    window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+  );
   await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
   await page.locator('[data-review-id="git-full-preview-diff"]').waitFor();
   await page.waitForFunction(
@@ -144,7 +146,10 @@ async function openTableFixture(
 }
 
 async function waitForTableMarkers(page) {
-  await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+  await page
+    .locator('[data-review-id="post-diff-git-marker"]')
+    .first()
+    .waitFor();
   await page.waitForFunction(
     () =>
       document.querySelector('[data-review-id="git-diff-preview-panel"]') ===
@@ -161,7 +166,10 @@ async function waitForTableMarkers(page) {
 }
 
 async function waitForNoTableCellMarkers(page) {
-  await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+  await page
+    .locator('[data-review-id="post-diff-git-marker"]')
+    .first()
+    .waitFor();
   await page.waitForFunction(
     () =>
       document.querySelector('[data-review-id="git-diff-preview-panel"]') ===
@@ -194,12 +202,16 @@ async function collectGitChangeVisualContractSummary(page, scenario) {
   const title = isDeletionFallback
     ? "Git Rendered List Deletion Fixture"
     : "Git Rendered Markdown Diff Fixture";
-  await page.locator(`[data-review-id="tree-file"][data-path="${path}"]`).click();
+  await page
+    .locator(`[data-review-id="tree-file"][data-path="${path}"]`)
+    .click();
   await page
     .locator('[data-review-id="document-body"]')
     .filter({ hasText: title })
     .waitFor();
-  await page.evaluate(() => window.__SVARD_COMMANDS__?.dispatch("git.showDiff"));
+  await page.evaluate(() =>
+    window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
+  );
   await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
 
   let rendered = null;
@@ -228,14 +240,14 @@ async function collectGitChangeVisualContractSummary(page, scenario) {
         blockCount: document.querySelectorAll(
           ".git-rendered-block.changed.right-side:not(.has-list-item-changes)",
         ).length,
-        itemCount: document.querySelectorAll(
-          ".git-rendered-list-item-change",
-        ).length,
+        itemCount: document.querySelectorAll(".git-rendered-list-item-change")
+          .length,
         parentListTargetCount: document.querySelectorAll(
           ".git-rendered-block.has-list-item-changes[data-change-index]",
         ).length,
-        inlineCount: document.querySelectorAll(".git-inline-word-highlight.added")
-          .length,
+        inlineCount: document.querySelectorAll(
+          ".git-inline-word-highlight.added",
+        ).length,
         block: styleFor(
           ".git-rendered-block.changed.right-side:not(.has-list-item-changes)",
         ),
@@ -254,7 +266,10 @@ async function collectGitChangeVisualContractSummary(page, scenario) {
   await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor({
     state: "detached",
   });
-  await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+  await page
+    .locator('[data-review-id="post-diff-git-marker"]')
+    .first()
+    .waitFor();
 
   const normal = await page.evaluate(() => {
     const styleFor = (selector, pseudo = null) => {
@@ -269,7 +284,8 @@ async function collectGitChangeVisualContractSummary(page, scenario) {
         width: style.width,
       };
     };
-    const root = document.querySelector(".app-shell") ?? document.documentElement;
+    const root =
+      document.querySelector(".app-shell") ?? document.documentElement;
     const rootStyle = getComputedStyle(root);
     return {
       tokenCount: [
@@ -364,7 +380,10 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
       .locator('[data-review-id="document-body"]')
       .filter({ hasText: "Git Rendered Markdown Diff Fixture" })
       .waitFor();
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .waitFor();
     await page.waitForFunction(
       () =>
         document.querySelector('[data-review-id="git-diff-preview-panel"]') ===
@@ -375,7 +394,10 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
           ".document-body .git-inline-word-highlight.added",
         ).length > 0,
     );
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().click();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .click();
     await markerSummary(page, {
       initialWorkingTree: true,
       clickResult: true,
@@ -385,7 +407,9 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     return true;
   }
 
-  if (scenario === "viewer-normal-git-markers-table-row-cell-initial-working-tree") {
+  if (
+    scenario === "viewer-normal-git-markers-table-row-cell-initial-working-tree"
+  ) {
     await openTableFixture(page);
     await waitForTableMarkers(page);
     await collectTableMarkerSummary(page, { initialWorkingTree: true });
@@ -471,7 +495,10 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
       .locator('[data-review-id="document-body"]')
       .filter({ hasText: "Git Rendered Markdown Diff Fixture" })
       .waitFor();
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .waitFor();
     const before = await markerSummary(page, {
       initialWorkingTree: true,
       stabilityBaseline: true,
@@ -530,7 +557,10 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
       .locator('[data-review-id="document-body"]')
       .filter({ hasText: "Git Rendered Markdown Diff Fixture" })
       .waitFor();
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .waitFor();
     const before = await markerSummary(page, {
       initialWorkingTree: true,
       commitCleanBaseline: true,
@@ -627,7 +657,10 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor({
       state: "detached",
     });
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .waitFor();
     await markerSummary(page, {
       documentBasename: "git-rendered-list-deletion.md",
       deletionFallback: true,
@@ -658,8 +691,14 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     scenario === "viewer-normal-git-markers-list-item-after-diff" ||
     scenario === "viewer-normal-git-markers-list-item-privacy"
   ) {
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().click();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .waitFor();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .click();
     await markerSummary(page, {
       clickResult: true,
       listItemMarker:
@@ -670,7 +709,10 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
   }
 
   if (scenario === "viewer-normal-git-markers-context-clear") {
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .waitFor();
     await page
       .locator(
         '[data-review-id="open-file-item"][data-path="/workspace/docs/mvp-guide.adoc"]',
@@ -688,7 +730,10 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
         '[data-review-id="open-file-item"][data-path="/workspace/docs/git-rendered-markdown.md"]',
       )
       .click();
-    await page.locator('[data-review-id="post-diff-git-marker"]').first().waitFor();
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .waitFor();
     await page.waitForFunction(
       () =>
         document.querySelectorAll(".document-body .post-diff-git-highlight")

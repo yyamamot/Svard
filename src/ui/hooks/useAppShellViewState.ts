@@ -103,15 +103,15 @@ export function useAppShellViewState({
     !(zenModeApplies && effectiveZenModeConfig.hideRightSidebar);
   const zenModeBlockingOverlay = Boolean(
     preferencesOpen ||
-      quickOpenOpen ||
-      fileComparePickerOpen ||
-      viewerShortcutHintsOpen ||
-      diagramPreview ||
-      documentDiffPreview ||
-      externalLinkConfirmation ||
-      gitCommitDetails ||
-      gitRefPicker ||
-      contextMenu,
+    quickOpenOpen ||
+    fileComparePickerOpen ||
+    viewerShortcutHintsOpen ||
+    diagramPreview ||
+    documentDiffPreview ||
+    externalLinkConfirmation ||
+    gitCommitDetails ||
+    gitRefPicker ||
+    contextMenu,
   );
   const centeredContentWidth =
     zenModeApplies && effectiveZenModeConfig.centerLayout && !splitEnabled
@@ -156,8 +156,8 @@ export function useAppShellViewState({
   );
   const hideOpenFilesForSiteScreenshot = Boolean(
     hasSiteScreenshotGitWorkspaceTab &&
-      (siteScreenshotScenario === "source-control" ||
-        config?.workspace.sidebarTab === "sourceControl"),
+    (siteScreenshotScenario === "source-control" ||
+      config?.workspace.sidebarTab === "sourceControl"),
   );
   const nativeAppMenuStateKey = useMemo(
     () =>

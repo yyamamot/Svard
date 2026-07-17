@@ -114,7 +114,8 @@
 }
 
 .git-rendered-block.active-change {
-  outline: 2px solid color-mix(in srgb, var(--git-change-target-accent) 42%, transparent);
+  outline: 2px solid
+    color-mix(in srgb, var(--git-change-target-accent) 42%, transparent);
   outline-offset: 2px;
 }
 
@@ -260,7 +261,8 @@
 }
 
 .git-rendered-list-item-change.active-change:not(.content-cursor-active) {
-  outline: 2px solid color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
+  outline: 2px solid
+    color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
   outline-offset: 2px;
 }
 
@@ -305,7 +307,11 @@
 
 .git-rendered-structured-child-context {
   border-radius: var(--git-change-block-radius);
-  background: color-mix(in srgb, var(--git-change-target-accent, var(--git-change-changed-accent)) 8%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--git-change-target-accent, var(--git-change-changed-accent)) 8%,
+    transparent
+  );
 }
 
 .git-rendered-structured-child-change.content-cursor-active {
@@ -313,8 +319,11 @@
   outline-offset: 2px;
 }
 
-.git-rendered-structured-child-change.active-change:not(.content-cursor-active) {
-  outline: 2px solid color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
+.git-rendered-structured-child-change.active-change:not(
+    .content-cursor-active
+  ) {
+  outline: 2px solid
+    color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
   outline-offset: 2px;
 }
 
@@ -340,7 +349,8 @@
 
 .git-rendered-table-cell-change {
   background: var(--git-change-item-bg-changed);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--git-change-target-accent) 18%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--git-change-target-accent) 18%, transparent);
 }
 
 .git-rendered-table-cell-change.added {
@@ -359,8 +369,13 @@
 
 .git-rendered-table-header-context,
 .git-rendered-table-caption-context {
-  background: color-mix(in srgb, var(--git-change-target-accent) 10%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--git-change-target-accent) 16%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--git-change-target-accent) 10%,
+    transparent
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--git-change-target-accent) 16%, transparent);
 }
 
 .git-rendered-table-caption-context {
@@ -391,7 +406,8 @@
 }
 
 .git-rendered-table-row-change.active-change:not(.content-cursor-active) {
-  outline: 2px solid color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
+  outline: 2px solid
+    color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
   outline-offset: 2px;
 }
 

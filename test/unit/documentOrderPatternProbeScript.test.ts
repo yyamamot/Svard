@@ -12,7 +12,9 @@ function writeFixture(root: string, name: string, content: string) {
 
 describe("document order pattern probe", () => {
   it("summarizes config shapes without preserving source identifiers", async () => {
-    const root = fs.mkdtempSync(path.join(process.cwd(), ".tmp-document-order-probe-"));
+    const root = fs.mkdtempSync(
+      path.join(process.cwd(), ".tmp-document-order-probe-"),
+    );
     try {
       const mkdocs = writeFixture(
         root,
@@ -22,7 +24,7 @@ describe("document order pattern probe", () => {
       const zensical = writeFixture(
         root,
         "zensical.toml",
-        "[project]\ndocs_dir = \"docs\"\nnav = [\"index.md\", \"guide/\", \"legacy/page.html\", \"${generated_nav}\", { \"Guide\" = [\"guide/intro.md\", { \"Reference\" = \"reference/api.md\" }] }, { \"External\" = \"https://example.invalid/docs\" }]\n# \"draft/\"\n",
+        '[project]\ndocs_dir = "docs"\nnav = ["index.md", "guide/", "legacy/page.html", "${generated_nav}", { "Guide" = ["guide/intro.md", { "Reference" = "reference/api.md" }] }, { "External" = "https://example.invalid/docs" }]\n# "draft/"\n',
       );
       const playbook = writeFixture(
         root,
@@ -72,7 +74,9 @@ describe("document order pattern probe", () => {
       expect(report.patterns.zensicalTitledNavItems).toBe(1);
       expect(report.patterns.zensicalNestedSections).toBe(1);
       expect(report.patterns.zensicalExternalLinks).toBe(1);
-      expect(report.patterns.zensicalGeneratedNavigationHints).toBeGreaterThan(0);
+      expect(report.patterns.zensicalGeneratedNavigationHints).toBeGreaterThan(
+        0,
+      );
       expect(report.patterns.antoraCommaSeparatedStartPaths).toBe(1);
       expect(report.patterns.antoraNavXrefsWithAnchor).toBe(1);
       expect(report.patterns.antoraNavIncludes).toBe(1);

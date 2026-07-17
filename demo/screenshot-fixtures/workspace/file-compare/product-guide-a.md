@@ -16,9 +16,9 @@ Diagrams may be rendered with a configured fallback service when needed.
 
 ## Release checklist
 
-| Area | Status |
-| --- | --- |
-| Reader | Ready |
-| Search | Current file |
-| Diff | Source comparison |
+| Area     | Status             |
+| -------- | ------------------ |
+| Reader   | Ready              |
+| Search   | Current file       |
+| Diff     | Source comparison  |
 | Diagrams | Fallback available |

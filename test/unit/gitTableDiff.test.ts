@@ -124,38 +124,21 @@ describe("git table diff", () => {
     expect(diff.rowChanges).toEqual([
       { kind: "changed", rowIndex: 1, side: "both" },
     ]);
-    expect(diff.cells[1]?.filter((cell) => cell.kind === "changed")).toHaveLength(
-      2,
-    );
+    expect(
+      diff.cells[1]?.filter((cell) => cell.kind === "changed"),
+    ).toHaveLength(2);
   });
 
   it("falls back for duplicate or reordered table rows", () => {
     expect(
       compareRenderedTable(
-        [
-          ["Name"],
-          ["Duplicate"],
-          ["Duplicate"],
-        ],
-        [
-          ["Name"],
-          ["Duplicate"],
-        ],
+        [["Name"], ["Duplicate"], ["Duplicate"]],
+        [["Name"], ["Duplicate"]],
       ).fallbackReason,
     ).toBe("ambiguous");
     expect(
-      compareRenderedTable(
-        [
-          ["Name"],
-          ["A"],
-          ["B"],
-        ],
-        [
-          ["Name"],
-          ["B"],
-          ["A"],
-        ],
-      ).fallbackReason,
+      compareRenderedTable([["Name"], ["A"], ["B"]], [["Name"], ["B"], ["A"]])
+        .fallbackReason,
     ).toBe("ambiguous");
   });
 

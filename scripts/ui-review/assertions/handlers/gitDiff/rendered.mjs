@@ -343,7 +343,8 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
               result?.rulerSummary?.activeMarkerCount === 1 &&
               result?.contentCursorSummary?.activeMarkerCount === 1 &&
               result?.contentCursorSummary?.contentCursorCount === 1 &&
-              result?.contentCursorSummary?.contentCursorActiveOverlapCount === 1
+              result?.contentCursorSummary?.contentCursorActiveOverlapCount ===
+                1
             );
           })
         : true,

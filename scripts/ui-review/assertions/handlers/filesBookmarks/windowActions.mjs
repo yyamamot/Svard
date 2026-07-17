@@ -83,8 +83,7 @@ export async function buildWindowActionsAssertions(context) {
     hasOpenLinkInNewWindow:
       scenario === "viewer-open-link-in-new-window"
         ? await page.evaluate(() => {
-            const sample =
-              window.__SVARD_OPEN_LINK_IN_NEW_WINDOW_CHECK__ ?? {};
+            const sample = window.__SVARD_OPEN_LINK_IN_NEW_WINDOW_CHECK__ ?? {};
             const labels = sample.labels ?? [];
             const requests = sample.requests ?? [];
             return (
@@ -102,8 +101,7 @@ export async function buildWindowActionsAssertions(context) {
     hasMoveTabToNewWindow:
       scenario === "viewer-move-tab-to-new-window"
         ? await page.evaluate(() => {
-            const sample =
-              window.__SVARD_MOVE_TAB_TO_NEW_WINDOW_CHECK__ ?? {};
+            const sample = window.__SVARD_MOVE_TAB_TO_NEW_WINDOW_CHECK__ ?? {};
             const openFileLabels = sample.openFileLabels ?? [];
             const tabLabels = sample.tabLabels ?? [];
             const requests = sample.requests ?? [];

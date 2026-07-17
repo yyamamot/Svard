@@ -817,5 +817,4 @@ describe("FileTreePanel Documents only view", () => {
         ?.textContent,
     ).toContain("No changed open documents");
   });
-
 });

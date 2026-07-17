@@ -12,7 +12,10 @@ import {
   sanitizeRenderedBlockHtml,
   unwrapSafeHtml,
 } from "../../src/ui/lib/sanitizeHtml";
-import { blocksFromHtml, parseHtmlBody } from "./helpers/gitRenderedDiffFixtures";
+import {
+  blocksFromHtml,
+  parseHtmlBody,
+} from "./helpers/gitRenderedDiffFixtures";
 
 describe("git rendered diff list items", () => {
   it("extracts privacy-safe top-level list item snapshots", () => {
@@ -108,9 +111,7 @@ describe("git rendered diff list items", () => {
       blocksFromHtml(
         "<ul><li>差分プレビューを改善する</li><li>安定項目</li></ul>",
       ),
-      blocksFromHtml(
-        "<ul><li>差分表示を改善する</li><li>安定項目</li></ul>",
-      ),
+      blocksFromHtml("<ul><li>差分表示を改善する</li><li>安定項目</li></ul>"),
     );
 
     expect(block?.childChanges).toEqual([
@@ -183,12 +184,8 @@ describe("git rendered diff list items", () => {
 
   it("keeps child change fallback summaries privacy-safe", () => {
     const [block] = compareRenderedBlocks(
-      blocksFromHtml(
-        "<ul><li>Secret Alpha</li><li>Secret Alpha</li></ul>",
-      ),
-      blocksFromHtml(
-        "<ul><li>Secret Alpha</li><li>Secret Beta</li></ul>",
-      ),
+      blocksFromHtml("<ul><li>Secret Alpha</li><li>Secret Alpha</li></ul>"),
+      blocksFromHtml("<ul><li>Secret Alpha</li><li>Secret Beta</li></ul>"),
     );
 
     const serialized = JSON.stringify({
@@ -228,7 +225,9 @@ describe("git rendered diff list items", () => {
         itemIndex: 1,
       }),
     ]);
-    expect(presentation.entryChangeIndexes.get(entry?.id ?? "")).toBeUndefined();
+    expect(
+      presentation.entryChangeIndexes.get(entry?.id ?? ""),
+    ).toBeUndefined();
     expect(
       entry
         ? renderedDiffListItemChangeIndex(presentation, entry, "right", 1)
@@ -312,14 +311,16 @@ describe("git rendered diff list items", () => {
     const leftDoc = parseHtmlBody(leftHtml);
 
     expect(
-      rightDoc.querySelectorAll('[data-review-id="git-rendered-list-item-change"]'),
+      rightDoc.querySelectorAll(
+        '[data-review-id="git-rendered-list-item-change"]',
+      ),
     ).toHaveLength(1);
     expect(
       rightDoc.querySelectorAll(".git-rendered-list-item-change.changed"),
     ).toHaveLength(1);
-    expect(
-      rightDoc.querySelectorAll('[data-change-index="7"]'),
-    ).toHaveLength(1);
+    expect(rightDoc.querySelectorAll('[data-change-index="7"]')).toHaveLength(
+      1,
+    );
     expect(
       rightDoc.querySelector('[data-content-cursor-active="true"]'),
     ).toBeNull();
@@ -380,7 +381,9 @@ describe("git rendered diff list items", () => {
     );
 
     expect(sanitized).toContain("git-rendered-list-item-change");
-    expect(sanitized).toContain('data-review-id="git-rendered-list-item-change"');
+    expect(sanitized).toContain(
+      'data-review-id="git-rendered-list-item-change"',
+    );
     expect(sanitized).toContain('data-change-index="3"');
     expect(sanitized).toContain('data-active-change="true"');
     expect(sanitized).not.toContain('data-content-cursor-active="true"');

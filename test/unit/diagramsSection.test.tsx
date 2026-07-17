@@ -134,12 +134,8 @@ describe("DiagramsSection", () => {
 
     expect(container.textContent).toContain("External PlantUML fallback");
     expect(container.textContent).toContain("Not tested.");
-    expect(container.textContent).toContain(
-      "Optional for sequence diagrams.",
-    );
-    expect(container.textContent).toContain(
-      "not Graphviz dot availability.",
-    );
+    expect(container.textContent).toContain("Optional for sequence diagrams.");
+    expect(container.textContent).toContain("not Graphviz dot availability.");
     expect(
       container.querySelector<HTMLInputElement>(
         '[data-review-id="plantuml-external-binary-path"]',

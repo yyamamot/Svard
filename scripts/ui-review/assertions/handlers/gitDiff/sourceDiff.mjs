@@ -50,7 +50,9 @@ export async function buildGitDiffSourceDiffAssertions(context) {
               )
               .first()
               .getAttribute("aria-label")) ?? ""
-          ).includes("Modified in Git. Open rendered diff for git-modified.md") &&
+          ).includes(
+            "Modified in Git. Open rendered diff for git-modified.md",
+          ) &&
           (await page
             .locator(
               '[data-review-id="tree-folder-toggle"] [data-review-id="git-status-diff-button"]',

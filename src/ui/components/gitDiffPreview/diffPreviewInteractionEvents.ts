@@ -33,7 +33,7 @@ export function hasRenderedDiffSelectionAtPoint(
   const context = diffContextForTarget(target);
   return Boolean(
     context?.surface === "rendered" &&
-      documentSelectionAtPoint(context.container, clientX, clientY),
+    documentSelectionAtPoint(context.container, clientX, clientY),
   );
 }
 

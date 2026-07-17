@@ -146,9 +146,9 @@ describe("SourceControlPanel review session", () => {
       onOpenAllDiffs,
     });
 
-    const allDiffsButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "All diffs",
-    );
+    const allDiffsButton = Array.from(
+      container.querySelectorAll("button"),
+    ).find((button) => button.textContent === "All diffs");
 
     await act(async () => {
       allDiffsButton?.click();

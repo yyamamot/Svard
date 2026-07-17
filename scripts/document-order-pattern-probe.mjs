@@ -49,7 +49,10 @@ function detectKind(source, content) {
   if (basename === "zensical.toml") {
     return "zensical";
   }
-  if (basename === "antora-playbook.yml" || basename === "antora-playbook.yaml") {
+  if (
+    basename === "antora-playbook.yml" ||
+    basename === "antora-playbook.yaml"
+  ) {
     return "antora-playbook";
   }
   if (basename === "antora.yml") {
@@ -58,7 +61,10 @@ function detectKind(source, content) {
   if (basename === "nav.adoc") {
     return "antora-nav";
   }
-  if (/^config\.(?:ts|mts|js|mjs)$/.test(basename) && /vitepress/.test(content)) {
+  if (
+    /^config\.(?:ts|mts|js|mjs)$/.test(basename) &&
+    /vitepress/.test(content)
+  ) {
     return "vitepress";
   }
   if (
@@ -113,7 +119,10 @@ function summarizeMkDocs(content) {
     mkdocsNavConfigured: countMatches(content, /^\s*nav\s*:/gm),
     mkdocsDocsDirConfigured: countMatches(content, /^\s*docs_dir\s*:/gm),
     mkdocsInheritConfigured: countMatches(content, /^\s*INHERIT\s*:/gm),
-    mkdocsStringNavItems: countMatches(content, /^\s*-\s*['"]?[^:\n]+\.md['"]?\s*$/gm),
+    mkdocsStringNavItems: countMatches(
+      content,
+      /^\s*-\s*['"]?[^:\n]+\.md['"]?\s*$/gm,
+    ),
     mkdocsTitledNavItems: countMatches(content, /^\s*-\s*[^:\n]+:\s*[^[]/gm),
     mkdocsNestedSections: countMatches(content, /^\s*-\s*[^:\n]+:\s*$/gm),
     mkdocsCustomYamlTags: countMatches(content, /![A-Za-z][\w-]*/g),
@@ -124,7 +133,10 @@ function summarizeZensical(content) {
   return removeZeroCounts({
     zensicalNavConfigured: countMatches(content, /^\s*nav\s*=/gm),
     zensicalDocsDirConfigured: countMatches(content, /^\s*docs_dir\s*=/gm),
-    zensicalCommentedNavItems: countMatches(content, /^\s*#\s*"?[^"\n]+(?:\.md|\/)"?\s*,?/gm),
+    zensicalCommentedNavItems: countMatches(
+      content,
+      /^\s*#\s*"?[^"\n]+(?:\.md|\/)"?\s*,?/gm,
+    ),
     zensicalStringNavItems: countMatches(content, /"[^"\n]+\.md"\s*,?/g),
     zensicalDirectoryTargets: countMatches(content, /"[^"\n]+\/"\s*,?/g),
     zensicalHtmlTargets: countMatches(content, /"[^"\n]+\.html"\s*,?/g),
@@ -132,10 +144,7 @@ function summarizeZensical(content) {
       content,
       /\{\s*"[^"\n]+"\s*=\s*"[^"\n]+\.md"\s*\}/g,
     ),
-    zensicalNestedSections: countMatches(
-      content,
-      /\{\s*"[^"\n]+"\s*=\s*\[/g,
-    ),
+    zensicalNestedSections: countMatches(content, /\{\s*"[^"\n]+"\s*=\s*\[/g),
     zensicalExternalLinks: countMatches(content, /https?:\/\//g),
     zensicalGeneratedNavigationHints: countMatches(
       content,
@@ -147,15 +156,24 @@ function summarizeZensical(content) {
 function summarizeAntoraPlaybook(content) {
   return removeZeroCounts({
     antoraContentSources: countMatches(content, /^\s*-\s*url\s*:/gm),
-    antoraLocalSources: countMatches(content, /^\s*-\s*url\s*:\s*(\.|['"]\.)/gm),
-    antoraRemoteSources: countMatches(content, /^\s*-\s*url\s*:\s*['"]?(?:https?:\/\/|git@)/gm),
+    antoraLocalSources: countMatches(
+      content,
+      /^\s*-\s*url\s*:\s*(\.|['"]\.)/gm,
+    ),
+    antoraRemoteSources: countMatches(
+      content,
+      /^\s*-\s*url\s*:\s*['"]?(?:https?:\/\/|git@)/gm,
+    ),
     antoraStartPath: countMatches(content, /^\s*start_path\s*:/gm),
     antoraStartPaths: countMatches(content, /^\s*start_paths\s*:/gm),
     antoraCommaSeparatedStartPaths: countMatches(
       content,
       /^\s*start_paths?\s*:\s*[^[][^,\n]+,\s*[^,\n]+/gm,
     ),
-    antoraWildcardStartPaths: countMatches(content, /^\s*start_paths?\s*:.*\*/gm),
+    antoraWildcardStartPaths: countMatches(
+      content,
+      /^\s*start_paths?\s*:.*\*/gm,
+    ),
     antoraExtensionConfigured: countMatches(content, /^\s*extensions\s*:/gm),
   });
 }
@@ -163,7 +181,10 @@ function summarizeAntoraPlaybook(content) {
 function summarizeAntoraDescriptor(content) {
   return removeZeroCounts({
     antoraNavConfigured: countMatches(content, /^\s*nav\s*:/gm),
-    antoraRegisteredNavFiles: countMatches(content, /^\s*-\s*modules\/[^/\s]+\/nav\.adoc/gm),
+    antoraRegisteredNavFiles: countMatches(
+      content,
+      /^\s*-\s*modules\/[^/\s]+\/nav\.adoc/gm,
+    ),
     antoraStartPageConfigured: countMatches(content, /^\s*start_page\s*:/gm),
   });
 }
@@ -195,12 +216,24 @@ function summarizeVitePress(content) {
       /(?:export\s+)?const\s+sidebar(?:\s*:[^=]+)?\s*=/g,
     ),
     vitepressNestedItems: countMatches(content, /items\s*:\s*\[/g),
-    vitepressExternalLinks: countMatches(content, /link\s*:\s*['"]https?:\/\//g),
+    vitepressExternalLinks: countMatches(
+      content,
+      /link\s*:\s*['"]https?:\/\//g,
+    ),
     vitepressHashLinks: countMatches(content, /link\s*:\s*['"][^'"]*#/g),
-    vitepressTrailingSlashLinks: countMatches(content, /link\s*:\s*['"][^'"]+\/['"]/g),
-    vitepressFunctionSidebar: countMatches(content, /sidebar\s*:\s*[A-Za-z_$][\w$]*\s*\(/g),
+    vitepressTrailingSlashLinks: countMatches(
+      content,
+      /link\s*:\s*['"][^'"]+\/['"]/g,
+    ),
+    vitepressFunctionSidebar: countMatches(
+      content,
+      /sidebar\s*:\s*[A-Za-z_$][\w$]*\s*\(/g,
+    ),
     vitepressSpreadSidebarItems: countMatches(content, /\.\.\.[A-Za-z_$]/g),
-    vitepressImportedSidebar: countMatches(content, /import\s+[^;\n]*sidebar/gi),
+    vitepressImportedSidebar: countMatches(
+      content,
+      /import\s+[^;\n]*sidebar/gi,
+    ),
   });
 }
 
@@ -210,7 +243,10 @@ function summarizeDocusaurusConfig(content) {
     docusaurusConfigCommonJs: countMatches(content, /module\.exports\s*=/g),
     docusaurusDocsPath: countMatches(content, /docs\s*:\s*\{[\s\S]*?path\s*:/g),
     docusaurusSidebarPath: countMatches(content, /sidebarPath\s*:/g),
-    docusaurusPresetClassic: countMatches(content, /preset-classic|['"]classic['"]/g),
+    docusaurusPresetClassic: countMatches(
+      content,
+      /preset-classic|['"]classic['"]/g,
+    ),
     docusaurusPluginContentDocs: countMatches(
       content,
       /@docusaurus\/plugin-content-docs/g,
@@ -232,7 +268,10 @@ function summarizeDocusaurusSidebars(content) {
     ),
     docusaurusStringDocItems: countMatches(content, /['"][^'"]+['"]\s*,/g),
     docusaurusDocItems: countMatches(content, /type\s*:\s*['"]doc['"]/g),
-    docusaurusCategoryItems: countMatches(content, /type\s*:\s*['"]category['"]/g),
+    docusaurusCategoryItems: countMatches(
+      content,
+      /type\s*:\s*['"]category['"]/g,
+    ),
     docusaurusAutogeneratedItems: countMatches(
       content,
       /type\s*:\s*['"]autogenerated['"]/g,
@@ -252,7 +291,10 @@ function summarizeDocusaurusSidebars(content) {
       content,
       /(?:generate|create|build)[A-Za-z0-9_$]*Sidebar\s*\(/g,
     ),
-    docusaurusImportedSidebar: countMatches(content, /import\s+[^;\n]*sidebar/gi),
+    docusaurusImportedSidebar: countMatches(
+      content,
+      /import\s+[^;\n]*sidebar/gi,
+    ),
     docusaurusSpreadSidebarItems: countMatches(content, /\.\.\.[A-Za-z_$]/g),
   });
 }
@@ -282,7 +324,9 @@ async function runCli() {
     args.splice(outIndex, 2);
   }
   if (args.length === 0) {
-    console.error("usage: node scripts/document-order-pattern-probe.mjs [--out report.json] <url-or-path>...");
+    console.error(
+      "usage: node scripts/document-order-pattern-probe.mjs [--out report.json] <url-or-path>...",
+    );
     process.exitCode = 1;
     return;
   }

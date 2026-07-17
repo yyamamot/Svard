@@ -40,7 +40,9 @@ function updateCargoTomlVersion() {
     },
   );
   if (!matched) {
-    throw new Error("Could not update [package] version in src-tauri/Cargo.toml");
+    throw new Error(
+      "Could not update [package] version in src-tauri/Cargo.toml",
+    );
   }
   writeText(filePath, next);
 }

@@ -134,24 +134,22 @@ function diffDiagramComparisonForTarget({
   beforeTitle: string;
   currentSvg: SVGElement;
   target?: HTMLElement;
-}):
-  | {
-      before?: {
-        title: string;
-        svg: string;
-        width?: number;
-        height?: number;
-        sourceReference?: string;
-      };
-      after?: {
-        title: string;
-        svg: string;
-        width?: number;
-        height?: number;
-        sourceReference?: string;
-      };
-    }
-  | null {
+}): {
+  before?: {
+    title: string;
+    svg: string;
+    width?: number;
+    height?: number;
+    sourceReference?: string;
+  };
+  after?: {
+    title: string;
+    svg: string;
+    width?: number;
+    height?: number;
+    sourceReference?: string;
+  };
+} | null {
   if (!isLocalDiffDiagramSvg(currentSvg)) {
     return null;
   }
@@ -247,7 +245,7 @@ function localDiagramPreviewSide(
 function isLocalDiffDiagramSvg(svg: SVGElement): boolean {
   return Boolean(
     svg.closest('[data-review-id="diagram-inline-image"]') &&
-      !svg.closest('[data-review-id="kroki-render"]'),
+    !svg.closest('[data-review-id="kroki-render"]'),
   );
 }
 
@@ -338,9 +336,15 @@ export async function saveDiffDiagramSvg({
   const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-  const diagramType = svg.closest<HTMLElement>("[data-review-id$='-render']")?.dataset.reviewId?.replace(/-render$/u, "");
+  const diagramType = svg
+    .closest<HTMLElement>("[data-review-id$='-render']")
+    ?.dataset.reviewId?.replace(/-render$/u, "");
   anchor.href = url;
-  anchor.download = diagramSvgFileName({ documentPath, diagramType, sourceReference });
+  anchor.download = diagramSvgFileName({
+    documentPath,
+    diagramType,
+    sourceReference,
+  });
   anchor.rel = "noopener";
   document.body.append(anchor);
   anchor.click();

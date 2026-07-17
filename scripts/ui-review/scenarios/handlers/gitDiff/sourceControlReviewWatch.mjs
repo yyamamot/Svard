@@ -29,8 +29,9 @@ export async function applyReviewWatchModeScenario(page) {
     window.__SVARD_REVIEW_WATCH_MODE_SAMPLE__ = {
       callCount: window.__SVARD_GIT_CHANGES_CALL_COUNT__ ?? 0,
       changesVisible:
-        document.querySelector('[data-review-id="source-control-change-item"]') !==
-        null,
+        document.querySelector(
+          '[data-review-id="source-control-change-item"]',
+        ) !== null,
     };
   });
 }
@@ -87,11 +88,13 @@ export async function applyReviewWatchActiveDiffScenario(page, scenario) {
         activeMarkerPresent: active !== null,
         activeLabel: active?.getAttribute("aria-label") ?? "",
         staleVisible:
-          document.querySelector('[data-review-id="git-diff-preview-watch-status"]')
-            ?.textContent ?? "",
+          document.querySelector(
+            '[data-review-id="git-diff-preview-watch-status"]',
+          )?.textContent ?? "",
         refreshVisible:
-          document.querySelector('[data-review-id="git-diff-preview-refresh"]') !==
-          null,
+          document.querySelector(
+            '[data-review-id="git-diff-preview-refresh"]',
+          ) !== null,
         refreshedTextVisible:
           document.body.textContent?.includes("Refreshed watch body") ?? false,
       };

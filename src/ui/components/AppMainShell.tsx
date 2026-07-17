@@ -85,18 +85,16 @@ export function AppMainShell({
 }: AppMainShellProps) {
   function renderViewerPane(paneId: PaneId, snapshot: ViewerPaneSnapshot) {
     return (
-      <ViewerPane
-        {...viewerPaneProps}
-        paneId={paneId}
-        snapshot={snapshot}
-      />
+      <ViewerPane {...viewerPaneProps} paneId={paneId} snapshot={snapshot} />
     );
   }
 
   return (
     <div
       className={className}
-      data-zen-mode-active={className.includes("zen-mode-active") ? "true" : undefined}
+      data-zen-mode-active={
+        className.includes("zen-mode-active") ? "true" : undefined
+      }
       data-review-id="shell"
       style={appShellStyle}
       onPointerMove={onPointerMove}

@@ -144,7 +144,10 @@ function collectWarnings(durations) {
     });
   }
   const releaseCompileMs = durationTextToMs(durations.releaseCompile);
-  if (typeof releaseCompileMs === "number" && releaseCompileMs > 5 * 60 * 1000) {
+  if (
+    typeof releaseCompileMs === "number" &&
+    releaseCompileMs > 5 * 60 * 1000
+  ) {
     warnings.push({
       id: "macos-release-compile-over-5m",
       message: "macOS release compile exceeded 5 minutes.",
@@ -233,7 +236,8 @@ async function launchExecutableSmoke() {
     spawnError = error;
   });
   await new Promise((resolve) => setTimeout(resolve, 5000));
-  const stillRunning = spawnError === null && exitCode === null && signal === null;
+  const stillRunning =
+    spawnError === null && exitCode === null && signal === null;
   if (stillRunning) {
     child.kill();
   }

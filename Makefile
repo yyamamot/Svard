@@ -14,6 +14,7 @@ help:
 		'  make typecheck        Run TypeScript typecheck' \
 		'  make lint             Run lint' \
 		'  make format           Run formatter' \
+		'  make format-check     Check formatting without modifying files' \
 		'  make build            Build browser UI' \
 		'  make site-install     Install static site dependencies' \
 		'  make site-dev         Start static site dev server' \
@@ -48,7 +49,7 @@ dev-web:
 dev-tauri:
 	$(PNPM) run tauri:dev
 
-.PHONY: typecheck lint format build site-install site-dev site-build site-screenshots site-screenshots-force site-preview test-unit test-integration test-e2e tauri-check tauri-test tauri-build check verify verify-ui-change ci-manual-smoke ci-manual-build sccache-stats clean clean-all
+.PHONY: typecheck lint format format-check build site-install site-dev site-build site-screenshots site-screenshots-force site-preview test-unit test-integration test-e2e tauri-check tauri-test tauri-build check verify verify-ui-change ci-manual-smoke ci-manual-build sccache-stats clean clean-all
 
 typecheck:
 	$(PNPM) run typecheck
@@ -58,6 +59,9 @@ lint:
 
 format:
 	$(PNPM) run format
+
+format-check:
+	$(PNPM) run format:check
 
 build:
 	$(PNPM) run build

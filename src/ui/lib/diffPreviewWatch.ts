@@ -33,9 +33,7 @@ export function watchedGitDiffPreviewPath(
   return preview.rightPath ?? preview.leftPath ?? null;
 }
 
-export function diffPreviewIdentityKey(
-  preview: DocumentDiffPreview,
-): string {
+export function diffPreviewIdentityKey(preview: DocumentDiffPreview): string {
   return [
     preview.source ?? "git",
     preview.relativePath ?? "",

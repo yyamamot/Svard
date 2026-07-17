@@ -12,7 +12,10 @@ import {
   sanitizeRenderedBlockHtml,
   unwrapSafeHtml,
 } from "../../src/ui/lib/sanitizeHtml";
-import { blocksFromHtml, parseHtmlBody } from "./helpers/gitRenderedDiffFixtures";
+import {
+  blocksFromHtml,
+  parseHtmlBody,
+} from "./helpers/gitRenderedDiffFixtures";
 
 describe("git rendered diff tables", () => {
   it("extracts privacy-safe simple table row and cell snapshots", () => {
@@ -95,7 +98,9 @@ describe("git rendered diff tables", () => {
         tableRowIndex: 1,
       }),
     ]);
-    expect(presentation.entryChangeIndexes.get(entry?.id ?? "")).toBeUndefined();
+    expect(
+      presentation.entryChangeIndexes.get(entry?.id ?? ""),
+    ).toBeUndefined();
     expect(
       entry
         ? renderedDiffTableRowChangeIndex(presentation, entry, "right", 1)
@@ -182,21 +187,29 @@ describe("git rendered diff tables", () => {
     ).toBeTruthy();
     expect(body.querySelector("tr[data-change-index='4']")).toBeTruthy();
     expect(
-      body.querySelectorAll('[data-review-id="git-rendered-table-cell-change"]'),
+      body.querySelectorAll(
+        '[data-review-id="git-rendered-table-cell-change"]',
+      ),
     ).toHaveLength(1);
     expect(
-      body.querySelectorAll('[data-review-id="git-rendered-table-header-context"]'),
+      body.querySelectorAll(
+        '[data-review-id="git-rendered-table-header-context"]',
+      ),
     ).toHaveLength(1);
     expect(
       body.querySelector('[data-review-id="git-rendered-table-header-context"]')
         ?.textContent,
     ).toBe("Status");
     expect(
-      body.querySelector('[data-review-id="git-rendered-table-caption-context"]'),
+      body.querySelector(
+        '[data-review-id="git-rendered-table-caption-context"]',
+      ),
     ).toBeTruthy();
     expect(body.querySelector(".git-inline-word-highlight.added")).toBeTruthy();
     expect(body.querySelector('[data-active-change="true"]')).toBeTruthy();
-    expect(body.querySelector('[data-content-cursor-active="true"]')).toBeNull();
+    expect(
+      body.querySelector('[data-content-cursor-active="true"]'),
+    ).toBeNull();
   });
 
   it("focuses rendered table rows around table row changes", () => {
@@ -300,10 +313,14 @@ describe("git rendered diff tables", () => {
       body.querySelector('[data-review-id="git-rendered-table-cell-change"]'),
     ).toBeTruthy();
     expect(
-      body.querySelector('[data-review-id="git-rendered-table-header-context"]'),
+      body.querySelector(
+        '[data-review-id="git-rendered-table-header-context"]',
+      ),
     ).toBeNull();
     expect(
-      body.querySelector('[data-review-id="git-rendered-table-caption-context"]'),
+      body.querySelector(
+        '[data-review-id="git-rendered-table-caption-context"]',
+      ),
     ).toBeNull();
   });
 
@@ -335,12 +352,18 @@ describe("git rendered diff tables", () => {
     );
 
     expect(sanitized).toContain("git-rendered-table-row-change");
-    expect(sanitized).toContain('data-review-id="git-rendered-table-row-change"');
+    expect(sanitized).toContain(
+      'data-review-id="git-rendered-table-row-change"',
+    );
     expect(sanitized).toContain("git-rendered-table-cell-change");
     expect(sanitized).toContain("git-rendered-table-header-context");
-    expect(sanitized).toContain('data-review-id="git-rendered-table-header-context"');
+    expect(sanitized).toContain(
+      'data-review-id="git-rendered-table-header-context"',
+    );
     expect(sanitized).toContain("git-rendered-table-caption-context");
-    expect(sanitized).toContain('data-review-id="git-rendered-table-caption-context"');
+    expect(sanitized).toContain(
+      'data-review-id="git-rendered-table-caption-context"',
+    );
     expect(sanitized).toContain('data-change-index="2"');
     expect(sanitized).toContain('data-active-change="true"');
   });

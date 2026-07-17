@@ -186,8 +186,9 @@ describe("useSearchState", () => {
     });
     await flushSearchEffects();
 
-    const activeMarks =
-      api().articleRef.current?.querySelectorAll("mark.search-hit.active");
+    const activeMarks = api().articleRef.current?.querySelectorAll(
+      "mark.search-hit.active",
+    );
     expect(activeMarks).toHaveLength(1);
     expect(activeMarks?.[0]?.getAttribute("data-search-hit-index")).toBe("1");
     expect(window.__SVARD_CURRENT_FILE_SEARCH_TIMING__).toMatchObject({

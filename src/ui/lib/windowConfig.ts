@@ -24,7 +24,9 @@ function restorableWindowSessionIdsForSave({
   const persistedIds =
     persistedConfig.workspace.restorableWindowSessionIds ?? [];
   if (windowSessionId === MAIN_WINDOW_SESSION_ID) {
-    return persistedIds.filter((sessionId) => sessionId !== MAIN_WINDOW_SESSION_ID);
+    return persistedIds.filter(
+      (sessionId) => sessionId !== MAIN_WINDOW_SESSION_ID,
+    );
   }
   const withoutCurrent = persistedIds.filter(
     (sessionId) => sessionId !== windowSessionId,
@@ -88,8 +90,7 @@ export function mergeWindowConfigForSave({
     windowSessionId,
     windowSession,
   });
-  const savesTopLevelWindowChrome =
-    windowSessionId === MAIN_WINDOW_SESSION_ID;
+  const savesTopLevelWindowChrome = windowSessionId === MAIN_WINDOW_SESSION_ID;
   return {
     ...persistedConfig,
     theme: windowConfig.theme,

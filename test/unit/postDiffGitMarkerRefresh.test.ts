@@ -8,12 +8,11 @@ import {
 
 describe("post-diff git marker refresh stability", () => {
   it("keeps marker context for unrelated file tree changes", () => {
-    const decision =
-      shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
-        activeDocumentPath: "/workspace/docs/active.md",
-        changedPath: "/workspace/docs/other.md",
-        reason: "file-tree-directory-watch",
-      });
+    const decision = shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
+      activeDocumentPath: "/workspace/docs/active.md",
+      changedPath: "/workspace/docs/other.md",
+      reason: "file-tree-directory-watch",
+    });
 
     expect(decision.shouldInvalidate).toBe(false);
     expect(decision.trace).toEqual({
@@ -25,12 +24,11 @@ describe("post-diff git marker refresh stability", () => {
   });
 
   it("invalidates marker context when the active document changed", () => {
-    const decision =
-      shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
-        activeDocumentPath: "/workspace/docs/active.adoc",
-        changedPath: "/workspace/docs/active.adoc",
-        reason: "file-tree-directory-watch",
-      });
+    const decision = shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
+      activeDocumentPath: "/workspace/docs/active.adoc",
+      changedPath: "/workspace/docs/active.adoc",
+      reason: "file-tree-directory-watch",
+    });
 
     expect(decision.shouldInvalidate).toBe(true);
     expect(decision.matchedActiveDocument).toBe(true);
@@ -43,12 +41,11 @@ describe("post-diff git marker refresh stability", () => {
   });
 
   it("keeps marker context when the changed path is unknown", () => {
-    const decision =
-      shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
-        activeDocumentPath: "/workspace/docs/active.md",
-        changedPath: null,
-        reason: "file-tree-directory-watch",
-      });
+    const decision = shouldInvalidatePostDiffGitMarkersForWorkspaceFileChange({
+      activeDocumentPath: "/workspace/docs/active.md",
+      changedPath: null,
+      reason: "file-tree-directory-watch",
+    });
 
     expect(decision.shouldInvalidate).toBe(false);
     expect(decision.trace).toEqual({

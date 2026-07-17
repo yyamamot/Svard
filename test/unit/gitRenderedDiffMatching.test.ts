@@ -46,8 +46,7 @@ make -f Makefile.private mirror-sync
 make -f Makefile.private mirror-package
 make -f Makefile.private mirror-commit</code></pre>
 <p>Continue with the public mirror review.</p>`);
-    const right =
-      blocksFromHtml(`<p>Run the standard gates before export.</p>
+    const right = blocksFromHtml(`<p>Run the standard gates before export.</p>
 <pre class="hljs"><code>make -f Makefile.private mirror-status
 make -f Makefile.private mirror-sync
 make -f Makefile.private mirror-package
@@ -77,8 +76,7 @@ make -f Makefile.private mirror-commit</code></pre>
 <tbody><tr><td class="halign-left">Name</td><td>Status</td></tr>
 <tr><td>Basic</td><td>Stable</td></tr></tbody>
 </table>`);
-    const right =
-      blocksFromHtml(`<table class="tableblock stretch">
+    const right = blocksFromHtml(`<table class="tableblock stretch">
 <tbody><tr><td class="halign-left valign-top">Name</td><td>Status</td></tr>
 <tr><td>Basic</td><td>Stable</td></tr></tbody>
 </table>`);
@@ -199,8 +197,7 @@ make -f Makefile.private mirror-commit</code></pre>
     const left = blocksFromHtml(`<h2>Product Principles</h2>
 <ul><li>Local-first rendering</li><li>Browser-like viewer</li></ul>
 <h2>Scope</h2>`);
-    const right =
-      blocksFromHtml(`<p>Git diff is preview based.</p>
+    const right = blocksFromHtml(`<p>Git diff is preview based.</p>
 <h2>Product Principles</h2>
 <ul><li>Local-first rendering</li><li>Preview-based diff</li><li>Browser-like viewer</li></ul>
 <h2>Scope</h2>`);
@@ -227,8 +224,7 @@ make -f Makefile.private mirror-commit</code></pre>
 <ul><li>Status: Backlog</li><li>Goal: Lightweight feedback</li></ul>
 <h2>IMP-097: Pinned search color model polish</h2>
 <ul><li>Status: Backlog</li><li>Goal: Search polish</li></ul>`);
-    const right =
-      blocksFromHtml(`<h2>IMP-096: Lightweight action feedback</h2>
+    const right = blocksFromHtml(`<h2>IMP-096: Lightweight action feedback</h2>
 <ul><li>Status: Backlog</li><li>Goal: Lightweight feedback</li></ul>
 <h2>IMP-097: Pinned search color model polish</h2>
 <ul><li>Status: Backlog</li><li>Goal: Search polish</li></ul>`);
@@ -290,9 +286,7 @@ make -f Makefile.private mirror-commit</code></pre>
 
   it("keeps related heading rename as changed and unrelated heading replacement one-sided", () => {
     const relatedLeft = blocksFromHtml(`<h2>Preview diff</h2>`);
-    const relatedRight = blocksFromHtml(
-      `<h2>Rendered preview diff</h2>`,
-    );
+    const relatedRight = blocksFromHtml(`<h2>Rendered preview diff</h2>`);
     const unrelatedLeft = blocksFromHtml(`<h2>Packaging</h2>`);
     const unrelatedRight = blocksFromHtml(`<h2>Security</h2>`);
 
@@ -311,8 +305,7 @@ make -f Makefile.private mirror-commit</code></pre>
   it("does not use diagram or image blocks as stable anchors", () => {
     const left = blocksFromHtml(`<div class="diagram-slot"></div>
 <p><img src="data:image/png;base64,AA==" alt="Same image"></p>`);
-    const right =
-      blocksFromHtml(`<div class="diagram-slot"></div>
+    const right = blocksFromHtml(`<div class="diagram-slot"></div>
 <p><img src="data:image/png;base64,BB==" alt="Same image"></p>`);
 
     const diff = compareRenderedBlocks(left, right);
@@ -322,11 +315,9 @@ make -f Makefile.private mirror-commit</code></pre>
   });
 
   it("does not pair unrelated same-kind blocks as a changed block", () => {
-    const left =
-      blocksFromHtml(`<p>Release notes for desktop packaging.</p>
+    const left = blocksFromHtml(`<p>Release notes for desktop packaging.</p>
 <h2>Stable Heading</h2>`);
-    const right =
-      blocksFromHtml(`<p>Diagram preview privacy policy.</p>
+    const right = blocksFromHtml(`<p>Diagram preview privacy policy.</p>
 <h2>Stable Heading</h2>`);
 
     const diff = compareRenderedBlocks(left, right);
@@ -339,9 +330,7 @@ make -f Makefile.private mirror-commit</code></pre>
   });
 
   it("treats inline markup-only changes as rendered changes", () => {
-    const left = blocksFromHtml(
-      `<p>Use <strong>bold</strong> text.</p>`,
-    );
+    const left = blocksFromHtml(`<p>Use <strong>bold</strong> text.</p>`);
     const right = blocksFromHtml(`<p>Use bold text.</p>`);
 
     const diff = compareRenderedBlocks(left, right);

@@ -65,7 +65,12 @@ export function SearchHitRuler({
     };
   }, [articleRef, hitCount, searchIndex, trimmedQuery]);
 
-  if (!trimmedQuery || hitCount === 0 || markers.length === 0 || !overlayStyle) {
+  if (
+    !trimmedQuery ||
+    hitCount === 0 ||
+    markers.length === 0 ||
+    !overlayStyle
+  ) {
     return null;
   }
 

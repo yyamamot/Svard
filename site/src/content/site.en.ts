@@ -869,7 +869,11 @@ export const site = {
         },
         limitations:
           "Svard does not execute MkDocs plugins, Zensical builds, Zensical extensions, Antora builds, Antora extensions, remote repository fetches, or generated navigation. Unsupported or dynamic navigation falls back to the Docs: Loaded temporary tree or shows only the local static subset that can be read safely.",
-        related: ["Tabs and Open Files", "Quick Open", "Source Control changes"],
+        related: [
+          "Tabs and Open Files",
+          "Quick Open",
+          "Source Control changes",
+        ],
         screenshots: [
           screenshot(
             "documents-order.png",
@@ -1089,11 +1093,7 @@ export const site = {
               "Commands",
               "Run actions such as opening Preferences, showing Source Control, or starting file compare.",
             ],
-            [
-              "@",
-              "Headings",
-              "Jump to a heading in the active document.",
-            ],
+            ["@", "Headings", "Jump to a heading in the active document."],
             [
               ":N",
               "Source line",
@@ -2058,11 +2058,7 @@ export const site = {
           lead: "After opening a preview diff, changes can be reached from the toolbar or the keyboard.",
           columns: ["Control", "Moves to", "Use it for"],
           rows: [
-            [
-              "Next",
-              "Next change",
-              "Reviewing changes from top to bottom.",
-            ],
+            ["Next", "Next change", "Reviewing changes from top to bottom."],
             [
               "Previous",
               "Previous change",
@@ -2846,11 +2842,7 @@ export const site = {
               "Changes AsciiDoc document styling between Antora and Asciidoctor.",
               "Antora",
             ],
-            [
-              "Zoom",
-              "Adjusts the reader zoom level from 80% to 140%.",
-              "100%",
-            ],
+            ["Zoom", "Adjusts the reader zoom level from 80% to 140%.", "100%"],
             [
               "Zoom with mouse wheel",
               "Allows Command + scroll on macOS or Ctrl + scroll on Windows and Linux to change zoom.",
@@ -3097,7 +3089,11 @@ export const site = {
               "Turns right-button drag gestures on.",
               "Off",
             ],
-            ["Show gesture trail", "Shows the drag trail while gesturing.", "On"],
+            [
+              "Show gesture trail",
+              "Shows the drag trail while gesturing.",
+              "On",
+            ],
             [
               "Minimum distance",
               "Sets how far the pointer must move before a gesture direction is recognized.",
@@ -3198,7 +3194,11 @@ export const site = {
           lead: "GitHub and GitLab use the same configuration shape.",
           columns: ["Item", "What it does", "Handling"],
           rows: [
-            ["Host URL", "Sets the provider host to connect to.", "Value hidden in public docs"],
+            [
+              "Host URL",
+              "Sets the provider host to connect to.",
+              "Value hidden in public docs",
+            ],
             [
               "API token",
               "Stores credentials required for private repositories or API access.",
@@ -3231,11 +3231,7 @@ export const site = {
         ],
         limitations:
           "PR / MR Providers only assist Branch Diff target detection. This page does not cover staging, committing, merging, or provider-side review workflows. Public docs do not include real credentials or connection values.",
-        related: [
-          "Branch Diff",
-          "Network settings",
-          "Changes list",
-        ],
+        related: ["Branch Diff", "Network settings", "Changes list"],
         screenshots: [
           screenshot(
             "pr-mr-providers.png",

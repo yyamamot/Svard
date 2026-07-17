@@ -33,6 +33,10 @@
   grid-template-rows: auto minmax(180px, 1fr);
 }
 
+.left-sidebar-content.open-files-hidden {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .theme-dark .sidebar,
 .theme-dark .topbar,
 .theme-dark .viewer-shell {

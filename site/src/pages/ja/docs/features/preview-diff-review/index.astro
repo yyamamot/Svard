@@ -1,11 +1,21 @@
 ---
-import { site } from '../../../../../content/site.ja';
-import LandingLayout from '../../../../../layouts/LandingLayout.astro';
-import FeatureDocPage from '../../../../../components/FeatureDocPage.astro';
+import { site } from "../../../../../content/site.ja";
+import LandingLayout from "../../../../../layouts/LandingLayout.astro";
+import FeatureDocPage from "../../../../../components/FeatureDocPage.astro";
 
 const feature = site.docs.features.previewDiffReview;
 ---
 
-<LandingLayout site={site} pageTitle={feature.title} pageDescription={feature.lead}>
-  <FeatureDocPage docs={site.docs} feature={feature} labels={site.docs.articleLabels} eyebrow={site.docs.featureEyebrow} activeSlug="preview-diff-review" />
+<LandingLayout
+  site={site}
+  pageTitle={feature.title}
+  pageDescription={feature.lead}
+>
+  <FeatureDocPage
+    docs={site.docs}
+    feature={feature}
+    labels={site.docs.articleLabels}
+    eyebrow={site.docs.featureEyebrow}
+    activeSlug="preview-diff-review"
+  />
 </LandingLayout>

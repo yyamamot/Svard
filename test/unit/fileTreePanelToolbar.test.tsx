@@ -337,16 +337,8 @@ describe("FileTreePanel toolbar and view menu", () => {
       ).toBe(label);
     };
 
-    await renderSuggestion(
-      "documents-zensical",
-      "Docs: Zensical",
-      "zensical",
-    );
-    await renderSuggestion(
-      "documents-antora",
-      "Docs: Antora",
-      "antora",
-    );
+    await renderSuggestion("documents-zensical", "Docs: Zensical", "zensical");
+    await renderSuggestion("documents-antora", "Docs: Antora", "antora");
   });
 
   it("opens an Antora context selector when multiple playbooks are suggested", async () => {

@@ -1,8 +1,8 @@
 ---
-type Variant = 'privacy-boundary' | 'rendered-diff';
-type Locale = 'ja' | 'en';
+type Variant = "privacy-boundary" | "rendered-diff";
+type Locale = "ja" | "en";
 
-const { variant, locale = 'en' } = Astro.props as {
+const { variant, locale = "en" } = Astro.props as {
   variant: Variant;
   locale?: Locale;
 };
@@ -10,59 +10,66 @@ const { variant, locale = 'en' } = Astro.props as {
 const copy = {
   ja: {
     privacy: {
-      viewer: 'ビューア画面',
-      localRenderer: 'Local Renderer',
-      localTypes: 'Mermaid / PlantUML / Graphviz',
-      externalRenderer: 'Kroki',
-      output: '表示用画像',
-      primary: '標準経路',
-      fallback: '明示設定時のみ',
-      remoteBoundary: 'Remote boundary',
+      viewer: "ビューア画面",
+      localRenderer: "Local Renderer",
+      localTypes: "Mermaid / PlantUML / Graphviz",
+      externalRenderer: "Kroki",
+      output: "表示用画像",
+      primary: "標準経路",
+      fallback: "明示設定時のみ",
+      remoteBoundary: "Remote boundary",
     },
     diff: {
-      before: '変更前',
-      after: '変更後',
-      rendered: 'レンダリング結果',
-      sourceDiff: 'プレビュー上の変更箇所',
-      changed: '変更箇所',
-      tab: 'Preview diff',
-      items: ['導入手順', '対応フォーマット', '図表レンダリング'],
-      changedItem: 'Git差分レビュー',
+      before: "変更前",
+      after: "変更後",
+      rendered: "レンダリング結果",
+      sourceDiff: "プレビュー上の変更箇所",
+      changed: "変更箇所",
+      tab: "Preview diff",
+      items: ["導入手順", "対応フォーマット", "図表レンダリング"],
+      changedItem: "Git差分レビュー",
     },
   },
   en: {
     privacy: {
-      viewer: 'Viewer',
-      localRenderer: 'Local Renderer',
-      localTypes: 'Mermaid / PlantUML / Graphviz',
-      externalRenderer: 'Kroki',
-      output: 'Rendered image',
-      primary: 'Primary path',
-      fallback: 'Explicit fallback only',
-      remoteBoundary: 'Remote boundary',
+      viewer: "Viewer",
+      localRenderer: "Local Renderer",
+      localTypes: "Mermaid / PlantUML / Graphviz",
+      externalRenderer: "Kroki",
+      output: "Rendered image",
+      primary: "Primary path",
+      fallback: "Explicit fallback only",
+      remoteBoundary: "Remote boundary",
     },
     diff: {
-      before: 'Before',
-      after: 'After',
-      rendered: 'Rendered output',
-      sourceDiff: 'Changed preview area',
-      changed: 'Changed area',
-      tab: 'Preview diff',
-      items: ['Getting started', 'Supported formats', 'Diagram rendering'],
-      changedItem: 'Git diff review',
+      before: "Before",
+      after: "After",
+      rendered: "Rendered output",
+      sourceDiff: "Changed preview area",
+      changed: "Changed area",
+      tab: "Preview diff",
+      items: ["Getting started", "Supported formats", "Diagram rendering"],
+      changedItem: "Git diff review",
     },
   },
 }[locale];
 ---
 
 {
-  variant === 'privacy-boundary' ? (
-    <figure class="concept-diagram privacy-diagram" aria-label={locale === 'ja' ? 'ローカルファーストの境界図' : 'Local-first boundary diagram'}>
+  variant === "privacy-boundary" ? (
+    <figure
+      class="concept-diagram privacy-diagram"
+      aria-label={
+        locale === "ja"
+          ? "ローカルファーストの境界図"
+          : "Local-first boundary diagram"
+      }
+    >
       <div class="renderer-path primary-path">
         <div class="flow-label">{copy.privacy.primary}</div>
         <div class="path-row">
           <div class="diagram-node viewer-node">{copy.privacy.viewer}</div>
-          <div class="diagram-arrow" aria-hidden="true"></div>
+          <div class="diagram-arrow" aria-hidden="true" />
           <div class="diagram-node renderer-node">
             <strong>{copy.privacy.localRenderer}</strong>
             <span>{copy.privacy.localTypes}</span>
@@ -76,13 +83,17 @@ const copy = {
         <div class="flow-label muted-label">{copy.privacy.fallback}</div>
         <div class="path-row">
           <div class="diagram-node viewer-node">{copy.privacy.viewer}</div>
-          <div class="diagram-arrow" aria-hidden="true"></div>
-          <div class="diagram-node subtle-node">{copy.privacy.localRenderer}</div>
+          <div class="diagram-arrow" aria-hidden="true" />
+          <div class="diagram-node subtle-node">
+            {copy.privacy.localRenderer}
+          </div>
           <div class="remote-boundary" aria-hidden="true">
             <span>{copy.privacy.remoteBoundary}</span>
-            <i></i>
+            <i />
           </div>
-          <div class="diagram-node ghost-node">{copy.privacy.externalRenderer}</div>
+          <div class="diagram-node ghost-node">
+            {copy.privacy.externalRenderer}
+          </div>
         </div>
         <div class="output-row remote-output">
           <span>{copy.privacy.output}</span>
@@ -90,12 +101,19 @@ const copy = {
       </div>
     </figure>
   ) : (
-    <figure class="concept-diagram diff-diagram" aria-label={locale === 'ja' ? 'プレビューベースの差分確認図' : 'Preview-based diff review diagram'}>
+    <figure
+      class="concept-diagram diff-diagram"
+      aria-label={
+        locale === "ja"
+          ? "プレビューベースの差分確認図"
+          : "Preview-based diff review diagram"
+      }
+    >
       <div class="editor-frame">
         <div class="editor-bar" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
+          <span />
+          <span />
+          <span />
           <strong>{copy.diff.tab}</strong>
         </div>
         <div class="editor-panes">
@@ -104,7 +122,9 @@ const copy = {
             <div class="render-card">
               <p>{copy.diff.rendered}</p>
               <ul class="preview-list">
-                {copy.diff.items.map((item) => <li>{item}</li>)}
+                {copy.diff.items.map((item) => (
+                  <li>{item}</li>
+                ))}
               </ul>
             </div>
           </div>
@@ -135,8 +155,16 @@ const copy = {
     border: 1px solid var(--line);
     border-radius: 24px;
     background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(246, 241, 231, 0.3)),
-      radial-gradient(circle at top right, rgba(40, 88, 68, 0.12), transparent 18rem);
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.62),
+        rgba(246, 241, 231, 0.3)
+      ),
+      radial-gradient(
+        circle at top right,
+        rgba(40, 88, 68, 0.12),
+        transparent 18rem
+      );
   }
 
   .privacy-diagram {

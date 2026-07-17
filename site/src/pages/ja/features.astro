@@ -1,11 +1,15 @@
 ---
-import { site } from '../../content/site.ja';
-import LandingLayout from '../../layouts/LandingLayout.astro';
-import ScreenshotPlaceholder from '../../components/ScreenshotPlaceholder.astro';
-import FeatureGrid from '../../components/FeatureGrid.astro';
+import { site } from "../../content/site.ja";
+import LandingLayout from "../../layouts/LandingLayout.astro";
+import ScreenshotPlaceholder from "../../components/ScreenshotPlaceholder.astro";
+import FeatureGrid from "../../components/FeatureGrid.astro";
 ---
 
-<LandingLayout site={site} pageTitle="Features" pageDescription={site.features.lead}>
+<LandingLayout
+  site={site}
+  pageTitle="Features"
+  pageDescription={site.features.lead}
+>
   <section class="page-hero section-shell">
     <div>
       <p class="eyebrow">{site.features.eyebrow}</p>

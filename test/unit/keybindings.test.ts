@@ -46,8 +46,7 @@ describe("keybindings", () => {
   it("does not reserve a default shortcut for referenced area capture", () => {
     expect(
       defaultKeybindingMappings("native").some(
-        (binding) =>
-          binding.commandId === "viewer.captureAreaWithReference",
+        (binding) => binding.commandId === "viewer.captureAreaWithReference",
       ),
     ).toBe(false);
   });

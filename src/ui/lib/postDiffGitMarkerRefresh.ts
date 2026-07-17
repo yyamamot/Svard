@@ -70,7 +70,7 @@ export function shouldRefreshPostDiffGitMarkersForGitChanges({
 }): PostDiffGitMarkerGitChangesRefreshDecision {
   const activeDocumentStillDirty = Boolean(
     activeDocumentPath &&
-      changes.items.some((item) => item.documentPath === activeDocumentPath),
+    changes.items.some((item) => item.documentPath === activeDocumentPath),
   );
   const matchedActiveDocument = activeDocumentStillDirty;
   const isRelevantReason =

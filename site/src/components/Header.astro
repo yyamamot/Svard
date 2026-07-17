@@ -1,5 +1,5 @@
 ---
-import { sitePath } from '../content/paths';
+import { sitePath } from "../content/paths";
 
 const { site } = Astro.props;
 const base = sitePath(`${site.locale}/`);
@@ -7,7 +7,7 @@ const base = sitePath(`${site.locale}/`);
 
 <header class="site-header">
   <a class="brand" href={base} aria-label="Svard home" data-astro-reload>
-    <img src={sitePath('favicon.png')} alt="" width="26" height="26" />
+    <img src={sitePath("favicon.png")} alt="" width="26" height="26" />
     <span>Svard</span>
   </a>
   <nav class="nav" aria-label="Primary navigation">
@@ -15,6 +15,8 @@ const base = sitePath(`${site.locale}/`);
     <a href={`${base}features/`} data-astro-reload>{site.nav.features}</a>
     <a href={`${base}docs/`} data-astro-reload>{site.nav.docs}</a>
     <a href={`${base}download/`} data-astro-reload>{site.nav.download}</a>
-    <a class="language" href={site.nav.languageHref} data-astro-reload>{site.nav.languageLabel}</a>
+    <a class="language" href={site.nav.languageHref} data-astro-reload
+      >{site.nav.languageLabel}</a
+    >
   </nav>
 </header>

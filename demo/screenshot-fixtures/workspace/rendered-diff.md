@@ -15,11 +15,11 @@ Svard helps readers inspect documentation changes as rendered output.
 
 The rendered diff view should make reader-visible changes easy to inspect.
 
-| Section | Before | After |
-| --- | --- | --- |
-| Search | Current file only | Current file and all files |
-| Diff | Source line diff | Rendered output comparison |
-| Diagrams | Remote fallback first | Local rendering first |
+| Section  | Before                | After                      |
+| -------- | --------------------- | -------------------------- |
+| Search   | Current file only     | Current file and all files |
+| Diff     | Source line diff      | Rendered output comparison |
+| Diagrams | Remote fallback first | Local rendering first      |
 
 ## Public-safe note
 

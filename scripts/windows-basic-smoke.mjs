@@ -226,7 +226,10 @@ function collectWarnings(durations) {
     });
   }
   const releaseCompileMs = durationTextToMs(durations.releaseCompile);
-  if (typeof releaseCompileMs === "number" && releaseCompileMs > 10 * 60 * 1000) {
+  if (
+    typeof releaseCompileMs === "number" &&
+    releaseCompileMs > 10 * 60 * 1000
+  ) {
     warnings.push({
       id: "windows-release-compile-over-10m",
       message: "Windows release compile exceeded 10 minutes.",
@@ -305,7 +308,8 @@ async function launchExecutableSmoke() {
   });
 
   await new Promise((resolve) => setTimeout(resolve, 5000));
-  const stillRunning = spawnError === null && exitCode === null && signal === null;
+  const stillRunning =
+    spawnError === null && exitCode === null && signal === null;
   if (stillRunning) {
     child.kill();
   }

@@ -15,7 +15,11 @@ const blockerStatuses = new Set<GitDiffStatus>([
 ]);
 
 export function buildDocumentDiffStreamItems(
-  changes: readonly (GitChangeEntry | GitBranchDiffEntry | GitCommitChangedFile)[],
+  changes: readonly (
+    | GitChangeEntry
+    | GitBranchDiffEntry
+    | GitCommitChangedFile
+  )[],
   options: { repositoryRoot?: string | null } = {},
 ): DocumentDiffStreamItem[] {
   const seen = new Set<string>();
@@ -23,7 +27,10 @@ export function buildDocumentDiffStreamItems(
   for (const change of changes) {
     const documentPath =
       change.documentPath ??
-      documentPathFromRepositoryRelativePath(change.path, options.repositoryRoot);
+      documentPathFromRepositoryRelativePath(
+        change.path,
+        options.repositoryRoot,
+      );
     if (!documentPath || !isSupportedDocumentPath(documentPath)) {
       continue;
     }
@@ -32,8 +39,7 @@ export function buildDocumentDiffStreamItems(
       continue;
     }
     seen.add(key);
-    const supported =
-      !blockerStatuses.has(change.status);
+    const supported = !blockerStatuses.has(change.status);
     items.push({
       path: change.path,
       oldPath: "oldPath" in change ? change.oldPath : null,

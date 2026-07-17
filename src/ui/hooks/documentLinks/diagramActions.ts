@@ -27,8 +27,14 @@ export function createDiagramActions({
     const clone = svg.cloneNode(true) as SVGElement;
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     const source = new XMLSerializer().serializeToString(clone);
-    const diagramType = svg.closest<HTMLElement>("[data-review-id$='-render']")?.dataset.reviewId?.replace(/-render$/u, "");
-    const name = diagramSvgFileName({ documentPath: documentPayload?.path, diagramType, sourceReference });
+    const diagramType = svg
+      .closest<HTMLElement>("[data-review-id$='-render']")
+      ?.dataset.reviewId?.replace(/-render$/u, "");
+    const name = diagramSvgFileName({
+      documentPath: documentPayload?.path,
+      diagramType,
+      sourceReference,
+    });
     if (saveSvgFile) {
       try {
         if (await saveSvgFile(name, source)) {

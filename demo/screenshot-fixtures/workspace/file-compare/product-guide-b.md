@@ -16,9 +16,9 @@ Mermaid, PlantUML, and Graphviz use local rendering as the primary path. Kroki i
 
 ## Release checklist
 
-| Area | Status |
-| --- | --- |
-| Reader | Ready |
-| Search | Current file and all files |
-| Diff | Rendered output comparison |
-| Diagrams | Local rendering first |
+| Area     | Status                     |
+| -------- | -------------------------- |
+| Reader   | Ready                      |
+| Search   | Current file and all files |
+| Diff     | Rendered output comparison |
+| Diagrams | Local rendering first      |

@@ -99,11 +99,13 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
         (target) => target.tagName.toLowerCase() === "dd",
       );
       const admonitionTargets = structuredTargets.filter((target) =>
-        target.matches("td.content, .markdown-alert > :not(.markdown-alert-title)"),
+        target.matches(
+          "td.content, .markdown-alert > :not(.markdown-alert-title)",
+        ),
       );
       const iconTargets = Array.from(
         root?.querySelectorAll(
-          '.admonitionblock td.icon[data-change-index], .markdown-alert-title[data-change-index]',
+          ".admonitionblock td.icon[data-change-index], .markdown-alert-title[data-change-index]",
         ) ?? [],
       );
       const fallbackIndicators = Array.from(
@@ -182,8 +184,8 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
         ].filter((target) =>
           target.closest(".git-rendered-block[data-active-change='true']"),
         ).length;
-        const contentCursorActiveTargets = contentCursorTargets.filter((target) =>
-          target.matches("[data-active-change='true']"),
+        const contentCursorActiveTargets = contentCursorTargets.filter(
+          (target) => target.matches("[data-active-change='true']"),
         );
         return {
           activeBlockCount: activeBlocks.length,
@@ -273,14 +275,16 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
     await page.locator('[data-review-id="git-diff-rendered-view"]').click();
     await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
     await page
-      .locator('[data-review-id="git-rendered-table-row-change"][data-change-index]')
+      .locator(
+        '[data-review-id="git-rendered-table-row-change"][data-change-index]',
+      )
       .first()
       .waitFor();
 
     await page.evaluate(() => {
-      const rightPane = document.querySelector(
-        '[data-review-id="git-rendered-right-pane"]',
-      )?.querySelector(".git-rendered-scroll");
+      const rightPane = document
+        .querySelector('[data-review-id="git-rendered-right-pane"]')
+        ?.querySelector(".git-rendered-scroll");
       if (rightPane instanceof HTMLElement) {
         rightPane.scrollLeft = 0;
       }
@@ -313,9 +317,9 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
             '[data-review-id="git-rendered-table-row-change"][data-active-change="true"]',
           ),
         );
-        const rightPane = document.querySelector(
-          '[data-review-id="git-rendered-right-pane"]',
-        )?.querySelector(".git-rendered-scroll");
+        const rightPane = document
+          .querySelector('[data-review-id="git-rendered-right-pane"]')
+          ?.querySelector(".git-rendered-scroll");
         window.__SVARD_RENDERED_TABLE_REVIEW_ASSIST__ = {
           scenario: scenarioName,
           activeTableRowFound,
@@ -343,13 +347,15 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
   } else if (
     scenario === "viewer-rendered-visual-diff-list-item-highlight-basic" ||
     scenario === "viewer-rendered-visual-diff-list-item-navigation" ||
-    scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||
+    scenario ===
+      "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||
     scenario === "viewer-rendered-visual-diff-list-item-privacy" ||
     scenario === "viewer-rendered-visual-diff-fallback-visibility" ||
     scenario === "viewer-rendered-visual-diff-fallback-privacy"
   ) {
     const isFallbackScenario =
-      scenario === "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||
+      scenario ===
+        "viewer-rendered-visual-diff-list-item-low-confidence-fallback" ||
       scenario === "viewer-rendered-visual-diff-fallback-visibility" ||
       scenario === "viewer-rendered-visual-diff-fallback-privacy";
     await page
@@ -386,7 +392,9 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
     if (scenario === "viewer-rendered-visual-diff-list-item-navigation") {
       await page.getByRole("button", { name: "Next change" }).click();
       await page
-        .locator('[data-review-id="git-rendered-list-item-change"][data-change-index]')
+        .locator(
+          '[data-review-id="git-rendered-list-item-change"][data-change-index]',
+        )
         .first()
         .scrollIntoViewIfNeeded();
       await page
@@ -427,7 +435,9 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
         document.querySelectorAll(
           '[data-review-id="git-rendered-fallback-indicator"]',
         ),
-      ).map((indicator) => indicator.textContent?.trim()).filter(Boolean);
+      )
+        .map((indicator) => indicator.textContent?.trim())
+        .filter(Boolean);
       const reasonCounts = fallbackIndicators.reduce((counts, label) => {
         counts[label] = (counts[label] ?? 0) + 1;
         return counts;

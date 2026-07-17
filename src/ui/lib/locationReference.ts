@@ -48,9 +48,11 @@ export function buildLocationReference({
   if (revision) {
     lines.push(`Revision: ${revision.label} (${revision.side})`);
   }
-  const section = explicitSection ?? (explicitHeading
-    ? sectionLabel(explicitHeading, renderResult?.headings)
-    : sectionLabelForElement(article, element, renderResult?.headings));
+  const section =
+    explicitSection ??
+    (explicitHeading
+      ? sectionLabel(explicitHeading, renderResult?.headings)
+      : sectionLabelForElement(article, element, renderResult?.headings));
   if (section) {
     lines.push(`Section: ${section}`);
   }
@@ -155,7 +157,10 @@ export function sectionLabelForRange({
   range: Range;
   headings?: Heading[];
 }): string | undefined {
-  const start = headingElementFor(article, elementForNode(range.startContainer));
+  const start = headingElementFor(
+    article,
+    elementForNode(range.startContainer),
+  );
   const end = headingElementFor(article, elementForNode(range.endContainer));
   if (!start || start !== end) return undefined;
   return sectionLabelForHeadingElement(article, start, headings);
@@ -167,7 +172,9 @@ export function sectionLabelForElement(
   headings?: Heading[],
 ): string | undefined {
   const heading = headingElementFor(article, element);
-  return heading ? sectionLabelForHeadingElement(article, heading, headings) : undefined;
+  return heading
+    ? sectionLabelForHeadingElement(article, heading, headings)
+    : undefined;
 }
 
 export function isLocationReferenceTarget(element: HTMLElement): boolean {
@@ -274,7 +281,7 @@ function headingElementFor(
           candidate.contains(element) ||
           Boolean(
             candidate.compareDocumentPosition(element) &
-              Node.DOCUMENT_POSITION_FOLLOWING,
+            Node.DOCUMENT_POSITION_FOLLOWING,
           ),
       )
       .at(-1) ?? null
@@ -345,8 +352,13 @@ function formatSourceLocation(source: SourceLocationReference) {
   return `${source.path}:${source.line}`;
 }
 
-function textForElement(element: HTMLElement | null | undefined, fallback?: string | null) {
-  const source = element?.closest<HTMLElement>(".source-block-frame")?.querySelector("pre");
+function textForElement(
+  element: HTMLElement | null | undefined,
+  fallback?: string | null,
+) {
+  const source = element
+    ?.closest<HTMLElement>(".source-block-frame")
+    ?.querySelector("pre");
   if (source?.textContent?.trim()) {
     return source.textContent.trim();
   }

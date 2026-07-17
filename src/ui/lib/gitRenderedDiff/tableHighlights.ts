@@ -1,7 +1,4 @@
-import type {
-  RenderedBlockDiff,
-  RenderedTableCellChangeKind,
-} from "./types";
+import type { RenderedBlockDiff, RenderedTableCellChangeKind } from "./types";
 import { applyInlineDiffHighlights } from "./inlineHighlights";
 import { renderedInlineDiffRanges } from "./text";
 
@@ -41,8 +38,7 @@ export function renderedTableHighlightsForSide({
     const changeIndex = changeIndexForRow(rowIndex) ?? undefined;
     return [
       {
-        active:
-          changeIndex !== undefined && activeChangeIndex === changeIndex,
+        active: changeIndex !== undefined && activeChangeIndex === changeIndex,
         cellIndex,
         changeIndex,
         contentCursorActive: contentCursorActiveForRow?.(rowIndex),
@@ -119,7 +115,9 @@ export function applyRenderedTableHighlights({
     if (!rowHighlights?.length) {
       return;
     }
-    const rowKind = rowHighlights.some((highlight) => highlight.kind === "changed")
+    const rowKind = rowHighlights.some(
+      (highlight) => highlight.kind === "changed",
+    )
       ? "changed"
       : (rowHighlights[0]?.kind ?? "changed");
     const rowChangeIndex = rowHighlights.find(
@@ -153,8 +151,12 @@ export function applyRenderedTableHighlights({
       if (highlight.kind !== "changed") {
         return;
       }
-      const leftText = leftCellTexts.get(cellKey(rowIndex, highlight.cellIndex));
-      const rightText = rightCellTexts.get(cellKey(rowIndex, highlight.cellIndex));
+      const leftText = leftCellTexts.get(
+        cellKey(rowIndex, highlight.cellIndex),
+      );
+      const rightText = rightCellTexts.get(
+        cellKey(rowIndex, highlight.cellIndex),
+      );
       if (!leftText || !rightText) {
         return;
       }

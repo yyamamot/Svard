@@ -329,7 +329,9 @@ describe("git rendered diff presentation", () => {
           "Svard kept this change at block level because detailed matching was not reliable for this target.",
       },
     ]);
-    expect(JSON.stringify(presentation.fallbackReasons)).not.toContain("Secret");
+    expect(JSON.stringify(presentation.fallbackReasons)).not.toContain(
+      "Secret",
+    );
     expect(JSON.stringify(presentation.inlineDiagnostics)).not.toContain(
       "Secret",
     );
@@ -631,5 +633,4 @@ describe("git rendered diff presentation", () => {
       }),
     ).toEqual(targets[0]);
   });
-
 });

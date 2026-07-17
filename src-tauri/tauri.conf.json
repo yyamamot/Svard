@@ -42,21 +42,14 @@
       {
         "name": "AsciiDoc Document",
         "description": "AsciiDoc markup document",
-        "ext": [
-          "adoc",
-          "asciidoc",
-          "asc"
-        ],
+        "ext": ["adoc", "asciidoc", "asc"],
         "mimeType": "text/asciidoc",
         "role": "Viewer"
       },
       {
         "name": "Markdown Document",
         "description": "Markdown document",
-        "ext": [
-          "md",
-          "markdown"
-        ],
+        "ext": ["md", "markdown"],
         "mimeType": "text/markdown",
         "role": "Viewer"
       }

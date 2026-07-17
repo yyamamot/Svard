@@ -29,11 +29,7 @@ export function collectSearchRulerMarkers(
   }
 
   const articleRect = article.getBoundingClientRect();
-  const documentHeight = Math.max(
-    article.scrollHeight,
-    articleRect.height,
-    1,
-  );
+  const documentHeight = Math.max(article.scrollHeight, articleRect.height, 1);
   return Array.from(
     article.querySelectorAll<HTMLElement>(
       "mark.search-hit[data-search-hit-index]",

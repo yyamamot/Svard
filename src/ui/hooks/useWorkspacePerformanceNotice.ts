@@ -8,10 +8,7 @@ export function useWorkspacePerformanceNotice({
   showInlineNotice,
   workspaceEnvironment,
 }: {
-  showInlineNotice: (
-    message: string,
-    options?: InlineNoticeOptions,
-  ) => void;
+  showInlineNotice: (message: string, options?: InlineNoticeOptions) => void;
   workspaceEnvironment: WorkspaceEnvironment | null;
 }) {
   const wslWorkspaceNoticeShownRef = useRef(false);

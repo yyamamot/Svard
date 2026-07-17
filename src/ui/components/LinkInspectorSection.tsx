@@ -75,11 +75,7 @@ function LinkGroup({
       {rows.length > 0 ? (
         <div className="link-inspector-list">
           {rows.map((row) => (
-            <LinkRow
-              key={row.id}
-              row={row}
-              onOpenDocument={onOpenDocument}
-            />
+            <LinkRow key={row.id} row={row} onOpenDocument={onOpenDocument} />
           ))}
         </div>
       ) : (

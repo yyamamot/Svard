@@ -6,10 +6,7 @@ import type {
   ViewerWindowOpenRequest,
   HostAdapter,
 } from "../../core/types";
-import type {
-  PaneId,
-  ViewerPaneSnapshot,
-} from "../types";
+import type { PaneId, ViewerPaneSnapshot } from "../types";
 
 interface UseAppWindowActionsOptions {
   activeHeadingId: string | null;
@@ -64,7 +61,9 @@ export function useAppWindowActions({
 
   const duplicateWindow = useCallback(async () => {
     const activePath = documentPayload?.path ?? null;
-    const nextScrollPositions = { ...(config?.workspace.scrollPositions ?? {}) };
+    const nextScrollPositions = {
+      ...(config?.workspace.scrollPositions ?? {}),
+    };
     const nextActiveHeadingByPath = {
       ...(config?.workspace.activeHeadingByPath ?? {}),
     };

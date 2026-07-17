@@ -666,7 +666,9 @@
   list-style: none;
 }
 
-.diagram-inspector-more summary::-webkit-details-marker { display: none; }
+.diagram-inspector-more summary::-webkit-details-marker {
+  display: none;
+}
 
 .diagram-inspector-more[open] > div {
   display: grid;

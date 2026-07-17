@@ -227,7 +227,13 @@ export function LeftSidebar({
     <aside className="sidebar left" data-review-id="left-sidebar">
       <div
         ref={leftSidebarContentRef}
-        className={`sidebar-content left-sidebar-content ${openFilesCollapsed ? "open-files-collapsed" : ""}`}
+        className={`sidebar-content left-sidebar-content ${
+          hideOpenFiles
+            ? "open-files-hidden"
+            : openFilesCollapsed
+              ? "open-files-collapsed"
+              : ""
+        }`}
       >
         {!hideOpenFiles && (
           <OpenFilesList

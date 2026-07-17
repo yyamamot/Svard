@@ -1,17 +1,18 @@
 ---
-import { ClientRouter } from 'astro:transitions';
-import '../styles/global.css';
-import Header from '../components/Header.astro';
-import Footer from '../components/Footer.astro';
-import { sitePath } from '../content/paths';
+import { ClientRouter } from "astro:transitions";
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { sitePath } from "../content/paths";
 
 const { site, pageTitle, pageDescription } = Astro.props;
 const title = pageTitle ? `${pageTitle} · ${site.title}` : site.title;
 const description = pageDescription ?? site.description;
 const pathname = Astro.url.pathname;
 const docsBase = sitePath(`${site.locale}/docs/`);
-const docsIndex = docsBase.replace(/\/$/, '');
-const enableDocsClientRouter = pathname === docsIndex || pathname.startsWith(docsBase);
+const docsIndex = docsBase.replace(/\/$/, "");
+const enableDocsClientRouter =
+  pathname === docsIndex || pathname.startsWith(docsBase);
 ---
 
 <!doctype html>
@@ -21,8 +22,8 @@ const enableDocsClientRouter = pathname === docsIndex || pathname.startsWith(doc
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
-    <link rel="icon" type="image/png" href={sitePath('favicon.png')} />
-    <link rel="apple-touch-icon" href={sitePath('apple-touch-icon.png')} />
+    <link rel="icon" type="image/png" href={sitePath("favicon.png")} />
+    <link rel="apple-touch-icon" href={sitePath("apple-touch-icon.png")} />
     <title>{title}</title>
     {enableDocsClientRouter && <ClientRouter fallback="swap" />}
   </head>

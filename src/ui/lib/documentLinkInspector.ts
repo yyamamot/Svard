@@ -28,8 +28,7 @@ export interface DocumentLinkInspectorRow {
   count: number;
 }
 
-export interface DocumentBacklinkInspectorRow
-  extends DocumentLinkInspectorRow {
+export interface DocumentBacklinkInspectorRow extends DocumentLinkInspectorRow {
   sourcePath: string;
 }
 
@@ -67,11 +66,7 @@ export function collectResolvedDocumentLinksFromHtml({
       continue;
     }
     const { path, hash } = splitPathAndHash(href);
-    if (
-      !path ||
-      !isSupportedDocumentPath(path) ||
-      path === document.path
-    ) {
+    if (!path || !isSupportedDocumentPath(path) || path === document.path) {
       continue;
     }
     const key = linkKey(document.path, path, hash);
