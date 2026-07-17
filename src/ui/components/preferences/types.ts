@@ -44,6 +44,9 @@ export interface GeneralSectionProps {
   onUpdateZoom: (zoom: number) => void;
   onUpdateZoomWithMouseWheel: (enabled: boolean) => void;
   onUpdatePostDiffGitMarkers: (enabled: boolean) => void;
+  onUpdateChangeReviewDisplay: (
+    display: NonNullable<AppConfig["experimental"]["changeReviewDisplay"]>,
+  ) => void;
 }
 
 export interface ZenModeSectionProps {

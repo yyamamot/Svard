@@ -18,6 +18,35 @@ describe("config normalization", () => {
       defaultConfig.experimental.diagramPlaceholderRenderingConfigured,
     ).toBe(true);
     expect(defaultConfig.experimental.postDiffGitMarkers).toBe(false);
+    expect(defaultConfig.experimental.changeReviewDisplay).toBe("detailed");
+  });
+
+  it("normalizes Change Review display to the compatible detailed default", () => {
+    const missing = normalizeConfig({
+      ...defaultConfig,
+      experimental: {
+        ...defaultConfig.experimental,
+        changeReviewDisplay: undefined,
+      },
+    } as unknown as typeof defaultConfig);
+    const invalid = normalizeConfig({
+      ...defaultConfig,
+      experimental: {
+        ...defaultConfig.experimental,
+        changeReviewDisplay: "unknown",
+      },
+    } as unknown as typeof defaultConfig);
+    const subtle = normalizeConfig({
+      ...defaultConfig,
+      experimental: {
+        ...defaultConfig.experimental,
+        changeReviewDisplay: "subtle",
+      },
+    });
+
+    expect(missing.experimental.changeReviewDisplay).toBe("detailed");
+    expect(invalid.experimental.changeReviewDisplay).toBe("detailed");
+    expect(subtle.experimental.changeReviewDisplay).toBe("subtle");
   });
 
   it("keeps external PlantUML fallback disabled unless explicitly configured", () => {

@@ -407,6 +407,7 @@ fn config_preserves_experimental_search_hit_ruler() {
     value["experimental"]["diagramPlaceholderRendering"] = serde_json::Value::Bool(true);
     value["experimental"]["diagramPlaceholderRenderingConfigured"] = serde_json::Value::Bool(true);
     value["experimental"]["postDiffGitMarkers"] = serde_json::Value::Bool(true);
+    value["experimental"]["changeReviewDisplay"] = serde_json::Value::String("subtle".to_string());
 
     let config: AppConfig = serde_json::from_value(value).expect("deserialize config");
 
@@ -415,6 +416,10 @@ fn config_preserves_experimental_search_hit_ruler() {
     assert!(config.experimental.diagram_placeholder_rendering);
     assert!(config.experimental.diagram_placeholder_rendering_configured);
     assert!(config.experimental.post_diff_git_markers);
+    assert_eq!(
+        config.experimental.change_review_display,
+        crate::backend_types::ChangeReviewDisplay::Subtle
+    );
 }
 
 #[test]

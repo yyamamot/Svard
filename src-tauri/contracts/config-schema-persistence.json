@@ -74,6 +74,7 @@
     "experimental.diagramPlaceholderRendering",
     "experimental.diagramPlaceholderRenderingConfigured",
     "experimental.postDiffGitMarkers",
+    "experimental.changeReviewDisplay",
     "keybindings.preset",
     "keybindings.mappings",
     "mouseGestures.enabled",

@@ -10,6 +10,9 @@ import type { ViewerPostDiffGitMarkerContext } from "../types";
 
 interface PositionedPostDiffGitMarker extends PostDiffGitMarker {
   top: number;
+  rangeStart: number;
+  rangeEnd: number;
+  rangeHeight: number;
   target: HTMLElement;
 }
 
@@ -21,6 +24,7 @@ interface DisplayPostDiffGitMarker extends PositionedPostDiffGitMarker {
 interface PostDiffGitMarkersProps {
   articleRef: RefObject<HTMLElement | null>;
   context: ViewerPostDiffGitMarkerContext | null;
+  displayMode: "detailed" | "subtle";
 }
 
 const blockSelector =
@@ -279,13 +283,18 @@ function compactDisplayMarkers(
       previousLast &&
       previousLast.kind === marker.kind &&
       Math.abs(previousLast.changeIndex - marker.changeIndex) <= 1 &&
-      Math.abs(previousLast.top - marker.top) <= 72;
+      marker.rangeStart - previousLast.rangeEnd <= 24;
     if (previous && isAdjacent) {
       previous.targetMarkers.push(marker);
       previous.markerCount += 1;
-      previous.top =
-        previous.targetMarkers.reduce((total, item) => total + item.top, 0) /
-        previous.targetMarkers.length;
+      previous.rangeStart = Math.min(
+        ...previous.targetMarkers.map((item) => item.rangeStart),
+      );
+      previous.rangeEnd = Math.max(
+        ...previous.targetMarkers.map((item) => item.rangeEnd),
+      );
+      previous.rangeHeight = previous.rangeEnd - previous.rangeStart;
+      previous.top = previous.rangeStart + previous.rangeHeight / 2;
       continue;
     }
     groups.push({
@@ -300,6 +309,7 @@ function compactDisplayMarkers(
 export function PostDiffGitMarkers({
   articleRef,
   context,
+  displayMode,
 }: PostDiffGitMarkersProps) {
   const [markers, setMarkers] = useState<DisplayPostDiffGitMarker[]>([]);
   const [overlayStyle, setOverlayStyle] = useState<CSSProperties | null>(null);
@@ -317,6 +327,30 @@ export function PostDiffGitMarkers({
     }
 
     let animationFrame = 0;
+    let boundArticle: HTMLElement | null = null;
+    let boundPane: HTMLElement | null = null;
+    let observer: MutationObserver | null = null;
+    const bindTargets = (article: HTMLElement, pane: HTMLElement) => {
+      if (boundArticle === article && boundPane === pane) {
+        return;
+      }
+      observer?.disconnect();
+      boundPane?.removeEventListener("scroll", updateMarkers);
+      boundArticle = article;
+      boundPane = pane;
+      observer =
+        typeof MutationObserver !== "undefined"
+          ? new MutationObserver(() => {
+              window.cancelAnimationFrame(animationFrame);
+              animationFrame = window.requestAnimationFrame(updateMarkers);
+            })
+          : null;
+      observer?.observe(article, {
+        childList: true,
+        subtree: true,
+      });
+      pane.addEventListener("scroll", updateMarkers, { passive: true });
+    };
     const updateMarkers = () => {
       const article = articleRef.current;
       const pane = article?.closest<HTMLElement>(".viewer-pane") ?? null;
@@ -325,6 +359,7 @@ export function PostDiffGitMarkers({
         setOverlayStyle(null);
         return;
       }
+      bindTargets(article, pane);
 
       const articleRect = article.getBoundingClientRect();
       const paneRect = pane.getBoundingClientRect();
@@ -351,15 +386,22 @@ export function PostDiffGitMarkers({
             ...marker,
             target,
             top: rect.top + rect.height / 2,
+            rangeStart: rect.top,
+            rangeEnd: rect.top + rect.height,
+            rangeHeight: rect.height,
           };
         })
         .filter(
           (marker): marker is PositionedPostDiffGitMarker => marker !== null,
         );
       const needsHighlight =
-        highlightedContextRef.current !== context ||
-        positioned.some((marker) => !hasPostDiffHighlight(marker));
-      if (needsHighlight && positioned.length > 0) {
+        displayMode === "detailed" &&
+        (highlightedContextRef.current !== context ||
+          positioned.some((marker) => !hasPostDiffHighlight(marker)));
+      if (displayMode === "subtle" && highlightedContextRef.current) {
+        clearPostDiffHighlights(article);
+        highlightedContextRef.current = null;
+      } else if (needsHighlight && positioned.length > 0) {
         clearPostDiffHighlights(article);
         applyPostDiffHighlights(positioned);
         highlightedContextRef.current = context;
@@ -373,32 +415,16 @@ export function PostDiffGitMarkers({
     };
 
     animationFrame = window.requestAnimationFrame(updateMarkers);
-    const pane = articleRef.current?.closest<HTMLElement>(".viewer-pane");
-    const article = articleRef.current;
-    const observer =
-      article && typeof MutationObserver !== "undefined"
-        ? new MutationObserver(() => {
-            window.cancelAnimationFrame(animationFrame);
-            animationFrame = window.requestAnimationFrame(updateMarkers);
-          })
-        : null;
-    if (article) {
-      observer?.observe(article, {
-        childList: true,
-        subtree: true,
-      });
-    }
-    pane?.addEventListener("scroll", updateMarkers, { passive: true });
     window.addEventListener("resize", updateMarkers);
     return () => {
       window.cancelAnimationFrame(animationFrame);
       observer?.disconnect();
       clearPostDiffHighlights(articleRef.current);
       highlightedContextRef.current = null;
-      pane?.removeEventListener("scroll", updateMarkers);
+      boundPane?.removeEventListener("scroll", updateMarkers);
       window.removeEventListener("resize", updateMarkers);
     };
-  }, [articleRef, context]);
+  }, [articleRef, context, displayMode]);
 
   if (!context || markers.length === 0 || !overlayStyle) {
     return null;
@@ -406,8 +432,9 @@ export function PostDiffGitMarkers({
 
   return (
     <nav
-      className="post-diff-git-markers"
+      className={`post-diff-git-markers ${displayMode}`}
       data-review-id="post-diff-git-markers"
+      data-display-mode={displayMode}
       data-marker-count={String(context.totalCount)}
       data-rendered-marker-count={String(markers.length)}
       data-table-cell-marker-count={String(
@@ -437,7 +464,12 @@ export function PostDiffGitMarkers({
           data-marker-kind={marker.kind}
           aria-label={`${markerLabel(marker.kind)} ${marker.changeIndex + 1} of ${context.totalCount}`}
           title={markerLabel(marker.kind)}
-          style={{ top: `${marker.top}px` }}
+          style={
+            {
+              top: `${marker.top}px`,
+              "--post-diff-marker-range-height": `${marker.rangeHeight}px`,
+            } as CSSProperties
+          }
           onClick={() => {
             const target = marker.targetMarkers[0]?.target ?? marker.target;
             target.scrollIntoView({ block: "center" });

@@ -66,6 +66,7 @@ type RawAppConfig = Partial<AppConfig> & {
     diagramPlaceholderRendering?: unknown;
     diagramPlaceholderRenderingConfigured?: unknown;
     postDiffGitMarkers?: unknown;
+    changeReviewDisplay?: unknown;
   };
 };
 
@@ -311,6 +312,11 @@ function normalizeExperimentalConfig(
         ),
     diagramPlaceholderRenderingConfigured: true,
     postDiffGitMarkers: rawConfig.experimental?.postDiffGitMarkers === true,
+    changeReviewDisplay: oneOf(
+      rawConfig.experimental?.changeReviewDisplay,
+      ["detailed", "subtle"] as const,
+      "detailed",
+    ),
   };
 }
 

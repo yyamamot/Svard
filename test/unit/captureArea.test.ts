@@ -6,6 +6,7 @@ import {
   captureAreaImageSize,
   captureAreaReferenceForRect,
   clampCaptureArea,
+  createCaptureCompanionOverlays,
   createCaptureAreaReferenceFooter,
   minimumCaptureAreaSize,
   visibleCaptureBounds,
@@ -78,6 +79,57 @@ describe("capture area geometry", () => {
 
   it("states that a failed capture leaves the previous clipboard unchanged", () => {
     expect(captureAreaFailureNotice).toContain("clipboard was not changed");
+  });
+
+  it("adds intersecting subtle Change Review markers to the capture frame", () => {
+    const pane = document.createElement("div");
+    pane.className = "viewer-pane";
+    const markers = document.createElement("nav");
+    markers.className = "post-diff-git-markers subtle";
+    const intersecting = captureMarker(rect(10, 128, 24, 24), 80);
+    const outside = captureMarker(rect(10, 328, 24, 24), 40);
+    markers.append(intersecting, outside);
+    const article = document.createElement("article");
+    article.className = "document-body";
+    pane.append(markers, article);
+    document.body.append(pane);
+
+    const [overlay] = createCaptureCompanionOverlays(article, {
+      left: 0,
+      top: 100,
+      width: 300,
+      height: 100,
+    });
+    const clonedMarkers = overlay?.querySelectorAll<HTMLElement>(
+      ".post-diff-git-marker",
+    );
+
+    expect(overlay?.dataset.captureCompanion).toBe("post-diff-git-markers");
+    expect(clonedMarkers).toHaveLength(1);
+    expect(clonedMarkers?.[0]?.style.left).toBe("10px");
+    expect(clonedMarkers?.[0]?.style.top).toBe("28px");
+    expect(
+      clonedMarkers?.[0]?.style.getPropertyValue(
+        "--post-diff-marker-range-height",
+      ),
+    ).toBe("80px");
+    pane.remove();
+  });
+
+  it("does not duplicate Change Review markers already inside the capture target", () => {
+    const target = document.createElement("div");
+    const markers = document.createElement("nav");
+    markers.className = "post-diff-git-markers subtle";
+    target.append(markers);
+
+    expect(
+      createCaptureCompanionOverlays(target, {
+        left: 0,
+        top: 0,
+        width: 300,
+        height: 100,
+      }),
+    ).toEqual([]);
   });
 
   it("waits for cloned data images to decode before capture", async () => {
@@ -267,4 +319,15 @@ function mappedBlock(
   if (sourcePath) block.dataset.sourceSelectionSourcePath = sourcePath;
   block.getBoundingClientRect = () => bounds;
   return block;
+}
+
+function captureMarker(bounds: DOMRect, rangeHeight: number) {
+  const marker = document.createElement("button");
+  marker.className = "post-diff-git-marker changed";
+  marker.style.setProperty(
+    "--post-diff-marker-range-height",
+    `${rangeHeight}px`,
+  );
+  marker.getBoundingClientRect = () => bounds;
+  return marker;
 }

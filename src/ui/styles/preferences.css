@@ -181,6 +181,24 @@
   color: var(--pref-panel-text);
 }
 
+.preference-sub-label {
+  color: var(--pref-muted-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.change-review-display-setting {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  max-width: 560px;
+  margin: 10px 0 0 30px;
+}
+
+.change-review-display-help {
+  max-width: 520px;
+}
+
 .preference-inline-input {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 96px;

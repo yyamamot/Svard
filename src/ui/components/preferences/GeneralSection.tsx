@@ -8,7 +8,11 @@ export function GeneralSection({
   onUpdateZoom,
   onUpdateZoomWithMouseWheel,
   onUpdatePostDiffGitMarkers,
+  onUpdateChangeReviewDisplay,
 }: GeneralSectionProps) {
+  const changeReviewDisplay =
+    config.experimental.changeReviewDisplay ?? "detailed";
+
   return (
     <section
       className="preference-section"
@@ -117,23 +121,61 @@ export function GeneralSection({
       </div>
       <div className="preference-field">
         <span className="preference-label">Diff</span>
-        <label className="checkbox-row checkbox-row-detailed">
-          <input
-            type="checkbox"
-            data-review-id="general-post-diff-git-markers-control"
-            checked={config.experimental.postDiffGitMarkers}
-            onChange={(event) =>
-              onUpdatePostDiffGitMarkers(event.target.checked)
-            }
-          />
-          <span className="checkbox-copy">
-            <span>Change Review Mode</span>
-            <span className="preference-help-text">
-              Show working tree changes directly in the viewer. Diff Preview
-              handoff markers are also kept for the current document.
+        <div className="change-review-settings">
+          <label className="checkbox-row checkbox-row-detailed">
+            <input
+              type="checkbox"
+              data-review-id="general-post-diff-git-markers-control"
+              checked={config.experimental.postDiffGitMarkers}
+              onChange={(event) =>
+                onUpdatePostDiffGitMarkers(event.target.checked)
+              }
+            />
+            <span className="checkbox-copy">
+              <span>Change Review Mode</span>
+              <span className="preference-help-text">
+                Show working tree changes directly in the viewer. Diff Preview
+                handoff markers are also kept for the current document.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+          <div className="change-review-display-setting">
+            <span className="preference-sub-label">Display style</span>
+            <div
+              className="segmented-control"
+              data-review-id="change-review-display-control"
+              role="radiogroup"
+              aria-label="Change review display"
+            >
+              {(["detailed", "subtle"] as const).map((display) => (
+                <label
+                  key={display}
+                  className={`segmented-option ${
+                    changeReviewDisplay === display ? "active" : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="change-review-display"
+                    value={display}
+                    checked={changeReviewDisplay === display}
+                    onChange={() => onUpdateChangeReviewDisplay(display)}
+                  />
+                  <span>{display === "detailed" ? "Detailed" : "Subtle"}</span>
+                </label>
+              ))}
+            </div>
+            <p
+              className="preference-help-text change-review-display-help"
+              data-review-id="change-review-display-help"
+              aria-live="polite"
+            >
+              {changeReviewDisplay === "subtle"
+                ? "Shows low-contrast change markers in the reading margin without highlighting the document."
+                : "Highlights changed blocks, list items, table cells, and words directly in the document."}
+            </p>
+          </div>
+        </div>
       </div>
     </section>
   );

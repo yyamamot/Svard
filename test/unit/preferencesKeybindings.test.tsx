@@ -231,6 +231,29 @@ describe("PreferencesPanel settings and recording", () => {
     expect(config.experimental.postDiffGitMarkers).toBe(true);
   });
 
+  it("stores the subtle Change Review display in the next config payload", async () => {
+    render();
+
+    const displayControl = harness.byReviewId("change-review-display-control");
+    const displayHelp = harness.byReviewId("change-review-display-help");
+    const subtle = displayControl.querySelector<HTMLInputElement>(
+      'input[value="subtle"]',
+    );
+
+    expect(
+      displayControl.querySelector<HTMLInputElement>('input[value="detailed"]')
+        ?.checked,
+    ).toBe(true);
+    expect(displayHelp.textContent).toContain("Highlights changed blocks");
+
+    await harness.click(subtle);
+
+    expect(config.experimental.changeReviewDisplay).toBe("subtle");
+    expect(displayHelp.textContent).toContain(
+      "without highlighting the document",
+    );
+  });
+
   it("stores Experimental feature toggles in the next config payload", async () => {
     render();
     await harness.click(harness.buttonByText("Experimental"));

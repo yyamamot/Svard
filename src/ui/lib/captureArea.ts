@@ -298,6 +298,9 @@ async function captureArticleArea(
   const contentFrame = createCaptureFrame(rect.width, rect.height, background);
   const clone = createCaptureClone(article, articleRect, rect);
   contentFrame.appendChild(clone);
+  for (const overlay of createCaptureCompanionOverlays(article, rect)) {
+    contentFrame.appendChild(overlay);
+  }
   document.body.appendChild(contentFrame);
   copyScrollOffsets(article, clone);
 
@@ -344,6 +347,66 @@ async function captureArticleArea(
   } finally {
     contentFrame.remove();
   }
+}
+
+export function createCaptureCompanionOverlays(
+  article: HTMLElement,
+  rect: CaptureAreaRect,
+): HTMLElement[] {
+  if (article.querySelector(".post-diff-git-markers")) {
+    return [];
+  }
+  const pane = article.closest<HTMLElement>(".viewer-pane");
+  const markerRoot = pane?.querySelector<HTMLElement>(
+    ":scope > .post-diff-git-markers.subtle",
+  );
+  if (!markerRoot) {
+    return [];
+  }
+
+  const clone = markerRoot.cloneNode(false) as HTMLElement;
+  clone.dataset.captureCompanion = "post-diff-git-markers";
+  Object.assign(clone.style, {
+    position: "absolute",
+    inset: "0",
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    overflow: "hidden",
+    pointerEvents: "none",
+  });
+  copyCustomProperties(markerRoot, clone);
+
+  for (const marker of markerRoot.querySelectorAll<HTMLElement>(
+    ":scope > .post-diff-git-marker",
+  )) {
+    const markerRect = marker.getBoundingClientRect();
+    const rangeHeight = Math.max(
+      14,
+      Number.parseFloat(
+        marker.style.getPropertyValue("--post-diff-marker-range-height"),
+      ) || 0,
+    );
+    const centerY = markerRect.top + markerRect.height / 2;
+    if (
+      markerRect.right <= rect.left ||
+      markerRect.left >= rect.left + rect.width ||
+      centerY + rangeHeight / 2 <= rect.top ||
+      centerY - rangeHeight / 2 >= rect.top + rect.height
+    ) {
+      continue;
+    }
+
+    const markerClone = marker.cloneNode(true) as HTMLElement;
+    Object.assign(markerClone.style, {
+      position: "absolute",
+      left: `${markerRect.left - rect.left}px`,
+      top: `${markerRect.top - rect.top}px`,
+      transform: "none",
+    });
+    clone.appendChild(markerClone);
+  }
+
+  return clone.childElementCount > 0 ? [clone] : [];
 }
 
 export async function waitForCaptureImages(
@@ -577,16 +640,21 @@ function estimateReferenceFooterHeight(referenceText: string, width: number) {
 }
 
 function preserveCaptureLayout(article: HTMLElement, clone: HTMLElement) {
-  const computed = getComputedStyle(article);
-  for (const property of computed) {
-    if (property.startsWith("--")) {
-      clone.style.setProperty(property, computed.getPropertyValue(property));
-    }
-  }
+  const computed = copyCustomProperties(article, clone);
   if (computed.display === "grid") {
     clone.style.gridTemplateColumns = computed.gridTemplateColumns;
     clone.style.gridTemplateRows = computed.gridTemplateRows;
   }
+}
+
+function copyCustomProperties(source: HTMLElement, target: HTMLElement) {
+  const computed = getComputedStyle(source);
+  for (const property of computed) {
+    if (property.startsWith("--")) {
+      target.style.setProperty(property, computed.getPropertyValue(property));
+    }
+  }
+  return computed;
 }
 
 function copyScrollOffsets(article: HTMLElement, clone: HTMLElement) {

@@ -958,6 +958,143 @@ test("viewer Capture Area copies a visible document rectangle as PNG", async ({
   );
 });
 
+test("viewer Capture Area includes subtle Change Review markers", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.evaluate(async () => {
+    await window.__SVARD_COMMANDS__?.dispatch("preferences.open");
+  });
+  await page.getByTestId("general-post-diff-git-markers-control").check();
+  await page
+    .getByTestId("change-review-display-control")
+    .getByText("Subtle", { exact: true })
+    .click();
+  await page.evaluate(async () => {
+    await window.__SVARD_COMMANDS__?.dispatch("preferences.close");
+  });
+
+  await page.getByText("git-rendered-markdown.md").click();
+  await expect(
+    page.locator(
+      '[data-review-id="post-diff-git-markers"][data-display-mode="subtle"]',
+    ),
+  ).toBeVisible();
+  const article = page.getByTestId("document-body");
+  const articleBox = await article.boundingBox();
+  expect(articleBox).not.toBeNull();
+  if (!articleBox) return;
+
+  await page.mouse.click(articleBox.x + 180, articleBox.y + 100, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Capture Area…" }).click();
+  const overlay = page.getByTestId("capture-area-overlay");
+  const overlayBox = await overlay.boundingBox();
+  expect(overlayBox).not.toBeNull();
+  if (!overlayBox) return;
+
+  const selectionWidth = Math.min(360, overlayBox.width - 2);
+  await page.mouse.move(overlayBox.x + 1, overlayBox.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(
+    overlayBox.x + 1 + selectionWidth,
+    overlayBox.y + Math.min(220, overlayBox.height - 2),
+  );
+  await page.mouse.up();
+  await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
+    "Image copied",
+  );
+
+  const accentPixels = await page.evaluate(async (selectedCssWidth) => {
+    const [item] = await navigator.clipboard.read();
+    const bitmap = await createImageBitmap(await item!.getType("image/png"));
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    context?.drawImage(bitmap, 0, 0);
+    const pixels =
+      context?.getImageData(0, 0, canvas.width, canvas.height).data ??
+      new Uint8ClampedArray();
+    const sampleWidth = Math.min(
+      canvas.width,
+      Math.ceil((48 * canvas.width) / selectedCssWidth),
+    );
+    let count = 0;
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < sampleWidth; x += 1) {
+        const index = (y * canvas.width + x) * 4;
+        const red = pixels[index] ?? 0;
+        const green = pixels[index + 1] ?? 0;
+        const blue = pixels[index + 2] ?? 0;
+        const greenMarker = green > red + 12 && green > blue + 5;
+        const amberMarker = red > green + 8 && green > blue + 22;
+        if (greenMarker || amberMarker) count += 1;
+      }
+    }
+    return count;
+  }, selectionWidth);
+  expect(accentPixels).toBeGreaterThan(5);
+});
+
+test("viewer subtle Change Review markers follow scroll after Preferences", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    await window.__SVARD_COMMANDS__?.dispatch("preferences.open");
+  });
+  await page.getByTestId("general-post-diff-git-markers-control").check();
+  await page
+    .getByTestId("change-review-display-control")
+    .getByText("Subtle", { exact: true })
+    .click();
+  await page.evaluate(async () => {
+    await window.__SVARD_COMMANDS__?.dispatch("preferences.close");
+  });
+  await page.getByText("git-large-markdown-scroll.md").click();
+  await expect(
+    page.locator(
+      '[data-review-id="post-diff-git-markers"][data-display-mode="subtle"]',
+    ),
+  ).toBeVisible();
+
+  await page.evaluate(async () => {
+    await window.__SVARD_COMMANDS__?.dispatch("preferences.open");
+  });
+  await expect(page.getByTestId("preferences-page")).toBeVisible();
+  await page.evaluate(async () => {
+    await window.__SVARD_COMMANDS__?.dispatch("preferences.close");
+  });
+  const viewer = page.getByTestId("document-viewer");
+  await expect(viewer).toBeVisible();
+  const marker = page
+    .locator('[data-review-id="post-diff-git-marker"]')
+    .first();
+  await expect(marker).toBeVisible();
+  const markerTop = () =>
+    marker.evaluate((element) => Number.parseFloat(element.style.top));
+  const before = await markerTop();
+
+  const scrollState = await viewer.evaluate((element) => {
+    element.scrollTop = 480;
+    element.dispatchEvent(new Event("scroll"));
+    return {
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+    };
+  });
+  expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+  expect(scrollState.scrollTop).toBeGreaterThan(0);
+  await expect
+    .poll(markerTop, { message: JSON.stringify(scrollState) })
+    .not.toBe(before);
+});
+
 test("viewer Capture Area waits for local images before plain and referenced PNG copy", async ({
   context,
   page,

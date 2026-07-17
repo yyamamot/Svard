@@ -219,6 +219,131 @@ describe("ViewerPane post-diff git markers", () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
   });
 
+  it("keeps subtle Change Review markers without persistent document highlights", async () => {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const tagName = this.tagName.toLowerCase();
+        const geometry =
+          tagName === "p"
+            ? { top: 100, height: 80 }
+            : tagName === "li"
+              ? { top: 200, height: 60 }
+              : tagName === "tr"
+                ? { top: 300, height: 40 }
+                : { top: 0, height: 24 };
+        return {
+          x: 100,
+          y: geometry.top,
+          top: geometry.top,
+          right: 500,
+          bottom: geometry.top + geometry.height,
+          left: 100,
+          width: 400,
+          height: geometry.height,
+          toJSON: () => ({}),
+        } as DOMRect;
+      },
+    );
+
+    await act(async () =>
+      renderPane({
+        config: {
+          ...defaultConfig,
+          experimental: {
+            ...defaultConfig.experimental,
+            postDiffGitMarkers: true,
+            changeReviewDisplay: "subtle",
+          },
+        },
+        documentHtml: markSafeHtml(
+          [
+            "<p>Changed token</p>",
+            "<ul><li>Changed item</li></ul>",
+            "<table><tbody><tr><th>Name</th><th>Status</th></tr>",
+            "<tr><td>Feature</td><td>Status Done</td></tr></tbody></table>",
+          ].join(""),
+        ),
+        postDiffGitMarkers: {
+          documentPath: "/workspace/docs/example.adoc",
+          documentUpdatedAt: "2026-05-19T00:00:00.000Z",
+          totalCount: 3,
+          renderedCount: 3,
+          tableSummary: {
+            tableCellMarkerCount: 1,
+            tableAddedRowMarkerCount: 0,
+            tableBlockFallbackCount: 0,
+            tableNotApplicableCount: 0,
+            reasonCounts: { "same-schema-cell-change": 1 },
+          },
+          markers: [
+            {
+              id: "post-diff-marker:0:rendered-block:0",
+              kind: "changed",
+              anchorBlockId: "rendered-block:0",
+              changeIndex: 0,
+              inlineDiffRanges: [{ kind: "added", start: 8, end: 13 }],
+            },
+            {
+              id: "post-diff-marker:1:rendered-block:1:item:0",
+              kind: "changed",
+              anchorBlockId: "rendered-block:1",
+              anchorItemIndex: 0,
+              changeIndex: 1,
+              targetKind: "list-item",
+              inlineDiffRanges: [{ kind: "added", start: 8, end: 12 }],
+            },
+            {
+              id: "post-diff-marker:2:rendered-block:2:table-row:1",
+              kind: "changed",
+              anchorBlockId: "rendered-block:2",
+              anchorTableRowIndex: 1,
+              changeIndex: 2,
+              targetKind: "table-row",
+              tableCellHighlights: [
+                {
+                  cellIndex: 1,
+                  kind: "changed",
+                  inlineDiffRanges: [{ kind: "added", start: 7, end: 11 }],
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    const markerRoot = container.querySelector<HTMLElement>(
+      '[data-review-id="post-diff-git-markers"]',
+    );
+    expect(markerRoot?.dataset.displayMode).toBe("subtle");
+    expect(markerRoot?.classList.contains("subtle")).toBe(true);
+    expect(markerRoot?.dataset.markerCount).toBe("3");
+    const markers = container.querySelectorAll<HTMLElement>(
+      '[data-review-id="post-diff-git-marker"]',
+    );
+    expect(markers).toHaveLength(2);
+    expect(markers[0]?.style.top).toBe("180px");
+    expect(
+      markers[0]?.style.getPropertyValue("--post-diff-marker-range-height"),
+    ).toBe("160px");
+    expect(
+      markers[1]?.style.getPropertyValue("--post-diff-marker-range-height"),
+    ).toBe("40px");
+    expect(container.querySelector(".post-diff-git-highlight")).toBeNull();
+    expect(
+      container.querySelector(".post-diff-git-highlight-list-item"),
+    ).toBeNull();
+    expect(
+      container.querySelector(".post-diff-git-highlight-table-cell"),
+    ).toBeNull();
+    expect(container.querySelector(".git-inline-word-highlight")).toBeNull();
+  });
+
   it("renders post-diff git markers on changed list items without highlighting the parent list", async () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;

@@ -196,6 +196,16 @@ pub struct ExperimentalConfig {
     pub diagram_placeholder_rendering_configured: bool,
     #[serde(default)]
     pub post_diff_git_markers: bool,
+    #[serde(default)]
+    pub change_review_display: ChangeReviewDisplay,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ChangeReviewDisplay {
+    #[default]
+    Detailed,
+    Subtle,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -537,6 +547,7 @@ fn default_experimental_config() -> ExperimentalConfig {
         diagram_placeholder_rendering: true,
         diagram_placeholder_rendering_configured: true,
         post_diff_git_markers: false,
+        change_review_display: ChangeReviewDisplay::Detailed,
     }
 }
 

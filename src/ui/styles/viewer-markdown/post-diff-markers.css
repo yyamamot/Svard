@@ -22,15 +22,20 @@
 
 .post-diff-git-marker::before {
   position: absolute;
-  top: 5px;
+  top: 50%;
   left: 10px;
   width: 3px;
-  height: 14px;
+  height: max(14px, var(--post-diff-marker-range-height, 14px));
+  transform: translateY(-50%);
   border-radius: 999px;
   background: color-mix(in srgb, #6c7983 76%, transparent);
   box-shadow: 0 0 0 1px rgb(255 255 255 / 70%);
   content: "";
   opacity: 0;
+}
+
+.post-diff-git-markers.subtle .post-diff-git-marker::before {
+  opacity: 0.52;
 }
 
 .post-diff-git-marker.added::before {

@@ -1,5 +1,6 @@
 const markerScenarios = new Set([
   "viewer-normal-git-markers-initial-working-tree-opt-in",
+  "viewer-normal-git-markers-subtle",
   "viewer-normal-git-markers-after-diff-opt-in",
   "viewer-normal-git-markers-disabled",
   "viewer-normal-git-markers-no-prior-diff",
@@ -31,6 +32,21 @@ async function enablePostDiffGitMarkers(page) {
   await page
     .locator('[data-review-id="general-post-diff-git-markers-control"]')
     .check();
+  await page.evaluate(() =>
+    window.__SVARD_COMMANDS__?.dispatch("preferences.close"),
+  );
+}
+
+async function selectSubtleChangeReviewDisplay(page) {
+  await page.evaluate(() =>
+    window.__SVARD_COMMANDS__?.dispatch("preferences.open"),
+  );
+  await page.locator('[data-review-id="preferences-tab-general"]').waitFor();
+  await page
+    .locator('[data-review-id="change-review-display-control"] label', {
+      hasText: "Subtle",
+    })
+    .click();
   await page.evaluate(() =>
     window.__SVARD_COMMANDS__?.dispatch("preferences.close"),
   );
@@ -96,6 +112,21 @@ async function markerSummary(page, extra = {}) {
       parentTableHighlightCount;
     const summary = {
       documentBasename: "git-rendered-markdown.md",
+      displayMode: markerRoot?.getAttribute("data-display-mode") ?? null,
+      longestMarkerRange: Math.max(
+        0,
+        ...markers.map((marker) =>
+          Number.parseFloat(
+            marker.style.getPropertyValue("--post-diff-marker-range-height") ||
+              "0",
+          ),
+        ),
+      ),
+      markerOpacity: markers[0]
+        ? Number.parseFloat(
+            getComputedStyle(markers[0], "::before").opacity || "0",
+          )
+        : 0,
       markerCount: Number(markerRoot?.getAttribute("data-marker-count") ?? 0),
       renderedMarkerCount: markers.length,
       tableCellMarkerCount: Number(
@@ -362,8 +393,46 @@ export async function applyGitDiffPostDiffMarkersScenario(context) {
     await enablePostDiffGitMarkers(page);
   }
 
+  if (scenario === "viewer-normal-git-markers-subtle") {
+    await selectSubtleChangeReviewDisplay(page);
+  }
+
   if (scenario.startsWith("viewer-git-change-visual-contract-")) {
     await collectGitChangeVisualContractSummary(page, scenario);
+    return true;
+  }
+
+  if (scenario === "viewer-normal-git-markers-subtle") {
+    await page
+      .locator(
+        '[data-review-id="tree-file"][data-path="/workspace/docs/git-rendered-markdown.md"]',
+      )
+      .click();
+    await page
+      .locator('[data-review-id="document-body"]')
+      .filter({ hasText: "Git Rendered Markdown Diff Fixture" })
+      .waitFor();
+    await page
+      .locator(
+        '[data-review-id="post-diff-git-markers"][data-display-mode="subtle"]',
+      )
+      .waitFor();
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll(".document-body .post-diff-git-highlight")
+          .length === 0 &&
+        document.querySelectorAll(".document-body .git-inline-word-highlight")
+          .length === 0,
+    );
+    await page
+      .locator('[data-review-id="post-diff-git-marker"]')
+      .first()
+      .click();
+    await markerSummary(page, {
+      initialWorkingTree: true,
+      subtleDisplay: true,
+      clickResult: true,
+    });
     return true;
   }
 

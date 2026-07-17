@@ -180,6 +180,7 @@ export interface ExperimentalConfig {
   diagramPlaceholderRendering: boolean;
   diagramPlaceholderRenderingConfigured?: boolean;
   postDiffGitMarkers: boolean;
+  changeReviewDisplay?: "detailed" | "subtle";
 }
 
 export interface KeybindingsConfig {

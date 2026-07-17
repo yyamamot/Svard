@@ -101,6 +101,7 @@ export const defaultConfig: AppConfig = {
     diagramPlaceholderRendering: true,
     diagramPlaceholderRenderingConfigured: true,
     postDiffGitMarkers: false,
+    changeReviewDisplay: "detailed",
   },
   keybindings: {
     preset: "native",

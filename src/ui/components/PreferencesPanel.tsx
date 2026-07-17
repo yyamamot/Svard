@@ -527,6 +527,15 @@ export function PreferencesPanel({
                 },
               })
             }
+            onUpdateChangeReviewDisplay={(changeReviewDisplay) =>
+              onChange({
+                ...config,
+                experimental: {
+                  ...config.experimental,
+                  changeReviewDisplay,
+                },
+              })
+            }
           />
         );
       case "zenMode":

@@ -538,6 +538,7 @@ export function ViewerPane({
         <PostDiffGitMarkers
           articleRef={articleNodeRef}
           context={activePostDiffGitMarkers}
+          displayMode={config?.experimental.changeReviewDisplay ?? "detailed"}
         />
       )}
       {result && payload && (

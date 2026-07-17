@@ -1,5 +1,6 @@
 const markerScenarios = new Set([
   "viewer-normal-git-markers-initial-working-tree-opt-in",
+  "viewer-normal-git-markers-subtle",
   "viewer-normal-git-markers-after-diff-opt-in",
   "viewer-normal-git-markers-disabled",
   "viewer-normal-git-markers-no-prior-diff",
@@ -56,6 +57,24 @@ export async function buildGitDiffPostDiffMarkerAssertions(context) {
           summary?.renderedMarkerCount > 0 &&
           summary?.blockHighlightCount > 0 &&
           summary?.inlineAddedCount > 0 &&
+          summary?.clickResult === true
+        : true,
+    hasSubtleWorkingTreeGitMarkers:
+      scenario === "viewer-normal-git-markers-subtle"
+        ? summary?.visible === true &&
+          summary?.initialWorkingTree === true &&
+          summary?.subtleDisplay === true &&
+          summary?.displayMode === "subtle" &&
+          summary?.markerCount > 0 &&
+          summary?.renderedMarkerCount > 0 &&
+          summary?.longestMarkerRange > 24 &&
+          summary?.markerOpacity > 0 &&
+          summary?.markerOpacity < 1 &&
+          summary?.blockHighlightCount === 0 &&
+          summary?.itemHighlightCount === 0 &&
+          summary?.tableCellHighlightCount === 0 &&
+          summary?.inlineAddedCount === 0 &&
+          summary?.inlineRemovedCount === 0 &&
           summary?.clickResult === true
         : true,
     hasPostDiffGitMarkersWhenOptedIn:
