@@ -1,5 +1,6 @@
 import type { MouseEvent, RefObject, UIEvent } from "react";
 import type { DocumentFormat } from "../../../core/types";
+import { useAllDiffsUiPerformance } from "../../lib/allDiffsUiPerformance";
 import { sanitizeRenderedBlockHtml } from "../../lib/sanitizeHtml";
 import { dangerouslySetSafeHtml, markSafeHtml } from "../../lib/safeHtml";
 import {
@@ -229,6 +230,8 @@ export function RenderedDiffPane({
   paneRef: RefObject<HTMLDivElement | null>;
   onScroll: (event: UIEvent<HTMLDivElement>) => void;
 }) {
+  const measurement = useAllDiffsUiPerformance();
+
   function highlightedBlockHtml(
     entry: RenderedDiffPresentationEntry,
     block: RenderedBlockDiff,
@@ -496,11 +499,13 @@ export function RenderedDiffPane({
           );
         })}
       </div>
-      <RenderedDiffMarginMarkers
-        activeChangeIndex={activeChangeIndex}
-        layoutIdentity={entries}
-        side={side}
-      />
+      {measurement.marginMarkersEnabled ? (
+        <RenderedDiffMarginMarkers
+          activeChangeIndex={activeChangeIndex}
+          layoutIdentity={entries}
+          side={side}
+        />
+      ) : null}
     </section>
   );
 }

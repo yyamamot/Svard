@@ -1,4 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import {
+  allDiffsUiPerformanceNow,
+  useAllDiffsUiPerformance,
+} from "../../lib/allDiffsUiPerformance";
 
 interface RenderedDiffMarginMarker {
   height: number;
@@ -39,6 +43,7 @@ export function RenderedDiffMarginMarkers({
 }) {
   const [markers, setMarkers] = useState<RenderedDiffMarginMarker[]>([]);
   const hostRef = useRef<HTMLDivElement>(null);
+  const measurement = useAllDiffsUiPerformance();
 
   useLayoutEffect(() => {
     const pane = hostRef.current?.parentElement;
@@ -54,6 +59,7 @@ export function RenderedDiffMarginMarkers({
     const observedTargets = new Set<HTMLElement>();
     let resizeObserver: ResizeObserver | null = null;
     const measure = () => {
+      const startedAt = measurement.enabled ? allDiffsUiPerformanceNow() : 0;
       frame = 0;
       const paneRect = pane.getBoundingClientRect();
       const targets = Array.from(
@@ -101,6 +107,14 @@ export function RenderedDiffMarginMarkers({
         }))
         .sort((left, right) => left.index - right.index);
       setMarkers((current) => (sameMarkers(current, next) ? current : next));
+      if (measurement.enabled) {
+        measurement.record({
+          type: "margin-measure",
+          durationMs: allDiffsUiPerformanceNow() - startedAt,
+          rectCount: targets.length + 1,
+          targetCount: targets.length,
+        });
+      }
     };
     const scheduleMeasure = () => {
       if (frame === 0) {
@@ -109,12 +123,30 @@ export function RenderedDiffMarginMarkers({
     };
 
     if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver = new ResizeObserver((entries) => {
+        if (measurement.enabled) {
+          measurement.record({
+            type: "margin-resize-callback",
+            callbackCount: 1,
+            entryCount: entries.length,
+          });
+        }
+        scheduleMeasure();
+      });
       resizeObserver.observe(pane);
     }
     let mutationObserver: MutationObserver | null = null;
     if (typeof MutationObserver !== "undefined") {
-      mutationObserver = new MutationObserver(scheduleMeasure);
+      mutationObserver = new MutationObserver((mutations) => {
+        if (measurement.enabled) {
+          measurement.record({
+            type: "margin-mutation-callback",
+            callbackCount: 1,
+            mutationCount: mutations.length,
+          });
+        }
+        scheduleMeasure();
+      });
       mutationObserver.observe(pane, {
         attributeFilter: ["class", "data-change-index"],
         attributes: true,
@@ -137,7 +169,7 @@ export function RenderedDiffMarginMarkers({
       window.removeEventListener("resize", scheduleMeasure);
       scrollContainer?.removeEventListener("scroll", scheduleMeasure);
     };
-  }, [layoutIdentity]);
+  }, [layoutIdentity, measurement]);
 
   return (
     <div

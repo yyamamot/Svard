@@ -52,6 +52,7 @@
     "perf:asciidoc:budget": "node scripts/asciidoc-perf-probe.mjs --budget --out .artifacts/perf/asciidoc-budget.json",
     "benchmark:asciidoc:prepare": "node scripts/asciidoc-prepare-benchmark.mjs",
     "benchmark:diff-render": "node scripts/diff-render-phase-benchmark.mjs",
+    "benchmark:all-diffs-ui": "node scripts/all-diffs-ui-benchmark.mjs",
     "benchmark:line-diff": "node scripts/line-diff-complexity-probe.mjs",
     "perf:source-control:file-history": "node scripts/source-control-file-history-perf-probe.mjs",
     "perf:source-control:file-history:budget": "node scripts/source-control-file-history-perf-probe.mjs --budget --out .artifacts/perf/source-control-file-history-budget.json",

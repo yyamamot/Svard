@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { emptyDocumentReviewSessionControls } from "../lib/documentReviewSession";
+import {
+  allDiffsUiPerformanceNow,
+  useAllDiffsUiPerformance,
+} from "../lib/allDiffsUiPerformance";
 import { MouseGestureTrail } from "./MouseGestureTrail";
 import { DiffStreamChangeRuler } from "./documentDiffStream/DiffStreamChangeRuler";
 import { DiffStreamSection } from "./documentDiffStream/DiffStreamSection";
@@ -50,6 +54,7 @@ export function DocumentDiffStreamPanel({
   onClose,
   onRefresh,
 }: DocumentDiffStreamPanelProps) {
+  const measurement = useAllDiffsUiPerformance();
   const panelRef = useRef<HTMLElement | null>(null);
   const streamBodyRef = useRef<HTMLDivElement | null>(null);
   const filesPickerRef = useRef<HTMLDivElement | null>(null);
@@ -319,6 +324,7 @@ export function DocumentDiffStreamPanel({
   const syncActiveFileToViewport = useCallback(() => {
     const body = streamBodyRef.current;
     if (!body) return;
+    const startedAt = measurement.enabled ? allDiffsUiPerformanceNow() : 0;
     const sections = Array.from(
       body.querySelectorAll<HTMLElement>("[data-stream-index]"),
     );
@@ -333,7 +339,15 @@ export function DocumentDiffStreamPanel({
     );
     const index = Number(current?.dataset.streamIndex);
     if (Number.isInteger(index)) setActiveFileIndex(index);
-  }, []);
+    if (measurement.enabled) {
+      measurement.record({
+        type: "active-file-scroll-sync",
+        durationMs: allDiffsUiPerformanceNow() - startedAt,
+        rectCount: 1 + sections.length * 2,
+        sectionCount: sections.length,
+      });
+    }
+  }, [measurement]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(syncActiveFileToViewport);
@@ -577,7 +591,7 @@ export function DocumentDiffStreamPanel({
               />
             ))}
           </div>
-          {!changeMarkersHidden && (
+          {!changeMarkersHidden && measurement.renderedRulerEnabled && (
             <DiffStreamChangeRuler
               activeTarget={activeTarget}
               streamBodyRef={streamBodyRef}

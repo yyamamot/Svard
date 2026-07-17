@@ -11,6 +11,10 @@ import type { DocumentDiffStreamPreview } from "../../../core/types";
 import type { ContentCursorCommandHandler } from "../../lib/contentCursor";
 import type { DocumentDiffStreamCommandBridge } from "../../lib/documentDiffStreamCommands";
 import type { CaptureAreaVariant } from "../../lib/captureArea";
+import {
+  allDiffsUiPerformanceNow,
+  useAllDiffsUiPerformance,
+} from "../../lib/allDiffsUiPerformance";
 import { buildRenderedDiffPresentation } from "../../lib/gitRenderedDiff";
 import type { DiffPreviewMouseGestureScrollAction } from "../gitDiffPreview/mouseGestures";
 import type {
@@ -47,6 +51,7 @@ export function useDocumentDiffStreamNavigation({
   beginCaptureArea: (variant: CaptureAreaVariant) => boolean;
   canCaptureArea: () => boolean;
 }) {
+  const measurement = useAllDiffsUiPerformance();
   const [activeTarget, setActiveTarget] = useState<{
     fileIndex: number;
     changeIndex: number;
@@ -56,27 +61,36 @@ export function useDocumentDiffStreamNavigation({
     direction: 1 | -1;
   } | null>(null);
 
-  const loadedTargets = useMemo(
-    () =>
-      preview.items.flatMap((item, fileIndex) => {
-        const key = item.documentPath ?? item.path;
-        const state = loadStates[key];
-        if (state?.status !== "ready") {
-          return [];
-        }
-        const presentation = buildRenderedDiffPresentation(
-          state.summary.blocks,
-        );
-        return presentation.navigationTargets.map((target) => ({
-          fileIndex,
-          changeIndex: target.index,
-          key,
-          primarySide: target.primarySide,
-          targetKind: target.targetKind,
-        }));
-      }),
-    [loadStates, preview.items],
-  );
+  const loadedTargets = useMemo(() => {
+    const startedAt = measurement.enabled ? allDiffsUiPerformanceNow() : 0;
+    let readyItemCount = 0;
+    const targets = preview.items.flatMap((item, fileIndex) => {
+      const key = item.documentPath ?? item.path;
+      const state = loadStates[key];
+      if (state?.status !== "ready") {
+        return [];
+      }
+      readyItemCount += 1;
+      const presentation = buildRenderedDiffPresentation(state.summary.blocks);
+      return presentation.navigationTargets.map((target) => ({
+        fileIndex,
+        changeIndex: target.index,
+        key,
+        primarySide: target.primarySide,
+        targetKind: target.targetKind,
+      }));
+    });
+    if (measurement.enabled) {
+      measurement.record({
+        type: "presentation-rebuild",
+        durationMs: allDiffsUiPerformanceNow() - startedAt,
+        itemCount: preview.items.length,
+        readyItemCount,
+        targetCount: targets.length,
+      });
+    }
+    return targets;
+  }, [loadStates, measurement, preview.items]);
 
   useEffect(() => {
     if (loadedTargets.length === 0) {

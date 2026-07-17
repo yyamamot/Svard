@@ -1,6 +1,10 @@
 import { useEffect, useState, type RefObject } from "react";
 import type { RenderedDiffNavigationTarget } from "../../lib/gitRenderedDiff";
 import {
+  allDiffsUiPerformanceNow,
+  useAllDiffsUiPerformance,
+} from "../../lib/allDiffsUiPerformance";
+import {
   changeRulerMarkerTopPercent,
   changeRulerTargetAnchorTop,
   type DiffChangeRulerMarkerKind,
@@ -31,6 +35,7 @@ export function DiffStreamChangeRuler({
   onSelectTarget: (target: DiffStreamTarget) => void;
 }) {
   const [markers, setMarkers] = useState<DiffStreamRulerMarker[]>([]);
+  const measurement = useAllDiffsUiPerformance();
 
   useEffect(() => {
     const streamBody = streamBodyRef.current;
@@ -43,6 +48,7 @@ export function DiffStreamChangeRuler({
     let resizeObserver: ResizeObserver | null = null;
 
     function measure() {
+      const startedAt = measurement.enabled ? allDiffsUiPerformanceNow() : 0;
       frame = 0;
       const nextMarkers = targets.flatMap((target, index) => {
         const section = diffStreamSection(body, target.fileIndex);
@@ -71,6 +77,15 @@ export function DiffStreamChangeRuler({
         ];
       });
       setMarkers(nextMarkers);
+      if (measurement.enabled) {
+        measurement.record({
+          type: "stream-ruler-measure",
+          durationMs: allDiffsUiPerformanceNow() - startedAt,
+          markerCount: nextMarkers.length,
+          rectCount: nextMarkers.length * 2,
+          targetCount: targets.length,
+        });
+      }
     }
 
     function scheduleMeasure() {
@@ -80,7 +95,16 @@ export function DiffStreamChangeRuler({
     }
 
     if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver = new ResizeObserver((entries) => {
+        if (measurement.enabled) {
+          measurement.record({
+            type: "stream-ruler-resize-callback",
+            callbackCount: 1,
+            entryCount: entries.length,
+          });
+        }
+        scheduleMeasure();
+      });
       resizeObserver.observe(body);
     }
     window.addEventListener("resize", scheduleMeasure);
@@ -93,7 +117,7 @@ export function DiffStreamChangeRuler({
       resizeObserver?.disconnect();
       window.removeEventListener("resize", scheduleMeasure);
     };
-  }, [streamBodyRef, targets]);
+  }, [measurement, streamBodyRef, targets]);
 
   if (targets.length === 0) {
     return null;
