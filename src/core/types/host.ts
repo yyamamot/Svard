@@ -31,6 +31,7 @@ import type {
   GitCommitGraph,
   GitCommitGraphScope,
   GitDiffPreview,
+  GitDiffPreviewBatchEntry,
   GitDiffResourceSource,
   GitFileHistory,
   GitRefItem,
@@ -227,6 +228,10 @@ export interface HostAdapter {
     onError?: (message: string) => void,
   ): Promise<WatchHandle>;
   getGitDiffPreview(path: string): Promise<GitDiffPreview>;
+  getGitDiffPreviews(
+    repositoryRoot: string,
+    relativePaths: string[],
+  ): Promise<GitDiffPreviewBatchEntry[]>;
   getGitFileHistory(
     path: string,
     options?: {

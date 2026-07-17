@@ -9,3 +9,4 @@ export interface AllDiffsUiBenchmarkArgs {
 export function parseAllDiffsUiBenchmarkArgs(
   argv: string[],
 ): AllDiffsUiBenchmarkArgs;
+export function assertAllDiffsUiBenchmarkRuntime(runtime: unknown): string;

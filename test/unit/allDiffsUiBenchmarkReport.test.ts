@@ -85,7 +85,47 @@ describe("All Diffs UI benchmark report", () => {
     });
 
     expect(artifact.candidate).toBe("margin-markers");
+    expect(artifact).toMatchObject({
+      schema: "all-diffs-ui-performance-v2",
+      runtime: "vite-production-bundle",
+    });
     expect(() => assertAllDiffsUiArtifactSafe(artifact)).not.toThrow();
+  });
+
+  it("summarizes loader, render, and DOM commit phase metrics", () => {
+    const artifact = summarizeAllDiffsUiRun({
+      mode: "formal",
+      samples: [
+        ...samples("production", [40]).map((sample) => ({
+          ...sample,
+          loaderQueueWaitCount: 2,
+          loaderQueueWaitDurationMs: 3,
+          loaderQueueWaitItemCount: 2,
+          gitPreviewWaitCount: 2,
+          gitPreviewWaitDurationMs: 5,
+          gitPreviewWaitItemCount: 2,
+          renderSummaryCount: 2,
+          renderSummaryDurationMs: 7,
+          renderSummaryItemCount: 2,
+          readyDomCommitCount: 2,
+          readyDomCommitDurationMs: 1,
+          readyDomCommitItemCount: 2,
+        })),
+        ...samples("without-margin-markers", [39]),
+        ...samples("without-rendered-rulers", [38]),
+      ],
+    });
+
+    expect(artifact.fixtures[0]).toMatchObject({
+      variants: {
+        production: {
+          loaderQueueWaitDurationMs: { p50: 3, p95: 3 },
+          gitPreviewWaitDurationMs: { p50: 5, p95: 5 },
+          renderSummaryDurationMs: { p50: 7, p95: 7 },
+          readyDomCommitDurationMs: { p50: 1, p95: 1 },
+        },
+      },
+    });
   });
 
   it("requires the same candidate, fixture, and metric in both runs", () => {
@@ -112,10 +152,12 @@ describe("All Diffs UI benchmark report", () => {
       },
     });
     const formal = {
+      runtime: "vite-production-bundle",
       candidate: "margin-markers",
       fixtures: [fixture("markdown-14x12-mixed", "go", "not-go")],
     };
     const mismatched = {
+      runtime: "vite-production-bundle",
       candidate: "margin-markers",
       fixtures: [fixture("markdown-14x12-mixed", "not-go", "go")],
       mode: "confirmation",
@@ -126,6 +168,7 @@ describe("All Diffs UI benchmark report", () => {
     });
 
     const matched = {
+      runtime: "vite-production-bundle",
       candidate: "margin-markers",
       fixtures: [fixture("markdown-14x12-mixed", "go", "not-go")],
       mode: "confirmation",
@@ -139,8 +182,13 @@ describe("All Diffs UI benchmark report", () => {
   });
 
   it("does not confirm matching categories when the candidates differ", () => {
-    const formal = { candidate: "margin-markers", fixtures: [] };
+    const formal = {
+      runtime: "vite-production-bundle",
+      candidate: "margin-markers",
+      fixtures: [],
+    };
     const confirmation = {
+      runtime: "vite-production-bundle",
       candidate: "stream-ruler",
       fixtures: [],
       mode: "confirmation",
@@ -151,16 +199,35 @@ describe("All Diffs UI benchmark report", () => {
     });
   });
 
+  it("does not confirm results from a non-production runtime", () => {
+    const formal = {
+      runtime: "development-runtime",
+      candidate: "margin-markers",
+      fixtures: [],
+    };
+    const confirmation = {
+      runtime: "vite-production-bundle",
+      candidate: "margin-markers",
+      fixtures: [],
+      mode: "confirmation",
+    };
+
+    expect(combineAllDiffsUiRuns(formal, confirmation)).toMatchObject({
+      confirmedCandidate: "no-go",
+      confirmedEvidence: [],
+    });
+  });
+
   it("rejects source-like fields and uncontrolled strings", () => {
     expect(() =>
       assertAllDiffsUiArtifactSafe({
-        schema: "all-diffs-ui-performance-v1",
+        schema: "all-diffs-ui-performance-v2",
         sourceText: "private content",
       }),
     ).toThrow(/forbidden key/i);
     expect(() =>
       assertAllDiffsUiArtifactSafe({
-        schema: "all-diffs-ui-performance-v1",
+        schema: "all-diffs-ui-performance-v2",
         label: "private content",
       }),
     ).toThrow(/unsafe text/i);

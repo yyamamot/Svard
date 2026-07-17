@@ -15,6 +15,7 @@ import {
   allDiffsUiFixture,
   type AllDiffsUiFixture,
 } from "./all-diffs-ui-benchmark/fixtures.mjs";
+import { allDiffsUiRuntime } from "./all-diffs-ui-benchmark/report.mjs";
 import "github-markdown-css/github-markdown.css";
 import "highlight.js/styles/github.css";
 import "katex/dist/katex.min.css";
@@ -32,6 +33,8 @@ type BenchmarkSample = {
   longTaskMaxMs: number;
 } & Record<string, number | string>;
 
+declare const __SVARD_ALL_DIFFS_UI_PRODUCTION_BUNDLE__: boolean;
+
 declare global {
   interface Window {
     __SVARD_ALL_DIFFS_UI_BENCHMARK__?: {
@@ -41,6 +44,7 @@ declare global {
       ) => Promise<BenchmarkSample>;
     };
     __SVARD_ALL_DIFFS_UI_BENCHMARK_READY__?: boolean;
+    __SVARD_ALL_DIFFS_UI_BENCHMARK_RUNTIME__?: string;
   }
 }
 
@@ -141,11 +145,22 @@ function numeric(event: AllDiffsUiPerformanceEvent, key: string) {
 }
 
 function aggregateEvents(events: AllDiffsUiPerformanceEvent[]) {
-  const named = (type: AllDiffsUiPerformanceEvent["type"]) =>
-    events.filter((event) => event.type === type);
-  const total = (type: AllDiffsUiPerformanceEvent["type"], key: string) =>
+  const named = (type: string) => events.filter((event) => event.type === type);
+  const total = (type: string, key: string) =>
     sum(named(type).map((event) => numeric(event, key)));
   return {
+    loaderQueueWaitCount: named("loader-queue-wait").length,
+    loaderQueueWaitDurationMs: total("loader-queue-wait", "durationMs"),
+    loaderQueueWaitItemCount: total("loader-queue-wait", "itemCount"),
+    gitPreviewWaitCount: named("git-preview-wait").length,
+    gitPreviewWaitDurationMs: total("git-preview-wait", "durationMs"),
+    gitPreviewWaitItemCount: total("git-preview-wait", "itemCount"),
+    renderSummaryCount: named("render-summary").length,
+    renderSummaryDurationMs: total("render-summary", "durationMs"),
+    renderSummaryItemCount: total("render-summary", "itemCount"),
+    readyDomCommitCount: named("ready-dom-commit").length,
+    readyDomCommitDurationMs: total("ready-dom-commit", "durationMs"),
+    readyDomCommitItemCount: total("ready-dom-commit", "itemCount"),
     marginMeasureCount: named("margin-measure").length,
     marginMeasureDurationMs: total("margin-measure", "durationMs"),
     marginTargetCount: total("margin-measure", "targetCount"),
@@ -331,6 +346,17 @@ async function runSample(
           if (!preview) throw new Error("Synthetic preview is unavailable");
           return preview;
         }}
+        getGitDiffPreviews={async (repositoryRoot, relativePaths) =>
+          relativePaths.map((relativePath) => {
+            const preview = previews.get(`${repositoryRoot}/${relativePath}`);
+            return preview
+              ? { status: "ready" as const, preview }
+              : {
+                  status: "error" as const,
+                  message: "Synthetic preview is unavailable",
+                };
+          })
+        }
         copyText={async () => undefined}
         openContextMenu={() => true}
         openDocument={async () => undefined}
@@ -392,4 +418,9 @@ async function runSample(
 }
 
 window.__SVARD_ALL_DIFFS_UI_BENCHMARK__ = { runSample };
+window.__SVARD_ALL_DIFFS_UI_BENCHMARK_RUNTIME__ =
+  typeof __SVARD_ALL_DIFFS_UI_PRODUCTION_BUNDLE__ !== "undefined" &&
+  __SVARD_ALL_DIFFS_UI_PRODUCTION_BUNDLE__
+    ? allDiffsUiRuntime
+    : "development-runtime";
 window.__SVARD_ALL_DIFFS_UI_BENCHMARK_READY__ = true;

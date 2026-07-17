@@ -387,6 +387,18 @@ fn get_git_diff_preview(path: String) -> Result<git_diff::GitDiffPreview, String
 }
 
 #[tauri::command]
+async fn get_git_diff_previews(
+    repository_root: String,
+    relative_paths: Vec<String>,
+) -> Result<Vec<git_diff::GitDiffPreviewBatchEntry>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git_diff::git_diff_previews_for_paths(&repository_root, relative_paths)
+    })
+    .await
+    .map_err(|error| format!("Git diff preview batch task failed: {error}"))?
+}
+
+#[tauri::command]
 async fn get_git_status_summary(
     paths: Vec<String>,
 ) -> Result<Vec<git_diff::GitStatusEntry>, String> {
@@ -931,6 +943,7 @@ pub fn run() {
             open_current_document_in_new_window,
             take_current_viewer_window_open_request,
             get_git_diff_preview,
+            get_git_diff_previews,
             get_git_status_summary,
             get_git_changes,
             get_git_branch_diff,

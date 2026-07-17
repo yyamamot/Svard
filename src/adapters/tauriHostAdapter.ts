@@ -24,6 +24,7 @@ import type {
   GitCommitDetails,
   GitFileHistory,
   GitDiffPreview,
+  GitDiffPreviewBatchEntry,
   GitDiffResourceSource,
   GitRefItem,
   GitRefKind,
@@ -625,6 +626,13 @@ export class TauriHostAdapter implements HostAdapter {
 
   getGitDiffPreview(path: string): Promise<GitDiffPreview> {
     return invoke("get_git_diff_preview", { path });
+  }
+
+  getGitDiffPreviews(
+    repositoryRoot: string,
+    relativePaths: string[],
+  ): Promise<GitDiffPreviewBatchEntry[]> {
+    return invoke("get_git_diff_previews", { repositoryRoot, relativePaths });
   }
 
   getGitFileHistory(

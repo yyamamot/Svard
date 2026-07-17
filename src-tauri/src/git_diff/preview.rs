@@ -1,5 +1,40 @@
 use super::*;
 
+const MAX_GIT_DIFF_PREVIEW_BATCH_PATHS: usize = 32;
+
+struct WorktreePreviewContext<'repo> {
+    repo: &'repo gix::Repository,
+    workdir: PathBuf,
+    head_tree: Option<gix::Tree<'repo>>,
+    head_resource_source: Option<GitDiffResourceSource>,
+    index: gix::worktree::Index,
+}
+
+impl<'repo> WorktreePreviewContext<'repo> {
+    fn prepare(repo: &'repo gix::Repository, workdir: PathBuf) -> Result<Self, String> {
+        let head_commit = repo.head_commit().ok();
+        let head_resource_source = head_commit.as_ref().map(commit_resource_source);
+        let head_tree = head_commit
+            .as_ref()
+            .map(|commit| {
+                commit
+                    .tree()
+                    .map_err(|error| format!("failed to read HEAD tree: {error}"))
+            })
+            .transpose()?;
+        let index = repo
+            .index_or_empty()
+            .map_err(|error| format!("failed to read Git index: {error}"))?;
+        Ok(Self {
+            repo,
+            workdir,
+            head_tree,
+            head_resource_source,
+            index,
+        })
+    }
+}
+
 fn commit_resource_source(commit: &gix::Commit<'_>) -> GitDiffResourceSource {
     GitDiffResourceSource::Commit {
         revision: commit.id().to_string(),
@@ -118,13 +153,87 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
             ));
         }
     };
+    let context = WorktreePreviewContext::prepare(&repo, workdir)?;
+    build_worktree_preview(&context, absolute_path, relative_path)
+}
+
+pub fn git_diff_previews_for_paths(
+    repository_root: &str,
+    relative_paths: Vec<String>,
+) -> Result<Vec<GitDiffPreviewBatchEntry>, String> {
+    if relative_paths.len() > MAX_GIT_DIFF_PREVIEW_BATCH_PATHS {
+        return Err(format!(
+            "Git diff preview batch accepts at most {MAX_GIT_DIFF_PREVIEW_BATCH_PATHS} paths."
+        ));
+    }
+
+    let requested_root = canonicalize_path(Path::new(repository_root))
+        .map_err(|error| format!("failed to resolve Git repository root: {error}"))?;
+    if !requested_root.is_dir() {
+        return Err("Git repository root is not a directory.".to_string());
+    }
+    let repo = gix::discover(&requested_root)
+        .map_err(|_| "Git repository root is not inside a Git repository.".to_string())?;
+    let workdir = repo_workdir(&repo)
+        .ok_or_else(|| "Bare repositories are not supported for preview diff.".to_string())?;
+    let canonical_workdir = canonicalize_path(&workdir)
+        .map_err(|error| format!("failed to resolve Git worktree root: {error}"))?;
+    if canonical_workdir != requested_root {
+        return Err("Git repository root does not match the discovered worktree.".to_string());
+    }
+    let context = WorktreePreviewContext::prepare(&repo, canonical_workdir)?;
+
+    Ok(relative_paths
+        .into_iter()
+        .map(|relative_path| {
+            batch_preview_for_relative_path(&context, &relative_path)
+                .map(|preview| GitDiffPreviewBatchEntry::Ready { preview })
+                .unwrap_or_else(|message| GitDiffPreviewBatchEntry::Error { message })
+        })
+        .collect())
+}
+
+fn batch_preview_for_relative_path(
+    context: &WorktreePreviewContext<'_>,
+    relative_path: &str,
+) -> Result<GitDiffPreview, String> {
+    let relative_path = validated_batch_relative_path(relative_path)?;
+    let requested_path = context.workdir.join(&relative_path);
+    let absolute_path = absolute_candidate_path(&requested_path)?;
+    if !absolute_path.starts_with(&context.workdir) {
+        return Err("Git diff preview path resolves outside the repository root.".to_string());
+    }
+    let resolved_relative_path = absolute_path
+        .strip_prefix(&context.workdir)
+        .map_err(|_| "Git diff preview path resolves outside the repository root.".to_string())?
+        .to_path_buf();
+    build_worktree_preview(context, absolute_path, resolved_relative_path)
+}
+
+fn validated_batch_relative_path(relative_path: &str) -> Result<PathBuf, String> {
+    let path = Path::new(relative_path);
+    if relative_path.is_empty() || path.is_absolute() {
+        return Err("Git diff preview path must be a non-empty relative path.".to_string());
+    }
+    if path
+        .components()
+        .any(|component| !matches!(component, std::path::Component::Normal(_)))
+    {
+        return Err("Git diff preview path must not contain traversal components.".to_string());
+    }
+    Ok(path.to_path_buf())
+}
+
+fn build_worktree_preview(
+    context: &WorktreePreviewContext<'_>,
+    absolute_path: PathBuf,
+    relative_path: PathBuf,
+) -> Result<GitDiffPreview, String> {
     let relative_path_display = repo_relative_path(&relative_path);
-    let repository_root = Some(path_string(&workdir));
-    let head_resource_source = resolve_commit(&repo, "HEAD")
-        .ok()
-        .map(|commit| commit_resource_source(&commit));
-    let head_bytes = head_blob_bytes(&repo, &relative_path)?;
-    let index_bytes = index_blob_bytes(&repo, &relative_path_display)?;
+    let repository_root = Some(path_string(&context.workdir));
+    let head_bytes = head_blob_bytes_from_tree(context.head_tree.as_ref(), &relative_path)?;
+    let index_bytes =
+        index_blob_bytes_from_index(context.repo, &context.index, &relative_path_display)?;
     let worktree_bytes = match fs::read(&absolute_path) {
         Ok(bytes) => Some(bytes),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
@@ -147,7 +256,7 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
                 preview,
                 Some(relative_path_display.clone()),
                 Some(relative_path_display.clone()),
-                head_resource_source.clone(),
+                context.head_resource_source.clone(),
                 Some(GitDiffResourceSource::Index),
             )
         });
@@ -201,7 +310,7 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
     ) {
         None
     } else {
-        head_resource_source
+        context.head_resource_source.clone()
     };
     let right_source = if matches!(
         preview.status,
@@ -218,6 +327,47 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
         left_source,
         right_source,
     ))
+}
+
+fn head_blob_bytes_from_tree(
+    tree: Option<&gix::Tree<'_>>,
+    relative_path: &Path,
+) -> Result<Option<Vec<u8>>, String> {
+    let Some(tree) = tree else {
+        return Ok(None);
+    };
+    let entry = tree
+        .lookup_entry_by_path(relative_path)
+        .map_err(|error| format!("failed to lookup HEAD path: {error}"))?;
+    let Some(entry) = entry else {
+        return Ok(None);
+    };
+    let object = entry
+        .object()
+        .map_err(|error| format!("failed to read HEAD object: {error}"))?;
+    if object.kind != gix::object::Kind::Blob {
+        return Ok(None);
+    }
+    let mut blob = object.into_blob();
+    Ok(Some(blob.take_data()))
+}
+
+fn index_blob_bytes_from_index(
+    repo: &gix::Repository,
+    index: &gix::worktree::Index,
+    relative_path: &str,
+) -> Result<Option<Vec<u8>>, String> {
+    let Some(entry) = index.entry_by_path(relative_path.as_bytes().as_bstr()) else {
+        return Ok(None);
+    };
+    let object = repo
+        .find_object(entry.id)
+        .map_err(|error| format!("failed to read Git index object: {error}"))?;
+    if object.kind != gix::object::Kind::Blob {
+        return Ok(None);
+    }
+    let mut blob = object.into_blob();
+    Ok(Some(blob.take_data()))
 }
 
 pub fn git_file_revision_diff_for_path(

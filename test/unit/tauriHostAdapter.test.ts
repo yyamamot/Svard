@@ -714,4 +714,27 @@ describe("TauriHostAdapter.watchDocument", () => {
       oldPath: "docs/old.md",
     });
   });
+
+  it("loads ordered Working Tree preview batches through the native command", async () => {
+    tauriMocks.invoke.mockResolvedValueOnce([
+      {
+        status: "error",
+        message: "fixture failure",
+      },
+    ]);
+    const adapter = new TauriHostAdapter();
+
+    await expect(
+      adapter.getGitDiffPreviews("/tmp/repo", ["docs/readme.md"]),
+    ).resolves.toEqual([
+      {
+        status: "error",
+        message: "fixture failure",
+      },
+    ]);
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("get_git_diff_previews", {
+      repositoryRoot: "/tmp/repo",
+      relativePaths: ["docs/readme.md"],
+    });
+  });
 });

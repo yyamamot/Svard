@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseAllDiffsUiBenchmarkArgs } from "../../scripts/all-diffs-ui-benchmark.mjs";
+import {
+  assertAllDiffsUiBenchmarkRuntime,
+  parseAllDiffsUiBenchmarkArgs,
+} from "../../scripts/all-diffs-ui-benchmark.mjs";
 
 describe("All Diffs UI benchmark arguments", () => {
   it("supports explicit formal and confirmation artifacts", () => {
@@ -35,5 +38,14 @@ describe("All Diffs UI benchmark arguments", () => {
     expect(() => parseAllDiffsUiBenchmarkArgs(["--port", "0"])).toThrow(
       /Invalid port/,
     );
+  });
+
+  it("accepts only the fixed production bundle runtime", () => {
+    expect(assertAllDiffsUiBenchmarkRuntime("vite-production-bundle")).toBe(
+      "vite-production-bundle",
+    );
+    expect(() =>
+      assertAllDiffsUiBenchmarkRuntime("development-runtime"),
+    ).toThrow(/requires vite-production-bundle/);
   });
 });

@@ -1,4 +1,4 @@
-import { memo, type MouseEvent } from "react";
+import { memo, useLayoutEffect, useRef, type MouseEvent } from "react";
 import type {
   DocumentDiffPreview,
   DocumentDiffStreamItem,
@@ -14,6 +14,10 @@ import type { ContextMenuItem, DiagramPreviewState } from "../../types";
 import type { DiffStreamViewMode, SectionLoadState } from "./types";
 import type { CaptureAreaVariant } from "../../lib/captureArea";
 import { DiffStreamRenderedSection } from "./DiffStreamRenderedSection";
+import {
+  allDiffsUiPerformanceNow,
+  useAllDiffsUiPerformance,
+} from "../../lib/allDiffsUiPerformance";
 
 export const DiffStreamSection = memo(function DiffStreamSection({
   activeChangeIndex,
@@ -77,11 +81,32 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   onResetReview: (path: string) => void;
   onToggle: (key: string) => void;
 }) {
+  const measurement = useAllDiffsUiPerformance();
+  const lastMeasuredCommitRef = useRef<number | null>(null);
   const key = item.documentPath ?? item.path;
   const stateLabel = documentReviewStateLabel(reviewState);
   const formatLabel = item.documentPath
     ? documentFormatLabel(documentFormatForPath(item.documentPath))
     : null;
+  useLayoutEffect(() => {
+    const startedAt =
+      loadState?.status === "ready"
+        ? loadState.measurementCommitStartedAt
+        : undefined;
+    if (
+      !measurement.enabled ||
+      startedAt === undefined ||
+      lastMeasuredCommitRef.current === startedAt
+    ) {
+      return;
+    }
+    lastMeasuredCommitRef.current = startedAt;
+    measurement.record({
+      type: "ready-dom-commit",
+      durationMs: allDiffsUiPerformanceNow() - startedAt,
+      itemCount: 1,
+    });
+  }, [loadState, measurement]);
   return (
     <section
       className={`diff-stream-file-section ${item.kind}`}

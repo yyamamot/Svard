@@ -2,6 +2,7 @@ import type { MouseEvent, RefObject } from "react";
 import type {
   AppConfig,
   DocumentDiffPreview,
+  GitDiffPreviewBatchEntry,
   DocumentDiffStreamPreview,
   DocumentLinkResolution,
   DocumentPayload,
@@ -32,6 +33,7 @@ export type SectionLoadState =
       status: "ready";
       preview: DocumentDiffPreview;
       summary: GitRenderedDiffSummary;
+      measurementCommitStartedAt?: number;
     }
   | {
       status: "blocked";
@@ -70,6 +72,10 @@ export interface DocumentDiffStreamPanelProps {
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;
   krokiFallbackDiagramKeys?: ReadonlySet<string>;
   getGitDiffPreview: (path: string) => Promise<DocumentDiffPreview>;
+  getGitDiffPreviews?: (
+    repositoryRoot: string,
+    relativePaths: string[],
+  ) => Promise<GitDiffPreviewBatchEntry[]>;
   getGitBranchFileDiff?: (
     path: string,
     input: {

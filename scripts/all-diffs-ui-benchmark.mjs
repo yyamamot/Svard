@@ -6,6 +6,7 @@ import { chromium } from "@playwright/test";
 
 import { allDiffsUiFixtures } from "./all-diffs-ui-benchmark/fixtures.mjs";
 import {
+  allDiffsUiRuntime,
   allDiffsUiVariants,
   assertAllDiffsUiArtifactSafe,
   combineAllDiffsUiRuns,
@@ -18,7 +19,7 @@ const formalSampleCount = 15;
 export function parseAllDiffsUiBenchmarkArgs(argv) {
   const args = {
     confirmation: null,
-    out: ".artifacts/perf/imp-444-all-diffs-ui-formal.json",
+    out: ".artifacts/perf/imp-445-all-diffs-ui-formal.json",
     port: 4296,
     smoke: false,
     url: null,
@@ -70,11 +71,21 @@ function waitForServer(url, timeoutMs = 30_000) {
 }
 
 async function startServer(port) {
+  await runCommand([
+    "exec",
+    "vite",
+    "build",
+    "--config",
+    "scripts/all-diffs-ui-benchmark/vite.config.mjs",
+  ]);
   const child = spawn(
     "pnpm",
     [
       "exec",
       "vite",
+      "preview",
+      "--config",
+      "scripts/all-diffs-ui-benchmark/vite.config.mjs",
       "--host",
       "127.0.0.1",
       "--port",
@@ -97,6 +108,39 @@ async function startServer(port) {
     },
     url,
   };
+}
+
+function runCommand(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("pnpm", args, {
+      cwd: process.cwd(),
+      shell: process.platform === "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    child.stdout.on("data", (chunk) => process.stderr.write(chunk));
+    child.stderr.on("data", (chunk) => process.stderr.write(chunk));
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          `All Diffs UI production build failed (${signal ?? `exit ${code}`})`,
+        ),
+      );
+    });
+  });
+}
+
+export function assertAllDiffsUiBenchmarkRuntime(runtime) {
+  if (runtime !== allDiffsUiRuntime) {
+    throw new Error(
+      `All Diffs UI benchmark requires ${allDiffsUiRuntime}; received ${String(runtime)}`,
+    );
+  }
+  return runtime;
 }
 
 function rotatedVariants(sampleIndex) {
@@ -124,6 +168,10 @@ async function runBrowserMeasurements({ baseUrl, sampleCount }) {
   await page.waitForFunction(
     () => window.__SVARD_ALL_DIFFS_UI_BENCHMARK_READY__ === true,
   );
+  const runtime = await page.evaluate(
+    () => window.__SVARD_ALL_DIFFS_UI_BENCHMARK_RUNTIME__,
+  );
+  assertAllDiffsUiBenchmarkRuntime(runtime);
   const runSample = (fixtureId, variant) =>
     page.evaluate(
       async ({ selectedFixtureId, selectedVariant }) => {

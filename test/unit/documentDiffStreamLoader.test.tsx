@@ -1,6 +1,9 @@
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { DocumentDiffPreview } from "../../src/core/types";
+import type {
+  DocumentDiffPreview,
+  GitDiffPreviewBatchEntry,
+} from "../../src/core/types";
 import {
   deriveGitRenderedDiffSummaryMock,
   setupDocumentDiffStreamPanelTest,
@@ -214,6 +217,134 @@ describe("DocumentDiffStreamPanel loader", () => {
     } finally {
       intersection.restore();
     }
+  });
+
+  it("batches at most two visible Working Tree previews without preloading the third", async () => {
+    const getGitDiffPreview = vi.fn();
+    const getGitDiffPreviews = vi.fn(
+      async (repositoryRoot: string, relativePaths: string[]) =>
+        relativePaths.map((relativePath) => ({
+          status: "ready" as const,
+          preview: diffPreview(`${repositoryRoot}/${relativePath}`),
+        })),
+    );
+
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-changes-stream",
+        repositoryRoot: "/workspace",
+        items: [
+          documentStreamItem("docs/one.md"),
+          documentStreamItem("docs/two.md"),
+          documentStreamItem("docs/three.md"),
+        ],
+      },
+      getGitDiffPreview,
+      getGitDiffPreviews,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    });
+
+    await flushPreviewLoad();
+
+    expect(getGitDiffPreviews).toHaveBeenCalledTimes(1);
+    expect(getGitDiffPreviews).toHaveBeenCalledWith("/workspace", [
+      "docs/one.md",
+      "docs/two.md",
+    ]);
+    expect(getGitDiffPreview).not.toHaveBeenCalled();
+    expect(deriveGitRenderedDiffSummaryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a single visible Working Tree preview on the existing API", async () => {
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/one.md"));
+    const getGitDiffPreviews = vi.fn();
+
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-changes-stream",
+        repositoryRoot: "/workspace",
+        items: [documentStreamItem("docs/one.md")],
+      },
+      getGitDiffPreview,
+      getGitDiffPreviews,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    });
+
+    await flushPreviewLoad();
+
+    expect(getGitDiffPreviews).not.toHaveBeenCalled();
+    expect(getGitDiffPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a successful batch section when another entry fails", async () => {
+    const getGitDiffPreviews = vi.fn().mockResolvedValue([
+      {
+        status: "ready",
+        preview: diffPreview("/workspace/docs/one.md"),
+      },
+      { status: "error", message: "fixture failure" },
+    ]);
+
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-changes-stream",
+        repositoryRoot: "/workspace",
+        items: [
+          documentStreamItem("docs/one.md"),
+          documentStreamItem("docs/two.md"),
+        ],
+      },
+      getGitDiffPreview: vi.fn(),
+      getGitDiffPreviews,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    });
+
+    await flushPreviewLoad();
+
+    expect(deriveGitRenderedDiffSummaryMock).toHaveBeenCalledTimes(1);
+    expect(
+      test.container.querySelectorAll(
+        '[data-review-id="diff-stream-rendered-body"]',
+      ),
+    ).toHaveLength(1);
+    expect(test.container.textContent).toContain(
+      "This file cannot be previewed right now.",
+    );
+  });
+
+  it("does not use the Working Tree batch callback for Branch Diff streams", async () => {
+    const getGitDiffPreviews = vi.fn();
+    const getGitBranchFileDiff = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/one.md"));
+
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-branch-stream",
+        repositoryRoot: "/workspace",
+        baseRef: "main",
+        items: [documentStreamItem("docs/one.md")],
+      },
+      getGitDiffPreview: vi.fn(),
+      getGitDiffPreviews,
+      getGitBranchFileDiff,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    });
+
+    await flushPreviewLoad();
+
+    expect(getGitDiffPreviews).not.toHaveBeenCalled();
+    expect(getGitBranchFileDiff).toHaveBeenCalledTimes(1);
   });
 
   it("keeps summary derivation wired through the loader", async () => {
@@ -535,6 +666,77 @@ describe("DocumentDiffStreamPanel loader", () => {
           '[data-review-id="diff-stream-rendered-body"]',
         ),
       ).not.toBeNull();
+    } finally {
+      intersection.restore();
+    }
+  });
+
+  it("discards stale Working Tree batch results when refresh starts with the same items", async () => {
+    const intersection = installMockIntersectionObserver();
+    const paths = ["/workspace/docs/one.md", "/workspace/docs/two.md"];
+    const items = [
+      documentStreamItem("docs/one.md"),
+      documentStreamItem("docs/two.md"),
+    ];
+    const staleBatch = deferred<GitDiffPreviewBatchEntry[]>();
+    const currentBatch = deferred<GitDiffPreviewBatchEntry[]>();
+    const getGitDiffPreviews = vi
+      .fn()
+      .mockReturnValueOnce(staleBatch.promise)
+      .mockReturnValueOnce(currentBatch.promise);
+    const props = {
+      config: null,
+      getGitDiffPreview: vi.fn(),
+      getGitDiffPreviews,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    };
+
+    try {
+      await test.render({
+        ...props,
+        preview: {
+          source: "git-changes-stream" as const,
+          repositoryRoot: "/workspace",
+          items,
+          watchStatus: "fresh" as const,
+        },
+      });
+      await act(async () => intersection.trigger("docs/one.md", "docs/two.md"));
+      expect(getGitDiffPreviews).toHaveBeenCalledTimes(1);
+
+      await test.render({
+        ...props,
+        preview: {
+          source: "git-changes-stream" as const,
+          repositoryRoot: "/workspace",
+          items,
+          watchStatus: "refreshing" as const,
+        },
+      });
+      await act(async () => intersection.trigger("docs/one.md", "docs/two.md"));
+      expect(getGitDiffPreviews).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        staleBatch.resolve(
+          paths.map((path) => ({
+            status: "ready" as const,
+            preview: diffPreview(path),
+          })),
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(deriveGitRenderedDiffSummaryMock).not.toHaveBeenCalled();
+
+      currentBatch.resolve(
+        paths.map((path) => ({
+          status: "ready" as const,
+          preview: diffPreview(path),
+        })),
+      );
+      await flushPreviewLoad();
+      expect(deriveGitRenderedDiffSummaryMock).toHaveBeenCalledTimes(2);
     } finally {
       intersection.restore();
     }

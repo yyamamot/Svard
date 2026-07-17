@@ -18,6 +18,7 @@ import type {
   GitCommitGraph,
   GitCommitGraphScope,
   GitDiffPreview,
+  GitDiffPreviewBatchEntry,
   GitDiffResourceSource,
   GitFileHistory,
   GitRefItem,
@@ -355,6 +356,13 @@ export class MockHostAdapter implements HostAdapter {
 
   getGitDiffPreview(path: string): Promise<GitDiffPreview> {
     return this.git.getGitDiffPreview(path);
+  }
+
+  getGitDiffPreviews(
+    repositoryRoot: string,
+    relativePaths: string[],
+  ): Promise<GitDiffPreviewBatchEntry[]> {
+    return this.git.getGitDiffPreviews(repositoryRoot, relativePaths);
   }
 
   getGitFileHistory(

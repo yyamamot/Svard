@@ -7,6 +7,26 @@ export type AllDiffsUiPerformanceVariant =
 
 export type AllDiffsUiPerformanceEvent =
   | {
+      type: "loader-queue-wait";
+      durationMs: number;
+      itemCount: number;
+    }
+  | {
+      type: "git-preview-wait";
+      durationMs: number;
+      itemCount: number;
+    }
+  | {
+      type: "render-summary";
+      durationMs: number;
+      itemCount: number;
+    }
+  | {
+      type: "ready-dom-commit";
+      durationMs: number;
+      itemCount: number;
+    }
+  | {
       type: "margin-measure";
       durationMs: number;
       rectCount: number;

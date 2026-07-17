@@ -7,6 +7,7 @@ import type {
   GitCommitGraph,
   GitCommitGraphScope,
   GitDiffPreview,
+  GitDiffPreviewBatchEntry,
   GitFileHistory,
   GitFileHistoryItem,
   GitRefItem,
@@ -25,6 +26,7 @@ export type MockGitFacade = Pick<
   | "getGitBranchFileDiff"
   | "getGitCommitGraph"
   | "getGitDiffPreview"
+  | "getGitDiffPreviews"
   | "getGitFileHistory"
   | "getGitFileRevisionDiff"
   | "getGitFileCommitDiff"
@@ -42,6 +44,7 @@ export function createMockGitFacade(): MockGitFacade {
     getGitBranchFileDiff,
     getGitCommitGraph,
     getGitDiffPreview,
+    getGitDiffPreviews,
     getGitFileHistory,
     getGitFileRevisionDiff,
     getGitFileCommitDiff,
@@ -330,6 +333,49 @@ export async function getGitDiffPreview(path: string): Promise<GitDiffPreview> {
     }
   }
   return getFixtureGitDiffPreview(path);
+}
+
+export async function getGitDiffPreviews(
+  repositoryRoot: string,
+  relativePaths: string[],
+): Promise<GitDiffPreviewBatchEntry[]> {
+  if (relativePaths.length > 32) {
+    throw new Error("Git diff preview batch exceeds the supported limit.");
+  }
+  const root = repositoryRoot.replace(/[\\/]+$/, "");
+  if (!root) {
+    throw new Error("Git diff preview repository root is required.");
+  }
+  return Promise.all(
+    relativePaths.map(async (relativePath) => {
+      const normalized = relativePath.replace(/\\/g, "/");
+      const segments = normalized.split("/");
+      if (
+        !normalized ||
+        normalized.startsWith("/") ||
+        /^[A-Za-z]:\//.test(normalized) ||
+        segments.some(
+          (segment) => !segment || segment === "." || segment === "..",
+        )
+      ) {
+        return {
+          status: "error" as const,
+          message: "Git diff preview path is outside the repository.",
+        };
+      }
+      try {
+        return {
+          status: "ready" as const,
+          preview: await getGitDiffPreview(`${root}/${normalized}`),
+        };
+      } catch {
+        return {
+          status: "error" as const,
+          message: "This file cannot be previewed right now.",
+        };
+      }
+    }),
+  );
 }
 
 export async function getGitCommitGraph(

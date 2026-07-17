@@ -159,6 +159,10 @@ export interface GitDiffPreview {
   rightText?: string | null;
 }
 
+export type GitDiffPreviewBatchEntry =
+  | { status: "ready"; preview: GitDiffPreview }
+  | { status: "error"; message: string };
+
 export function lineDiffAvailability(
   preview: Pick<GitDiffPreview, "lineDiffAvailability">,
 ): LineDiffAvailability {

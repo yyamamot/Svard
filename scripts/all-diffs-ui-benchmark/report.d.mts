@@ -18,6 +18,7 @@ export interface AllDiffsUiComparison {
 
 export interface AllDiffsUiRunArtifact {
   schema: string;
+  runtime: string;
   mode: string;
   sampleCount: number;
   fixtures: unknown[];
@@ -27,6 +28,7 @@ export interface AllDiffsUiRunArtifact {
 }
 
 export const allDiffsUiVariants: string[];
+export const allDiffsUiRuntime: string;
 export function medianAbsoluteDeviation(values: number[]): number;
 export function comparePairedSamples(
   baselineSamples: AllDiffsUiBenchmarkSample[],

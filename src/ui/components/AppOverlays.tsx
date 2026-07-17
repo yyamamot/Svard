@@ -316,6 +316,9 @@ export function AppOverlays({
           config={config}
           changeMarkersHidden={diffPreviewChromeHidden}
           getGitDiffPreview={(path) => host.getGitDiffPreview(path)}
+          getGitDiffPreviews={(repositoryRoot, relativePaths) =>
+            host.getGitDiffPreviews(repositoryRoot, relativePaths)
+          }
           getGitBranchFileDiff={(path, input) =>
             host.getGitBranchFileDiff(path, input)
           }

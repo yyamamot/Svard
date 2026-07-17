@@ -4,6 +4,8 @@ export const allDiffsUiVariants = [
   "without-rendered-rulers",
 ];
 
+export const allDiffsUiRuntime = "vite-production-bundle";
+
 const metricKeys = [
   "firstUsefulMs",
   "workflowSettledMs",
@@ -12,6 +14,18 @@ const metricKeys = [
   "longTaskCount",
   "longTaskTotalMs",
   "longTaskMaxMs",
+  "loaderQueueWaitCount",
+  "loaderQueueWaitDurationMs",
+  "loaderQueueWaitItemCount",
+  "gitPreviewWaitCount",
+  "gitPreviewWaitDurationMs",
+  "gitPreviewWaitItemCount",
+  "renderSummaryCount",
+  "renderSummaryDurationMs",
+  "renderSummaryItemCount",
+  "readyDomCommitCount",
+  "readyDomCommitDurationMs",
+  "readyDomCommitItemCount",
   "presentationDurationMs",
   "marginMeasureDurationMs",
   "streamRulerMeasureDurationMs",
@@ -54,6 +68,8 @@ const allowedStrings = new Set([
   "go",
   "not-go",
   "all-diffs-ui-performance-v1",
+  "all-diffs-ui-performance-v2",
+  "vite-production-bundle",
   "firstUsefulMs",
   "workflowSettledMs",
   "scrollFrameP95Ms",
@@ -197,7 +213,8 @@ export function summarizeAllDiffsUiRun({ mode, samples }) {
     (fixture) => fixture.streamRuler.status === "go",
   );
   return {
-    schema: "all-diffs-ui-performance-v1",
+    schema: "all-diffs-ui-performance-v2",
+    runtime: allDiffsUiRuntime,
     mode,
     sampleCount: samples.length,
     fixtures,
@@ -211,7 +228,10 @@ export function summarizeAllDiffsUiRun({ mode, samples }) {
 
 export function combineAllDiffsUiRuns(formal, confirmation) {
   const candidate =
-    formal.candidate !== "no-go" && formal.candidate === confirmation.candidate
+    formal.runtime === allDiffsUiRuntime &&
+    confirmation.runtime === allDiffsUiRuntime &&
+    formal.candidate !== "no-go" &&
+    formal.candidate === confirmation.candidate
       ? formal.candidate
       : "no-go";
   const comparisonKey =

@@ -25,6 +25,13 @@ pub struct GitDiffPreview {
     pub right_resource_source: Option<GitDiffResourceSource>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum GitDiffPreviewBatchEntry {
+    Ready { preview: GitDiffPreview },
+    Error { message: String },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum LineDiffAvailability {
