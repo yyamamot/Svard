@@ -222,10 +222,15 @@ describe("DocumentDiffStreamPanel navigation", () => {
         );
       });
 
-      const activeListItem = test.container.querySelector(
-        ".git-rendered-list-item-change[data-active-change='true']",
+      const activeListItems = Array.from(
+        test.container.querySelectorAll(
+          ".git-rendered-list-item-change[data-active-change='true']",
+        ),
       );
-      expect(activeListItem?.textContent).toContain("New list item");
+      expect(activeListItems.map((target) => target.textContent)).toEqual([
+        "Old list item",
+        "New list item",
+      ]);
       expect(scrollTargets.at(-1)?.textContent).toContain("New list item");
       expect(scrollTargets.at(-1)?.getAttribute("data-change-index")).toBe("1");
 
@@ -235,10 +240,15 @@ describe("DocumentDiffStreamPanel navigation", () => {
         );
       });
 
-      const activeTableRow = test.container.querySelector(
-        ".git-rendered-table-row-change[data-active-change='true']",
+      const activeTableRows = Array.from(
+        test.container.querySelectorAll(
+          ".git-rendered-table-row-change[data-active-change='true']",
+        ),
       );
-      expect(activeTableRow?.textContent).toContain("New table value");
+      expect(activeTableRows.map((target) => target.textContent)).toEqual([
+        "Old table value",
+        "New table value",
+      ]);
       expect(scrollTargets.at(-1)?.textContent).toContain("New table value");
       expect(scrollTargets.at(-1)?.getAttribute("data-change-index")).toBe("2");
 
@@ -250,7 +260,7 @@ describe("DocumentDiffStreamPanel navigation", () => {
 
       expect(
         test.container.querySelector(
-          ".git-rendered-list-item-change[data-active-change='true']",
+          ".git-rendered-pane:last-child .git-rendered-list-item-change[data-active-change='true']",
         )?.textContent,
       ).toContain("New list item");
     } finally {
@@ -323,25 +333,28 @@ describe("DocumentDiffStreamPanel navigation", () => {
     ).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
 
-    const markers = () =>
-      Array.from(
-        test.container.querySelectorAll<HTMLButtonElement>(
-          '[data-review-id="diff-stream-change-ruler-marker"]',
+    const activeIndexes = () =>
+      new Set(
+        Array.from(
+          test.container.querySelectorAll<HTMLElement>(
+            ".diff-stream-rendered-body [data-active-change='true']",
+          ),
+          (target) => target.dataset.changeIndex,
         ),
       );
-    expect(markers()[0].classList.contains("active")).toBe(true);
+    expect(activeIndexes()).toEqual(new Set(["0"]));
 
     await act(async () => {
       expect(contentCursorCommandRef.current?.("next")).toBe(true);
     });
-    expect(markers()[1].classList.contains("active")).toBe(true);
+    expect(activeIndexes()).toEqual(new Set(["1"]));
 
     await act(async () => {
       expect(
         streamCommandRef.current?.dispatch("viewer.contentCursor.previous"),
       ).toBe(true);
     });
-    expect(markers()[0].classList.contains("active")).toBe(true);
+    expect(activeIndexes()).toEqual(new Set(["0"]));
 
     const streamBody =
       test.container.querySelector<HTMLElement>(".diff-stream-body");

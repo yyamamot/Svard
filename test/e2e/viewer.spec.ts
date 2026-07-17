@@ -1734,6 +1734,30 @@ test("viewer-source-control-changes lists changed files and opens supported diff
   ).toContainText("git-modified.md");
   await page.getByTestId("source-control-change-item").first().click();
   await expect(page.getByTestId("git-diff-preview-panel")).toBeVisible();
+  await expect(
+    page.locator('[data-review-id="git-rendered-margin-markers"]'),
+  ).toHaveCount(2);
+  const markersAtPaneLeft = await page.evaluate(() =>
+    Array.from(
+      document.querySelectorAll(
+        '[data-review-id="git-rendered-margin-markers"]',
+      ),
+    ).every((layer) => {
+      const pane = layer.closest(".git-rendered-pane");
+      const marker = layer.querySelector(
+        '[data-review-id="git-rendered-margin-marker"]',
+      );
+      return (
+        pane !== null &&
+        marker !== null &&
+        Math.abs(
+          pane.getBoundingClientRect().left -
+            marker.getBoundingClientRect().left,
+        ) <= 8
+      );
+    }),
+  );
+  expect(markersAtPaneLeft).toBe(true);
 });
 
 test("viewer-source-control-all-diffs supports LLM reference and Current file capture", async ({
@@ -1749,6 +1773,33 @@ test("viewer-source-control-all-diffs supports LLM reference and Current file ca
   const rightPane = page.getByTestId("diff-stream-right-pane").first();
   await expect(panel).toBeVisible();
   await expect(rightPane).toBeVisible();
+  await expect(page.getByTestId("diff-stream-change-ruler")).toBeVisible();
+  await expect
+    .poll(() =>
+      panel.evaluate((streamPanel) => {
+        const fineTargetSelector = [
+          ".git-rendered-list-item-change[data-change-index]",
+          ".git-rendered-structured-child-change[data-change-index]",
+          ".git-rendered-table-row-change[data-change-index]",
+        ].join(",");
+        const fineTargets = Array.from(
+          streamPanel.querySelectorAll(fineTargetSelector),
+        );
+        if (fineTargets.length === 0) {
+          return -1;
+        }
+        return fineTargets.filter((target) => {
+          const pane = target.closest(".git-rendered-pane");
+          const changeIndex = target.getAttribute("data-change-index");
+          return (
+            pane?.querySelector(
+              `[data-review-id="git-rendered-margin-marker"][data-change-index="${changeIndex}"]`,
+            ) === null
+          );
+        }).length;
+      }),
+    )
+    .toBe(0);
   const changedParagraph = rightPane.locator("p").first();
   await expect(changedParagraph).toBeVisible();
 
@@ -1761,7 +1812,7 @@ test("viewer-source-control-all-diffs supports LLM reference and Current file ca
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain("Before (HEAD):");
 
-  await changedParagraph.evaluate((element) => {
+  const originalSelectionPoint = await changedParagraph.evaluate((element) => {
     const selected = "two-pane Git diff preview";
     const text = element.textContent ?? "";
     const start = text.indexOf(selected);
@@ -1789,9 +1840,7 @@ test("viewer-source-control-all-diffs supports LLM reference and Current file ca
     const selection = window.getSelection()!;
     selection.removeAllRanges();
     selection.addRange(range);
-  });
-  const originalSelectionPoint = await page.evaluate(() => {
-    const rect = window.getSelection()?.getRangeAt(0).getClientRects()[0];
+    const rect = range.getClientRects()[0];
     return rect ? { x: rect.left + 4, y: rect.top + 4 } : null;
   });
   expect(originalSelectionPoint).not.toBeNull();
@@ -2410,7 +2459,7 @@ test("viewer-rendered-visual-diff-inline-highlight shows inline word changes", a
   ).toBeVisible();
 });
 
-test("viewer-rendered-visual-diff-minimap keeps rendered change navigation visible", async ({
+test("viewer-rendered-visual-diff-margin-markers keeps passive range markers visible", async ({
   page,
 }) => {
   await page.goto("/");
@@ -2421,13 +2470,58 @@ test("viewer-rendered-visual-diff-minimap keeps rendered change navigation visib
   );
 
   await expect(page.getByTestId("git-diff-change-ruler")).toBeVisible();
+  const markerLayers = page.locator(
+    '[data-review-id="git-rendered-margin-markers"]',
+  );
+  await expect(markerLayers).toHaveCount(2);
   await expect(
-    page.locator('[data-review-id="git-diff-change-ruler-marker"]'),
-  ).not.toHaveCount(0);
+    page.locator('[data-review-id="git-rendered-margin-marker"]').first(),
+  ).toBeVisible();
+  const markerStyles = await page
+    .locator('[data-review-id="git-rendered-margin-marker"]:not(.active)')
+    .first()
+    .evaluate((marker) => {
+      const style = window.getComputedStyle(marker);
+      return { opacity: style.opacity, width: style.width };
+    });
+  expect(markerStyles.width).toBe("3px");
+  expect(Number.parseFloat(markerStyles.opacity)).toBeGreaterThan(0);
+  expect(Number.parseFloat(markerStyles.opacity)).toBeLessThan(1);
   await page.getByRole("button", { name: "Next change" }).click();
   await expect(
-    page.locator('[data-review-id="git-diff-change-ruler-marker"].active'),
-  ).toHaveCount(1);
+    page.locator('[data-review-id="git-rendered-margin-marker"].active'),
+  ).not.toHaveCount(0);
+  const splitAlignment = await page.evaluate(() => {
+    const leftLayer = document.querySelector(
+      '[data-review-id="git-rendered-margin-markers"][data-marker-side="left"]',
+    );
+    const rightLayer = document.querySelector(
+      '[data-review-id="git-rendered-margin-markers"][data-marker-side="right"]',
+    );
+    const leftPane = leftLayer?.closest(".git-rendered-pane");
+    const rightPane = rightLayer?.closest(".git-rendered-pane");
+    const leftMarker = leftLayer?.querySelector(
+      '[data-review-id="git-rendered-margin-marker"]',
+    );
+    const rightMarker = rightLayer?.querySelector(
+      '[data-review-id="git-rendered-margin-marker"]',
+    );
+    if (!leftPane || !rightPane || !leftMarker || !rightMarker) {
+      return null;
+    }
+    return {
+      left: Math.abs(
+        leftPane.getBoundingClientRect().left -
+          leftMarker.getBoundingClientRect().left,
+      ),
+      right: Math.abs(
+        rightPane.getBoundingClientRect().left -
+          rightMarker.getBoundingClientRect().left,
+      ),
+    };
+  });
+  expect(splitAlignment?.left).toBeLessThanOrEqual(8);
+  expect(splitAlignment?.right).toBeLessThanOrEqual(8);
 });
 
 test("viewer-diff-full-preview-markdown shows full document preview context", async ({

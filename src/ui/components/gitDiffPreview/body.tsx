@@ -111,7 +111,6 @@ export function DiffPreviewBody({
         view={view}
       />
     ) : null;
-
   if (isLineDiffTooComplex(preview)) {
     return (
       <div
@@ -211,9 +210,11 @@ export function DiffPreviewBody({
 
   if (hasDiff && view === "preview" && renderedSummary.blocks.length > 0) {
     return (
-      <div className="git-diff-body-with-ruler">
+      <div className="git-diff-rendered-body-shell">
         <div
-          className="git-rendered-diff-body git-full-preview-diff-body"
+          className={`git-rendered-diff-body git-full-preview-diff-body${
+            showChangeRuler ? "" : " rendered-change-markers-hidden"
+          }`}
           data-review-id="git-full-preview-diff"
         >
           <RenderedDiffPane
@@ -320,9 +321,11 @@ export function DiffPreviewBody({
 
   if (hasDiff && view === "rendered" && renderedChangedEntries.length > 0) {
     return (
-      <div className="git-diff-body-with-ruler">
+      <div className="git-diff-rendered-body-shell">
         <div
-          className="git-rendered-diff-body"
+          className={`git-rendered-diff-body${
+            showChangeRuler ? "" : " rendered-change-markers-hidden"
+          }`}
           data-review-id="git-rendered-diff"
         >
           <RenderedDiffPane

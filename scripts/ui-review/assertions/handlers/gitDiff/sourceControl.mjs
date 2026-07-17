@@ -308,11 +308,12 @@ export async function buildGitDiffSourceControlAssertions(context) {
               sample?.renderedScrollOverflowY === "visible" &&
               sample?.fullPreviewDefault === true &&
               sample?.rulerVisible === true &&
-              sample?.rulerMarkers >= 1 &&
-              sample?.activeRulerMarkerVisible === true &&
-              sample?.activeRenderedTargetIndexMatchesMarker === true &&
-              sample?.activeRenderedTargetStreamIndexMatchesMarker === true &&
-              sample?.activeRenderedTargetVisibleAfterMarker === true &&
+              sample?.rulerMarkerCount > 0 &&
+              sample?.marginMarkerCount > 0 &&
+              sample?.marginMarkersAtPaneLeft === true &&
+              sample?.marginMarkersCoverFineTargetIndexes === true &&
+              sample?.activeTargetVisible === true &&
+              sample?.activeRenderedTargetVisibleAfterNavigation === true &&
               sample?.contextMenuVisible === true &&
               sample?.contextMenuSourceReviewId !== "" &&
               sample?.contextMenuItemCount > 0 &&
@@ -353,12 +354,12 @@ export async function buildGitDiffSourceControlAssertions(context) {
         ? await page.evaluate(() => {
             const result = window.__SVARD_ALL_DIFFS_MOUSE_GESTURE_SAMPLE__;
             return (
-              result?.afterRight?.activeLabel === "Go to change 2" &&
+              result?.afterRight?.activeChangeIndex === "1" &&
               result?.afterRight?.lastGesture?.pattern === "Right" &&
               result?.afterRight?.lastGesture?.commandId ===
                 "navigation.forward" &&
               result?.afterRight?.lastGesture?.status === "handled" &&
-              result?.afterLeft?.activeLabel === "Go to change 1" &&
+              result?.afterLeft?.activeChangeIndex === "0" &&
               result?.afterLeft?.lastGesture?.pattern === "Left" &&
               result?.afterLeft?.lastGesture?.commandId === "navigation.back" &&
               result?.afterLeft?.lastGesture?.status === "handled" &&
@@ -382,7 +383,7 @@ export async function buildGitDiffSourceControlAssertions(context) {
         ? await page.evaluate(() => {
             const result = window.__SVARD_ALL_DIFFS_KEYBINDING_SAMPLE__;
             return (
-              result?.activeLabel === "Go to change 1" &&
+              result?.activeChangeIndex === "0" &&
               result?.bottomStatus === "handled" &&
               (result?.scrollable === true
                 ? result?.afterBottom > 0
@@ -398,7 +399,7 @@ export async function buildGitDiffSourceControlAssertions(context) {
       scenario === "viewer-source-control-all-diffs-keybindings"
         ? await page.evaluate(() => {
             const result = window.__SVARD_ALL_DIFFS_KEYBINDING_SAMPLE__;
-            return result?.activeLabel === "Go to change 1";
+            return result?.activeChangeIndex === "0";
           })
         : true,
     hasSourceControlAllDiffsKeybindingScroll:

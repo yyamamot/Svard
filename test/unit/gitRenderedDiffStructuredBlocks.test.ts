@@ -101,6 +101,11 @@ describe("git rendered diff structured blocks", () => {
           )
         : null,
     ).toBe(0);
+    expect(
+      entry
+        ? renderedDiffStructuredChildChangeIndex(presentation, entry, "left", 0)
+        : null,
+    ).toBe(0);
     expect(renderedDiffContentCursorTargets(presentation)).toEqual([
       {
         entryId: entry?.id,

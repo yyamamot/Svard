@@ -25,7 +25,8 @@ export async function applyGitDiffNavigationScenario(context) {
     await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
     await page.getByRole("button", { name: "Next change" }).click();
     await page
-      .locator('[data-review-id="git-diff-change-ruler-marker"].active')
+      .locator('.git-rendered-diff-body [data-active-change="true"]')
+      .first()
       .waitFor();
   } else if (scenario === "viewer-diff-large-markdown-scroll-return") {
     await page.locator("text=git-large-markdown-scroll.md").click();
@@ -45,15 +46,15 @@ export async function applyGitDiffNavigationScenario(context) {
       const right = document.querySelector(
         '[data-review-id="git-full-preview-right-pane"] .git-rendered-scroll',
       );
-      const minimapButtons = document.querySelectorAll(
-        '[data-review-id="git-diff-change-ruler-marker"]',
+      const changeTargets = document.querySelectorAll(
+        ".git-rendered-diff-body [data-change-index]",
       );
       return (
         left instanceof HTMLElement &&
         right instanceof HTMLElement &&
         left.scrollHeight > left.clientHeight * 2 &&
         right.scrollHeight > right.clientHeight * 2 &&
-        minimapButtons.length >= 2
+        changeTargets.length >= 2
       );
     });
 
@@ -76,14 +77,13 @@ export async function applyGitDiffNavigationScenario(context) {
       }
 
       function activeIndex() {
-        const label =
+        const value =
           document
             .querySelector(
-              '[data-review-id="git-diff-change-ruler-marker"].active',
+              '.git-rendered-diff-body [data-active-change="true"]',
             )
-            ?.getAttribute("aria-label") ?? "";
-        const match = label.match(/change (\d+)/i);
-        return match ? Number(match[1]) - 1 : 0;
+            ?.getAttribute("data-change-index") ?? "0";
+        return Number(value);
       }
 
       function sample() {
@@ -153,11 +153,7 @@ export async function applyGitDiffNavigationScenario(context) {
           window.__SVARD_DIFF_LARGE_SCROLL_RETURN_HELPERS__.sample(),
       };
     });
-    await page
-      .locator('[data-review-id="git-diff-change-ruler"]')
-      .getByRole("button", { name: "Go to change 1", exact: true })
-      .first()
-      .click();
+    await page.getByRole("button", { name: "Previous change" }).click();
     await page.waitForFunction(() => {
       try {
         const sample =
@@ -212,11 +208,8 @@ export async function applyGitDiffNavigationScenario(context) {
     await page.evaluate(() => {
       window.__SVARD_DIFF_LARGE_SCROLL_RETURN_HELPERS__.scrollBothToBottom();
     });
-    await page
-      .locator('[data-review-id="git-diff-change-ruler"]')
-      .getByRole("button", { name: "Go to change 2", exact: true })
-      .first()
-      .click();
+    await page.getByRole("button", { name: "Previous change" }).click();
+    await page.getByRole("button", { name: "Next change" }).click();
     await page.waitForFunction(() => {
       try {
         return (
@@ -286,17 +279,20 @@ export async function applyGitDiffNavigationScenario(context) {
     );
     await page.waitForFunction(() => {
       const active = document.querySelector(
-        '[data-review-id="git-diff-change-ruler-marker"].active',
+        '.git-rendered-diff-body [data-active-change="true"]',
       );
-      return active?.getAttribute("aria-label")?.includes("2");
+      return active?.getAttribute("data-change-index") === "1";
     });
     const afterRight = await page.evaluate(() => ({
-      activeLabel:
-        document
-          .querySelector(
-            '[data-review-id="git-diff-change-ruler-marker"].active',
-          )
-          ?.getAttribute("aria-label") ?? "",
+      activeLabel: `Go to change ${
+        Number(
+          document
+            .querySelector(
+              '.git-rendered-diff-body [data-active-change="true"]',
+            )
+            ?.getAttribute("data-change-index") ?? "-1",
+        ) + 1
+      }`,
       lastGesture: window.__SVARD_COMMANDS__?.getLastMouseGesture(),
     }));
 
@@ -306,17 +302,20 @@ export async function applyGitDiffNavigationScenario(context) {
     );
     await page.waitForFunction(() => {
       const active = document.querySelector(
-        '[data-review-id="git-diff-change-ruler-marker"].active',
+        '.git-rendered-diff-body [data-active-change="true"]',
       );
-      return active?.getAttribute("aria-label")?.includes("1");
+      return active?.getAttribute("data-change-index") === "0";
     });
     const afterLeft = await page.evaluate(() => ({
-      activeLabel:
-        document
-          .querySelector(
-            '[data-review-id="git-diff-change-ruler-marker"].active',
-          )
-          ?.getAttribute("aria-label") ?? "",
+      activeLabel: `Go to change ${
+        Number(
+          document
+            .querySelector(
+              '.git-rendered-diff-body [data-active-change="true"]',
+            )
+            ?.getAttribute("data-change-index") ?? "-1",
+        ) + 1
+      }`,
       lastGesture: window.__SVARD_COMMANDS__?.getLastMouseGesture(),
     }));
 
@@ -370,36 +369,42 @@ export async function applyGitDiffNavigationScenario(context) {
     await page.waitForTimeout(750);
 
     await context.performRightButtonGesture(["Right"], paneSelector);
-    await page.waitForFunction(() =>
-      document
-        .querySelector('[data-review-id="git-diff-change-ruler-marker"].active')
-        ?.getAttribute("aria-label")
-        ?.includes("2"),
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.git-rendered-diff-body [data-active-change="true"]')
+          ?.getAttribute("data-change-index") === "1",
     );
     const afterRight = await page.evaluate(() => ({
-      activeLabel:
-        document
-          .querySelector(
-            '[data-review-id="git-diff-change-ruler-marker"].active',
-          )
-          ?.getAttribute("aria-label") ?? "",
+      activeLabel: `Go to change ${
+        Number(
+          document
+            .querySelector(
+              '.git-rendered-diff-body [data-active-change="true"]',
+            )
+            ?.getAttribute("data-change-index") ?? "-1",
+        ) + 1
+      }`,
       lastGesture: window.__SVARD_COMMANDS__?.getLastMouseGesture(),
     }));
 
     await context.performRightButtonGesture(["Left"], paneSelector);
-    await page.waitForFunction(() =>
-      document
-        .querySelector('[data-review-id="git-diff-change-ruler-marker"].active')
-        ?.getAttribute("aria-label")
-        ?.includes("1"),
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.git-rendered-diff-body [data-active-change="true"]')
+          ?.getAttribute("data-change-index") === "0",
     );
     const afterLeft = await page.evaluate(() => ({
-      activeLabel:
-        document
-          .querySelector(
-            '[data-review-id="git-diff-change-ruler-marker"].active',
-          )
-          ?.getAttribute("aria-label") ?? "",
+      activeLabel: `Go to change ${
+        Number(
+          document
+            .querySelector(
+              '.git-rendered-diff-body [data-active-change="true"]',
+            )
+            ?.getAttribute("data-change-index") ?? "-1",
+        ) + 1
+      }`,
       lastGesture: window.__SVARD_COMMANDS__?.getLastMouseGesture(),
     }));
 

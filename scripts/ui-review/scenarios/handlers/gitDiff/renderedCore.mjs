@@ -432,13 +432,14 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
     await page.locator('[data-review-id="git-full-preview-diff"]').waitFor();
     await page
-      .locator('[data-review-id="git-diff-change-ruler-marker"]')
+      .locator('[data-review-id="git-full-preview-block"].change-target')
       .first()
       .waitFor();
   } else if (
     scenario === "viewer-rendered-visual-diff-markdown" ||
     scenario === "viewer-rendered-visual-diff-inline-highlight" ||
-    scenario === "viewer-rendered-visual-diff-minimap"
+    scenario === "viewer-rendered-visual-diff-minimap" ||
+    scenario === "viewer-rendered-visual-diff-margin-markers"
   ) {
     await page.locator("text=git-rendered-markdown.md").click();
     await page
@@ -457,18 +458,16 @@ export async function applyGitDiffRenderedCoreScenario(context) {
         .first()
         .waitFor();
     }
-    if (scenario === "viewer-rendered-visual-diff-minimap") {
+    if (
+      scenario === "viewer-rendered-visual-diff-minimap" ||
+      scenario === "viewer-rendered-visual-diff-margin-markers"
+    ) {
       await page.getByRole("button", { name: "Next change" }).click();
       await page
-        .locator('[data-review-id="git-diff-change-ruler-marker"].active')
-        .waitFor();
-      await page.locator('[data-review-id="git-diff-change-ruler"]').waitFor();
-      await page
-        .locator('[data-review-id="git-diff-change-ruler-marker"]')
-        .nth(1)
-        .click();
-      await page
-        .locator('[data-review-id="git-diff-change-ruler-marker"].active')
+        .locator(
+          '.git-rendered-diff-body [data-active-change="true"][data-change-index]',
+        )
+        .first()
         .waitFor();
     }
   } else if (scenario === "viewer-rendered-visual-diff-asciidoc") {

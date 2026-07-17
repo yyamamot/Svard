@@ -237,7 +237,7 @@ describe("git rendered diff list items", () => {
       entry
         ? renderedDiffListItemChangeIndex(presentation, entry, "left", 1)
         : null,
-    ).toBeNull();
+    ).toBe(0);
     expect(renderedDiffContentCursorTargets(presentation)).toEqual([
       {
         entryId: entry?.id,

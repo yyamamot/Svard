@@ -170,9 +170,9 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
             '[data-review-id="git-rendered-table-row-change"][data-active-change="true"]',
           ),
         );
-        const activeMarkers = Array.from(
+        const activeTargets = Array.from(
           document.querySelectorAll(
-            '[data-review-id="git-diff-change-ruler-marker"].active',
+            '.git-rendered-diff-body [data-active-change="true"][data-change-index]',
           ),
         );
         const contentCursorTargets = Array.from(
@@ -190,7 +190,11 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
         return {
           activeBlockCount: activeBlocks.length,
           activeListItemCount: activeListItems.length,
-          activeMarkerCount: activeMarkers.length,
+          activeMarkerCount: new Set(
+            activeTargets.map((target) =>
+              target.getAttribute("data-change-index"),
+            ),
+          ).size,
           activeTableRowCount: activeRows.length,
           childParentActiveCount,
           contentCursorActiveOverlapCount: contentCursorActiveTargets.length,
@@ -219,10 +223,7 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
     let rulerSummary = null;
     let contentCursorSummary = null;
     if (scenario === "viewer-rendered-visual-diff-active-change-keyboard") {
-      await page
-        .locator('[data-review-id="git-diff-change-ruler-marker"]')
-        .last()
-        .click();
+      await page.getByRole("button", { name: "Next change" }).click();
       await page.waitForTimeout(120);
       rulerSummary = await summarizeActiveChange();
       await page.evaluate(async () => {
@@ -398,12 +399,10 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
         .first()
         .scrollIntoViewIfNeeded();
       await page
-        .locator('[data-review-id="git-diff-change-ruler-marker"].active')
+        .locator('.git-rendered-diff-body [data-active-change="true"]')
+        .first()
         .waitFor();
-      await page
-        .locator('[data-review-id="git-diff-change-ruler-marker"]')
-        .last()
-        .click();
+      await page.getByRole("button", { name: "Next change" }).click();
     }
 
     await page.evaluate((scenarioName) => {
@@ -420,8 +419,13 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
           ".git-rendered-block.has-list-item-changes[data-change-index]",
         ),
       );
-      const activeMarkers = document.querySelectorAll(
-        '[data-review-id="git-diff-change-ruler-marker"].active',
+      const activeIndexes = new Set(
+        Array.from(
+          document.querySelectorAll(
+            '.git-rendered-diff-body [data-active-change="true"][data-change-index]',
+          ),
+          (target) => target.getAttribute("data-change-index"),
+        ),
       );
       window.__SVARD_RENDERED_LIST_ITEM_DIFF__ = {
         scenario: scenarioName,
@@ -429,7 +433,7 @@ export async function applyGitDiffRenderedCoreAdvancedScenario(context) {
         highlightCount: itemHighlights.length,
         itemTargetCount: itemTargets.length,
         parentTargetCount: parentTargets.length,
-        activeMarkerCount: activeMarkers.length,
+        activeMarkerCount: activeIndexes.size,
       };
       const fallbackIndicators = Array.from(
         document.querySelectorAll(

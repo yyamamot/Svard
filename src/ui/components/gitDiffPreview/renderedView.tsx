@@ -27,6 +27,7 @@ import {
   type RenderedDiffPresentation,
   type RenderedDiffPresentationEntry,
 } from "../../lib/gitRenderedDiff";
+import { RenderedDiffMarginMarkers } from "./RenderedDiffMarginMarkers";
 
 export const emptyRenderedSummary: GitRenderedDiffSummary = {
   blocks: [],
@@ -495,6 +496,11 @@ export function RenderedDiffPane({
           );
         })}
       </div>
+      <RenderedDiffMarginMarkers
+        activeChangeIndex={activeChangeIndex}
+        layoutIdentity={entries}
+        side={side}
+      />
     </section>
   );
 }

@@ -64,6 +64,7 @@ export type DiffStreamTarget = Pick<
 
 export interface DocumentDiffStreamPanelProps {
   config: AppConfig | null;
+  changeMarkersHidden?: boolean;
   preview: DocumentDiffStreamPreview;
   documentReviewSession?: DocumentReviewSessionControls;
   confirmedRemoteDiagramKeys?: ReadonlySet<string>;

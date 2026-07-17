@@ -82,7 +82,10 @@ button {
   --git-change-added-accent: #2d8a62;
   --git-change-removed-accent: #c85240;
   --git-change-changed-accent: #d9970e;
-  --git-change-accent-width: 4px;
+  --git-change-accent-width: 3px;
+  --git-change-accent-active-width: 5px;
+  --git-change-marker-opacity: 0.52;
+  --git-change-marker-active-opacity: 1;
   --git-change-accent-offset: -10px;
   --git-change-block-radius: 4px;
   --git-change-block-bg-added: color-mix(

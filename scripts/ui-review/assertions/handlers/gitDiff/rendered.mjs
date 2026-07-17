@@ -1,17 +1,62 @@
-async function hasConsistentActiveRulerMarker(page) {
+async function hasRenderedMarginMarkers(page) {
   return page.evaluate(() => {
-    const markers = Array.from(
-      document.querySelectorAll(
-        '[data-review-id="git-diff-change-ruler-marker"].active',
-      ),
+    const leftLayer = document.querySelector(
+      '[data-review-id="git-rendered-margin-markers"][data-marker-side="left"]',
     );
-    if (markers.length === 0) {
+    const rightLayer = document.querySelector(
+      '[data-review-id="git-rendered-margin-markers"][data-marker-side="right"]',
+    );
+    const activeMarker = document.querySelector(
+      '[data-review-id="git-rendered-margin-marker"].active',
+    );
+    const passiveMarker = document.querySelector(
+      '[data-review-id="git-rendered-margin-marker"]:not(.active)',
+    );
+    if (
+      !(leftLayer instanceof HTMLElement) ||
+      !(rightLayer instanceof HTMLElement) ||
+      !(activeMarker instanceof HTMLElement) ||
+      !(passiveMarker instanceof HTMLElement)
+    ) {
       return false;
     }
-    const indexes = new Set(
-      markers.map((marker) => marker.getAttribute("data-change-index")),
+    const leftPane = leftLayer.closest(".git-rendered-pane");
+    const rightPane = rightLayer.closest(".git-rendered-pane");
+    const leftMarker = leftLayer.querySelector(
+      '[data-review-id="git-rendered-margin-marker"]',
     );
-    return indexes.size === 1;
+    const rightMarker = rightLayer.querySelector(
+      '[data-review-id="git-rendered-margin-marker"]',
+    );
+    if (
+      !(leftPane instanceof HTMLElement) ||
+      !(rightPane instanceof HTMLElement) ||
+      !(leftMarker instanceof HTMLElement) ||
+      !(rightMarker instanceof HTMLElement)
+    ) {
+      return false;
+    }
+    const leftPaneRect = leftPane.getBoundingClientRect();
+    const rightPaneRect = rightPane.getBoundingClientRect();
+    const leftMarkerRect = leftMarker.getBoundingClientRect();
+    const rightMarkerRect = rightMarker.getBoundingClientRect();
+    const activeStyle = window.getComputedStyle(activeMarker);
+    const passiveStyle = window.getComputedStyle(passiveMarker);
+    return (
+      document.querySelector('[data-review-id="git-diff-change-ruler"]') !==
+        null &&
+      activeStyle.width === "5px" &&
+      activeStyle.opacity === "1" &&
+      passiveStyle.width === "3px" &&
+      Number.parseFloat(passiveStyle.opacity) > 0 &&
+      Number.parseFloat(passiveStyle.opacity) < 1 &&
+      Math.abs(leftPaneRect.left - leftMarkerRect.left) <= 8 &&
+      Math.abs(rightPaneRect.left - rightMarkerRect.left) <= 8 &&
+      window.getComputedStyle(leftLayer).pointerEvents === "none" &&
+      document.querySelector(
+        ".git-rendered-list-item-change .git-rendered-margin-marker",
+      ) === null
+    );
   });
 }
 
@@ -171,8 +216,11 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             .locator('[data-review-id="git-full-preview-diff"]')
             .count()) === 1 &&
           (await page
-            .locator('[data-review-id="git-diff-change-ruler-marker"]')
+            .locator('[data-review-id="git-full-preview-block"].change-target')
             .count()) > 0 &&
+          (await page
+            .locator('[data-review-id="git-diff-change-ruler"]')
+            .count()) === 0 &&
           (await page
             .locator('[data-review-id="git-diff-word-highlight"]')
             .count()) > 0
@@ -209,19 +257,11 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
         : true,
     hasRenderedVisualDiffMinimap:
       scenario === "viewer-rendered-visual-diff-minimap"
-        ? (await page
-            .locator('[data-review-id="git-diff-change-ruler-marker"]')
-            .count()) > 0 &&
-          (await hasConsistentActiveRulerMarker(page)) &&
-          (await page
-            .locator(
-              '[data-review-id="git-diff-change-ruler"][data-ruler-side="single"]',
-            )
-            .count()) === 1 &&
-          (await page
-            .locator('[data-review-id="git-diff-change-ruler-marker"]')
-            .count()) > 0 &&
-          (await hasConsistentActiveRulerMarker(page))
+        ? await hasRenderedMarginMarkers(page)
+        : true,
+    hasRenderedVisualDiffMarginMarkers:
+      scenario === "viewer-rendered-visual-diff-margin-markers"
+        ? await hasRenderedMarginMarkers(page)
         : true,
     hasRenderedVisualDiffSectionOutline:
       scenario === "viewer-rendered-visual-diff-section-outline"

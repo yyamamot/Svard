@@ -24,14 +24,14 @@
   position: absolute;
   top: 50%;
   left: 10px;
-  width: 3px;
+  width: var(--git-change-accent-width);
   height: max(14px, var(--post-diff-marker-range-height, 14px));
   transform: translateY(-50%);
   border-radius: 999px;
-  background: color-mix(in srgb, #6c7983 76%, transparent);
+  background: #6c7983;
   box-shadow: 0 0 0 1px rgb(255 255 255 / 70%);
   content: "";
-  opacity: 0.52;
+  opacity: var(--git-change-marker-opacity);
   transition:
     width 80ms ease,
     left 80ms ease,
@@ -39,27 +39,15 @@
 }
 
 .post-diff-git-marker.added::before {
-  background: color-mix(
-    in srgb,
-    var(--git-change-added-accent) 80%,
-    transparent
-  );
+  background: var(--git-change-added-accent);
 }
 
 .post-diff-git-marker.changed::before {
-  background: color-mix(
-    in srgb,
-    var(--git-change-changed-accent) 82%,
-    transparent
-  );
+  background: var(--git-change-changed-accent);
 }
 
 .post-diff-git-marker.removed::before {
-  background: color-mix(
-    in srgb,
-    var(--git-change-removed-accent) 80%,
-    transparent
-  );
+  background: var(--git-change-removed-accent);
 }
 
 .post-diff-git-marker:hover,
@@ -70,13 +58,13 @@
 
 .post-diff-git-marker:hover::before,
 .post-diff-git-marker:focus-visible::before {
-  opacity: 1;
+  opacity: var(--git-change-marker-active-opacity);
 }
 
 .post-diff-git-marker:active::before {
   left: 9px;
-  width: 5px;
-  opacity: 1;
+  width: var(--git-change-accent-active-width);
+  opacity: var(--git-change-marker-active-opacity);
 }
 
 .theme-dark .post-diff-git-marker::before {

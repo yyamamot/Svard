@@ -106,6 +106,11 @@ describe("git rendered diff tables", () => {
         ? renderedDiffTableRowChangeIndex(presentation, entry, "right", 1)
         : null,
     ).toBe(0);
+    expect(
+      entry
+        ? renderedDiffTableRowChangeIndex(presentation, entry, "left", 1)
+        : null,
+    ).toBe(0);
     expect(renderedDiffContentCursorTargets(presentation)).toEqual([
       {
         entryId: entry?.id,

@@ -314,6 +314,7 @@ export function AppOverlays({
         <DocumentDiffStreamPanel
           preview={documentDiffStreamPreview}
           config={config}
+          changeMarkersHidden={diffPreviewChromeHidden}
           getGitDiffPreview={(path) => host.getGitDiffPreview(path)}
           getGitBranchFileDiff={(path, input) =>
             host.getGitBranchFileDiff(path, input)

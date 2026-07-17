@@ -11,6 +11,7 @@
 
 .git-rendered-pane {
   display: flex;
+  position: relative;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
@@ -32,6 +33,7 @@
 
 .git-rendered-scroll {
   flex: 1;
+  position: relative;
   overflow: auto;
   padding: 26px 28px 36px;
   background: color-mix(in srgb, var(--reader-bg) 88%, var(--reader-surface));
@@ -45,19 +47,6 @@
   padding: 7px 10px 8px;
   color: var(--reader-text);
   background: transparent;
-}
-
-.git-rendered-block.added::before,
-.git-rendered-block.removed::before,
-.git-rendered-block.changed::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--git-change-accent-offset);
-  width: var(--git-change-accent-width);
-  border-radius: 999px;
-  background: var(--git-change-target-accent);
-  content: "";
 }
 
 .git-rendered-block.unchanged {
@@ -93,12 +82,6 @@
 .git-rendered-block.has-structured-child-changes.changed,
 .git-rendered-block.has-table-row-changes.changed {
   background: transparent;
-}
-
-.git-rendered-block.has-list-item-changes.changed::before,
-.git-rendered-block.has-structured-child-changes.changed::before,
-.git-rendered-block.has-table-row-changes.changed::before {
-  content: none;
 }
 
 .git-rendered-block.blank {
@@ -219,17 +202,6 @@
   scroll-margin: 24px;
 }
 
-.git-rendered-list-item-change::before {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: var(--git-change-accent-offset);
-  width: var(--git-change-accent-width);
-  border-radius: 999px;
-  background: var(--git-change-target-accent);
-  content: "";
-}
-
 .git-rendered-list-item-change.added {
   --git-change-target-accent: var(--git-change-added-accent);
   background: var(--git-change-item-bg-added);
@@ -272,17 +244,6 @@
   border-radius: var(--git-change-block-radius);
   background: var(--git-change-item-bg-changed);
   scroll-margin: 24px;
-}
-
-.git-rendered-structured-child-change::before {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: var(--git-change-accent-offset);
-  width: var(--git-change-accent-width);
-  border-radius: 999px;
-  background: var(--git-change-target-accent);
-  content: "";
 }
 
 .git-rendered-structured-child-change.added {
@@ -330,21 +291,6 @@
 .git-rendered-table-row-change {
   --git-change-target-accent: var(--git-change-changed-accent);
   scroll-margin: 24px;
-}
-
-.git-rendered-table-row-change > :first-child {
-  position: relative;
-}
-
-.git-rendered-table-row-change > :first-child::before {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 3px;
-  width: var(--git-change-accent-width);
-  border-radius: 999px;
-  background: var(--git-change-target-accent);
-  content: "";
 }
 
 .git-rendered-table-cell-change {
@@ -409,6 +355,59 @@
   outline: 2px solid
     color-mix(in srgb, var(--git-change-target-accent) 46%, transparent);
   outline-offset: 2px;
+}
+
+.git-rendered-margin-markers {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.git-rendered-margin-markers.left-side,
+.git-rendered-margin-markers.right-side {
+  left: 0;
+}
+
+.git-rendered-margin-marker {
+  position: absolute;
+  width: var(--git-change-accent-width);
+  min-height: 2px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 70%);
+  opacity: var(--git-change-marker-opacity);
+  transition:
+    width 80ms ease,
+    opacity 80ms ease;
+}
+
+.git-rendered-margin-markers.left-side .git-rendered-margin-marker,
+.git-rendered-margin-markers.right-side .git-rendered-margin-marker {
+  left: 2px;
+}
+
+.git-rendered-margin-markers.left-side .git-rendered-margin-marker {
+  background: var(--git-change-removed-accent);
+}
+
+.git-rendered-margin-markers.right-side .git-rendered-margin-marker {
+  background: var(--git-change-added-accent);
+}
+
+.git-rendered-margin-marker.active {
+  width: var(--git-change-accent-active-width);
+  opacity: var(--git-change-marker-active-opacity);
+}
+
+.rendered-change-markers-hidden .git-rendered-margin-markers {
+  display: none;
+}
+
+.theme-dark .git-rendered-margin-marker {
+  box-shadow: 0 0 0 1px rgb(18 27 31 / 74%);
 }
 
 .git-rendered-block-group {

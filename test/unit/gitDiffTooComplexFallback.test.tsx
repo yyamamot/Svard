@@ -219,6 +219,92 @@ describe("Git diff too-complex fallback", () => {
     );
   });
 
+  it("uses passive rendered markers with rendered and source rulers", async () => {
+    deriveRenderedMock.mockResolvedValue({
+      blocks: [
+        {
+          id: "paragraph-0",
+          kind: "changed",
+          blockKind: "paragraph",
+          left: {
+            id: "paragraph-0-left",
+            kind: "paragraph",
+            tagName: "p",
+            text: "Old text",
+            html: "<p>Old text</p>",
+          },
+          right: {
+            id: "paragraph-0-right",
+            kind: "paragraph",
+            tagName: "p",
+            text: "New text",
+            html: "<p>New text</p>",
+          },
+        },
+      ],
+    });
+    deriveTableMock.mockResolvedValue({
+      renderedTables: [],
+      tableMarkers: [],
+    });
+    const props = {
+      preview: availablePreview(),
+      config: null,
+      copyText: vi.fn(),
+      openContextMenu: vi.fn(() => false),
+      openDocument: vi.fn(async () => undefined),
+      openPathInEditor: vi.fn(async () => undefined),
+      resolveDocumentLink: vi.fn(async () => ({ status: "blocked" as const })),
+      confirmExternalLink: vi.fn(async () => false),
+      openExternalUrl: vi.fn(async () => undefined),
+      onOpenDiagramPreview: vi.fn(),
+      showInlineNotice: vi.fn(),
+      onClose: vi.fn(),
+    };
+
+    await act(async () => {
+      root.render(<DocumentDiffPreviewPanel {...props} />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-review-id="git-full-preview-diff"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(".git-rendered-block.change-target"),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-review-id="git-diff-change-ruler"]'),
+    ).not.toBeNull();
+
+    await act(async () => {
+      root.render(<DocumentDiffPreviewPanel {...props} chromeHidden={true} />);
+    });
+    expect(
+      container
+        .querySelector('[data-review-id="git-full-preview-diff"]')
+        ?.classList.contains("rendered-change-markers-hidden"),
+    ).toBe(true);
+    expect(
+      container.querySelector('[data-review-id="git-diff-change-ruler"]'),
+    ).toBeNull();
+
+    await act(async () => {
+      root.render(<DocumentDiffPreviewPanel {...props} />);
+    });
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="git-diff-source-view"]',
+        )
+        ?.click();
+    });
+    expect(
+      container.querySelector('[data-review-id="git-diff-change-ruler"]'),
+    ).not.toBeNull();
+  });
+
   it("clears an active capture when the preview falls back to source only", async () => {
     deriveRenderedMock.mockResolvedValue({
       blocks: [

@@ -247,6 +247,24 @@
   min-width: 0;
 }
 
+.git-diff-rendered-body-shell {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.diff-stream-body-with-ruler {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.diff-stream-change-ruler {
+  margin-block: 14px;
+}
+
 .git-diff-body-with-ruler > .git-diff-body,
 .git-diff-body-with-ruler > .git-rendered-diff-body {
   flex: 1 1 auto;
@@ -261,17 +279,6 @@
   overflow: auto;
   padding: 14px;
   background: var(--reader-bg);
-}
-
-.diff-stream-body-with-ruler {
-  display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-}
-
-.diff-stream-change-ruler {
-  margin-block: 14px;
 }
 
 .diff-stream-file-section {
@@ -358,7 +365,7 @@
 }
 
 .diff-stream-rendered-body .git-rendered-block {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .diff-stream-rendered-body .git-rendered-block-content {

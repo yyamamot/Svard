@@ -22,6 +22,7 @@ import {
 
 export function DocumentDiffStreamPanel({
   config,
+  changeMarkersHidden = false,
   preview,
   documentReviewSession = emptyDocumentReviewSessionControls,
   confirmedRemoteDiagramKeys,
@@ -532,7 +533,9 @@ export function DocumentDiffStreamPanel({
         <div className="diff-stream-body-with-ruler">
           <div
             ref={streamBodyRef}
-            className="diff-stream-body"
+            className={`diff-stream-body${
+              changeMarkersHidden ? " rendered-change-markers-hidden" : ""
+            }`}
             onScroll={syncActiveFileToViewport}
           >
             {preview.items.map((item, index) => (
@@ -574,12 +577,14 @@ export function DocumentDiffStreamPanel({
               />
             ))}
           </div>
-          <DiffStreamChangeRuler
-            activeTarget={activeTarget}
-            streamBodyRef={streamBodyRef}
-            targets={loadedTargets}
-            onSelectTarget={selectTarget}
-          />
+          {!changeMarkersHidden && (
+            <DiffStreamChangeRuler
+              activeTarget={activeTarget}
+              streamBodyRef={streamBodyRef}
+              targets={loadedTargets}
+              onSelectTarget={selectTarget}
+            />
+          )}
         </div>
         {captureAreaState && streamBodyRef.current ? (
           <CaptureAreaOverlay

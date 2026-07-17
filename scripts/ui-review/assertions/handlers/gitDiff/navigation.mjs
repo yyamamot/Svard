@@ -1,15 +1,15 @@
 async function hasConsistentActiveRulerMarker(page) {
   return page.evaluate(() => {
-    const markers = Array.from(
+    const targets = Array.from(
       document.querySelectorAll(
-        '[data-review-id="git-diff-change-ruler-marker"].active',
+        '.git-rendered-diff-body [data-active-change="true"][data-change-index]',
       ),
     );
-    if (markers.length === 0) {
+    if (targets.length === 0) {
       return false;
     }
     const indexes = new Set(
-      markers.map((marker) => marker.getAttribute("data-change-index")),
+      targets.map((target) => target.getAttribute("data-change-index")),
     );
     return indexes.size === 1;
   });
@@ -89,10 +89,8 @@ export async function buildGitDiffNavigationAssertions(context) {
         ? bodyText.includes("changes") &&
           (await hasConsistentActiveRulerMarker(page)) &&
           (await page
-            .locator(
-              '[data-review-id="git-diff-change-ruler"][data-ruler-side="single"]',
-            )
-            .count()) === 1 &&
+            .locator('[data-review-id="git-diff-change-ruler"]')
+            .count()) === 0 &&
           (await page
             .locator('[data-review-id="git-full-preview-block"].change-target')
             .count()) > 0

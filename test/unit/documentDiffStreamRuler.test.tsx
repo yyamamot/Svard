@@ -15,10 +15,10 @@ import {
   renderedDiffSummaryWithFineTargets,
 } from "./documentDiffStreamTestUtils";
 
-describe("DocumentDiffStreamPanel ruler", () => {
+describe("DocumentDiffStreamPanel rulers and margin markers", () => {
   const test = setupDocumentDiffStreamPanelTest();
 
-  it("renders stream ruler markers and keeps marker selection in sync", async () => {
+  it("keeps the overview ruler and passive margin markers in sync", async () => {
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(renderedDiffSummary(2));
     const getGitDiffPreview = vi
       .fn()
@@ -37,37 +37,116 @@ describe("DocumentDiffStreamPanel ruler", () => {
 
     await flushPreviewLoad();
     await flushRulerMeasure();
-
-    const markers = () =>
+    const rulerMarkers = () =>
       Array.from(
         test.container.querySelectorAll<HTMLButtonElement>(
           '[data-review-id="diff-stream-change-ruler-marker"]',
         ),
       );
-    expect(markers()).toHaveLength(2);
-    expect(markers()[0].classList.contains("active")).toBe(true);
+    expect(rulerMarkers()).toHaveLength(2);
+    expect(rulerMarkers()[0].classList.contains("active")).toBe(true);
+    expect(
+      test.container.querySelectorAll(
+        ".diff-stream-rendered-body .git-rendered-block.change-target",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      test.container.querySelectorAll(
+        '[data-review-id="git-rendered-margin-markers"]',
+      ),
+    ).toHaveLength(2);
+    expect(
+      test.container.querySelectorAll(
+        '[data-review-id="git-rendered-margin-marker"]',
+      ).length,
+    ).toBeGreaterThan(0);
+
+    const activeIndexes = () =>
+      new Set(
+        Array.from(
+          test.container.querySelectorAll<HTMLElement>(
+            ".diff-stream-rendered-body [data-active-change='true']",
+          ),
+          (target) => target.dataset.changeIndex,
+        ),
+      );
+    expect(activeIndexes()).toEqual(new Set(["0"]));
 
     await act(async () => {
-      markers()[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      rulerMarkers()[1].dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
-    expect(markers()[1].classList.contains("active")).toBe(true);
+    expect(activeIndexes()).toEqual(new Set(["1"]));
+    expect(rulerMarkers()[1].classList.contains("active")).toBe(true);
+    expect(
+      test.container.querySelector(
+        '[data-review-id="git-rendered-margin-marker"][data-change-index="1"].active',
+      ),
+    ).not.toBeNull();
 
     await act(async () => {
       buttonByText("Previous").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
     });
-    expect(markers()[0].classList.contains("active")).toBe(true);
+    expect(activeIndexes()).toEqual(new Set(["0"]));
+    expect(
+      test.container.querySelector(
+        '[data-review-id="git-rendered-margin-marker"][data-change-index="0"].active',
+      ),
+    ).not.toBeNull();
 
     await act(async () => {
       buttonByText("Next").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
     });
-    expect(markers()[1].classList.contains("active")).toBe(true);
+    expect(activeIndexes()).toEqual(new Set(["1"]));
   });
 
-  it("selects fine-grained stream targets from ruler markers", async () => {
+  it("remeasures margin markers when live diff targets are replaced", async () => {
+    deriveGitRenderedDiffSummaryMock.mockResolvedValue(renderedDiffSummary(1));
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/guide.md"));
+
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-changes-stream",
+        items: [documentStreamItem("docs/guide.md")],
+      },
+      getGitDiffPreview,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    });
+
+    await flushPreviewLoad();
+    await flushRulerMeasure();
+    const leftPane = test.container.querySelector<HTMLElement>(
+      '[data-review-id="diff-stream-left-pane"]',
+    );
+    const scroll = leftPane?.querySelector<HTMLElement>(".git-rendered-scroll");
+    expect(scroll).not.toBeNull();
+
+    const replacementTarget = document.createElement("div");
+    replacementTarget.className = "git-rendered-block change-target";
+    replacementTarget.dataset.changeIndex = "7";
+    await act(async () => {
+      scroll?.append(replacementTarget);
+      await Promise.resolve();
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    });
+
+    expect(
+      leftPane?.querySelector(
+        '[data-review-id="git-rendered-margin-marker"][data-change-index="7"]',
+      ),
+    ).not.toBeNull();
+  });
+
+  it("keeps fine-grained targets passive while navigation selects them", async () => {
     deriveGitRenderedDiffSummaryMock.mockResolvedValue(
       renderedDiffSummaryWithFineTargets(),
     );
@@ -88,30 +167,59 @@ describe("DocumentDiffStreamPanel ruler", () => {
 
     await flushPreviewLoad();
     await flushRulerMeasure();
-
-    const markers = Array.from(
-      test.container.querySelectorAll<HTMLButtonElement>(
+    expect(
+      test.container.querySelectorAll(
         '[data-review-id="diff-stream-change-ruler-marker"]',
       ),
-    );
-    expect(markers).toHaveLength(3);
+    ).toHaveLength(3);
+    for (const side of ["left", "right"] as const) {
+      const layer = test.container.querySelector(
+        `[data-review-id="git-rendered-margin-markers"][data-marker-side="${side}"]`,
+      );
+      expect(
+        layer?.querySelectorAll(
+          '[data-review-id="git-rendered-margin-marker"]',
+        ),
+      ).toHaveLength(3);
+      expect(
+        layer?.querySelector(
+          '[data-review-id="git-rendered-margin-marker"][data-change-index="1"]',
+        ),
+      ).not.toBeNull();
+      expect(
+        layer?.querySelector(
+          '[data-review-id="git-rendered-margin-marker"][data-change-index="2"]',
+        ),
+      ).not.toBeNull();
+    }
+    expect(
+      test.container.querySelector(
+        ".git-rendered-list-item-change .git-rendered-margin-marker",
+      ),
+    ).toBeNull();
 
     await act(async () => {
-      markers[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      buttonByText("Next").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    await act(async () => {
+      buttonByText("Next").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
 
-    expect(markers[2].classList.contains("active")).toBe(true);
-    const activeTarget = test.container.querySelector<HTMLElement>(
-      ".git-rendered-table-row-change[data-active-change='true']",
+    const activeTargets = Array.from(
+      test.container.querySelectorAll<HTMLElement>(
+        ".git-rendered-table-row-change[data-active-change='true']",
+      ),
     );
-    expect(activeTarget?.textContent).toContain("New table value");
-    expect(markers[2].dataset.changeIndex).toBe(
-      activeTarget?.dataset.changeIndex,
-    );
-    expect(markers[2].dataset.streamIndex).toBe(
-      activeTarget?.closest<HTMLElement>(
-        '[data-review-id="diff-stream-file-section"]',
-      )?.dataset.streamIndex,
-    );
+    expect(activeTargets.map((target) => target.textContent)).toEqual([
+      "Old table value",
+      "New table value",
+    ]);
+    expect(
+      activeTargets.every((target) => target.dataset.changeIndex === "2"),
+    ).toBe(true);
   });
 });

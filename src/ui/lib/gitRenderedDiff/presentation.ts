@@ -708,11 +708,29 @@ export function renderedDiffListItemChangeIndex(
   side: "left" | "right",
   itemIndex: number,
 ): number | null {
-  return (
-    presentation.entryChildChangeIndexes.get(
-      listItemTargetKey(entry.id, side, itemIndex),
-    ) ?? null
+  const exactIndex = presentation.entryChildChangeIndexes.get(
+    listItemTargetKey(entry.id, side, itemIndex),
   );
+  if (exactIndex !== undefined || entry.kind !== "block") {
+    return exactIndex ?? null;
+  }
+  const childChange = entry.block.childChanges?.find((candidate) =>
+    side === "left"
+      ? candidate.leftIndex === itemIndex
+      : candidate.rightIndex === itemIndex,
+  );
+  const primaryTarget = childChange
+    ? listItemChangeSideAndIndex(childChange)
+    : null;
+  return primaryTarget
+    ? (presentation.entryChildChangeIndexes.get(
+        listItemTargetKey(
+          entry.id,
+          primaryTarget.side,
+          primaryTarget.itemIndex,
+        ),
+      ) ?? null)
+    : null;
 }
 
 export function renderedDiffTableRowChangeIndex(
@@ -721,11 +739,25 @@ export function renderedDiffTableRowChangeIndex(
   side: "left" | "right",
   rowIndex: number,
 ): number | null {
-  return (
-    presentation.entryTableRowChangeIndexes.get(
-      tableRowTargetKey(entry.id, side, rowIndex),
-    ) ?? null
+  const exactIndex = presentation.entryTableRowChangeIndexes.get(
+    tableRowTargetKey(entry.id, side, rowIndex),
   );
+  if (exactIndex !== undefined || entry.kind !== "block") {
+    return exactIndex ?? null;
+  }
+  const tableChange = entry.block.tableChanges?.find((candidate) =>
+    side === "left"
+      ? candidate.leftRowIndex === rowIndex
+      : candidate.rightRowIndex === rowIndex,
+  );
+  const primaryTarget = tableChange
+    ? tableRowChangeSideAndIndex(tableChange)
+    : null;
+  return primaryTarget
+    ? (presentation.entryTableRowChangeIndexes.get(
+        tableRowTargetKey(entry.id, primaryTarget.side, primaryTarget.rowIndex),
+      ) ?? null)
+    : null;
 }
 
 export function renderedDiffStructuredChildChangeIndex(
@@ -734,11 +766,29 @@ export function renderedDiffStructuredChildChangeIndex(
   side: "left" | "right",
   childIndex: number,
 ): number | null {
-  return (
-    presentation.entryStructuredChildChangeIndexes.get(
-      structuredChildTargetKey(entry.id, side, childIndex),
-    ) ?? null
+  const exactIndex = presentation.entryStructuredChildChangeIndexes.get(
+    structuredChildTargetKey(entry.id, side, childIndex),
   );
+  if (exactIndex !== undefined || entry.kind !== "block") {
+    return exactIndex ?? null;
+  }
+  const structuredChange = entry.block.structuredChanges?.find((candidate) =>
+    side === "left"
+      ? candidate.leftIndex === childIndex
+      : candidate.rightIndex === childIndex,
+  );
+  const primaryTarget = structuredChange
+    ? structuredChildChangeSideAndIndex(structuredChange)
+    : null;
+  return primaryTarget
+    ? (presentation.entryStructuredChildChangeIndexes.get(
+        structuredChildTargetKey(
+          entry.id,
+          primaryTarget.side,
+          primaryTarget.structuredChildIndex,
+        ),
+      ) ?? null)
+    : null;
 }
 
 export function renderedDiffContentCursorTargets(

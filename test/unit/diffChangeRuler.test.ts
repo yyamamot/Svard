@@ -89,6 +89,35 @@ describe("diff change ruler helpers", () => {
     expect(activeRule).not.toContain("background:");
   });
 
+  it("uses passive range markers for rendered diff targets", () => {
+    const css = readFileSync(
+      join(process.cwd(), "src/ui/styles/diff-preview/rendered-layout.css"),
+      "utf8",
+    );
+    const shellCss = readFileSync(
+      join(process.cwd(), "src/ui/styles/diff-preview/shell.css"),
+      "utf8",
+    );
+    const tokens = readFileSync(
+      join(process.cwd(), "src/ui/styles/tokens-global.css"),
+      "utf8",
+    );
+
+    expect(tokens).toContain("--git-change-accent-width: 3px");
+    expect(tokens).toContain("--git-change-marker-opacity: 0.52");
+    expect(css).toContain("opacity: var(--git-change-marker-opacity)");
+    expect(css).toContain("width: var(--git-change-accent-active-width)");
+    expect(css).toContain(".rendered-change-markers-hidden");
+    expect(css).toContain(".git-rendered-margin-markers.left-side");
+    expect(css).toContain(".git-rendered-margin-markers.right-side");
+    expect(css).toContain("left: 0");
+    expect(css).toContain("left: 2px");
+    expect(css).not.toContain(".git-rendered-list-item-change::before");
+    expect(shellCss).toMatch(
+      /\.diff-stream-rendered-body \.git-rendered-block\s*\{\s*overflow: visible;/,
+    );
+  });
+
   it("uses only the requested rendered pane for side-aware rulers", () => {
     const left = document.createElement("div");
     const right = document.createElement("div");

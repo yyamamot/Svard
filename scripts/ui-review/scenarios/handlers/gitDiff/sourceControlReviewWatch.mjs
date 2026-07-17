@@ -40,13 +40,14 @@ export async function applyReviewWatchActiveDiffScenario(page, scenario) {
   await setupReviewWatchDiffPreview(page);
   await page.getByRole("button", { name: "Next change" }).click();
   await page
-    .locator('[data-review-id="git-diff-change-ruler-marker"].active')
+    .locator('.git-rendered-diff-body [data-active-change="true"]')
+    .first()
     .waitFor();
   const initialActiveLabel = await page.evaluate(() => {
     const active = document.querySelector(
-      '[data-review-id="git-diff-change-ruler-marker"].active',
+      '.git-rendered-diff-body [data-active-change="true"]',
     );
-    return active?.getAttribute("aria-label") ?? "";
+    return active?.getAttribute("data-change-index") ?? "";
   });
   await page.evaluate(() => {
     window.__SVARD_TRIGGER_GIT_STATUS_CHANGE__?.();
@@ -80,13 +81,13 @@ export async function applyReviewWatchActiveDiffScenario(page, scenario) {
   await page.evaluate(
     ({ scenario, initialActiveLabel }) => {
       const active = document.querySelector(
-        '[data-review-id="git-diff-change-ruler-marker"].active',
+        '.git-rendered-diff-body [data-active-change="true"]',
       );
       window.__SVARD_REVIEW_WATCH_ACTIVE_DIFF_SAMPLE__ = {
         scenario,
         initialActiveLabel,
         activeMarkerPresent: active !== null,
-        activeLabel: active?.getAttribute("aria-label") ?? "",
+        activeLabel: active?.getAttribute("data-change-index") ?? "",
         staleVisible:
           document.querySelector(
             '[data-review-id="git-diff-preview-watch-status"]',

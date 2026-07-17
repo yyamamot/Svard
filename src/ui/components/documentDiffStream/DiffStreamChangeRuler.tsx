@@ -1,16 +1,16 @@
 import { useEffect, useState, type RefObject } from "react";
+import type { RenderedDiffNavigationTarget } from "../../lib/gitRenderedDiff";
 import {
   changeRulerMarkerTopPercent,
   changeRulerTargetAnchorTop,
   type DiffChangeRulerMarkerKind,
 } from "../gitDiffPreview/changeRuler";
-import type { RenderedDiffNavigationTarget } from "../../lib/gitRenderedDiff";
-import type { DiffStreamTarget } from "./types";
 import { diffStreamSection, diffStreamTargetElement } from "./streamTargets";
+import type { DiffStreamTarget } from "./types";
 
 interface DiffStreamRulerMarker {
-  fileIndex: number;
   changeIndex: number;
+  fileIndex: number;
   index: number;
   key: string;
   kind: DiffChangeRulerMarkerKind;
@@ -39,7 +39,6 @@ export function DiffStreamChangeRuler({
       return;
     }
     const body = streamBody;
-
     let frame = 0;
     let resizeObserver: ResizeObserver | null = null;
 
@@ -57,8 +56,8 @@ export function DiffStreamChangeRuler({
         });
         return [
           {
-            fileIndex: target.fileIndex,
             changeIndex: target.changeIndex,
+            fileIndex: target.fileIndex,
             index,
             key: target.key,
             kind: diffStreamMarkerKind(markerTarget),
@@ -75,10 +74,9 @@ export function DiffStreamChangeRuler({
     }
 
     function scheduleMeasure() {
-      if (frame) {
-        return;
+      if (frame === 0) {
+        frame = window.requestAnimationFrame(measure);
       }
-      frame = window.requestAnimationFrame(measure);
     }
 
     if (typeof ResizeObserver !== "undefined") {
@@ -89,7 +87,7 @@ export function DiffStreamChangeRuler({
     scheduleMeasure();
 
     return () => {
-      if (frame) {
+      if (frame !== 0) {
         window.cancelAnimationFrame(frame);
       }
       resizeObserver?.disconnect();
