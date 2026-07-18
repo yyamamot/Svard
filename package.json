@@ -2,7 +2,7 @@
   "name": "svard",
   "displayName": "Svard",
   "description": "Specification Viewer and Rendered Diff for local-first technical documents",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "type": "module",
   "license": "MIT",

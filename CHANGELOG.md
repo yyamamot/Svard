@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.5
 
 - Added LLM-ready text, original source, and diff references with file, line, and section context.
 - Added LLM-ready image copying for images, diagrams, and captured Viewer and Diff areas with optional source references.
