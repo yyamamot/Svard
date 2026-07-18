@@ -21,7 +21,19 @@ export async function runDiagramAndReviewScenarios(
     showGitDiff,
   } = context;
 
-  if (scenario === "rendered-diff" || scenario === "table-list-diff-review") {
+  if (scenario === "rendered-diff") {
+    await showGitDiff(fixturePath);
+    window.setTimeout(() => {
+      document
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="git-diff-full-preview-view"]',
+        )
+        ?.click();
+    }, 300);
+    return true;
+  }
+
+  if (scenario === "table-list-diff-review") {
     await showGitDiff(fixturePath);
     window.setTimeout(() => {
       document
