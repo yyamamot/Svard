@@ -15,12 +15,10 @@ import type {
 } from "../../core/types";
 import {
   buildDocumentOrderNavigation,
-  buildFileTreeDocumentRows,
   collectResolvedDocumentOrderPaths,
   type DocumentOrderNavigationState,
   type DocumentsViewMode,
 } from "../lib/fileTreeDocuments";
-import { mergeGitStatusWithChanges } from "../lib/gitDirectoryStatusSummary";
 import type { DocumentReviewSessionControls } from "../lib/documentReviewSession";
 import { emptyDocumentReviewSessionControls } from "../lib/documentReviewSession";
 import type { LeftSidebar } from "../components/LeftSidebar";
@@ -252,28 +250,6 @@ export function useAppSidebarWiring({
     tabs,
     workspacePerformanceMode,
   });
-  const fileTreeGitStatusByPath = useMemo(
-    () =>
-      mergeGitStatusWithChanges(gitStatusByPath, gitSourceControl.gitChanges),
-    [gitSourceControl.gitChanges, gitStatusByPath],
-  );
-  const documentRows = useMemo(
-    () =>
-      buildFileTreeDocumentRows({
-        activePath,
-        childrenByDirectory,
-        gitStatusByPath: fileTreeGitStatusByPath,
-        openDocumentPaths,
-        rootDirectory,
-      }),
-    [
-      activePath,
-      childrenByDirectory,
-      fileTreeGitStatusByPath,
-      openDocumentPaths,
-      rootDirectory,
-    ],
-  );
   const documentOrderNavigation = useMemo(() => {
     const selectedOrder =
       filesViewMode === "documents-mkdocs"

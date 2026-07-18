@@ -39,7 +39,7 @@ function collectChangedFiles() {
     const parent = git(["rev-parse", "HEAD^"]).trim();
     const diff = git(["diff", "--name-only", `${parent}..${head}`]);
     return diff ? diff.split(/\r?\n/).filter(Boolean) : [];
-  } catch (error) {
+  } catch {
     console.error(
       "mirror: failed to resolve git history; fallback as empty diff",
     );

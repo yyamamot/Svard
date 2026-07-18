@@ -3,9 +3,6 @@ export async function buildTabsStartAssertions(context) {
   const page = context.page;
   const bodyText = context.bodyText;
   const commandAutomation = context.commandAutomation;
-  const contextMenuText = context.contextMenuText;
-  const editorOpenRequests = context.editorOpenRequests;
-  const geometryReviewIds = context.geometryReviewIds;
   return {
     hasStartPage:
       scenario === "viewer-start-page"

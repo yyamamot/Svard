@@ -7,7 +7,6 @@ export async function buildAppShellAssertions(context) {
   const commandAutomation = context.commandAutomation;
   const geometryReviewIds = context.geometryReviewIds;
   const searchManualScrollStable = context.searchManualScrollStable;
-  const svgAspectRatios = context.svgAspectRatios;
   return {
     hasTabClose:
       scenario === "viewer-basic" || scenario === "viewer-files"

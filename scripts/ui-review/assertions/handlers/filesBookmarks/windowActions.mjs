@@ -1,10 +1,6 @@
 export async function buildWindowActionsAssertions(context) {
   const scenario = context.scenario;
   const page = context.page;
-  const bodyText = context.bodyText;
-  const commandAutomation = context.commandAutomation;
-  const contextMenuText = context.contextMenuText;
-  const editorOpenRequests = context.editorOpenRequests;
   const geometryReviewIds = context.geometryReviewIds;
   return {
     hasContextMenuNavigation:

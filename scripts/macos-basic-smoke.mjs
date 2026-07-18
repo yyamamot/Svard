@@ -61,15 +61,6 @@ async function fileExists(filePath) {
   }
 }
 
-async function directoryExists(directoryPath) {
-  try {
-    const stat = await fs.stat(directoryPath);
-    return stat.isDirectory();
-  } catch {
-    return false;
-  }
-}
-
 async function hasFiles(directoryPath) {
   try {
     const entries = await fs.readdir(directoryPath);

@@ -6,9 +6,6 @@ export async function buildOpenFilesAssertions(context) {
   const documentRenderCacheBenchmark = context.documentRenderCacheBenchmark;
   const renderCacheExpectation = context.renderCacheExpectation;
   const commandAutomation = context.commandAutomation;
-  const contextMenuText = context.contextMenuText;
-  const editorOpenRequests = context.editorOpenRequests;
-  const geometryReviewIds = context.geometryReviewIds;
   const renderCachePhases = documentRenderCacheBenchmark?.phases;
   const cacheInstrumentationObserved = Object.values(
     renderCachePhases ?? {},

@@ -236,39 +236,6 @@ function sourceLocationForElement(
   };
 }
 
-function nearestHeading(
-  article: HTMLElement | null,
-  element: HTMLElement | null | undefined,
-  headings?: Heading[],
-): Heading | null {
-  if (!article || !element) {
-    return null;
-  }
-  const candidates = Array.from(
-    article.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6"),
-  );
-  const closest = candidates
-    .filter(
-      (candidate) =>
-        candidate.contains(element) ||
-        Boolean(
-          candidate.compareDocumentPosition(element) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-        ),
-    )
-    .at(-1);
-  if (!closest?.id) {
-    return null;
-  }
-  return (
-    headings?.find((heading) => heading.id === closest.id) ?? {
-      id: closest.id,
-      level: Number(closest.tagName.slice(1)),
-      text: closest.textContent?.trim() ?? closest.id,
-    }
-  );
-}
-
 function headingElementFor(
   article: HTMLElement | null,
   element: HTMLElement | null | undefined,
