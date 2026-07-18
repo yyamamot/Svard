@@ -12,6 +12,7 @@ import type {
   DocumentDiffStreamPreview,
   DocumentPayload,
   GitDiffPreviewBatchEntry,
+  GitBranchDiffPreviewBatchItem,
   KrokiRequest,
   KrokiResult,
   LocalImageResolveContext,
@@ -43,7 +44,9 @@ export function useDocumentDiffStreamLoader({
   getGitDiffPreview,
   getGitDiffPreviews,
   getGitBranchFileDiff,
+  getGitBranchFileDiffs,
   getGitFileCommitDiff,
+  getGitFileCommitDiffs,
   krokiFallbackDiagramKeys,
   loadDocumentContext,
   preview,
@@ -67,10 +70,23 @@ export function useDocumentDiffStreamLoader({
       oldPath?: string | null;
     },
   ) => Promise<DocumentDiffPreview>;
+  getGitBranchFileDiffs?: (
+    repositoryRoot: string,
+    options: {
+      baseRef: string;
+      headRef?: string | null;
+      items: GitBranchDiffPreviewBatchItem[];
+    },
+  ) => Promise<GitDiffPreviewBatchEntry[]>;
   getGitFileCommitDiff?: (
     path: string,
     revision: string,
   ) => Promise<DocumentDiffPreview>;
+  getGitFileCommitDiffs?: (
+    repositoryRoot: string,
+    revision: string,
+    relativePaths: string[],
+  ) => Promise<GitDiffPreviewBatchEntry[]>;
   krokiFallbackDiagramKeys?: ReadonlySet<string>;
   loadDocumentContext?: (
     documentPath: string,
@@ -357,16 +373,36 @@ export function useDocumentDiffStreamLoader({
     const previewStartedAt = measurement.enabled
       ? allDiffsUiPerformanceNow()
       : 0;
-    if (
-      pending.length === 2 &&
-      preview.source === "git-changes-stream" &&
-      preview.repositoryRoot &&
-      getGitDiffPreviews
-    ) {
-      getGitDiffPreviews(
-        preview.repositoryRoot,
-        pending.map(({ item }) => item.path),
-      )
+    const batchPromise =
+      pending.length !== 2 || !preview.repositoryRoot
+        ? null
+        : preview.source === "git-changes-stream" && getGitDiffPreviews
+          ? getGitDiffPreviews(
+              preview.repositoryRoot,
+              pending.map(({ item }) => item.path),
+            )
+          : preview.source === "git-branch-stream" &&
+              preview.baseRef &&
+              getGitBranchFileDiffs
+            ? getGitBranchFileDiffs(preview.repositoryRoot, {
+                baseRef: preview.baseRef,
+                headRef: preview.headRef,
+                items: pending.map(({ item }) => ({
+                  path: item.path,
+                  oldPath: item.oldPath,
+                })),
+              })
+            : preview.source === "git-commit-stream" &&
+                preview.revision &&
+                getGitFileCommitDiffs
+              ? getGitFileCommitDiffs(
+                  preview.repositoryRoot,
+                  preview.revision,
+                  pending.map(({ item }) => item.path),
+                )
+              : null;
+    if (batchPromise) {
+      batchPromise
         .then((results) => {
           if (measurement.enabled) {
             measurement.record({
@@ -437,7 +473,9 @@ export function useDocumentDiffStreamLoader({
     getGitDiffPreview,
     getGitDiffPreviews,
     getGitBranchFileDiff,
+    getGitBranchFileDiffs,
     getGitFileCommitDiff,
+    getGitFileCommitDiffs,
     measurement,
     preview,
     preview.items,

@@ -19,6 +19,7 @@ const formalSampleCount = 15;
 export function parseAllDiffsUiBenchmarkArgs(argv) {
   const args = {
     confirmation: null,
+    fixtures: [],
     out: ".artifacts/perf/imp-445-all-diffs-ui-formal.json",
     port: 4296,
     smoke: false,
@@ -29,6 +30,8 @@ export function parseAllDiffsUiBenchmarkArgs(argv) {
     if (value === "--") continue;
     if (value === "--confirmation") {
       args.confirmation = argv[++index] ?? null;
+    } else if (value === "--fixture") {
+      args.fixtures.push(argv[++index] ?? "");
     } else if (value === "--out") {
       args.out = argv[++index] ?? args.out;
     } else if (value === "--port") {
@@ -151,7 +154,7 @@ function rotatedVariants(sampleIndex) {
   ];
 }
 
-async function runBrowserMeasurements({ baseUrl, sampleCount }) {
+async function runBrowserMeasurements({ baseUrl, fixtures, sampleCount }) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
@@ -183,7 +186,7 @@ async function runBrowserMeasurements({ baseUrl, sampleCount }) {
     );
   const samples = [];
   try {
-    for (const fixture of allDiffsUiFixtures) {
+    for (const fixture of fixtures) {
       for (let warmupIndex = 0; warmupIndex < warmupCount; warmupIndex += 1) {
         for (const variant of rotatedVariants(warmupIndex)) {
           await runSample(fixture.fixtureId, variant);
@@ -209,8 +212,19 @@ async function main() {
   const baseUrl = args.url ?? server?.url;
   if (!baseUrl) throw new Error("All Diffs UI benchmark URL is unavailable");
   try {
+    const fixtures =
+      args.fixtures.length === 0
+        ? allDiffsUiFixtures
+        : args.fixtures.map((fixtureId) => {
+            const fixture = allDiffsUiFixtures.find(
+              (candidate) => candidate.fixtureId === fixtureId,
+            );
+            if (!fixture) throw new Error(`Unknown fixture: ${fixtureId}`);
+            return fixture;
+          });
     const samples = await runBrowserMeasurements({
       baseUrl,
+      fixtures,
       sampleCount: args.smoke ? 1 : formalSampleCount,
     });
     const mode = args.confirmation ? "confirmation" : "formal";

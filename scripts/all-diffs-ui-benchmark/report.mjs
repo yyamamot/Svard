@@ -60,6 +60,8 @@ const allowedStrings = new Set([
   "without-rendered-rulers",
   "markdown-14x12-mixed",
   "asciidoc-14x12-mixed",
+  "branch-markdown-14x12-mixed",
+  "commit-markdown-14x12-mixed",
   "markdown-dense-list-200",
   "markdown-dense-table-200",
   "margin-markers",

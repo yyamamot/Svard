@@ -1,5 +1,8 @@
 use super::*;
 
+pub(super) mod batch;
+pub use batch::{git_branch_file_diffs_for_paths, git_file_commit_diffs_for_paths};
+
 const MAX_GIT_DIFF_PREVIEW_BATCH_PATHS: usize = 32;
 
 struct WorktreePreviewContext<'repo> {
@@ -167,6 +170,20 @@ pub fn git_diff_previews_for_paths(
         ));
     }
 
+    let (repo, workdir) = batch_repository_for_root(repository_root)?;
+    let context = WorktreePreviewContext::prepare(&repo, workdir)?;
+
+    Ok(relative_paths
+        .into_iter()
+        .map(|relative_path| {
+            batch_preview_for_relative_path(&context, &relative_path)
+                .map(|preview| GitDiffPreviewBatchEntry::Ready { preview })
+                .unwrap_or_else(|message| GitDiffPreviewBatchEntry::Error { message })
+        })
+        .collect())
+}
+
+fn batch_repository_for_root(repository_root: &str) -> Result<(gix::Repository, PathBuf), String> {
     let requested_root = canonicalize_path(Path::new(repository_root))
         .map_err(|error| format!("failed to resolve Git repository root: {error}"))?;
     if !requested_root.is_dir() {
@@ -181,16 +198,7 @@ pub fn git_diff_previews_for_paths(
     if canonical_workdir != requested_root {
         return Err("Git repository root does not match the discovered worktree.".to_string());
     }
-    let context = WorktreePreviewContext::prepare(&repo, canonical_workdir)?;
-
-    Ok(relative_paths
-        .into_iter()
-        .map(|relative_path| {
-            batch_preview_for_relative_path(&context, &relative_path)
-                .map(|preview| GitDiffPreviewBatchEntry::Ready { preview })
-                .unwrap_or_else(|message| GitDiffPreviewBatchEntry::Error { message })
-        })
-        .collect())
+    Ok((repo, canonical_workdir))
 }
 
 fn batch_preview_for_relative_path(

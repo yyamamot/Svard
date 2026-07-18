@@ -2,6 +2,7 @@ import { isSupportedDocumentPath } from "../../core/documentFormat";
 import { getGitDiffPreview as getFixtureGitDiffPreview } from "./gitDiffPreview";
 import type {
   GitBranchDiff,
+  GitBranchDiffPreviewBatchItem,
   GitChanges,
   GitCommitDetails,
   GitCommitGraph,
@@ -24,12 +25,14 @@ export type MockGitFacade = Pick<
   | "getGitChanges"
   | "getGitBranchDiff"
   | "getGitBranchFileDiff"
+  | "getGitBranchFileDiffs"
   | "getGitCommitGraph"
   | "getGitDiffPreview"
   | "getGitDiffPreviews"
   | "getGitFileHistory"
   | "getGitFileRevisionDiff"
   | "getGitFileCommitDiff"
+  | "getGitFileCommitDiffs"
   | "getGitFileRevisionPairDiff"
   | "getGitCommitDetails"
   | "listGitRefs"
@@ -42,12 +45,14 @@ export function createMockGitFacade(): MockGitFacade {
     getGitChanges,
     getGitBranchDiff,
     getGitBranchFileDiff,
+    getGitBranchFileDiffs,
     getGitCommitGraph,
     getGitDiffPreview,
     getGitDiffPreviews,
     getGitFileHistory,
     getGitFileRevisionDiff,
     getGitFileCommitDiff,
+    getGitFileCommitDiffs,
     getGitFileRevisionPairDiff,
     getGitCommitDetails,
     listGitRefs,
@@ -320,6 +325,24 @@ export async function getGitBranchFileDiff(
   };
 }
 
+export async function getGitBranchFileDiffs(
+  repositoryRoot: string,
+  options: {
+    baseRef: string;
+    headRef?: string | null;
+    items: GitBranchDiffPreviewBatchItem[];
+  },
+): Promise<GitDiffPreviewBatchEntry[]> {
+  if (!repositoryRoot.replace(/[\\/]+$/, "")) {
+    throw new Error("Git diff preview repository root is required.");
+  }
+  return batchEntries(
+    options.items,
+    (item) => getGitBranchFileDiff(repositoryRoot, { ...options, ...item }),
+    (item) => item.path,
+  );
+}
+
 export async function getGitDiffPreview(path: string): Promise<GitDiffPreview> {
   if (typeof window !== "undefined") {
     const overrides = (
@@ -375,6 +398,50 @@ export async function getGitDiffPreviews(
         };
       }
     }),
+  );
+}
+
+async function batchEntries<T>(
+  items: T[],
+  load: (item: T) => Promise<GitDiffPreview>,
+  getRelativePath?: (item: T) => string,
+): Promise<GitDiffPreviewBatchEntry[]> {
+  if (items.length > 32) {
+    throw new Error("Git diff preview batch exceeds the supported limit.");
+  }
+  return Promise.all(
+    items.map(async (item) => {
+      if (
+        getRelativePath &&
+        !isSafeRepositoryRelativePath(getRelativePath(item))
+      ) {
+        return {
+          status: "error" as const,
+          message: "This file cannot be previewed right now.",
+        };
+      }
+      try {
+        return { status: "ready" as const, preview: await load(item) };
+      } catch {
+        return {
+          status: "error" as const,
+          message: "This file cannot be previewed right now.",
+        };
+      }
+    }),
+  );
+}
+
+function isSafeRepositoryRelativePath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  const segments = normalized.split("/");
+  return Boolean(
+    normalized &&
+    !normalized.startsWith("/") &&
+    !/^[A-Za-z]:\//.test(normalized) &&
+    !segments.some(
+      (segment) => !segment || segment === "." || segment === "..",
+    ),
   );
 }
 
@@ -551,6 +618,22 @@ export async function getGitFileCommitDiff(
   };
 }
 
+export async function getGitFileCommitDiffs(
+  repositoryRoot: string,
+  revision: string,
+  relativePaths: string[],
+): Promise<GitDiffPreviewBatchEntry[]> {
+  const root = repositoryRoot.replace(/[\\/]+$/, "");
+  if (!root) {
+    throw new Error("Git diff preview repository root is required.");
+  }
+  return batchEntries(
+    relativePaths,
+    (relativePath) => getGitFileCommitDiff(`${root}/${relativePath}`, revision),
+    (relativePath) => relativePath,
+  );
+}
+
 export async function getGitFileRevisionPairDiff(
   path: string,
   leftRevision: string,
@@ -571,6 +654,7 @@ export async function getGitCommitDetails(
   const shortHash = revision.slice(0, 7);
   const relativePath = path.replace(/^\/workspace\//, "");
   return {
+    repositoryRoot: "/workspace",
     revision,
     shortHash,
     summary:

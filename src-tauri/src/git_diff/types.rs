@@ -33,6 +33,13 @@ pub enum GitDiffPreviewBatchEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBranchDiffPreviewBatchItem {
+    pub path: String,
+    pub old_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum LineDiffAvailability {
     Available,
@@ -343,6 +350,7 @@ pub struct GitCommitChangedFile {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct GitCommitDetails {
+    pub repository_root: Option<String>,
     pub revision: String,
     pub short_hash: String,
     pub summary: String,

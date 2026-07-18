@@ -493,6 +493,25 @@ fn get_git_branch_file_diff(
 }
 
 #[tauri::command]
+async fn get_git_branch_file_diffs(
+    repository_root: String,
+    base_ref: String,
+    head_ref: Option<String>,
+    items: Vec<git_diff::GitBranchDiffPreviewBatchItem>,
+) -> Result<Vec<git_diff::GitDiffPreviewBatchEntry>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git_diff::git_branch_file_diffs_for_paths(
+            &repository_root,
+            &base_ref,
+            head_ref.as_deref(),
+            items,
+        )
+    })
+    .await
+    .map_err(|error| format!("Git Branch Diff preview batch task failed: {error}"))?
+}
+
+#[tauri::command]
 fn get_git_commit_graph(
     path: String,
     scope: git_diff::GitCommitGraphScope,
@@ -533,6 +552,23 @@ fn get_git_file_commit_diff(
     revision: String,
 ) -> Result<git_diff::GitDiffPreview, String> {
     git_diff::git_file_commit_diff_for_path(&path, &revision)
+}
+
+#[tauri::command]
+async fn get_git_file_commit_diffs(
+    repository_root: String,
+    revision: String,
+    relative_paths: Vec<String>,
+) -> Result<Vec<git_diff::GitDiffPreviewBatchEntry>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git_diff::git_file_commit_diffs_for_paths(
+            &repository_root,
+            &revision,
+            relative_paths,
+        )
+    })
+    .await
+    .map_err(|error| format!("Git commit preview batch task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -952,10 +988,12 @@ pub fn run() {
             get_provider_token_status,
             test_provider_connection,
             get_git_branch_file_diff,
+            get_git_branch_file_diffs,
             get_git_commit_graph,
             get_git_file_history,
             get_git_file_revision_diff,
             get_git_file_commit_diff,
+            get_git_file_commit_diffs,
             get_git_file_revision_pair_diff,
             get_git_commit_details,
             list_git_refs,

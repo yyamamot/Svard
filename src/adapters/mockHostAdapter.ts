@@ -13,6 +13,7 @@ import type {
   DocumentOrderCatalog,
   DocumentOrderLoadOptions,
   GitBranchDiff,
+  GitBranchDiffPreviewBatchItem,
   GitChanges,
   GitCommitDetails,
   GitCommitGraph,
@@ -334,6 +335,17 @@ export class MockHostAdapter implements HostAdapter {
     return this.git.getGitBranchFileDiff(pathOrRoot, options);
   }
 
+  getGitBranchFileDiffs(
+    repositoryRoot: string,
+    options: {
+      baseRef: string;
+      headRef?: string | null;
+      items: GitBranchDiffPreviewBatchItem[];
+    },
+  ): Promise<GitDiffPreviewBatchEntry[]> {
+    return this.git.getGitBranchFileDiffs(repositoryRoot, options);
+  }
+
   getGitCommitGraph(
     pathOrRoot: string,
     options?: {
@@ -387,6 +399,18 @@ export class MockHostAdapter implements HostAdapter {
     revision: string,
   ): Promise<GitDiffPreview> {
     return this.git.getGitFileCommitDiff(path, revision);
+  }
+
+  getGitFileCommitDiffs(
+    repositoryRoot: string,
+    revision: string,
+    relativePaths: string[],
+  ): Promise<GitDiffPreviewBatchEntry[]> {
+    return this.git.getGitFileCommitDiffs(
+      repositoryRoot,
+      revision,
+      relativePaths,
+    );
   }
 
   getGitFileRevisionPairDiff(

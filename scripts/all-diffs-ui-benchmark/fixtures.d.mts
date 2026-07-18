@@ -6,6 +6,10 @@ export interface AllDiffsUiFixtureDocument {
 
 export interface AllDiffsUiFixture {
   fixtureId: string;
+  streamSource:
+    | "git-changes-stream"
+    | "git-branch-stream"
+    | "git-commit-stream";
   expectedChangeCount: number;
   pairs: Array<{
     left: AllDiffsUiFixtureDocument;

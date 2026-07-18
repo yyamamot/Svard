@@ -8,6 +8,8 @@ describe("All Diffs UI benchmark arguments", () => {
   it("supports explicit formal and confirmation artifacts", () => {
     expect(
       parseAllDiffsUiBenchmarkArgs([
+        "--fixture",
+        "branch-markdown-14x12-mixed",
         "--out",
         ".artifacts/formal.json",
         "--port",
@@ -15,6 +17,7 @@ describe("All Diffs UI benchmark arguments", () => {
       ]),
     ).toMatchObject({
       confirmation: null,
+      fixtures: ["branch-markdown-14x12-mixed"],
       out: ".artifacts/formal.json",
       port: 4301,
     });
@@ -27,6 +30,7 @@ describe("All Diffs UI benchmark arguments", () => {
       ]),
     ).toMatchObject({
       confirmation: ".artifacts/formal.json",
+      fixtures: [],
       out: ".artifacts/confirmation.json",
     });
   });

@@ -1,5 +1,6 @@
 export interface AllDiffsUiBenchmarkArgs {
   confirmation: string | null;
+  fixtures: string[];
   out: string;
   port: number;
   smoke: boolean;

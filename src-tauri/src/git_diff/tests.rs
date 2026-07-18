@@ -611,6 +611,11 @@ fn commit_details_returns_changed_files() {
         git_commit_details_for_path(&document.to_string_lossy(), &revision).expect("details");
 
     assert_eq!(details.summary, "update sample");
+    let canonical_root = fs::canonicalize(repo.path()).expect("canonical repository root");
+    assert_eq!(
+        details.repository_root.as_deref(),
+        Some(canonical_root.to_string_lossy().as_ref())
+    );
     assert!(
         details
             .files

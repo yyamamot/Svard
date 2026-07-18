@@ -422,6 +422,7 @@ pub fn git_commit_details_for_path(path: &str, revision: &str) -> Result<GitComm
     let files = changed_files_between_trees(parent_tree.as_ref(), &commit_tree, &context.workdir);
 
     Ok(GitCommitDetails {
+        repository_root: Some(path_string(&context.workdir)),
         revision,
         short_hash,
         summary,

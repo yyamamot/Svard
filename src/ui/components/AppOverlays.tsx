@@ -322,8 +322,14 @@ export function AppOverlays({
           getGitBranchFileDiff={(path, input) =>
             host.getGitBranchFileDiff(path, input)
           }
+          getGitBranchFileDiffs={(repositoryRoot, options) =>
+            host.getGitBranchFileDiffs(repositoryRoot, options)
+          }
           getGitFileCommitDiff={(path, revision) =>
             host.getGitFileCommitDiff(path, revision)
+          }
+          getGitFileCommitDiffs={(repositoryRoot, revision, relativePaths) =>
+            host.getGitFileCommitDiffs(repositoryRoot, revision, relativePaths)
           }
           copyText={copyText}
           openContextMenu={openContextMenu}

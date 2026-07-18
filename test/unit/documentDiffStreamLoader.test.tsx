@@ -2,6 +2,7 @@ import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type {
   DocumentDiffPreview,
+  GitBranchDiffPreviewBatchItem,
   GitDiffPreviewBatchEntry,
 } from "../../src/core/types";
 import {
@@ -345,6 +346,85 @@ describe("DocumentDiffStreamPanel loader", () => {
 
     expect(getGitDiffPreviews).not.toHaveBeenCalled();
     expect(getGitBranchFileDiff).toHaveBeenCalledTimes(1);
+  });
+
+  it("batches two visible Branch Diff previews without preloading a third", async () => {
+    const getGitBranchFileDiff = vi.fn();
+    const getGitBranchFileDiffs = vi.fn(
+      async (
+        _root: string,
+        options: { items: GitBranchDiffPreviewBatchItem[] },
+      ) =>
+        options.items.map((item) => ({
+          status: "ready" as const,
+          preview: diffPreview(`/workspace/${item.path}`),
+        })),
+    );
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-branch-stream",
+        repositoryRoot: "/workspace",
+        baseRef: "main",
+        headRef: "HEAD",
+        items: [
+          documentStreamItem("docs/one.md"),
+          documentStreamItem("docs/two.md"),
+          documentStreamItem("docs/three.md"),
+        ],
+      },
+      getGitDiffPreview: vi.fn(),
+      getGitBranchFileDiff,
+      getGitBranchFileDiffs,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    });
+    await flushPreviewLoad();
+    expect(getGitBranchFileDiffs).toHaveBeenCalledTimes(1);
+    expect(getGitBranchFileDiffs).toHaveBeenCalledWith("/workspace", {
+      baseRef: "main",
+      headRef: "HEAD",
+      items: [
+        { path: "docs/one.md", oldPath: undefined },
+        { path: "docs/two.md", oldPath: undefined },
+      ],
+    });
+    expect(getGitBranchFileDiff).not.toHaveBeenCalled();
+  });
+
+  it("batches two visible Repo Graph commit previews", async () => {
+    const getGitFileCommitDiff = vi.fn();
+    const getGitFileCommitDiffs = vi.fn(
+      async (repositoryRoot: string, _revision: string, paths: string[]) =>
+        paths.map((path) => ({
+          status: "ready" as const,
+          preview: diffPreview(`${repositoryRoot}/${path}`),
+        })),
+    );
+    await test.render({
+      config: null,
+      preview: {
+        source: "git-commit-stream",
+        repositoryRoot: "/workspace",
+        revision: "revision-a",
+        items: [
+          documentStreamItem("docs/one.md"),
+          documentStreamItem("docs/two.md"),
+        ],
+      },
+      getGitDiffPreview: vi.fn(),
+      getGitFileCommitDiff,
+      getGitFileCommitDiffs,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    });
+    await flushPreviewLoad();
+    expect(getGitFileCommitDiffs).toHaveBeenCalledWith(
+      "/workspace",
+      "revision-a",
+      ["docs/one.md", "docs/two.md"],
+    );
+    expect(getGitFileCommitDiff).not.toHaveBeenCalled();
   });
 
   it("keeps summary derivation wired through the loader", async () => {

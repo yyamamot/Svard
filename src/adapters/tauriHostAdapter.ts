@@ -18,6 +18,7 @@ import type {
   DocumentLinkResolution,
   DocumentLinkResolutionInput,
   GitBranchDiff,
+  GitBranchDiffPreviewBatchItem,
   GitChanges,
   GitCommitGraph,
   GitCommitGraphScope,
@@ -555,6 +556,22 @@ export class TauriHostAdapter implements HostAdapter {
     });
   }
 
+  getGitBranchFileDiffs(
+    repositoryRoot: string,
+    options: {
+      baseRef: string;
+      headRef?: string | null;
+      items: GitBranchDiffPreviewBatchItem[];
+    },
+  ): Promise<GitDiffPreviewBatchEntry[]> {
+    return invoke("get_git_branch_file_diffs", {
+      repositoryRoot,
+      baseRef: options.baseRef,
+      headRef: options.headRef ?? null,
+      items: options.items,
+    });
+  }
+
   getGitCommitGraph(
     pathOrRoot: string,
     options?: {
@@ -661,6 +678,18 @@ export class TauriHostAdapter implements HostAdapter {
     revision: string,
   ): Promise<GitDiffPreview> {
     return invoke("get_git_file_commit_diff", { path, revision });
+  }
+
+  getGitFileCommitDiffs(
+    repositoryRoot: string,
+    revision: string,
+    relativePaths: string[],
+  ): Promise<GitDiffPreviewBatchEntry[]> {
+    return invoke("get_git_file_commit_diffs", {
+      repositoryRoot,
+      revision,
+      relativePaths,
+    });
   }
 
   getGitFileRevisionPairDiff(

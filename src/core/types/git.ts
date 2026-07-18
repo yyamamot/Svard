@@ -163,6 +163,11 @@ export type GitDiffPreviewBatchEntry =
   | { status: "ready"; preview: GitDiffPreview }
   | { status: "error"; message: string };
 
+export interface GitBranchDiffPreviewBatchItem {
+  path: string;
+  oldPath?: string | null;
+}
+
 export function lineDiffAvailability(
   preview: Pick<GitDiffPreview, "lineDiffAvailability">,
 ): LineDiffAvailability {
@@ -335,6 +340,7 @@ export interface GitCommitGraphMetrics {
 }
 
 export interface GitCommitDetails {
+  repositoryRoot?: string | null;
   revision: string;
   shortHash: string;
   summary: string;

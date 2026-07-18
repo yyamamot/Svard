@@ -37,7 +37,10 @@ export function GitCommitDetailsPanel({
             onClick={() => {
               onOpenAllDiffs({
                 source: "git-commit-stream",
-                items: buildDocumentDiffStreamItems(details.files),
+                repositoryRoot: details.repositoryRoot,
+                items: buildDocumentDiffStreamItems(details.files, {
+                  repositoryRoot: details.repositoryRoot,
+                }),
                 revision: details.revision,
                 comparisonLabel: `Parent → ${details.shortHash}`,
               });

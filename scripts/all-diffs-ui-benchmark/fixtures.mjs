@@ -99,9 +99,15 @@ function documentPair({ extension, fixtureId, index, sourceFor }) {
   };
 }
 
-function multiDocumentFixture({ fixtureId, extension, sourceFor }) {
+function multiDocumentFixture({
+  fixtureId,
+  extension,
+  sourceFor,
+  streamSource = "git-changes-stream",
+}) {
   return {
     fixtureId,
+    streamSource,
     expectedChangeCount: 14 * 12,
     pairs: Array.from({ length: 14 }, (_, index) =>
       documentPair({ extension, fixtureId, index, sourceFor }),
@@ -112,6 +118,7 @@ function multiDocumentFixture({ fixtureId, extension, sourceFor }) {
 function denseFixture({ fixtureId, sourceFor }) {
   return {
     fixtureId,
+    streamSource: "git-changes-stream",
     expectedChangeCount: 200,
     pairs: [
       documentPair({
@@ -134,6 +141,18 @@ export const allDiffsUiFixtures = [
     fixtureId: "asciidoc-14x12-mixed",
     extension: "adoc",
     sourceFor: asciidocDocument,
+  }),
+  multiDocumentFixture({
+    fixtureId: "branch-markdown-14x12-mixed",
+    extension: "md",
+    sourceFor: markdownDocument,
+    streamSource: "git-branch-stream",
+  }),
+  multiDocumentFixture({
+    fixtureId: "commit-markdown-14x12-mixed",
+    extension: "md",
+    sourceFor: markdownDocument,
+    streamSource: "git-commit-stream",
   }),
   denseFixture({
     fixtureId: "markdown-dense-list-200",

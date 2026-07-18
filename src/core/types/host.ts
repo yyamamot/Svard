@@ -26,6 +26,7 @@ import type {
 import type {
   DocumentDiffPreview,
   GitBranchDiff,
+  GitBranchDiffPreviewBatchItem,
   GitChanges,
   GitCommitDetails,
   GitCommitGraph,
@@ -213,6 +214,14 @@ export interface HostAdapter {
       oldPath?: string | null;
     },
   ): Promise<GitDiffPreview>;
+  getGitBranchFileDiffs(
+    repositoryRoot: string,
+    options: {
+      baseRef: string;
+      headRef?: string | null;
+      items: GitBranchDiffPreviewBatchItem[];
+    },
+  ): Promise<GitDiffPreviewBatchEntry[]>;
   getGitCommitGraph(
     pathOrRoot: string,
     options?: {
@@ -247,6 +256,11 @@ export interface HostAdapter {
     path: string,
     revision: string,
   ): Promise<DocumentDiffPreview>;
+  getGitFileCommitDiffs(
+    repositoryRoot: string,
+    revision: string,
+    relativePaths: string[],
+  ): Promise<GitDiffPreviewBatchEntry[]>;
   getGitFileRevisionPairDiff(
     path: string,
     leftRevision: string,

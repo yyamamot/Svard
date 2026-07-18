@@ -73,9 +73,15 @@ function previewForPair(pair: AllDiffsUiFixturePair): DocumentDiffPreview {
 
 function streamPreview(fixture: AllDiffsUiFixture): DocumentDiffStreamPreview {
   return {
-    source: "git-changes-stream",
+    source: fixture.streamSource,
     repositoryRoot: "/benchmark",
     watchStatus: "fresh",
+    baseRef:
+      fixture.streamSource === "git-branch-stream" ? "benchmark-base" : null,
+    headRef:
+      fixture.streamSource === "git-branch-stream" ? "benchmark-head" : null,
+    revision:
+      fixture.streamSource === "git-commit-stream" ? "benchmark-commit" : null,
     items: fixture.pairs.map((pair) => ({
       kind: "document",
       path: pair.right.relativePath,
@@ -347,6 +353,42 @@ async function runSample(
           return preview;
         }}
         getGitDiffPreviews={async (repositoryRoot, relativePaths) =>
+          relativePaths.map((relativePath) => {
+            const preview = previews.get(`${repositoryRoot}/${relativePath}`);
+            return preview
+              ? { status: "ready" as const, preview }
+              : {
+                  status: "error" as const,
+                  message: "Synthetic preview is unavailable",
+                };
+          })
+        }
+        getGitBranchFileDiff={async (_repositoryRoot, input) => {
+          const preview = previews.get(`/benchmark/${input.path}`);
+          if (!preview) throw new Error("Synthetic preview is unavailable");
+          return preview;
+        }}
+        getGitBranchFileDiffs={async (_repositoryRoot, options) =>
+          options.items.map((item) => {
+            const preview = previews.get(`/benchmark/${item.path}`);
+            return preview
+              ? { status: "ready" as const, preview }
+              : {
+                  status: "error" as const,
+                  message: "Synthetic preview is unavailable",
+                };
+          })
+        }
+        getGitFileCommitDiff={async (path) => {
+          const preview = previews.get(path);
+          if (!preview) throw new Error("Synthetic preview is unavailable");
+          return preview;
+        }}
+        getGitFileCommitDiffs={async (
+          repositoryRoot,
+          _revision,
+          relativePaths,
+        ) =>
           relativePaths.map((relativePath) => {
             const preview = previews.get(`${repositoryRoot}/${relativePath}`);
             return preview

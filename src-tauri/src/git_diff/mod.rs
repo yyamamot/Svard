@@ -22,6 +22,10 @@ mod tests_git_diff_preview_batch;
 #[cfg(test)]
 mod tests_git_diff_preview_release_probe;
 #[cfg(test)]
+mod tests_git_stream_preview_batch;
+#[cfg(test)]
+mod tests_git_stream_preview_release_probe;
+#[cfg(test)]
 mod tests_history;
 #[cfg(test)]
 mod tests_line_diff_budget;
@@ -38,8 +42,9 @@ pub use history::{
 };
 pub use history_cache::GitFileHistoryCacheState;
 pub use preview::{
-    git_branch_file_diff_for_path, git_diff_preview_for_path, git_diff_previews_for_paths,
-    git_file_commit_diff_for_path, git_file_ref_diff_for_path, git_file_revision_diff_for_path,
+    git_branch_file_diff_for_path, git_branch_file_diffs_for_paths, git_diff_preview_for_path,
+    git_diff_previews_for_paths, git_file_commit_diff_for_path, git_file_commit_diffs_for_paths,
+    git_file_ref_diff_for_path, git_file_revision_diff_for_path,
     git_file_revision_pair_diff_for_path,
 };
 pub use refs::git_refs_for_path;

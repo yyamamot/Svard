@@ -715,6 +715,54 @@ describe("TauriHostAdapter.watchDocument", () => {
     });
   });
 
+  it("loads ordered Branch Diff preview batches through the native command", async () => {
+    tauriMocks.invoke.mockResolvedValueOnce([{ status: "ready" }]);
+    const adapter = new TauriHostAdapter();
+
+    await expect(
+      adapter.getGitBranchFileDiffs("/tmp/repo", {
+        baseRef: "origin/main",
+        headRef: "feature/docs",
+        items: [
+          { path: "docs/readme.md", oldPath: "docs/old.md" },
+          { path: "docs/guide.md" },
+        ],
+      }),
+    ).resolves.toEqual([{ status: "ready" }]);
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "get_git_branch_file_diffs",
+      {
+        repositoryRoot: "/tmp/repo",
+        baseRef: "origin/main",
+        headRef: "feature/docs",
+        items: [
+          { path: "docs/readme.md", oldPath: "docs/old.md" },
+          { path: "docs/guide.md" },
+        ],
+      },
+    );
+  });
+
+  it("loads ordered commit preview batches through the native command", async () => {
+    tauriMocks.invoke.mockResolvedValueOnce([{ status: "ready" }]);
+    const adapter = new TauriHostAdapter();
+
+    await expect(
+      adapter.getGitFileCommitDiffs("/tmp/repo", "fixture-revision", [
+        "docs/readme.md",
+        "docs/guide.md",
+      ]),
+    ).resolves.toEqual([{ status: "ready" }]);
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "get_git_file_commit_diffs",
+      {
+        repositoryRoot: "/tmp/repo",
+        revision: "fixture-revision",
+        relativePaths: ["docs/readme.md", "docs/guide.md"],
+      },
+    );
+  });
+
   it("loads ordered Working Tree preview batches through the native command", async () => {
     tauriMocks.invoke.mockResolvedValueOnce([
       {

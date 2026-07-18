@@ -3,6 +3,7 @@ import type {
   AppConfig,
   DocumentDiffPreview,
   GitDiffPreviewBatchEntry,
+  GitBranchDiffPreviewBatchItem,
   DocumentDiffStreamPreview,
   DocumentLinkResolution,
   DocumentPayload,
@@ -85,10 +86,23 @@ export interface DocumentDiffStreamPanelProps {
       oldPath?: string | null;
     },
   ) => Promise<DocumentDiffPreview>;
+  getGitBranchFileDiffs?: (
+    repositoryRoot: string,
+    options: {
+      baseRef: string;
+      headRef?: string | null;
+      items: GitBranchDiffPreviewBatchItem[];
+    },
+  ) => Promise<GitDiffPreviewBatchEntry[]>;
   getGitFileCommitDiff?: (
     path: string,
     revision: string,
   ) => Promise<DocumentDiffPreview>;
+  getGitFileCommitDiffs?: (
+    repositoryRoot: string,
+    revision: string,
+    relativePaths: string[],
+  ) => Promise<GitDiffPreviewBatchEntry[]>;
   copyText: CopyText;
   openContextMenu: (
     event: MouseEvent<HTMLElement>,
