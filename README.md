@@ -1,8 +1,8 @@
 # Svard
 
-Svard (Specification Viewer and Rendered Diff) is a desktop review environment for verifying changes that AI agents make across many technical documents. It keeps rendered output, change locations, and the base or comparison source together so people can understand what changed without relying on raw source diffs alone.
+Svard (Specification Viewer and Rendered Diff) is a local-first desktop viewer for reading Markdown and AsciiDoc and reviewing changes as rendered documents. It keeps rendered output, change locations, and the base or comparison source together so people can understand what changed without relying on raw source diffs alone.
 
-Svard renders Markdown and AsciiDoc before comparing reader-visible changes across prose, lists, tables, diagrams, and source views. All Diffs, Rendered Diff, Change Review Mode, and Revision Lens support a review flow that moves from the changed document set to a specific comparison with its Base.
+This review flow is especially useful when AI agents update many technical documents. All Diffs, Rendered Diff, Change Review Mode, and Revision Lens let reviewers move from the changed document set to a specific comparison with its Base while keeping prose, lists, tables, diagrams, and source views in context.
 
 The normal rendering path is local-first. Svard does not run an AI agent, call an LLM, or send documents to an AI service; it reviews changes that already exist in local files or Git comparisons.
 

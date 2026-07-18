@@ -10,7 +10,7 @@ export const site = {
   locale: "en",
   title: "Svard",
   description:
-    "Review technical documentation changed by AI agents as rendered Markdown and AsciiDoc, locally.",
+    "Read Markdown and AsciiDoc, and review changes as rendered documents in a local-first desktop viewer.",
   nav: {
     top: "Top",
     features: "Features",
@@ -21,7 +21,7 @@ export const site = {
   },
   footer: {
     summary:
-      "Svard helps people review technical documentation changed by AI agents as rendered documents.",
+      "Svard is a local-first desktop viewer for reading Markdown and AsciiDoc and reviewing changes as rendered documents.",
     links: [
       { label: "GitHub", href: repositoryUrl },
       { label: "Releases", href: releasesUrl },
@@ -29,10 +29,10 @@ export const site = {
     ],
   },
   top: {
-    eyebrow: "Rendered review for AI agent changes",
+    eyebrow: "Local document reading and rendered review",
     heading: "Svard",
-    lead: "Review technical documentation changed by AI agents as rendered documents.",
-    body: "Move through many changed Markdown and AsciiDoc documents while keeping rendered output, change locations, and the Base or comparison source in the same local-first review flow.",
+    lead: "Read Markdown and AsciiDoc, and review changes as rendered documents.",
+    body: "From everyday document reading to reviewing many files updated by AI agents, Svard keeps change locations and comparison sources close to the rendered result.",
     primaryLink: { label: "Download", href: sitePath("en/download/") },
     secondaryLink: {
       label: "See the review workflow",
@@ -144,7 +144,7 @@ export const site = {
   features: {
     eyebrow: "Features",
     heading: "Review, understand, and verify document changes.",
-    lead: "Svard helps people catch up with technical documentation changed by AI agents while keeping the review local-first.",
+    lead: "Svard is a local-first desktop viewer for reading Markdown and AsciiDoc and reviewing changes as rendered documents, including large documentation updates made by AI agents.",
     screenshot: {
       ...screenshot(
         "reader-main.png",
@@ -156,7 +156,7 @@ export const site = {
     sections: [
       {
         title: "AI agent change review",
-        body: "Use All Diffs, Rendered Diff, Change Review Mode, and Revision Lens to review many document changes from the full set down to a specific Base comparison.",
+        body: "When an AI agent changes many documents, use All Diffs, Rendered Diff, Change Review Mode, and Revision Lens to move from the full change set down to a specific Base comparison.",
         screenshot: screenshot(
           "rendered-diff.png",
           "Preview diff screenshot",
@@ -248,26 +248,26 @@ export const site = {
   },
   docs: {
     eyebrow: "Docs",
-    lead: "Review technical documentation changed by AI agents as rendered documents in a local-first workspace.",
+    lead: "Learn how to read Markdown and AsciiDoc and review changes, including large documentation updates made by AI agents.",
     plannedLabel: "Planned",
     overview: {
       title: "What is Svard",
-      lead: "Svard helps people verify changes that AI agents make across many technical documents.",
+      lead: "Svard is a desktop viewer for reading technical documentation and reviewing changes while keeping rendered output, change locations, and the comparison source together. The same reading flow scales to updates that AI agents make across many documents.",
       notice: {
         title: "Release status",
         body: "These docs may include features prepared for an upcoming release or features that are not yet included in the current public build. Check the release notes and the distributed app for the exact feature set available in your version.",
       },
       sections: [
         {
-          title: "Catch up with AI agent changes",
+          title: "Read documents and review reader-visible changes",
           body: [
-            "All Diffs, Rendered Diff, Change Review Mode, and Revision Lens keep rendered output, change locations, and the Base or comparison source in one review flow. Svard does not run an AI agent or send documents to an LLM; it reviews changes already present in local files or Git comparisons.",
+            "Svard displays AsciiDoc and Markdown without rewriting source for viewer convenience, then focuses review on reader-visible changes rather than only source-line diffs. Tables, lists, diagrams, and structured content remain part of the document context.",
           ],
         },
         {
-          title: "Read and review changes as documents",
+          title: "Catch up with changes across many documents from AI agents",
           body: [
-            "Svard displays AsciiDoc and Markdown without rewriting source for viewer convenience, then focuses review on reader-visible changes rather than only source-line diffs. Tables, lists, diagrams, and structured content remain part of the document context.",
+            "When an AI agent updates many documents, All Diffs, Rendered Diff, Change Review Mode, and Revision Lens keep rendered output, change locations, and the Base or comparison source in one reading flow. Svard does not run an AI agent or send documents to an LLM; it reviews changes already present in local files or Git comparisons.",
           ],
         },
         {
@@ -308,7 +308,7 @@ export const site = {
           {
             slug: "what-is-svard",
             title: "What is Svard",
-            body: "Understand Svard as a local-first review environment for technical documentation changed by AI agents.",
+            body: "Understand Svard as a local-first desktop viewer that connects document reading with rendered change review.",
             state: "Available",
             href: sitePath("en/docs/"),
           },

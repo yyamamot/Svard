@@ -10,7 +10,7 @@ export const site = {
   locale: "ja",
   title: "Svard",
   description:
-    "AIエージェントが変更した技術文書を、Markdown / AsciiDoc のレンダリング結果としてローカルで確認するデスクトップレビュー環境",
+    "Markdown / AsciiDocを読み、変更をレンダリング結果として確認できるローカルファーストなデスクトップビューア",
   nav: {
     top: "トップ",
     features: "機能",
@@ -21,7 +21,7 @@ export const site = {
   },
   footer: {
     summary:
-      "Svard は、AIエージェントが変更した技術文書をレンダリング結果として人間が検証するためのデスクトップレビュー環境です。",
+      "Svardは、Markdown / AsciiDocを読み、変更をレンダリング結果として確認できるローカルファーストなデスクトップビューアです。",
     links: [
       { label: "GitHub", href: repositoryUrl },
       { label: "Releases", href: releasesUrl },
@@ -29,10 +29,10 @@ export const site = {
     ],
   },
   top: {
-    eyebrow: "AIエージェント変更のレンダリングレビュー",
+    eyebrow: "ローカル文書の閲覧とレンダリングレビュー",
     heading: "Svard",
-    lead: "AIエージェントが変更した技術文書を、レンダリング結果として検証する",
-    body: "多数の Markdown / AsciiDoc 文書を、レンダリング結果、変更位置、Base などの比較元と同じローカルファーストな読書フローに保ったまま確認できます。",
+    lead: "Markdown / AsciiDocを読み、変更をレンダリング結果として確認する",
+    body: "通常の文書閲覧から、AIエージェントが更新した多数の技術文書のレビューまで、変更位置や比較元を保ったまま確認できます。",
     primaryLink: { label: "ダウンロード", href: sitePath("ja/download/") },
     secondaryLink: {
       label: "レビューの流れを見る",
@@ -145,7 +145,7 @@ export const site = {
   features: {
     eyebrow: "Features",
     heading: "文書の変更を読み、理解し、検証する機能",
-    lead: "Svard は、AIエージェントが変更した技術文書へ人間が追いつくためのローカルファーストなレビュー環境です",
+    lead: "Svard は、Markdown / AsciiDoc を読み、変更をレンダリング結果として確認するためのローカルファーストなデスクトップビューアです。AIエージェントが更新した多数の文書も、同じレビューの流れで追えます。",
     screenshot: {
       ...screenshot(
         "reader-main.png",
@@ -157,7 +157,7 @@ export const site = {
     sections: [
       {
         title: "AIエージェントによる変更のレビュー",
-        body: "All Diffs、Rendered Diff、Change Review Mode、Revision Lens を使い、多数の変更文書から特定箇所の Base 比較まで段階的に確認します。",
+        body: "AIエージェントが多数の文書を変更したとき、All Diffs、Rendered Diff、Change Review Mode、Revision Lens を使い、変更全体から特定箇所の Base 比較まで段階的に確認します。",
         screenshot: screenshot(
           "rendered-diff.png",
           "差分画面",
@@ -249,26 +249,26 @@ export const site = {
   },
   docs: {
     eyebrow: "ドキュメント",
-    lead: "AIエージェントが変更した技術文書を、ローカルファーストな環境でレンダリング結果として確認します",
+    lead: "Markdown / AsciiDoc の閲覧から、AIエージェントが更新した多数の文書のレビューまで、Svard の機能と操作の流れを確認できます",
     plannedLabel: "Planned",
     overview: {
       title: "Svard とは",
-      lead: "Svard は、AIエージェントが変更した多数の技術文書を人間が検証するためのデスクトップレビュー環境です",
+      lead: "Svard は、技術文書を読み、レンダリング結果、変更位置、比較元を保ったまま変更を確認するデスクトップビューアです。AIエージェントによる多数文書の更新も、同じ読書フローで検証できます。",
       notice: {
         title: "リリース状況について",
         body: "この Docs には、次回リリース向けに準備中の機能や、現在の公開版にはまだ含まれていない機能が含まれる場合があります。実際に利用できる機能は、リリースノートと配布版の画面を確認してください。",
       },
       sections: [
         {
-          title: "AIエージェントの変更へ追いつく",
-          body: [
-            "All Diffs、Rendered Diff、Change Review Mode、Revision Lens は、レンダリング結果、変更位置、Base などの比較元を一つの読書フローに保ちます。Svard 自身は AI エージェントや LLM を実行せず、ローカルファイルや Git の比較にすでに存在する変更を確認します。",
-          ],
-        },
-        {
           title: "文書を読み、文書として見える差分を確認する",
           body: [
             "Svard は AsciiDoc / Markdown を閲覧の都合で書き換えずに表示し、ソース行だけでなく読み手に見える変化を中心に確認します。表、リスト、図表などの文脈を保ったまま変更内容を把握できます。",
+          ],
+        },
+        {
+          title: "AIエージェントによる多数文書の変更へ追いつく",
+          body: [
+            "AIエージェントが多数の文書を更新したとき、All Diffs、Rendered Diff、Change Review Mode、Revision Lens を使い、レンダリング結果、変更位置、Base などの比較元を一つの読書フローに保ちます。Svard 自身は AI エージェントや LLM を実行せず、ローカルファイルや Git の比較にすでに存在する変更を確認します。",
           ],
         },
         {
@@ -309,7 +309,7 @@ export const site = {
           {
             slug: "what-is-svard",
             title: "Svard とは",
-            body: "Svard を、AIエージェントが変更した技術文書のためのローカルファーストなレビュー環境として理解する入口です。",
+            body: "Svard を、文書の閲覧とレンダリング後の差分確認を一つにつなぐローカルファーストなデスクトップビューアとして理解する入口です。",
             state: "公開中",
             href: sitePath("ja/docs/"),
           },
