@@ -1,7 +1,9 @@
 use super::*;
 
 pub(super) mod batch;
-pub use batch::{git_branch_file_diffs_for_paths, git_file_commit_diffs_for_paths};
+pub use batch::{
+    git_branch_file_diffs_for_paths, git_diff_previews_for_paths, git_file_commit_diffs_for_paths,
+};
 
 const MAX_GIT_DIFF_PREVIEW_BATCH_PATHS: usize = 32;
 
@@ -158,78 +160,6 @@ pub fn git_diff_preview_for_path(path: &str) -> Result<GitDiffPreview, String> {
     };
     let context = WorktreePreviewContext::prepare(&repo, workdir)?;
     build_worktree_preview(&context, absolute_path, relative_path)
-}
-
-pub fn git_diff_previews_for_paths(
-    repository_root: &str,
-    relative_paths: Vec<String>,
-) -> Result<Vec<GitDiffPreviewBatchEntry>, String> {
-    if relative_paths.len() > MAX_GIT_DIFF_PREVIEW_BATCH_PATHS {
-        return Err(format!(
-            "Git diff preview batch accepts at most {MAX_GIT_DIFF_PREVIEW_BATCH_PATHS} paths."
-        ));
-    }
-
-    let (repo, workdir) = batch_repository_for_root(repository_root)?;
-    let context = WorktreePreviewContext::prepare(&repo, workdir)?;
-
-    Ok(relative_paths
-        .into_iter()
-        .map(|relative_path| {
-            batch_preview_for_relative_path(&context, &relative_path)
-                .map(|preview| GitDiffPreviewBatchEntry::Ready { preview })
-                .unwrap_or_else(|message| GitDiffPreviewBatchEntry::Error { message })
-        })
-        .collect())
-}
-
-fn batch_repository_for_root(repository_root: &str) -> Result<(gix::Repository, PathBuf), String> {
-    let requested_root = canonicalize_path(Path::new(repository_root))
-        .map_err(|error| format!("failed to resolve Git repository root: {error}"))?;
-    if !requested_root.is_dir() {
-        return Err("Git repository root is not a directory.".to_string());
-    }
-    let repo = gix::discover(&requested_root)
-        .map_err(|_| "Git repository root is not inside a Git repository.".to_string())?;
-    let workdir = repo_workdir(&repo)
-        .ok_or_else(|| "Bare repositories are not supported for preview diff.".to_string())?;
-    let canonical_workdir = canonicalize_path(&workdir)
-        .map_err(|error| format!("failed to resolve Git worktree root: {error}"))?;
-    if canonical_workdir != requested_root {
-        return Err("Git repository root does not match the discovered worktree.".to_string());
-    }
-    Ok((repo, canonical_workdir))
-}
-
-fn batch_preview_for_relative_path(
-    context: &WorktreePreviewContext<'_>,
-    relative_path: &str,
-) -> Result<GitDiffPreview, String> {
-    let relative_path = validated_batch_relative_path(relative_path)?;
-    let requested_path = context.workdir.join(&relative_path);
-    let absolute_path = absolute_candidate_path(&requested_path)?;
-    if !absolute_path.starts_with(&context.workdir) {
-        return Err("Git diff preview path resolves outside the repository root.".to_string());
-    }
-    let resolved_relative_path = absolute_path
-        .strip_prefix(&context.workdir)
-        .map_err(|_| "Git diff preview path resolves outside the repository root.".to_string())?
-        .to_path_buf();
-    build_worktree_preview(context, absolute_path, resolved_relative_path)
-}
-
-fn validated_batch_relative_path(relative_path: &str) -> Result<PathBuf, String> {
-    let path = Path::new(relative_path);
-    if relative_path.is_empty() || path.is_absolute() {
-        return Err("Git diff preview path must be a non-empty relative path.".to_string());
-    }
-    if path
-        .components()
-        .any(|component| !matches!(component, std::path::Component::Normal(_)))
-    {
-        return Err("Git diff preview path must not contain traversal components.".to_string());
-    }
-    Ok(path.to_path_buf())
 }
 
 fn build_worktree_preview(

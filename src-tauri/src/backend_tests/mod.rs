@@ -13,6 +13,7 @@ mod config;
 mod desktop_open;
 mod document_io;
 mod document_io_workspace_search;
+mod git_preview_batch_task;
 mod kroki;
 mod local_assets;
 mod path_policy;

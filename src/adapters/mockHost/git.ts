@@ -333,9 +333,7 @@ export async function getGitBranchFileDiffs(
     items: GitBranchDiffPreviewBatchItem[];
   },
 ): Promise<GitDiffPreviewBatchEntry[]> {
-  if (!repositoryRoot.replace(/[\\/]+$/, "")) {
-    throw new Error("Git diff preview repository root is required.");
-  }
+  requiredRepositoryRoot(repositoryRoot);
   return batchEntries(
     options.items,
     (item) => getGitBranchFileDiff(repositoryRoot, { ...options, ...item }),
@@ -362,42 +360,12 @@ export async function getGitDiffPreviews(
   repositoryRoot: string,
   relativePaths: string[],
 ): Promise<GitDiffPreviewBatchEntry[]> {
-  if (relativePaths.length > 32) {
-    throw new Error("Git diff preview batch exceeds the supported limit.");
-  }
-  const root = repositoryRoot.replace(/[\\/]+$/, "");
-  if (!root) {
-    throw new Error("Git diff preview repository root is required.");
-  }
-  return Promise.all(
-    relativePaths.map(async (relativePath) => {
-      const normalized = relativePath.replace(/\\/g, "/");
-      const segments = normalized.split("/");
-      if (
-        !normalized ||
-        normalized.startsWith("/") ||
-        /^[A-Za-z]:\//.test(normalized) ||
-        segments.some(
-          (segment) => !segment || segment === "." || segment === "..",
-        )
-      ) {
-        return {
-          status: "error" as const,
-          message: "Git diff preview path is outside the repository.",
-        };
-      }
-      try {
-        return {
-          status: "ready" as const,
-          preview: await getGitDiffPreview(`${root}/${normalized}`),
-        };
-      } catch {
-        return {
-          status: "error" as const,
-          message: "This file cannot be previewed right now.",
-        };
-      }
-    }),
+  const root = requiredRepositoryRoot(repositoryRoot);
+  return batchEntries(
+    relativePaths,
+    (relativePath) =>
+      getGitDiffPreview(`${root}/${relativePath.replace(/\\/g, "/")}`),
+    (relativePath) => relativePath,
   );
 }
 
@@ -443,6 +411,14 @@ function isSafeRepositoryRelativePath(path: string): boolean {
       (segment) => !segment || segment === "." || segment === "..",
     ),
   );
+}
+
+function requiredRepositoryRoot(repositoryRoot: string): string {
+  const root = repositoryRoot.replace(/[\\/]+$/, "");
+  if (!root) {
+    throw new Error("Git diff preview repository root is required.");
+  }
+  return root;
 }
 
 export async function getGitCommitGraph(
@@ -623,10 +599,7 @@ export async function getGitFileCommitDiffs(
   revision: string,
   relativePaths: string[],
 ): Promise<GitDiffPreviewBatchEntry[]> {
-  const root = repositoryRoot.replace(/[\\/]+$/, "");
-  if (!root) {
-    throw new Error("Git diff preview repository root is required.");
-  }
+  const root = requiredRepositoryRoot(repositoryRoot);
   return batchEntries(
     relativePaths,
     (relativePath) => getGitFileCommitDiff(`${root}/${relativePath}`, revision),

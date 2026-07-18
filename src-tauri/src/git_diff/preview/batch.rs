@@ -1,5 +1,17 @@
 use super::*;
 
+pub fn git_diff_previews_for_paths(
+    repository_root: &str,
+    relative_paths: Vec<String>,
+) -> Result<Vec<GitDiffPreviewBatchEntry>, String> {
+    validate_batch_size("Git diff preview batch", relative_paths.len())?;
+    let (repo, workdir) = batch_repository_for_root(repository_root)?;
+    let context = WorktreePreviewContext::prepare(&repo, workdir)?;
+    Ok(collect_batch_entries(relative_paths, |relative_path| {
+        batch_preview_for_relative_path(&context, &relative_path)
+    }))
+}
+
 struct BranchPreviewContext<'repo> {
     workdir: PathBuf,
     base_commit: gix::Commit<'repo>,
@@ -26,11 +38,7 @@ pub fn git_branch_file_diffs_for_paths(
     head_ref: Option<&str>,
     items: Vec<GitBranchDiffPreviewBatchItem>,
 ) -> Result<Vec<GitDiffPreviewBatchEntry>, String> {
-    if items.len() > MAX_GIT_DIFF_PREVIEW_BATCH_PATHS {
-        return Err(format!(
-            "Git Branch Diff preview batch accepts at most {MAX_GIT_DIFF_PREVIEW_BATCH_PATHS} paths."
-        ));
-    }
+    validate_batch_size("Git Branch Diff preview batch", items.len())?;
     let (repo, workdir) = batch_repository_for_root(repository_root)?;
     let context = prepare_branch_preview_context(&repo, workdir, base_ref, head_ref)?;
     Ok(branch_entries(&context, items))
@@ -64,14 +72,9 @@ fn branch_entries(
     context: &BranchPreviewContext<'_>,
     items: Vec<GitBranchDiffPreviewBatchItem>,
 ) -> Vec<GitDiffPreviewBatchEntry> {
-    items
-        .into_iter()
-        .map(|item| {
-            build_branch_preview(context, &item.path, item.old_path.as_deref())
-                .map(|preview| GitDiffPreviewBatchEntry::Ready { preview })
-                .unwrap_or_else(|message| GitDiffPreviewBatchEntry::Error { message })
-        })
-        .collect()
+    collect_batch_entries(items, |item| {
+        build_branch_preview(context, &item.path, item.old_path.as_deref())
+    })
 }
 
 fn build_branch_preview(
@@ -108,11 +111,7 @@ pub fn git_file_commit_diffs_for_paths(
     revision: &str,
     relative_paths: Vec<String>,
 ) -> Result<Vec<GitDiffPreviewBatchEntry>, String> {
-    if relative_paths.len() > MAX_GIT_DIFF_PREVIEW_BATCH_PATHS {
-        return Err(format!(
-            "Git commit preview batch accepts at most {MAX_GIT_DIFF_PREVIEW_BATCH_PATHS} paths."
-        ));
-    }
+    validate_batch_size("Git commit preview batch", relative_paths.len())?;
     let (repo, workdir) = batch_repository_for_root(repository_root)?;
     let context = prepare_commit_preview_context(&repo, workdir, revision)?;
     Ok(commit_entries(&context, relative_paths))
@@ -147,14 +146,81 @@ fn commit_entries(
     context: &CommitPreviewContext<'_>,
     relative_paths: Vec<String>,
 ) -> Vec<GitDiffPreviewBatchEntry> {
-    relative_paths
+    collect_batch_entries(relative_paths, |relative_path| {
+        build_commit_preview(context, &relative_path)
+    })
+}
+
+fn validate_batch_size(label: &str, item_count: usize) -> Result<(), String> {
+    if item_count > MAX_GIT_DIFF_PREVIEW_BATCH_PATHS {
+        return Err(format!(
+            "{label} accepts at most {MAX_GIT_DIFF_PREVIEW_BATCH_PATHS} paths."
+        ));
+    }
+    Ok(())
+}
+
+fn collect_batch_entries<T>(
+    items: Vec<T>,
+    mut build: impl FnMut(T) -> Result<GitDiffPreview, String>,
+) -> Vec<GitDiffPreviewBatchEntry> {
+    items
         .into_iter()
-        .map(|relative_path| {
-            build_commit_preview(context, &relative_path)
+        .map(|item| {
+            build(item)
                 .map(|preview| GitDiffPreviewBatchEntry::Ready { preview })
                 .unwrap_or_else(|message| GitDiffPreviewBatchEntry::Error { message })
         })
         .collect()
+}
+
+fn batch_repository_for_root(repository_root: &str) -> Result<(gix::Repository, PathBuf), String> {
+    let requested_root = canonicalize_path(Path::new(repository_root))
+        .map_err(|error| format!("failed to resolve Git repository root: {error}"))?;
+    if !requested_root.is_dir() {
+        return Err("Git repository root is not a directory.".to_string());
+    }
+    let repo = gix::discover(&requested_root)
+        .map_err(|_| "Git repository root is not inside a Git repository.".to_string())?;
+    let workdir = repo_workdir(&repo)
+        .ok_or_else(|| "Bare repositories are not supported for preview diff.".to_string())?;
+    let canonical_workdir = canonicalize_path(&workdir)
+        .map_err(|error| format!("failed to resolve Git worktree root: {error}"))?;
+    if canonical_workdir != requested_root {
+        return Err("Git repository root does not match the discovered worktree.".to_string());
+    }
+    Ok((repo, canonical_workdir))
+}
+
+fn batch_preview_for_relative_path(
+    context: &WorktreePreviewContext<'_>,
+    relative_path: &str,
+) -> Result<GitDiffPreview, String> {
+    let relative_path = validated_batch_relative_path(relative_path)?;
+    let requested_path = context.workdir.join(&relative_path);
+    let absolute_path = absolute_candidate_path(&requested_path)?;
+    if !absolute_path.starts_with(&context.workdir) {
+        return Err("Git diff preview path resolves outside the repository root.".to_string());
+    }
+    let resolved_relative_path = absolute_path
+        .strip_prefix(&context.workdir)
+        .map_err(|_| "Git diff preview path resolves outside the repository root.".to_string())?
+        .to_path_buf();
+    build_worktree_preview(context, absolute_path, resolved_relative_path)
+}
+
+fn validated_batch_relative_path(relative_path: &str) -> Result<PathBuf, String> {
+    let path = Path::new(relative_path);
+    if relative_path.is_empty() || path.is_absolute() {
+        return Err("Git diff preview path must be a non-empty relative path.".to_string());
+    }
+    if path
+        .components()
+        .any(|component| !matches!(component, std::path::Component::Normal(_)))
+    {
+        return Err("Git diff preview path must not contain traversal components.".to_string());
+    }
+    Ok(path.to_path_buf())
 }
 
 fn build_commit_preview(
@@ -243,4 +309,44 @@ pub(in crate::git_diff) fn probe_commit_file_diffs_for_paths(
             preview_build_ms: preview_started_at.elapsed().as_secs_f64() * 1_000.0,
         },
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn common_batch_runner_preserves_order_and_isolates_errors() {
+        let entries = collect_batch_entries(vec!["first", "invalid", "last"], |item| {
+            if item == "invalid" {
+                return Err("fixture error".to_string());
+            }
+            let mut preview = empty_preview(GitDiffStatus::Clean, None, None, None);
+            preview.relative_path = Some(item.to_string());
+            Ok(preview)
+        });
+
+        assert!(matches!(
+            &entries[0],
+            GitDiffPreviewBatchEntry::Ready { preview }
+                if preview.relative_path.as_deref() == Some("first")
+        ));
+        assert!(matches!(
+            &entries[1],
+            GitDiffPreviewBatchEntry::Error { message } if message == "fixture error"
+        ));
+        assert!(matches!(
+            &entries[2],
+            GitDiffPreviewBatchEntry::Ready { preview }
+                if preview.relative_path.as_deref() == Some("last")
+        ));
+    }
+
+    #[test]
+    fn common_batch_limit_preserves_route_specific_labels() {
+        assert_eq!(
+            validate_batch_size("Git commit preview batch", 33),
+            Err("Git commit preview batch accepts at most 32 paths.".to_string())
+        );
+    }
 }

@@ -391,11 +391,10 @@ async fn get_git_diff_previews(
     repository_root: String,
     relative_paths: Vec<String>,
 ) -> Result<Vec<git_diff::GitDiffPreviewBatchEntry>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    run_git_preview_batch_task("Git diff preview batch", move || {
         git_diff::git_diff_previews_for_paths(&repository_root, relative_paths)
     })
     .await
-    .map_err(|error| format!("Git diff preview batch task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -499,7 +498,7 @@ async fn get_git_branch_file_diffs(
     head_ref: Option<String>,
     items: Vec<git_diff::GitBranchDiffPreviewBatchItem>,
 ) -> Result<Vec<git_diff::GitDiffPreviewBatchEntry>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    run_git_preview_batch_task("Git Branch Diff preview batch", move || {
         git_diff::git_branch_file_diffs_for_paths(
             &repository_root,
             &base_ref,
@@ -508,7 +507,6 @@ async fn get_git_branch_file_diffs(
         )
     })
     .await
-    .map_err(|error| format!("Git Branch Diff preview batch task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -560,15 +558,19 @@ async fn get_git_file_commit_diffs(
     revision: String,
     relative_paths: Vec<String>,
 ) -> Result<Vec<git_diff::GitDiffPreviewBatchEntry>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        git_diff::git_file_commit_diffs_for_paths(
-            &repository_root,
-            &revision,
-            relative_paths,
-        )
+    run_git_preview_batch_task("Git commit preview batch", move || {
+        git_diff::git_file_commit_diffs_for_paths(&repository_root, &revision, relative_paths)
     })
     .await
-    .map_err(|error| format!("Git commit preview batch task failed: {error}"))?
+}
+
+async fn run_git_preview_batch_task(
+    label: &'static str,
+    task: impl FnOnce() -> Result<Vec<git_diff::GitDiffPreviewBatchEntry>, String> + Send + 'static,
+) -> Result<Vec<git_diff::GitDiffPreviewBatchEntry>, String> {
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|error| format!("{label} task failed: {error}"))?
 }
 
 #[tauri::command]

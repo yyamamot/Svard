@@ -13,6 +13,7 @@ import type {
   DocumentDiffStreamPanelProps,
 } from "./documentDiffStream/types";
 import { useDocumentDiffStreamGestures } from "./documentDiffStream/useDocumentDiffStreamGestures";
+import { createDocumentDiffStreamGitPreviewLoader } from "./documentDiffStream/gitPreviewLoader";
 import { useDocumentDiffStreamLoader } from "./documentDiffStream/useDocumentDiffStreamLoader";
 import { useDocumentDiffStreamNavigation } from "./documentDiffStream/useDocumentDiffStreamNavigation";
 import { CaptureAreaOverlay } from "./CaptureAreaOverlay";
@@ -79,6 +80,25 @@ export function DocumentDiffStreamPanel({
     target: HTMLElement;
     variant: CaptureAreaVariant;
   } | null>(null);
+  const gitPreviewLoader = useMemo(
+    () =>
+      createDocumentDiffStreamGitPreviewLoader({
+        getGitDiffPreview,
+        getGitDiffPreviews,
+        getGitBranchFileDiff,
+        getGitBranchFileDiffs,
+        getGitFileCommitDiff,
+        getGitFileCommitDiffs,
+      }),
+    [
+      getGitBranchFileDiff,
+      getGitBranchFileDiffs,
+      getGitDiffPreview,
+      getGitDiffPreviews,
+      getGitFileCommitDiff,
+      getGitFileCommitDiffs,
+    ],
+  );
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -120,12 +140,7 @@ export function DocumentDiffStreamPanel({
     useDocumentDiffStreamLoader({
       config,
       confirmedRemoteDiagramKeys,
-      getGitDiffPreview,
-      getGitDiffPreviews,
-      getGitBranchFileDiff,
-      getGitBranchFileDiffs,
-      getGitFileCommitDiff,
-      getGitFileCommitDiffs,
+      gitPreviewLoader,
       krokiFallbackDiagramKeys,
       loadDocumentContext,
       preview,
