@@ -444,6 +444,7 @@ h2 {
 
 .statement,
 .split-note,
+.review-flow,
 .platform-support {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -470,6 +471,58 @@ h2 {
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
   gap: 48px;
   align-items: center;
+}
+
+.review-flow-header {
+  max-width: 760px;
+}
+
+.review-flow-header h2 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.review-flow-header > p:last-child,
+.review-flow-list p {
+  color: var(--muted);
+}
+
+.review-flow-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 36px 0 28px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  padding: 0;
+  background: var(--line);
+  list-style: none;
+}
+
+.review-flow-list li {
+  min-width: 0;
+  background: rgba(251, 248, 241, 0.96);
+}
+
+.review-flow-list article {
+  min-height: 230px;
+  padding: 26px;
+}
+
+.review-flow-index {
+  display: block;
+  margin-bottom: 30px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.review-flow-list h3 {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
 }
 
 .resource-section h2 {

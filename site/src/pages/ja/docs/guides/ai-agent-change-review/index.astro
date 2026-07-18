@@ -1,0 +1,17 @@
+---
+import { site } from "../../../../../content/site.ja";
+import LandingLayout from "../../../../../layouts/LandingLayout.astro";
+import FeatureDocPage from "../../../../../components/FeatureDocPage.astro";
+
+const guide = site.docs.guides.aiAgentChangeReview;
+---
+
+<LandingLayout site={site} pageTitle={guide.title} pageDescription={guide.lead}>
+  <FeatureDocPage
+    docs={site.docs}
+    feature={guide}
+    labels={site.docs.articleLabels}
+    eyebrow={site.docs.guideEyebrow}
+    activeSlug="ai-agent-change-review"
+  />
+</LandingLayout>

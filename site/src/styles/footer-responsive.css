@@ -53,8 +53,13 @@
   .feature-list,
   .download-card-list,
   .faq-list,
-  .screenshot-gallery {
+  .screenshot-gallery,
+  .review-flow-list {
     grid-template-columns: 1fr;
+  }
+
+  .review-flow-list article {
+    min-height: auto;
   }
 
   .docs-shell {

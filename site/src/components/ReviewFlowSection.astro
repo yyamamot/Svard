@@ -1,0 +1,27 @@
+---
+const { content } = Astro.props;
+---
+
+<section class="section-shell review-flow">
+  <header class="review-flow-header">
+    <p class="eyebrow">{content.label}</p>
+    <h2>{content.title}</h2>
+    <p>{content.body}</p>
+  </header>
+  <ol class="review-flow-list">
+    {
+      content.steps.map((step, index) => (
+        <li>
+          <article>
+            <span class="review-flow-index" aria-hidden="true">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
+          </article>
+        </li>
+      ))
+    }
+  </ol>
+  <a class="text-link" href={content.link.href}>{content.link.label}</a>
+</section>

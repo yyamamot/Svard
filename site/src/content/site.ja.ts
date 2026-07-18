@@ -34,7 +34,10 @@ export const site = {
     lead: "AIエージェントが変更した技術文書を、レンダリング結果として検証する",
     body: "多数の Markdown / AsciiDoc 文書を、レンダリング結果、変更位置、Base などの比較元と同じローカルファーストな読書フローに保ったまま確認できます。",
     primaryLink: { label: "ダウンロード", href: sitePath("ja/download/") },
-    secondaryLink: { label: "機能", href: sitePath("ja/features/") },
+    secondaryLink: {
+      label: "レビューの流れを見る",
+      href: sitePath("ja/docs/guides/ai-agent-change-review/"),
+    },
     screenshot: {
       ...screenshot(
         "rendered-diff.png",
@@ -71,18 +74,6 @@ export const site = {
     ],
     highlights: [
       {
-        title: "多数の変更文書を続けて確認する",
-        body: "All Diffs で変更された Markdown / AsciiDoc 文書を、一つの連続したレビュー表示として確認します。",
-      },
-      {
-        title: "レンダリング結果を比較する",
-        body: "ソース行だけでなく、文章、リスト、表、図表を読者に見える形で確認します。",
-      },
-      {
-        title: "比較元を近くに保つ",
-        body: "Change Review Mode と Revision Lens で変更を見つけ、必要な間だけ Base を表示します。",
-      },
-      {
         title: "AsciiDoc / Markdown を読む",
         body: "編集ツール化やビューア都合のソース書き換えをせず、技術文書として確認します。",
       },
@@ -100,8 +91,32 @@ export const site = {
       body: "Svard はローカルファイルを前提にしたビューアです。Kroki は未対応、完全互換、ユーザーが明示設定した場合のフォールバックとして扱い、暗黙の公開サービス依存にはしません。",
     },
     diff: {
-      title: "AIエージェントの変更へ文書として追いつく",
-      body: "All Diffs と Rendered Diff は、Git やファイルの比較を Markdown / AsciiDoc のレンダリング結果として整理します。変更位置を見失わず、文章、リスト、表、図表を読者に見える形で確認できます。",
+      label: "Full Preview",
+      title: "まず、文書として見える差分を確認する",
+      body: "Full Preview は、AIエージェントによる変更をソース行だけでなく、読者に見える文書として左右に並べます。文章、リスト、表、図表の変化と周辺の文脈を同じ画面で確認できます。",
+    },
+    reviewFlow: {
+      label: "Review workflow",
+      title: "一つの差分から、多数文書のレビューへ",
+      body: "Full Previewで変更の意味を読み、All Diffsで同じ確認を多数の文書へ広げ、最後に通常の閲覧画面で文書全体の流れを確かめます。",
+      steps: [
+        {
+          title: "Full Previewで読む",
+          body: "変更前後をレンダリング結果として比較し、読者に見える変化を周辺の文脈と一緒に理解します。",
+        },
+        {
+          title: "All Diffsへ広げる",
+          body: "変更文書を一つのレビューとして開き、Files、Previous / Next、右端の全体ルーラーを使って確認対象を巡回します。",
+        },
+        {
+          title: "読書の流れで確かめる",
+          body: "Change Review ModeのSubtle表示で変更位置を見つけ、余白マーカーを押している間だけRevision LensでBaseを確認します。",
+        },
+      ],
+      link: {
+        label: "AIエージェント変更のレビュー手順を読む",
+        href: sitePath("ja/docs/guides/ai-agent-change-review/"),
+      },
     },
     faq: [
       {
@@ -265,6 +280,7 @@ export const site = {
       ],
     },
     featureEyebrow: "機能ドキュメント",
+    guideEyebrow: "レビューワークフロー",
     backLabel: "ドキュメントに戻る",
     articleLabels: {
       whatThisFeatureIs: "この機能について",
@@ -275,6 +291,18 @@ export const site = {
       related: "関連機能",
     },
     groups: [
+      {
+        title: "AIエージェント変更のレビュー",
+        items: [
+          {
+            slug: "ai-agent-change-review",
+            title: "変更文書をレビューする",
+            body: "Full PreviewからAll Diffs、Change Review Modeへ進む一連の確認手順です。",
+            state: "公開中",
+            href: sitePath("ja/docs/guides/ai-agent-change-review/"),
+          },
+        ],
+      },
       {
         title: "はじめに",
         items: [
@@ -702,6 +730,64 @@ export const site = {
         ],
       },
     ],
+    guides: {
+      aiAgentChangeReview: {
+        title: "AIエージェントが変更した文書をレビューする",
+        lead: "Full Previewで一つの変更を理解し、All Diffsで多数文書へ広げ、通常の閲覧画面で文書全体を確かめる手順です",
+        whatThisFeatureIs:
+          "Svardは、ローカルファイルやGitの比較にすでに存在する変更を、人間がレンダリング結果として検証するための環境です。AIエージェントを実行したり、変更者がAIかどうかを判定したりはしません。",
+        whenToUse:
+          "AIエージェントがMarkdownやAsciiDocをまとめて変更し、ソース差分だけでは読者への影響や確認順序を判断しづらい時に使います。人間が行った通常の文書変更にも同じ手順を使えます。",
+        workflow: [
+          {
+            title: "Full Previewで文書として見える変化を読む",
+            body: "変更前と変更後をレンダリング結果として左右に並べます。Full Previewを基本にし、文章、リスト、表、図表の変化を周辺の文脈と一緒に確認します。Changes Onlyは変更箇所だけを短く巡回したい時、Sourceは正確なソース行を確認したい時に使います。",
+            screenshot: screenshot(
+              "rendered-diff.png",
+              "Full Previewでのレンダリング差分",
+              "変更前後の文書をFull Previewで左右に並べて確認している状態を示します。",
+              "SvardのFull Previewでレンダリング差分を確認している画面",
+            ),
+          },
+          {
+            title: "All Diffsで多数の変更文書へ広げる",
+            body: "Source ControlのChanges、Branch Diff、またはRepo GraphのコミットからAll Diffsを開きます。Filesで対象文書を確認し、Previous / Nextと右端の全体ルーラーでレビュー全体を巡回します。各文書ではFull Previewと同じレンダリング差分を確認できます。",
+          },
+          {
+            title: "確認する比較範囲を選ぶ",
+            body: "作業中の変更はChanges、ブランチ全体はBranch Diff、選択したコミットはRepo Graphから開きます。どの入口でも読み取り専用のレビューとして扱い、stage、commit、mergeは行いません。",
+            screenshot: screenshot(
+              "source-control-changes.png",
+              "レビュー範囲を選ぶSource Control",
+              "ローカル変更を文書レビューの対象として確認している状態を示します。",
+              "SvardのSource Controlで変更文書を確認している画面",
+            ),
+          },
+          {
+            title: "Change Review Modeで文書全体を読み直す",
+            body: "通常の閲覧画面へ戻り、Change Review Modeを有効にします。Subtleは本文を強調しすぎず左余白の範囲マーカーで変更位置を示します。Detailedは変更領域を明確に確認したい時に使います。",
+            screenshot: screenshot(
+              "change-review-mode-markers.png",
+              "通常の閲覧画面での変更マーカー",
+              "Change Review Modeで変更位置を文書全体の中に示した状態です。",
+              "SvardのChange Review Modeで変更マーカーを表示している画面",
+            ),
+          },
+          {
+            title: "Revision LensでBaseを一時表示する",
+            body: "気になる変更の左余白マーカーを押している間だけ、対応する表示をBaseへ切り替えます。マーカーを離すとWorking Treeへ戻るため、読書位置を失わずに変更前後を反復して確認できます。",
+          },
+        ],
+        limitations:
+          "Revision Lensは現在の作業ツリーで安全に比較元を解決できる変更を対象にします。対応付けできない内容はBase unavailableとして扱い、推測した比較元は表示しません。Svardは変更理由やAIエージェントの実行履歴を保存せず、レビュー結果を自動判定しません。",
+        related: [
+          "プレビューベースの差分確認",
+          "変更一覧",
+          "Change Review Mode",
+          "変更ナビゲータ",
+        ],
+      },
+    },
     features: {
       firstDocument: {
         title: "最初の文書を読む",
@@ -1833,14 +1919,18 @@ export const site = {
             ),
           },
           {
-            title: "プレビュー上で変化を確認する",
-            body: "ソース行の変更だけでなく、文書として見える変化をプレビュー上で確認します。",
+            title: "Full Previewで変化を確認する",
+            body: "Full Previewを基本にし、変更前後の文書を周辺の文脈と一緒に確認します。左余白の範囲マーカーは各ペインの変更位置、右端の全体ルーラーは文書全体での変更分布を示します。Previous / Nextで表示中の変更を順番に移動できます。",
             screenshot: screenshot(
               "rendered-diff.png",
-              "プレビュー差分",
-              "差分確認画面上の文書変化を示します。",
-              "Svard のプレビュー差分確認画面",
+              "Full Previewのプレビュー差分",
+              "変更前後の文書をFull Previewで確認している状態を示します。",
+              "SvardのFull Previewでレンダリング差分を確認している画面",
             ),
+          },
+          {
+            title: "目的に応じて表示を切り替える",
+            body: "Changes Onlyは変更箇所だけを短く確認する時、Sourceは正確なソース行を見る時、Tableは対応できる表をセル単位で確認する時に使います。Overviewは差分全体の要約から確認対象を選ぶ入口です。",
           },
         ],
         limitations:
@@ -2175,7 +2265,7 @@ export const site = {
         title: "Change Review Mode",
         lead: "Change Review Mode は、設定で有効化した時に、AIエージェントや人間による現在の変更を通常の閲覧画面で確認する機能です",
         whatThisFeatureIs:
-          "閲覧中の文書に作業中の変更がある場合、本文、リスト、表の近くに変更マーカーを表示します。この表示は既定では無効です。使う場合は設定画面で Change Review Mode を有効にします。",
+          "閲覧中の文書に作業中の変更がある場合、本文、リスト、表の近くに変更マーカーを表示します。Subtleは本文を強調せず左余白の範囲マーカーを使い、Detailedは変更領域も明確に示します。余白マーカーを押している間は、Revision Lensで対応するBaseを一時表示できます。この表示は既定では無効です。",
         whenToUse:
           "変更された文書へ追いつく途中で、現在の変更箇所を文脈の中で確認したい時に使います。",
         workflow: [
@@ -2190,8 +2280,8 @@ export const site = {
             ),
           },
           {
-            title: "通常の閲覧画面で変更を見る",
-            body: "有効化すると、差分専用画面を開かず、文書プレビュー内で作業中の変更箇所を確認できます。",
+            title: "SubtleまたはDetailedで変更を見る",
+            body: "Subtleは読書表示を強調しすぎず、左余白の範囲マーカーだけで変更位置を示します。変更領域をはっきり確認したい時はDetailedへ切り替えます。どちらも差分専用画面を開かず、文書全体の中で変更を確認できます。",
             screenshot: screenshot(
               "change-review-mode-markers.png",
               "通常閲覧画面の変更マーカー",
@@ -2199,9 +2289,13 @@ export const site = {
               "Svard の閲覧画面で現在の変更マーカーを表示している画面",
             ),
           },
+          {
+            title: "余白マーカーを押してBaseを確認する",
+            body: "気になる変更の左余白マーカーを押している間だけ、対応する表示をBaseへ切り替えます。マーカーを離すとWorking Treeへ戻るため、読書位置を維持したまま変更前後を反復して確認できます。",
+          },
         ],
         limitations:
-          "この機能は既定では無効です。作業中の変更を読むための補助であり、ステージング、コミット、マージなどの操作は扱いません。複雑な構造では、精密なセルや項目単位ではなく広い範囲の表示になる場合があります。",
+          "この機能は既定では無効で、Revision Lensは現在の作業ツリーに対して安全にBaseを解決できる変更だけを対象にします。対応付けできない場合はBase unavailableと表示し、比較元を推測しません。ステージング、コミット、マージなどの操作は扱いません。",
         related: [
           "表とリストの差分確認",
           "変更一覧",
@@ -2354,13 +2448,7 @@ export const site = {
           },
           {
             title: "一括差分を確認する",
-            body: "All diffs を開くと、対応している Markdown / AsciiDoc の変更文書をファイル単位の stream として確認できます。Previous / Next、変更ルーラー、ショートカットは stream 全体の変更間移動に使えます。",
-            screenshot: screenshot(
-              "source-control-open-diff.png",
-              "All diffs の入口",
-              "変更一覧から一括差分確認へ進む入口を示します。",
-              "Svard の Source Control で All diffs へ進む入口を表示している画面",
-            ),
+            body: "All Diffsを開くと、対応しているMarkdown / AsciiDocの変更文書を一つのレビューとして確認できます。Filesで文書全体と現在位置を把握し、Previous / Next、左余白の変更マーカー、右端の全体ルーラーで確認対象を巡回します。各文書ではFull Previewと同じレンダリング結果を確認できます。",
           },
         ],
         limitations:
@@ -2416,6 +2504,10 @@ export const site = {
               "Svard の Branch Diff からプレビュー差分を開いている画面",
             ),
           },
+          {
+            title: "ブランチ内の文書をAll Diffsで確認する",
+            body: "変更文書を一つずつ開く代わりにAll Diffsを使うと、選択した基準ブランチとの差分を一つの連続した文書レビューとして巡回できます。",
+          },
         ],
         limitations:
           "Branch Diff は読み取り専用のレビュー入口です。このページでは stage、commit、checkout、fetch、merge は扱いません。リモート側の対象ブランチ検出は、設定がある場合の補助として扱います。",
@@ -2452,6 +2544,10 @@ export const site = {
               "複数のコミットが並ぶ Repo Graph を示します。",
               "Svard の Source Control で Repo Graph を表示している画面",
             ),
+          },
+          {
+            title: "選択したコミットをAll Diffsで確認する",
+            body: "コミット詳細からAll Diffsを開くと、そのコミットで変わった対応文書を一つのレンダリングレビューとして巡回できます。",
           },
         ],
         limitations:
