@@ -9,7 +9,8 @@ const issuesUrl = "https://github.com/yyamamot/Svard/issues";
 export const site = {
   locale: "en",
   title: "Svard",
-  description: "A desktop viewer for reading AsciiDoc and Markdown.",
+  description:
+    "Review technical documentation changed by AI agents as rendered Markdown and AsciiDoc, locally.",
   nav: {
     top: "Top",
     features: "Features",
@@ -20,7 +21,7 @@ export const site = {
   },
   footer: {
     summary:
-      "Svard is a desktop viewer for reading, searching, and comparing local technical documents.",
+      "Svard helps people review technical documentation changed by AI agents as rendered documents.",
     links: [
       { label: "GitHub", href: repositoryUrl },
       { label: "Releases", href: releasesUrl },
@@ -28,10 +29,10 @@ export const site = {
     ],
   },
   top: {
-    eyebrow: "Local-first document viewer",
+    eyebrow: "Rendered review for AI agent changes",
     heading: "Svard",
-    lead: "A desktop viewer for rendered AsciiDoc and Markdown diff review.",
-    body: "Open local technical documents safely, render Markdown and AsciiDoc first, then compare reader-visible changes across prose, lists, tables, diagrams, and source views.",
+    lead: "Review technical documentation changed by AI agents as rendered documents.",
+    body: "Move through many changed Markdown and AsciiDoc documents while keeping rendered output, change locations, and the Base or comparison source in the same local-first review flow.",
     primaryLink: { label: "Download", href: sitePath("en/download/") },
     secondaryLink: { label: "Features", href: sitePath("en/features/") },
     screenshot: {
@@ -70,28 +71,28 @@ export const site = {
     ],
     highlights: [
       {
+        title: "Review many changed documents",
+        body: "Use All Diffs to move through changed Markdown and AsciiDoc documents as one review stream.",
+      },
+      {
+        title: "Compare rendered results",
+        body: "Inspect prose, lists, tables, and diagrams as readers see them, not only as source line diffs.",
+      },
+      {
+        title: "Keep the comparison close",
+        body: "Use Change Review Mode and Revision Lens to find a change and temporarily reveal its Base.",
+      },
+      {
         title: "Read AsciiDoc / Markdown",
-        body: "Designed as a viewer for technical documents, not as an editing tool.",
-      },
-      {
-        title: "Separate search scopes",
-        body: "Search the current document or the full workspace without breaking reading flow.",
-      },
-      {
-        title: "Compare rendered diffs",
-        body: "Compare changes as rendered documents, not only as source line diffs.",
-      },
-      {
-        title: "Render diagrams locally",
-        body: "Mermaid, PlantUML, and Graphviz use local rendering as the primary path.",
+        body: "Review technical documents without turning Svard into an editing tool or rewriting source for viewer convenience.",
       },
       {
         title: "Use browser-like navigation",
         body: "Move between documents with tabs, back and forward navigation, bookmarks, and mouse gestures.",
       },
       {
-        title: "Review Git changes",
-        body: "Review Git changes and differences from GitHub or GitLab merge targets as reader-visible rendered output.",
+        title: "Render diagrams locally",
+        body: "Mermaid, PlantUML, and Graphviz use local rendering as the primary path.",
       },
     ],
     privacy: {
@@ -99,10 +100,15 @@ export const site = {
       body: "Svard assumes local files. Kroki is treated only as a fallback for unsupported, fully compatible, or explicitly configured cases. It is not an implicit public-service default.",
     },
     diff: {
-      title: "Compare the rendered result",
-      body: "Git and file-to-file comparison are organized around rendered Markdown and AsciiDoc output, not only line-based source diffs. Prose, lists, tables, and diagrams can be reviewed in the form readers actually see.",
+      title: "Catch up with AI agent changes as documents",
+      body: "All Diffs and Rendered Diff organize Git and file comparisons around rendered Markdown and AsciiDoc output. Change locations stay visible while prose, lists, tables, and diagrams are reviewed in the form readers actually see.",
     },
     faq: [
+      {
+        question: "Does Svard run AI agents or send documents to an LLM?",
+        answer:
+          "No. Svard reviews changes that already exist in local files or Git comparisons. It does not run an AI agent, call an LLM, or send documents to an AI service.",
+      },
       {
         question: "Is Svard an editor?",
         answer:
@@ -122,8 +128,8 @@ export const site = {
   },
   features: {
     eyebrow: "Features",
-    heading: "Capabilities for reading, searching, and comparing.",
-    lead: "Svard is not an editor or IDE. It is a local-first desktop viewer for technical documents.",
+    heading: "Review, understand, and verify document changes.",
+    lead: "Svard helps people catch up with technical documentation changed by AI agents while keeping the review local-first.",
     screenshot: {
       ...screenshot(
         "reader-main.png",
@@ -134,8 +140,28 @@ export const site = {
     },
     sections: [
       {
+        title: "AI agent change review",
+        body: "Use All Diffs, Rendered Diff, Change Review Mode, and Revision Lens to review many document changes from the full set down to a specific Base comparison.",
+        screenshot: screenshot(
+          "rendered-diff.png",
+          "Preview diff screenshot",
+          "Shows visible document changes in the rendered diff preview.",
+          "Svard preview diff view",
+        ),
+      },
+      {
+        title: "Source Control",
+        body: "Use local changes, All Diffs, branch diffs, and file history as read-only entry points for document review in the same workspace.",
+        screenshot: screenshot(
+          "source-control.png",
+          "Source Control screenshot",
+          "Shows Source Control as the entry point for reviewing document changes.",
+          "Svard Source Control view",
+        ),
+      },
+      {
         title: "AsciiDoc / Markdown reading",
-        body: "Open AsciiDoc and Markdown technical documents as a viewer. Svard does not rewrite source for viewer convenience.",
+        body: "Open technical documents as a viewer without rewriting source for viewer convenience.",
         screenshot: screenshot(
           "reader-main.png",
           "Reading screenshot",
@@ -161,26 +187,6 @@ export const site = {
           "Search screenshot",
           "Shows the search panel and matching content in the reader.",
           "Svard search view",
-        ),
-      },
-      {
-        title: "Preview-based diff review",
-        body: "Review Git changes and differences from GitHub or GitLab merge targets in the preview, not only as source line diffs.",
-        screenshot: screenshot(
-          "rendered-diff.png",
-          "Preview diff screenshot",
-          "Shows visible document changes in the rendered diff preview.",
-          "Svard preview diff view",
-        ),
-      },
-      {
-        title: "Source Control",
-        body: "Use Git changes, branch diffs, and file history as entry points for document review in the same workspace.",
-        screenshot: screenshot(
-          "source-control.png",
-          "Source Control screenshot",
-          "Shows Source Control as the entry point for reviewing document changes.",
-          "Svard Source Control view",
         ),
       },
       {
@@ -227,26 +233,26 @@ export const site = {
   },
   docs: {
     eyebrow: "Docs",
-    lead: "Svard is a desktop viewer for reading, searching, and comparing local technical documents.",
+    lead: "Review technical documentation changed by AI agents as rendered documents in a local-first workspace.",
     plannedLabel: "Planned",
     overview: {
       title: "What is Svard",
-      lead: "Svard is a desktop viewer for reading, searching, and comparing local technical documents.",
+      lead: "Svard helps people verify changes that AI agents make across many technical documents.",
       notice: {
         title: "Release status",
         body: "These docs may include features prepared for an upcoming release or features that are not yet included in the current public build. Check the release notes and the distributed app for the exact feature set available in your version.",
       },
       sections: [
         {
-          title: "A workspace for local documents",
+          title: "Catch up with AI agent changes",
           body: [
-            "Svard displays AsciiDoc and Markdown source without rewriting it for viewer convenience. Open a local folder, move between documents, and read technical material that includes diagrams, tables, and structured content.",
+            "All Diffs, Rendered Diff, Change Review Mode, and Revision Lens keep rendered output, change locations, and the Base or comparison source in one review flow. Svard does not run an AI agent or send documents to an LLM; it reviews changes already present in local files or Git comparisons.",
           ],
         },
         {
-          title: "Review changes as documents",
+          title: "Read and review changes as documents",
           body: [
-            "Svard focuses on reader-visible changes, not only source-line diffs. When a review involves tables, lists, or diagrams, the goal is to make the document-level change easier to inspect.",
+            "Svard displays AsciiDoc and Markdown without rewriting source for viewer convenience, then focuses review on reader-visible changes rather than only source-line diffs. Tables, lists, diagrams, and structured content remain part of the document context.",
           ],
         },
         {
@@ -274,7 +280,7 @@ export const site = {
           {
             slug: "what-is-svard",
             title: "What is Svard",
-            body: "Understand Svard as a local-first desktop viewer for technical documents.",
+            body: "Understand Svard as a local-first review environment for technical documentation changed by AI agents.",
             state: "Available",
             href: sitePath("en/docs/"),
           },
@@ -1817,11 +1823,11 @@ export const site = {
       },
       previewDiffReview: {
         title: "Preview-based diff review",
-        lead: "Preview-based diff review lets readers inspect what changed in the rendered document, not only in source lines.",
+        lead: "Preview-based diff review helps people verify AI agent changes in the rendered document, not only in source lines.",
         whatThisFeatureIs:
           "The diff workspace is organized around the document preview. It highlights changes in rendered text, lists, tables, and structured blocks where Svard can identify them.",
         whenToUse:
-          "Use this when a document change needs review as something people will read, especially when markup source lines are noisy or hard to interpret.",
+          "Use this when AI agents or people change technical documentation and the result needs review as something readers will see, especially when markup source lines are noisy or hard to interpret.",
         workflow: [
           {
             title: "Start from changes or a compare action",
@@ -2174,11 +2180,11 @@ export const site = {
       },
       changeReviewMode: {
         title: "Change Review Mode",
-        lead: "Change Review Mode shows current local changes in the normal reader after it is enabled.",
+        lead: "Change Review Mode keeps current AI agent or human changes visible in the normal reader after it is enabled.",
         whatThisFeatureIs:
           "When the open document has current local changes, Svard can mark changed text, list items, and table areas near the rendered content. This is disabled by default and must be enabled from settings as Change Review Mode.",
         whenToUse:
-          "Use this when you are rereading a document and want to notice current local changes without opening the full diff workspace.",
+          "Use this when you are catching up with changed documentation and want to notice current local changes without opening the full diff workspace.",
         workflow: [
           {
             title: "Enable it from settings",
@@ -2327,11 +2333,11 @@ export const site = {
       },
       sourceControlChanges: {
         title: "Changes list",
-        lead: "The Changes list shows locally changed documents and opens them into preview-based review.",
+        lead: "The Changes list and All Diffs turn locally changed documents into entry points for catching up with AI agent changes.",
         whatThisFeatureIs:
           "Source Control lists changed documents in the current folder. Supported documents can be opened from the list into the preview diff workspace for read-only review. All diffs groups changed Markdown and AsciiDoc documents into one continuous read-only stream.",
         whenToUse:
-          "Use this when you want to see which documents changed before reviewing one file at a time or scanning all supported document diffs together.",
+          "Use this when an AI agent changed multiple documents and you want to review one file at a time or scan all supported document diffs together.",
         workflow: [
           {
             title: "List changed documents",

@@ -1,8 +1,10 @@
 # Svard
 
-Svard (Specification Viewer and Rendered Diff) is a local-first desktop viewer for technical Markdown and AsciiDoc documents. It is built with Tauri and keeps normal document rendering on the local machine.
+Svard (Specification Viewer and Rendered Diff) is a desktop review environment for verifying changes that AI agents make across many technical documents. It keeps rendered output, change locations, and the base or comparison source together so people can understand what changed without relying on raw source diffs alone.
 
-Svard focuses on rendered review: it renders Markdown and AsciiDoc first, then compares reader-visible changes across prose, lists, tables, diagrams, and source views.
+Svard renders Markdown and AsciiDoc before comparing reader-visible changes across prose, lists, tables, diagrams, and source views. All Diffs, Rendered Diff, Change Review Mode, and Revision Lens support a review flow that moves from the changed document set to a specific comparison with its Base.
+
+The normal rendering path is local-first. Svard does not run an AI agent, call an LLM, or send documents to an AI service; it reviews changes that already exist in local files or Git comparisons.
 
 ![Rendered diff comparison in Svard](site/public/screenshots/rendered-diff.png)
 
@@ -14,6 +16,8 @@ https://yyamamot.github.io/Svard/
 
 ## Features
 
+- Review changes across many documents with All Diffs, Rendered Diff, Change Review Mode, and Revision Lens
+- Keep rendered output, change locations, and the Base or comparison source in the same review flow
 - Local rendering for Markdown, AsciiDoc, Mermaid, PlantUML, and Graphviz-oriented workflows
 - Kroki support only as an explicit fallback path for unsupported or compatibility-focused diagrams
 - Browser-like reading with tabs, history, recently closed documents, quick open, split view, and find-in-page

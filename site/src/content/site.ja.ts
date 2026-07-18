@@ -9,7 +9,8 @@ const issuesUrl = "https://github.com/yyamamot/Svard/issues";
 export const site = {
   locale: "ja",
   title: "Svard",
-  description: "AsciiDoc / Markdown を読むためのデスクトップビューア",
+  description:
+    "AIエージェントが変更した技術文書を、Markdown / AsciiDoc のレンダリング結果としてローカルで確認するデスクトップレビュー環境",
   nav: {
     top: "トップ",
     features: "機能",
@@ -20,7 +21,7 @@ export const site = {
   },
   footer: {
     summary:
-      "Svard はローカルの技術文書を読む、探す、比較するためのデスクトップビューアです。",
+      "Svard は、AIエージェントが変更した技術文書をレンダリング結果として人間が検証するためのデスクトップレビュー環境です。",
     links: [
       { label: "GitHub", href: repositoryUrl },
       { label: "Releases", href: releasesUrl },
@@ -28,10 +29,10 @@ export const site = {
     ],
   },
   top: {
-    eyebrow: "Local-first document viewer",
+    eyebrow: "AIエージェント変更のレンダリングレビュー",
     heading: "Svard",
-    lead: "AsciiDoc / Markdown をレンダリングして差分比較できるデスクトップビューア",
-    body: "ローカルの技術文書を安全に開き、Markdown / AsciiDoc を表示結果としてレンダリングしてから、文章、リスト、表、図表、ソース表示の変化を読み手中心に比較します。",
+    lead: "AIエージェントが変更した技術文書を、レンダリング結果として検証する",
+    body: "多数の Markdown / AsciiDoc 文書を、レンダリング結果、変更位置、Base などの比較元と同じローカルファーストな読書フローに保ったまま確認できます。",
     primaryLink: { label: "ダウンロード", href: sitePath("ja/download/") },
     secondaryLink: { label: "機能", href: sitePath("ja/features/") },
     screenshot: {
@@ -70,28 +71,28 @@ export const site = {
     ],
     highlights: [
       {
+        title: "多数の変更文書を続けて確認する",
+        body: "All Diffs で変更された Markdown / AsciiDoc 文書を、一つの連続したレビュー表示として確認します。",
+      },
+      {
+        title: "レンダリング結果を比較する",
+        body: "ソース行だけでなく、文章、リスト、表、図表を読者に見える形で確認します。",
+      },
+      {
+        title: "比較元を近くに保つ",
+        body: "Change Review Mode と Revision Lens で変更を見つけ、必要な間だけ Base を表示します。",
+      },
+      {
         title: "AsciiDoc / Markdown を読む",
-        body: "編集ツールではなく、技術文書を読むためのビューアとして設計します。",
-      },
-      {
-        title: "検索を分けて扱う",
-        body: "現在の文書とワークスペース全体の検索を分け、読む作業の流れを保ちます。",
-      },
-      {
-        title: "レンダリングして差分を比較する",
-        body: "ソース行差分だけでなく、文書として表示された結果の変化を比較します。",
-      },
-      {
-        title: "図表はローカルを主経路にする",
-        body: "Mermaid / PlantUML / Graphviz はローカルレンダリングを標準の経路にします。",
+        body: "編集ツール化やビューア都合のソース書き換えをせず、技術文書として確認します。",
       },
       {
         title: "ブラウザー風に操作する",
         body: "タブ、戻る/進む、ブックマーク、マウスジェスチャーなど、ブラウザーに近い操作で文書を行き来できます。",
       },
       {
-        title: "Gitの差分を確認する",
-        body: "Gitの変更や、GitHub / GitLab のマージ先との差分を、読者に見えるレンダリング結果として確認します。",
+        title: "図表はローカルを主経路にする",
+        body: "Mermaid / PlantUML / Graphviz はローカルレンダリングを標準の経路にします。",
       },
     ],
     privacy: {
@@ -99,10 +100,16 @@ export const site = {
       body: "Svard はローカルファイルを前提にしたビューアです。Kroki は未対応、完全互換、ユーザーが明示設定した場合のフォールバックとして扱い、暗黙の公開サービス依存にはしません。",
     },
     diff: {
-      title: "レンダリング結果で差分を比較",
-      body: "Git やファイル同士の比較は、行単位の差分だけではなく、Markdown / AsciiDoc をレンダリングした表示結果で確認します。文章、リスト、表、図表の変化を、読者に見える形で追えます。",
+      title: "AIエージェントの変更へ文書として追いつく",
+      body: "All Diffs と Rendered Diff は、Git やファイルの比較を Markdown / AsciiDoc のレンダリング結果として整理します。変更位置を見失わず、文章、リスト、表、図表を読者に見える形で確認できます。",
     },
     faq: [
+      {
+        question:
+          "Svard は AI エージェントを実行したり、文書を LLM へ送信したりしますか？",
+        answer:
+          "いいえ。Svard はローカルファイルや Git の比較にすでに存在する変更を確認するためのツールです。AIエージェントや LLM を実行せず、文書を AI サービスへ送信しません。",
+      },
       {
         question: "Svard は編集ツールですか？",
         answer:
@@ -122,8 +129,8 @@ export const site = {
   },
   features: {
     eyebrow: "Features",
-    heading: "読む、探す、比較するための機能",
-    lead: "Svard はエディタやIDEではなく、ローカルの技術文書を読むためのデスクトップビューアです",
+    heading: "文書の変更を読み、理解し、検証する機能",
+    lead: "Svard は、AIエージェントが変更した技術文書へ人間が追いつくためのローカルファーストなレビュー環境です",
     screenshot: {
       ...screenshot(
         "reader-main.png",
@@ -134,8 +141,28 @@ export const site = {
     },
     sections: [
       {
+        title: "AIエージェントによる変更のレビュー",
+        body: "All Diffs、Rendered Diff、Change Review Mode、Revision Lens を使い、多数の変更文書から特定箇所の Base 比較まで段階的に確認します。",
+        screenshot: screenshot(
+          "rendered-diff.png",
+          "差分画面",
+          "文書として見える差分をプレビュー上で確認している状態を示します。",
+          "Svardのプレビュー差分画面",
+        ),
+      },
+      {
+        title: "変更管理",
+        body: "ローカルの変更、All Diffs、ブランチ差分、ファイル履歴を、同じ画面内の読み取り専用レビュー入口として使います。",
+        screenshot: screenshot(
+          "source-control.png",
+          "変更管理画面",
+          "Source Control から変更一覧を確認し、差分レビューへ進む入口を示します。",
+          "Svardの変更管理画面",
+        ),
+      },
+      {
         title: "AsciiDoc / Markdown の閲覧",
-        body: "AsciiDoc / Markdown の技術文書をビューアとして開き、読む作業を中心に扱います。ビューア都合でソースを書き換えません。",
+        body: "ビューア都合でソースを書き換えず、技術文書を読むための表示として開きます。",
         screenshot: screenshot(
           "reader-main.png",
           "閲覧画面",
@@ -161,26 +188,6 @@ export const site = {
           "検索画面",
           "検索パネルと本文側の一致箇所を同時に確認している状態を示します。",
           "Svardの検索画面",
-        ),
-      },
-      {
-        title: "プレビューベースの差分確認",
-        body: "Gitの変更や、GitHub / GitLab のマージ先との差分を、プレビュー上の表示結果として確認します。",
-        screenshot: screenshot(
-          "rendered-diff.png",
-          "差分画面",
-          "文書として見える差分をプレビュー上で確認している状態を示します。",
-          "Svardのプレビュー差分画面",
-        ),
-      },
-      {
-        title: "変更管理",
-        body: "Gitの変更、ブランチ差分、履歴を、文書レビューの入口として同じ画面内で扱います。",
-        screenshot: screenshot(
-          "source-control.png",
-          "変更管理画面",
-          "Source Control から変更一覧を確認し、差分レビューへ進む入口を示します。",
-          "Svardの変更管理画面",
         ),
       },
       {
@@ -227,26 +234,26 @@ export const site = {
   },
   docs: {
     eyebrow: "ドキュメント",
-    lead: "Svard は、ローカルの技術文書を読む、探す、比較するためのデスクトップビューアです",
+    lead: "AIエージェントが変更した技術文書を、ローカルファーストな環境でレンダリング結果として確認します",
     plannedLabel: "Planned",
     overview: {
       title: "Svard とは",
-      lead: "Svard は、ローカルの技術文書を読む、探す、比較するためのデスクトップビューアです",
+      lead: "Svard は、AIエージェントが変更した多数の技術文書を人間が検証するためのデスクトップレビュー環境です",
       notice: {
         title: "リリース状況について",
         body: "この Docs には、次回リリース向けに準備中の機能や、現在の公開版にはまだ含まれていない機能が含まれる場合があります。実際に利用できる機能は、リリースノートと配布版の画面を確認してください。",
       },
       sections: [
         {
-          title: "ローカル文書を読むための作業場",
+          title: "AIエージェントの変更へ追いつく",
           body: [
-            "Svard は AsciiDoc / Markdown のソースを、閲覧の都合で書き換えずに表示します。フォルダを開き、複数の文書を移動しながら、図表や表を含む技術文書をそのまま読み進めるためのアプリです。",
+            "All Diffs、Rendered Diff、Change Review Mode、Revision Lens は、レンダリング結果、変更位置、Base などの比較元を一つの読書フローに保ちます。Svard 自身は AI エージェントや LLM を実行せず、ローカルファイルや Git の比較にすでに存在する変更を確認します。",
           ],
         },
         {
-          title: "文書として見える差分を確認する",
+          title: "文書を読み、文書として見える差分を確認する",
           body: [
-            "ソース行だけでなく、プレビュー上で読み手に見える変化を確認できます。レビュー対象が表、リスト、図表を含む場合でも、文書としてどう変わったかを把握しやすくすることを重視しています。",
+            "Svard は AsciiDoc / Markdown を閲覧の都合で書き換えずに表示し、ソース行だけでなく読み手に見える変化を中心に確認します。表、リスト、図表などの文脈を保ったまま変更内容を把握できます。",
           ],
         },
         {
@@ -274,7 +281,7 @@ export const site = {
           {
             slug: "what-is-svard",
             title: "Svard とは",
-            body: "Svard をローカルファーストな技術文書ビューアとして理解する入口です。",
+            body: "Svard を、AIエージェントが変更した技術文書のためのローカルファーストなレビュー環境として理解する入口です。",
             state: "公開中",
             href: sitePath("ja/docs/"),
           },
@@ -1809,11 +1816,11 @@ export const site = {
       },
       previewDiffReview: {
         title: "プレビューベースの差分確認",
-        lead: "プレビューベースの差分確認は、ソースの行差分だけではなく文書としての変化を確認する機能です",
+        lead: "プレビューベースの差分確認は、AIエージェントによる変更をソース行だけでなく文書として検証する機能です",
         whatThisFeatureIs:
           "差分確認画面は文書プレビューを中心に構成されます。Svard が識別できる範囲で、表示テキスト、リスト、表、構造化されたブロックの変化を文脈内で示します。",
         whenToUse:
-          "マークアップソースの行差分だけでは読みにくい変更を、人が読む文書として確認したい時に使います。",
+          "AIエージェントや人間が変更した技術文書を、マークアップソースの行差分だけでなく、読者に見える形で確認したい時に使います。",
         workflow: [
           {
             title: "変更または比較操作から始める",
@@ -2166,11 +2173,11 @@ export const site = {
       },
       changeReviewMode: {
         title: "Change Review Mode",
-        lead: "Change Review Mode は、設定で有効化した時に、通常の閲覧画面で現在の変更に気づくための機能です",
+        lead: "Change Review Mode は、設定で有効化した時に、AIエージェントや人間による現在の変更を通常の閲覧画面で確認する機能です",
         whatThisFeatureIs:
           "閲覧中の文書に作業中の変更がある場合、本文、リスト、表の近くに変更マーカーを表示します。この表示は既定では無効です。使う場合は設定画面で Change Review Mode を有効にします。",
         whenToUse:
-          "文書を読み直している途中で、現在の変更箇所を文脈の中で確認したい時に使います。",
+          "変更された文書へ追いつく途中で、現在の変更箇所を文脈の中で確認したい時に使います。",
         workflow: [
           {
             title: "設定で有効化する",
@@ -2319,11 +2326,11 @@ export const site = {
       },
       sourceControlChanges: {
         title: "変更一覧",
-        lead: "変更一覧は、ローカルで変更された文書を確認し、プレビュー差分へ移動するための入口です",
+        lead: "変更一覧と All Diffs は、AIエージェントがローカルで変更した文書へ追いつくための入口です",
         whatThisFeatureIs:
           "Source Control の Changes list には、現在のフォルダで変更された文書が並びます。対応している文書は、一覧からプレビュー差分を開いて内容を確認できます。All diffs では、Markdown / AsciiDoc の変更文書を1つの連続した読み取り専用 stream としてまとめて確認できます。",
         whenToUse:
-          "どの文書が変更されているかを見てから、1件ずつ、または一括で読み取り専用の差分確認へ進みたい時に使います。",
+          "AIエージェントが複数文書を変更した時に、1件ずつ、または対応文書の差分をまとめて確認したい場合に使います。",
         workflow: [
           {
             title: "変更された文書を一覧する",

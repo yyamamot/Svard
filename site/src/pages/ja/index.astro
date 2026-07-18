@@ -10,8 +10,8 @@ import FaqSection from "../../components/FaqSection.astro";
 
 <LandingLayout site={site}>
   <Hero content={site.top} />
+  <DiffSection content={site.top.diff} locale={site.locale} />
   <FeatureGrid items={site.top.highlights} />
   <PrivacySection content={site.top.privacy} locale={site.locale} />
-  <DiffSection content={site.top.diff} locale={site.locale} />
   <FaqSection items={site.top.faq} label="FAQ" />
 </LandingLayout>
