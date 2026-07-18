@@ -11,7 +11,7 @@ use crate::document_io::build_document_resource_context;
 use crate::git_diff::{git_resource_bytes, GitDiffResourceSource};
 use crate::path_policy::{
     antora_module_root_for_page, ensure_path_allowed, normalize_path, path_to_ui_string,
-    resolve_existing_file_path,
+    resolve_existing_directory_path, resolve_existing_file_path,
 };
 
 pub(crate) const LOCAL_IMAGE_MAX_BYTES: u64 = 5 * 1024 * 1024;
@@ -114,8 +114,7 @@ pub(crate) fn resolve_git_diff_local_image_from_source(
 ) -> Result<LocalImageResult, String> {
     let requested_repository_root = normalize_path(PathBuf::from(repository_root));
     ensure_path_allowed(&requested_repository_root, roots)?;
-    let repository_root = requested_repository_root
-        .canonicalize()
+    let repository_root = resolve_existing_directory_path(&requested_repository_root)
         .map_err(|_| "Git diff resource repository is not available.".to_string())?;
     let requested_document_path = normalize_path(PathBuf::from(document_path));
     let Ok(document_relative_path) =

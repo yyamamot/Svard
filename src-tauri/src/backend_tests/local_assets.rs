@@ -38,10 +38,11 @@ fn local_image_resolver_reads_registered_root_images_only() {
     assert_eq!(result.status, "resolved");
     assert_eq!(result.media_type.as_deref(), Some("image/svg+xml"));
     assert_eq!(result.encoding.as_deref(), Some("utf8"));
-    let expected_image_path = image.canonicalize().expect("canonical image path");
+    let expected_image_path =
+        path_to_ui_string(&image.canonicalize().expect("canonical image path"));
     assert_eq!(
         result.resolved_path.as_deref(),
-        Some(expected_image_path.to_string_lossy().as_ref())
+        Some(expected_image_path.as_str())
     );
     assert!(result.content.unwrap().contains("Safe"));
     assert_eq!(drawio_result.status, "resolved");
@@ -599,10 +600,10 @@ fn git_diff_local_image_resolver_reads_commit_and_worktree_versions_separately()
     .expect("latest worktree image");
 
     assert_eq!(commit.status, "resolved", "{commit:?}");
-    let expected_path = image.canonicalize().expect("canonical image path");
+    let expected_path = path_to_ui_string(&image.canonicalize().expect("canonical image path"));
     assert_eq!(
         commit.resolved_path.as_deref(),
-        Some(expected_path.to_string_lossy().as_ref())
+        Some(expected_path.as_str())
     );
     assert_eq!(worktree.resolved_path, commit.resolved_path);
     assert!(commit
