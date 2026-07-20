@@ -848,7 +848,9 @@ export function DocumentsView({
           <span className="documents-view-row-text">
             <span className="tree-label">{node.title}</span>
             <span className="documents-view-row-path">
-              {node.displayPath}
+              <span className="documents-view-row-path-label">
+                {node.displayPath}
+              </span>
               <span className="documents-view-open-indicator">missing</span>
             </span>
           </span>

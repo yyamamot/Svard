@@ -224,6 +224,94 @@ export async function buildFilesAssertions(context) {
             );
           }))
         : true,
+    hasFileTreeWidthStability:
+      scenario === "viewer-files-documents-width-stability"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_FILE_TREE_WIDTH_STABILITY_CHECK__;
+            const expectedWidths = [220, 260, 520];
+            const spread = (values) =>
+              values.length > 0 ? Math.max(...values) - Math.min(...values) : 0;
+            const validate = (measurements, expectedDisplay) => {
+              if (
+                !Array.isArray(measurements) ||
+                measurements.length !== expectedWidths.length ||
+                measurements.some(
+                  (measurement, index) =>
+                    measurement?.width !== expectedWidths[index] ||
+                    Math.abs(measurement.sidebarWidth - expectedWidths[index]) >
+                      1 ||
+                    !Array.isArray(measurement.samples) ||
+                    measurement.samples.length < 2,
+                )
+              ) {
+                return false;
+              }
+              const sampleCount = measurements[0].samples.length;
+              if (
+                measurements.some(
+                  (measurement) => measurement.samples.length !== sampleCount,
+                )
+              ) {
+                return false;
+              }
+              for (const measurement of measurements) {
+                const depthGroups = new Map();
+                for (const sample of measurement.samples) {
+                  if (
+                    sample.display !== expectedDisplay ||
+                    Math.abs(sample.iconWidth - 15) > 0.1 ||
+                    Math.abs(sample.iconHeight - 15) > 0.1 ||
+                    sample.contained !== true ||
+                    sample.labelBeforeOpen !== true ||
+                    sample.mainInsideRow !== true ||
+                    (expectedDisplay === "grid" &&
+                      !sample.gridTemplateColumns.startsWith("22px 15px"))
+                  ) {
+                    return false;
+                  }
+                  const depth = Math.round(sample.paddingLeft);
+                  const offsets = depthGroups.get(depth) ?? [];
+                  offsets.push(sample.iconOffset);
+                  depthGroups.set(depth, offsets);
+                }
+                if (
+                  depthGroups.size < 2 ||
+                  [...depthGroups.values()].some(
+                    (offsets) => spread(offsets) > 1,
+                  ) ||
+                  spread(
+                    measurement.samples.map(
+                      (sample) => sample.indentAdjustedIconOffset,
+                    ),
+                  ) > 1
+                ) {
+                  return false;
+                }
+              }
+              return Array.from({ length: sampleCount }, (_, index) =>
+                spread(
+                  measurements.map(
+                    (measurement) => measurement.samples[index].iconOffset,
+                  ),
+                ),
+              ).every((value) => value <= 1);
+            };
+            return (
+              validate(result?.tree, "flex") &&
+              validate(result?.documents, "grid") &&
+              result.documents.some((measurement) =>
+                measurement.samples.some(
+                  (sample) => sample.hasOpenIndicator === true,
+                ),
+              ) &&
+              result.documents.some((measurement) =>
+                measurement.samples.some(
+                  (sample) => sample.hasGitStatus === true,
+                ),
+              )
+            );
+          })
+        : true,
     hasDocumentsSourceControl:
       scenario === "viewer-files-documents-source-control"
         ? bodyText.includes("git-modified.md") &&

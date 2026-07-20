@@ -328,10 +328,16 @@
   line-height: 1;
 }
 
-.documents-view-row-main {
+.tree-row-main.documents-view-row-main {
   display: grid;
   grid-template-columns: 22px 15px minmax(0, 1fr);
   column-gap: 7px;
+}
+
+.tree-row-main.documents-view-row-main > svg {
+  width: 15px;
+  min-width: 15px;
+  height: 15px;
 }
 
 .documents-view-row-main::before {
@@ -378,6 +384,12 @@
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.documents-view-row-path-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .documents-view-open-indicator {
@@ -529,6 +541,10 @@
   cursor: pointer;
 }
 
+.tree-row-main > svg {
+  flex: 0 0 auto;
+}
+
 .tree-row.active,
 .tree-row:hover {
   background: #e7f0ef;
@@ -540,6 +556,7 @@
 }
 
 .tree-label {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

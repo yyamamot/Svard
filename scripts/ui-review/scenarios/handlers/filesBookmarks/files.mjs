@@ -120,6 +120,128 @@ export async function applyFilesScenario(context) {
             .enabled ?? null,
       };
     });
+  } else if (scenario === "viewer-files-documents-width-stability") {
+    await page.locator('[data-review-id="file-tree"]').waitFor();
+    await page.locator('[data-review-id="tree-collapse-all"]').click();
+    await page
+      .locator('[data-review-id="tree-folder-toggle"]')
+      .filter({ hasText: "docs" })
+      .click();
+    await page
+      .locator('[data-review-id="tree-file"]')
+      .filter({ hasText: "git-modified.md" })
+      .click();
+    await page
+      .getByRole("heading", { name: /Git Diff Modified Fixture/ })
+      .waitFor();
+    await page
+      .locator('[data-review-id="tree-file"]')
+      .filter({ hasText: "copy-actions.adoc" })
+      .click();
+    await page.getByRole("heading", { name: /Copy Actions/ }).waitFor();
+
+    const tree = [];
+    for (const width of [220, 260, 520]) {
+      tree.push(await measureFileTreeRowsAtWidth(page, width, "tree"));
+    }
+
+    await page.evaluate(() => {
+      window.__SVARD_DOCUMENT_ORDER__ = {
+        "/workspace": {
+          orders: [
+            {
+              source: "zensical",
+              orderKind: "explicit-nav",
+              nodes: [
+                {
+                  kind: "document",
+                  title: "01-overview",
+                  path: "/workspace/docs/git-modified.md",
+                  displayPath: "docs/git-modified.md",
+                  depth: 0,
+                  status: "resolved",
+                },
+                {
+                  kind: "document",
+                  title: "02-long-document-title-for-width-stability",
+                  path: "/workspace/docs/copy-actions.adoc",
+                  displayPath: "docs/copy-actions.adoc",
+                  depth: 0,
+                  status: "resolved",
+                },
+                {
+                  kind: "document",
+                  title: "03-missing-document",
+                  path: "/workspace/docs/missing-document.md",
+                  displayPath: "docs/missing-document.md",
+                  depth: 0,
+                  status: "missing",
+                },
+                {
+                  kind: "section",
+                  title: "Guides",
+                  depth: 0,
+                  children: [
+                    {
+                      kind: "document",
+                      title: "04-preferences",
+                      path: "/workspace/docs/preferences.adoc",
+                      displayPath: "docs/preferences.adoc",
+                      depth: 1,
+                      status: "resolved",
+                    },
+                    {
+                      kind: "document",
+                      title: "05-markdown-sample-with-a-long-title",
+                      path: "/workspace/docs/markdown-sample.md",
+                      displayPath: "docs/markdown-sample.md",
+                      depth: 1,
+                      status: "resolved",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      };
+    });
+    await page.locator('[data-review-id="tree-refresh"]').click();
+    await page.locator('[data-review-id="documents-view-toggle"]').click();
+    await page.locator('[data-review-id="documents-view-mode-menu"]').waitFor();
+    await page.waitForFunction(() => {
+      const option = document.querySelector(
+        '[data-review-id="documents-view-mode-zensical"]',
+      );
+      return option instanceof HTMLButtonElement && !option.disabled;
+    });
+    await page
+      .locator('[data-review-id="documents-view-mode-zensical"]')
+      .click();
+    await page.locator('[data-review-id="documents-view"]').waitFor();
+    await page
+      .locator('[data-review-id="documents-zensical-section"]')
+      .filter({ hasText: "Guides" })
+      .locator('[data-review-id="documents-order-section-toggle"]')
+      .click();
+    await page
+      .locator('[data-review-id="documents-view-row"]')
+      .filter({ hasText: "05-markdown-sample-with-a-long-title" })
+      .waitFor();
+
+    const documents = [];
+    for (const width of [220, 260, 520]) {
+      documents.push(
+        await measureFileTreeRowsAtWidth(page, width, "documents"),
+      );
+    }
+    await setFileTreeReviewWidth(page, 220);
+    await page.evaluate(
+      (result) => {
+        window.__SVARD_FILE_TREE_WIDTH_STABILITY_CHECK__ = result;
+      },
+      { tree, documents },
+    );
   } else if (scenario === "viewer-files-documents-source-control") {
     await page.locator('[data-review-id="file-tree"]').waitFor();
     await page.getByText("git-modified.md").click();
@@ -594,4 +716,116 @@ export async function applyFilesScenario(context) {
     return false;
   }
   return true;
+}
+
+async function setFileTreeReviewWidth(page, width) {
+  await page.evaluate((nextWidth) => {
+    const shell = document.querySelector('[data-review-id="shell"]');
+    if (shell instanceof HTMLElement) {
+      shell.style.setProperty("--left-sidebar-width", `${nextWidth}px`);
+    }
+  }, width);
+  await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }),
+  );
+}
+
+async function measureFileTreeRowsAtWidth(page, width, mode) {
+  await setFileTreeReviewWidth(page, width);
+  return page.evaluate(
+    ({ expectedWidth, rowMode }) => {
+      const sidebar = document.querySelector('[data-review-id="left-sidebar"]');
+      const rowSelector =
+        rowMode === "documents"
+          ? '[data-review-id="documents-view-row"]'
+          : '[data-review-id="tree-folder-toggle"], [data-review-id="tree-file"]';
+      if (!(sidebar instanceof HTMLElement)) {
+        return { width: expectedWidth, sidebarWidth: 0, samples: [] };
+      }
+      const sidebarRect = sidebar.getBoundingClientRect();
+      const rowsRoot = document.querySelector(
+        rowMode === "documents"
+          ? '[data-review-id="documents-view"]'
+          : '[data-review-id="file-tree"]',
+      );
+      if (!(rowsRoot instanceof HTMLElement)) {
+        return {
+          width: expectedWidth,
+          sidebarWidth: sidebarRect.width,
+          samples: [],
+        };
+      }
+      const rowsRootRect = rowsRoot.getBoundingClientRect();
+      const samples = [...document.querySelectorAll(rowSelector)]
+        .filter((row) => row instanceof HTMLElement)
+        .map((row) => {
+          const main = row.querySelector(".tree-row-main");
+          if (!(main instanceof HTMLElement)) {
+            return null;
+          }
+          const icons = [...main.querySelectorAll(":scope > svg")].filter(
+            (icon) => icon instanceof SVGElement,
+          );
+          const icon = icons.at(-1);
+          if (!(icon instanceof SVGElement)) {
+            return null;
+          }
+          const rowRect = row.getBoundingClientRect();
+          const mainRect = main.getBoundingClientRect();
+          const iconRect = icon.getBoundingClientRect();
+          const mainStyle = getComputedStyle(main);
+          const paddingLeft = Number.parseFloat(mainStyle.paddingLeft);
+          const label = main.querySelector(".tree-label");
+          const openIndicator = main.querySelector(
+            ".documents-view-open-indicator",
+          );
+          const gitStatus = row.querySelector(".git-status-badge");
+          const labelRect = label?.getBoundingClientRect();
+          const openRect = openIndicator?.getBoundingClientRect();
+          const openSharesTitle = openIndicator?.closest(
+            ".documents-view-row-title",
+          );
+          const gitRect = gitStatus?.getBoundingClientRect();
+          const tolerance = 1;
+          const withinRow = (rect) =>
+            !rect ||
+            (rect.left >= rowRect.left - tolerance &&
+              rect.right <= rowRect.right + tolerance &&
+              rect.top >= rowRect.top - tolerance &&
+              rect.bottom <= rowRect.bottom + tolerance);
+          return {
+            display: mainStyle.display,
+            gridTemplateColumns: mainStyle.gridTemplateColumns,
+            paddingLeft,
+            iconWidth: iconRect.width,
+            iconHeight: iconRect.height,
+            iconOffset: iconRect.left - rowsRootRect.left,
+            indentAdjustedIconOffset:
+              iconRect.left - rowsRootRect.left - paddingLeft,
+            contained:
+              withinRow(iconRect) && withinRow(openRect) && withinRow(gitRect),
+            hasOpenIndicator: openRect !== undefined,
+            hasGitStatus: gitRect !== undefined,
+            labelBeforeOpen:
+              !labelRect ||
+              !openRect ||
+              !openSharesTitle ||
+              labelRect.right <= openRect.left + 1,
+            mainInsideRow:
+              mainRect.left >= rowRect.left - tolerance &&
+              mainRect.right <= rowRect.right + tolerance,
+          };
+        })
+        .filter(Boolean);
+      return {
+        width: expectedWidth,
+        sidebarWidth: sidebarRect.width,
+        samples,
+      };
+    },
+    { expectedWidth: width, rowMode: mode },
+  );
 }
