@@ -2,7 +2,10 @@ import type { MouseEvent } from "react";
 import type {
   DocumentDiffPreview,
   DocumentLinkResolution,
+  DocumentMediaSnapshot,
+  DocumentSelectionSnapshot,
 } from "../../../core/types";
+import type { SelectionRevealTarget } from "../../lib/diffDocumentSelection";
 import type { CopyText } from "../../hooks/documentLinks/types";
 import type { CaptureAreaVariant } from "../../lib/captureArea";
 import type { ContextMenuItem, DiagramPreviewState } from "../../types";
@@ -32,6 +35,16 @@ export interface DiffPreviewContextMenuOptions {
     container: HTMLElement,
     variant?: CaptureAreaVariant,
   ) => void;
+  onAddAgentSelection?: (
+    snapshot: DocumentSelectionSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
+  onPrepareAgentSelection?: (range: Range) => (() => void) | undefined;
+  onAddAgentMedia?: (snapshot: DocumentMediaSnapshot, side: DiffSide) => void;
+  resolveAgentMediaDiagram?: (
+    target: HTMLElement,
+    side: DiffSide,
+  ) => { type: string; source: string } | undefined;
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },

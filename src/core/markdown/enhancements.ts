@@ -204,7 +204,26 @@ export function enhanceTaskLists(tokens: Token[]) {
   }
 }
 
-export function renderMarkdownFragmentHtml(source: string): string {
+function replaceMarkdownImagesWithAltText(tokens: Token[]) {
+  for (const token of tokens) {
+    if (token.type === "image") {
+      token.type = "text";
+      token.tag = "";
+      token.nesting = 0;
+      token.attrs = null;
+      token.children = null;
+      continue;
+    }
+    if (token.children) {
+      replaceMarkdownImagesWithAltText(token.children);
+    }
+  }
+}
+
+export function renderMarkdownFragmentHtml(
+  source: string,
+  options: { images?: "render" | "altText" } = {},
+): string {
   if (!source.trim()) {
     return "";
   }
@@ -213,5 +232,8 @@ export function renderMarkdownFragmentHtml(source: string): string {
   const tokens = markdown.parse(transformSimpleAdmonitions(source), env);
   enhanceGithubAlerts(tokens);
   enhanceTaskLists(tokens);
+  if (options.images === "altText") {
+    replaceMarkdownImagesWithAltText(tokens);
+  }
   return markdown.renderer.render(tokens, markdown.options, env);
 }

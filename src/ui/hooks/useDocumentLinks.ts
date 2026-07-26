@@ -55,6 +55,9 @@ export function useDocumentLinks({
   showLightweightActionFeedback,
   saveSvgFile,
   onBeginCaptureArea,
+  onAddAgentSelection,
+  onAddAgentMedia,
+  workspaceRoot,
 }: UseDocumentLinksOptions) {
   const lastDocumentSelectionRef = useRef("");
   const linkPreviewTimerRef = useRef<number | null>(null);
@@ -209,6 +212,9 @@ export function useDocumentLinks({
     copyText,
     copyImage,
     onBeginCaptureArea,
+    onAddAgentSelection,
+    onAddAgentMedia,
+    workspaceRoot,
   });
 
   function clearLinkPreview() {

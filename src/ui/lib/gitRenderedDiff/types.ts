@@ -33,6 +33,10 @@ export interface RenderedBlock {
   text: string;
   html: string;
   signature?: string;
+  diagram?: {
+    type: string;
+    source: string;
+  };
   listItems?: RenderedListItemSnapshot[];
   structuredChildren?: RenderedStructuredChildSnapshot[];
   tableRows?: RenderedTableRowSnapshot[];
@@ -328,6 +332,7 @@ export interface GitRenderedDiffSummaryOptions {
 
 export interface RenderedBlockExtractionOptions {
   diagramSignatures?: ReadonlyMap<string, string>;
+  diagramSources?: ReadonlyMap<string, { type: string; source: string }>;
   showExternalImages?: boolean;
 }
 

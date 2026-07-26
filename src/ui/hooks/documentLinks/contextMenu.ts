@@ -3,14 +3,15 @@ import type { ContextMenuItem } from "../../types";
 import {
   isLocationReferenceTarget,
   locationReferenceForElement,
-  locationReferenceForSelection,
   locationReferenceTargetLabel,
 } from "../../lib/locationReference";
 import { imageReferenceForElement } from "../../lib/imageReference";
 import {
-  originalTextReferenceForSelection,
-  sourceReferenceForSelection,
-} from "../../lib/sourceTextCopy";
+  extractDocumentSelection,
+  selectionOriginalTextReference,
+  selectionTextReference,
+} from "../../lib/documentSelection";
+import { extractDocumentMedia } from "../../lib/documentMedia";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
 import { documentSelectionAtPoint } from "./shared";
 import {
@@ -48,6 +49,9 @@ export function createArticleContextMenuHandler({
   copyText,
   copyImage,
   onBeginCaptureArea,
+  onAddAgentSelection,
+  onAddAgentMedia,
+  workspaceRoot,
 }: Pick<
   UseDocumentLinksOptions,
   | "articleRef"
@@ -60,6 +64,9 @@ export function createArticleContextMenuHandler({
   | "showInlineNotice"
   | "onCompareGitRef"
   | "onShowGitDiff"
+  | "onAddAgentSelection"
+  | "onAddAgentMedia"
+  | "workspaceRoot"
 > & {
   openLinkElement: (link: HTMLAnchorElement) => Promise<void>;
   openDiagramPreview: (
@@ -75,7 +82,9 @@ export function createArticleContextMenuHandler({
   ) => Promise<void>;
   onBeginCaptureArea: (variant?: "plain" | "reference") => void;
 }) {
-  return function handleArticleContextMenu(event: MouseEvent<HTMLElement>) {
+  return async function handleArticleContextMenu(
+    event: MouseEvent<HTMLElement>,
+  ) {
     const target = event.target as HTMLElement;
     if (target.closest('[data-review-id="git-diff-preview-panel"]')) {
       return;
@@ -99,30 +108,37 @@ export function createArticleContextMenuHandler({
     });
 
     if (selection) {
+      const activeSelection = window.getSelection();
+      const selectionRange =
+        activeSelection?.rangeCount && articleRef.current
+          ? activeSelection.getRangeAt(0).cloneRange()
+          : null;
+      const snapshot =
+        documentPayload && articleRef.current && selectionRange
+          ? await extractDocumentSelection({
+              article: articleRef.current,
+              document: documentPayload,
+              range: selectionRange,
+              renderResult,
+            })
+          : null;
+      const originalReference =
+        snapshot && documentPayload
+          ? selectionOriginalTextReference(snapshot, documentPayload.source)
+          : undefined;
       addSelectionItems(
         items,
         table,
         copyText,
-        documentPayload
-          ? locationReferenceForSelection({
-              article: articleRef.current,
-              document: documentPayload,
-              renderResult,
-              selection,
-              sourceReference: sourceReferenceForSelection({
-                article: articleRef.current,
-                document: documentPayload,
-                renderResult,
-              }),
-            })
-          : undefined,
+        snapshot ? selectionTextReference(snapshot) : undefined,
         undefined,
-        documentPayload
-          ? originalTextReferenceForSelection({
-              article: articleRef.current,
-              document: documentPayload,
-              renderResult,
-            })
+        originalReference ? { value: originalReference } : undefined,
+        snapshot &&
+          !snapshot.diagnostics.some(
+            (diagnostic) => diagnostic.severity === "blocking",
+          ) &&
+          onAddAgentSelection
+          ? () => onAddAgentSelection(snapshot)
           : undefined,
       );
     } else {
@@ -131,6 +147,22 @@ export function createArticleContextMenuHandler({
         openDiagramPreview,
         saveDiagramSvg,
         copyImage,
+        askAgent:
+          documentPayload && onAddAgentMedia
+            ? async () => {
+                onAddAgentMedia(
+                  await extractDocumentMedia({
+                    document: documentPayload,
+                    element: target,
+                    renderResult,
+                    displayPath: workspaceRelativeLabel(
+                      documentPayload.path,
+                      workspaceRoot,
+                    ),
+                  }),
+                );
+              }
+            : undefined,
       });
       addSourceItems(items, target, copyText);
       if (items.length === 0 && table) {
@@ -149,7 +181,27 @@ export function createArticleContextMenuHandler({
       addImageItems(
         items,
         target,
-        { copyText, openImagePreview, copyImage },
+        {
+          copyText,
+          openImagePreview,
+          copyImage,
+          askAgent:
+            documentPayload && onAddAgentMedia
+              ? async () => {
+                  onAddAgentMedia(
+                    await extractDocumentMedia({
+                      document: documentPayload,
+                      element: target,
+                      renderResult,
+                      displayPath: workspaceRelativeLabel(
+                        documentPayload.path,
+                        workspaceRoot,
+                      ),
+                    }),
+                  );
+                }
+              : undefined,
+        },
         image
           ? imageReferenceForElement(image, {
               documentPath: documentPayload?.path,
@@ -197,6 +249,14 @@ export function createArticleContextMenuHandler({
       target.closest<HTMLElement>("[data-review-id]")?.dataset.reviewId,
     );
   };
+}
+
+function workspaceRelativeLabel(path: string, workspaceRoot?: string | null) {
+  const root = workspaceRoot?.replace(/[\\/]+$/u, "");
+  if (root && path.startsWith(`${root}/`)) {
+    return path.slice(root.length + 1);
+  }
+  return path.split(/[\\/]/u).pop() ?? "Document";
 }
 
 function linkAtPoint(

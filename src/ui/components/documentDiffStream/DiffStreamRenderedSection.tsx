@@ -2,6 +2,7 @@ import { memo, useMemo, useRef, type MouseEvent } from "react";
 import type {
   DocumentDiffPreview,
   DocumentLinkResolution,
+  DocumentMediaSnapshot,
 } from "../../../core/types";
 import type { CopyText } from "../../hooks/documentLinks/types";
 import type { GitRenderedDiffSummary } from "../../lib/gitRenderedDiff";
@@ -22,6 +23,7 @@ import {
 import type { DiffStreamViewMode } from "./types";
 import type { CaptureAreaVariant } from "../../lib/captureArea";
 import { diffPreviewDocumentPath } from "../gitDiffPreview/contextMenuDocument";
+import { renderedDiffDiagramForTarget } from "../../lib/documentMedia";
 
 export const DiffStreamRenderedSection = memo(
   function DiffStreamRenderedSection({
@@ -37,6 +39,8 @@ export const DiffStreamRenderedSection = memo(
     confirmExternalLink,
     openExternalUrl,
     onOpenDiagramPreview,
+    onPrepareAgentSelection,
+    onAddAgentMedia,
     onBeginCaptureArea,
     showInlineNotice,
   }: {
@@ -59,6 +63,11 @@ export const DiffStreamRenderedSection = memo(
     confirmExternalLink: (url: string) => Promise<boolean>;
     openExternalUrl: (url: string) => Promise<void>;
     onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
+    onPrepareAgentSelection?: (range: Range) => (() => void) | undefined;
+    onAddAgentMedia?: (
+      snapshot: DocumentMediaSnapshot,
+      side: "left" | "right",
+    ) => void;
     onBeginCaptureArea: (
       target: HTMLElement,
       variant: CaptureAreaVariant,
@@ -109,12 +118,18 @@ export const DiffStreamRenderedSection = memo(
             );
             if (section) onBeginCaptureArea(section, variant);
           },
+          onPrepareAgentSelection,
+          onAddAgentMedia,
+          resolveAgentMediaDiagram: (target, side) =>
+            renderedDiffDiagramForTarget(target, visibleEntries, side),
           showInlineNotice,
         }),
       [
         confirmExternalLink,
         copyText,
         onOpenDiagramPreview,
+        onPrepareAgentSelection,
+        onAddAgentMedia,
         onBeginCaptureArea,
         openContextMenu,
         openDocument,
@@ -123,6 +138,7 @@ export const DiffStreamRenderedSection = memo(
         preview,
         resolveDocumentLink,
         showInlineNotice,
+        visibleEntries,
       ],
     );
     const documentFormat = documentFormatForPath(preview.relativePath ?? "");

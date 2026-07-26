@@ -9,6 +9,7 @@ import {
   Image,
   Link as LinkIcon,
   Maximize2,
+  MessageSquareText,
 } from "lucide-react";
 import { isSupportedDocumentPath } from "../../../core/documentFormat";
 import type {
@@ -43,7 +44,16 @@ export function addSelectionItems(
   textReference?: string,
   diffReference?: DiffReference,
   originalTextReference?: OriginalTextReference,
+  onAskAgent?: () => void,
 ) {
+  if (onAskAgent) {
+    items.push({
+      id: "ask-agent-about-selection",
+      label: "Ask AI about selection",
+      icon: menuIcon(MessageSquareText),
+      onSelect: onAskAgent,
+    });
+  }
   if (textReference) {
     items.push({
       id: "copy-text-reference",
@@ -106,12 +116,21 @@ export function addDiagramItems(
       sourceReference?: string,
     ) => Promise<void>;
     copyImage: CopyImage;
+    askAgent?: () => void | Promise<void>;
   },
 ) {
   const diagram = target.closest<HTMLElement>(".diagram-inline-image");
   const svg = diagram?.querySelector("svg");
   const diagramReference = diagram?.getAttribute("data-source-reference");
   if (svg) {
+    if (actions.askAgent) {
+      items.push({
+        id: "ask-agent-about-media",
+        label: "Ask AI",
+        icon: menuIcon(MessageSquareText),
+        onSelect: actions.askAgent,
+      });
+    }
     const preparedPreview = actions.prepareDiagramPreview?.(
       svg,
       diagramReference ?? undefined,
@@ -157,6 +176,14 @@ export function addDiagramItems(
     "data-source-reference",
   );
   if (items.length === 0 && diagnosticReference) {
+    if (actions.askAgent) {
+      items.push({
+        id: "ask-agent-about-media",
+        label: "Ask AI",
+        icon: menuIcon(MessageSquareText),
+        onSelect: actions.askAgent,
+      });
+    }
     items.push({
       id: "copy-diagram-reference",
       label: "Copy Diagram Reference",
@@ -299,6 +326,7 @@ export function addImageItems(
     copyText: CopyText;
     openImagePreview: (image: HTMLImageElement) => void;
     copyImage: CopyImage;
+    askAgent?: () => void | Promise<void>;
   },
   referenceText?: string,
 ) {
@@ -308,6 +336,14 @@ export function addImageItems(
   }
   const imagePath = image.getAttribute("data-image-resolved-path") ?? undefined;
   const imageUrl = image.getAttribute("data-image-url") ?? undefined;
+  if (actions.askAgent) {
+    items.push({
+      id: "ask-agent-about-media",
+      label: "Ask AI",
+      icon: menuIcon(MessageSquareText),
+      onSelect: actions.askAgent,
+    });
+  }
   items.push({
     id: "open-image-preview",
     label: "Open Preview",

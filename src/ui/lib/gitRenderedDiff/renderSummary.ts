@@ -240,10 +240,12 @@ function diagramSignature({
   return `diagram:${renderer}:${diagramType}:${normalizedSource}`;
 }
 
-function diagramSignaturesForRenderResult(
-  result: RenderResult,
-): ReadonlyMap<string, string> {
+function diagramMetadataForRenderResult(result: RenderResult): {
+  signatures: ReadonlyMap<string, string>;
+  sources: ReadonlyMap<string, { type: string; source: string }>;
+} {
   const signatures = new Map<string, string>();
+  const sources = new Map<string, { type: string; source: string }>();
   const setSignature = (
     id: string,
     input: { renderer: string; diagramType: string; source: string },
@@ -251,6 +253,10 @@ function diagramSignaturesForRenderResult(
     const signature = diagramSignature(input);
     if (signature) {
       signatures.set(id, signature);
+      sources.set(id, {
+        type: input.diagramType,
+        source: normalizedDiagramSource(input.source),
+      });
     }
   };
 
@@ -283,7 +289,7 @@ function diagramSignaturesForRenderResult(
     });
   }
 
-  return signatures;
+  return { signatures, sources };
 }
 
 async function renderBlocksFromSource(
@@ -314,13 +320,14 @@ async function renderBlocksFromSource(
       asciidocContext: documentContext?.asciidocContext,
     }),
   );
-  const diagramSignatures = diagramSignaturesForRenderResult(result);
+  const diagramMetadata = diagramMetadataForRenderResult(result);
   const showExternalImages = (options.config ?? defaultConfig).security
     .showExternalImages;
   if (!documentPath) {
     return measureBlockParsePhase(phaseMetrics, () =>
       extractRenderedBlocksFromHtml(result.html, {
-        diagramSignatures,
+        diagramSignatures: diagramMetadata.signatures,
+        diagramSources: diagramMetadata.sources,
         showExternalImages,
       }),
     );
@@ -344,7 +351,8 @@ async function renderBlocksFromSource(
   });
   return measureBlockParsePhase(phaseMetrics, () =>
     extractRenderedBlocksFromHtml(htmlWithDiagrams, {
-      diagramSignatures,
+      diagramSignatures: diagramMetadata.signatures,
+      diagramSources: diagramMetadata.sources,
       showExternalImages,
     }),
   );

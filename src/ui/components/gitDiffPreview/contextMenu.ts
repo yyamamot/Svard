@@ -11,6 +11,7 @@ import {
   copyImageWithReferenceToClipboard,
 } from "../../lib/imageClipboard";
 import { imageReferenceForElement } from "../../lib/imageReference";
+import { extractRenderedDiffMedia } from "../../lib/documentMedia";
 import {
   diffReferenceForTarget,
   originalDiffTextReferenceForSelection,
@@ -72,6 +73,9 @@ export function createDiffPreviewContextMenuHandler({
   openExternalUrl,
   onOpenDiagramPreview,
   onBeginCaptureArea,
+  onPrepareAgentSelection,
+  onAddAgentMedia,
+  resolveAgentMediaDiagram,
   showInlineNotice,
 }: DiffPreviewContextMenuOptions) {
   return function handleDiffPreviewContextMenu(
@@ -97,6 +101,9 @@ export function createDiffPreviewContextMenuHandler({
       openExternalUrl,
       onOpenDiagramPreview,
       onBeginCaptureArea,
+      onPrepareAgentSelection,
+      onAddAgentMedia,
+      resolveAgentMediaDiagram,
       showInlineNotice,
       allowLocationReference,
     });
@@ -128,6 +135,9 @@ export function diffPreviewContextMenuItems({
   openExternalUrl,
   onOpenDiagramPreview,
   onBeginCaptureArea,
+  onPrepareAgentSelection,
+  onAddAgentMedia,
+  resolveAgentMediaDiagram,
   showInlineNotice,
   allowLocationReference = true,
 }: Omit<DiffPreviewContextMenuOptions, "openContextMenu"> & {
@@ -150,6 +160,14 @@ export function diffPreviewContextMenuItems({
     event.clientX,
     event.clientY,
   );
+  const selectionRange =
+    selection && window.getSelection()?.rangeCount
+      ? window.getSelection()?.getRangeAt(0).cloneRange()
+      : null;
+  const askAgentSelection =
+    surface === "rendered" && selectionRange
+      ? onPrepareAgentSelection?.(selectionRange)
+      : undefined;
   const table = resolveDiffContextTable({
     container,
     event,
@@ -163,32 +181,42 @@ export function diffPreviewContextMenuItems({
       table,
       copyText,
       allowLocationReference && surface === "rendered" && documentPayload
-        ? locationReferenceForSelection({
-            article: container,
-            document: documentPayload,
-            selection,
-            revision: {
-              label: side === "left" ? preview.leftLabel : preview.rightLabel,
+        ? safeDiffReference(
+            locationReferenceForSelection({
+              article: container,
+              document: documentPayload,
+              selection,
+              revision: {
+                label: side === "left" ? preview.leftLabel : preview.rightLabel,
+                side,
+              },
+            }),
+            preview,
+          )
+        : undefined,
+      surface === "rendered"
+        ? safeReferenceValue(
+            diffReferenceForTarget({
+              target,
+              preview,
+              leftPath: diffPreviewDocumentPath(preview, "left"),
+              rightPath: diffPreviewDocumentPath(preview, "right"),
+            }),
+            preview,
+          )
+        : undefined,
+      surface === "rendered"
+        ? safeReferenceValue(
+            originalDiffTextReferenceForSelection({
+              target,
+              preview,
+              path: documentPath ?? diffPreviewDocumentPath(preview, "right"),
               side,
-            },
-          })
-        : undefined,
-      surface === "rendered"
-        ? diffReferenceForTarget({
-            target,
+            }),
             preview,
-            leftPath: diffPreviewDocumentPath(preview, "left"),
-            rightPath: diffPreviewDocumentPath(preview, "right"),
-          })
+          )
         : undefined,
-      surface === "rendered"
-        ? originalDiffTextReferenceForSelection({
-            target,
-            preview,
-            path: documentPath ?? diffPreviewDocumentPath(preview, "right"),
-            side,
-          })
-        : undefined,
+      askAgentSelection,
     );
     return items;
   }
@@ -210,6 +238,8 @@ export function diffPreviewContextMenuItems({
       showInlineNotice,
       side,
       allowLocationReference,
+      onAddAgentMedia,
+      resolveAgentMediaDiagram,
     });
   } else if (surface === "table" && table) {
     addTableItems(items, table, copyText);
@@ -234,6 +264,29 @@ export function diffPreviewContextMenuItems({
   return items;
 }
 
+function safeReferenceValue<T extends { value: string } | undefined>(
+  reference: T,
+  preview: DiffPreviewContextMenuOptions["preview"],
+): T {
+  if (!reference) return reference;
+  return {
+    ...reference,
+    value: safeDiffReference(reference.value, preview),
+  } as T;
+}
+
+function safeDiffReference(
+  value: string | null | undefined,
+  preview: DiffPreviewContextMenuOptions["preview"],
+) {
+  if (!value || !preview.relativePath) return value ?? undefined;
+  return [preview.leftPath, preview.rightPath].reduce<string>(
+    (current, path) =>
+      path ? current.replaceAll(path, preview.relativePath!) : current,
+    value,
+  );
+}
+
 function addRenderedSurfaceItems(
   items: ContextMenuItem[],
   {
@@ -252,6 +305,8 @@ function addRenderedSurfaceItems(
     showInlineNotice,
     side,
     allowLocationReference,
+    onAddAgentMedia,
+    resolveAgentMediaDiagram,
   }: Omit<DiffPreviewContextMenuOptions, "preview" | "openContextMenu"> & {
     preview: DiffPreviewContextMenuOptions["preview"];
     target: HTMLElement;
@@ -260,8 +315,11 @@ function addRenderedSurfaceItems(
     documentPayload: ReturnType<typeof diffPreviewDocumentPayload> | null;
     side: DiffSide;
     allowLocationReference: boolean;
+    onAddAgentMedia?: DiffPreviewContextMenuOptions["onAddAgentMedia"];
+    resolveAgentMediaDiagram?: DiffPreviewContextMenuOptions["resolveAgentMediaDiagram"];
   },
 ) {
+  const diagramSource = resolveAgentMediaDiagram?.(target, side);
   const copyImage = async (
     source: HTMLImageElement | SVGElement,
     referenceText?: string,
@@ -278,6 +336,36 @@ function addRenderedSurfaceItems(
       showInlineNotice("Image could not be copied", { tone: "warning" });
     }
   };
+  const askAgent = onAddAgentMedia
+    ? async () => {
+        try {
+          const path =
+            diffPreviewDocumentPath(preview, side) ??
+            preview.relativePath ??
+            "Document";
+          const displayPath =
+            preview.relativePath ?? path.split(/[\\/]/u).pop() ?? "Document";
+          const revisionLabel =
+            side === "left" ? preview.leftLabel : preview.rightLabel;
+          onAddAgentMedia(
+            await extractRenderedDiffMedia({
+              comparisonLabel: `${preview.leftLabel} → ${preview.rightLabel}`,
+              displayPath,
+              element: target,
+              path,
+              revisionLabel,
+              side,
+              diagramSource,
+            }),
+            side,
+          );
+        } catch {
+          showInlineNotice("This image could not be prepared for AI Chat.", {
+            tone: "warning",
+          });
+        }
+      }
+    : undefined;
   addDiagramItems(items, target, {
     copyText,
     prepareDiagramPreview: (svg) =>
@@ -310,6 +398,7 @@ function addRenderedSurfaceItems(
         showInlineNotice,
       }),
     copyImage,
+    askAgent,
   });
   addSourceItems(items, target, copyText);
   if (items.length === 0) {
@@ -352,6 +441,7 @@ function addRenderedSurfaceItems(
           showInlineNotice,
         }),
       copyImage,
+      askAgent,
     },
     image
       ? imageReferenceForElement(image, {

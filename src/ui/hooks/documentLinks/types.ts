@@ -2,7 +2,9 @@ import type { MouseEvent, RefObject } from "react";
 import type {
   AppConfig,
   DocumentLinkResolution,
+  DocumentMediaSnapshot,
   DocumentPayload,
+  DocumentSelectionSnapshot,
   GitRefKind,
   RenderResult,
 } from "../../../core/types";
@@ -58,6 +60,9 @@ export interface UseDocumentLinksOptions {
   showLightweightActionFeedback: (message: string) => void;
   saveSvgFile?: (fileName: string, svg: string) => Promise<boolean>;
   onBeginCaptureArea: (variant?: "plain" | "reference") => void;
+  onAddAgentSelection?: (snapshot: DocumentSelectionSnapshot) => void;
+  onAddAgentMedia?: (snapshot: DocumentMediaSnapshot) => void;
+  workspaceRoot?: string | null;
 }
 
 export type CopyText = (label: string, content?: string) => Promise<void>;

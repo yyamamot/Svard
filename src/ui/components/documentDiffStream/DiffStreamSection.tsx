@@ -3,6 +3,7 @@ import type {
   DocumentDiffPreview,
   DocumentDiffStreamItem,
   DocumentLinkResolution,
+  DocumentMediaSnapshot,
 } from "../../../core/types";
 import { documentFormatForPath } from "../../../core/documentFormat";
 import type { CopyText } from "../../hooks/documentLinks/types";
@@ -35,6 +36,8 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   openExternalUrl,
   onOpenDiagramPreview,
   onOpenDiffPreview,
+  onPrepareAgentSelection,
+  onAddAgentMedia,
   onBeginCaptureArea,
   showInlineNotice,
   reviewState,
@@ -66,6 +69,11 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   openExternalUrl: (url: string) => Promise<void>;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
   onOpenDiffPreview?: (preview: DocumentDiffPreview) => void;
+  onPrepareAgentSelection?: (range: Range) => (() => void) | undefined;
+  onAddAgentMedia?: (
+    snapshot: DocumentMediaSnapshot,
+    side: "left" | "right",
+  ) => void;
   onBeginCaptureArea: (
     target: HTMLElement,
     variant: CaptureAreaVariant,
@@ -182,6 +190,8 @@ export const DiffStreamSection = memo(function DiffStreamSection({
             confirmExternalLink={confirmExternalLink}
             openExternalUrl={openExternalUrl}
             onOpenDiagramPreview={onOpenDiagramPreview}
+            onPrepareAgentSelection={onPrepareAgentSelection}
+            onAddAgentMedia={onAddAgentMedia}
             onBeginCaptureArea={onBeginCaptureArea}
             showInlineNotice={showInlineNotice}
           />

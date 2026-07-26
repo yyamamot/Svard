@@ -13,10 +13,10 @@ function blockKindForElement(element: Element): RenderedBlockKind | null {
   if (/^h[1-6]$/.test(tagName)) {
     return "heading";
   }
-  if (element.classList.contains("diagram-slot")) {
+  if (isDiagramRoot(element)) {
     return "diagram";
   }
-  if (element.querySelector(".diagram-slot")) {
+  if (element.querySelector(".diagram-slot,.diagram-inline")) {
     return "diagram";
   }
   if (tagName === "img" || element.querySelector("img")) {
@@ -416,13 +416,13 @@ function shouldSkipDescendantBlock(element: Element): boolean {
     return true;
   }
   if (
-    !element.classList.contains("diagram-slot") &&
-    element.parentElement?.closest(".diagram-slot")
+    !isDiagramRoot(element) &&
+    element.parentElement?.closest(".diagram-slot,.diagram-inline")
   ) {
     return true;
   }
   if (
-    element.classList.contains("diagram-slot") &&
+    isDiagramRoot(element) &&
     element.parentElement &&
     isRenderedBlockCandidateElement(element.parentElement) &&
     blockKindForElement(element.parentElement) === "diagram"
@@ -448,7 +448,7 @@ function isRenderedBlockCandidateElement(element: Element): boolean {
     element.classList.contains("admonitionblock") ||
     element.classList.contains("markdown-alert") ||
     element.classList.contains("imageblock") ||
-    element.classList.contains("diagram-slot")
+    isDiagramRoot(element)
   );
 }
 
@@ -459,7 +459,7 @@ export function extractRenderedBlocksFromHtml(
   const doc = new DOMParser().parseFromString(html, "text/html");
   const candidates = Array.from(
     doc.body.querySelectorAll(
-      "h1,h2,h3,h4,h5,h6,p,ul,ol,dl,.dlist,table,pre,blockquote,.admonitionblock,.markdown-alert,.imageblock,.diagram-slot,img,.math-block",
+      "h1,h2,h3,h4,h5,h6,p,ul,ol,dl,.dlist,table,pre,blockquote,.admonitionblock,.markdown-alert,.imageblock,.diagram-slot,.diagram-inline,img,.math-block",
     ),
   );
   const blocks: RenderedBlock[] = [];
@@ -509,9 +509,23 @@ export function extractRenderedBlocksFromHtml(
           : kind === "image"
             ? imageSignatureForElement(element, options)
             : undefined,
+      diagram:
+        kind === "diagram"
+          ? diagramSourceForElement(element, options.diagramSources)
+          : undefined,
     });
   }
   return blocks;
+}
+
+function diagramSourceForElement(
+  element: Element,
+  sources: ReadonlyMap<string, { type: string; source: string }> | undefined,
+): { type: string; source: string } | undefined {
+  if (!sources) return undefined;
+  const slot = diagramElementWithId(element);
+  const id = slot?.getAttribute("data-diagram-id");
+  return id ? sources.get(id) : undefined;
 }
 
 function diagramSignatureForElement(
@@ -521,11 +535,22 @@ function diagramSignatureForElement(
   if (!signatures) {
     return undefined;
   }
-  const slot =
-    element.classList.contains("diagram-slot") &&
-    element.getAttribute("data-diagram-id")
-      ? element
-      : element.querySelector(".diagram-slot[data-diagram-id]");
+  const slot = diagramElementWithId(element);
   const id = slot?.getAttribute("data-diagram-id");
   return id ? signatures.get(id) : undefined;
+}
+
+function isDiagramRoot(element: Element) {
+  return (
+    element.classList.contains("diagram-slot") ||
+    element.classList.contains("diagram-inline")
+  );
+}
+
+function diagramElementWithId(element: Element) {
+  return isDiagramRoot(element) && element.hasAttribute("data-diagram-id")
+    ? element
+    : element.querySelector(
+        ".diagram-slot[data-diagram-id],.diagram-inline[data-diagram-id]",
+      );
 }

@@ -11,6 +11,14 @@ export async function copyImageToClipboard(
   await copyPngToClipboard(blob);
 }
 
+export function selectionImageToPng(
+  source: HTMLImageElement | SVGElement,
+): Promise<Blob> {
+  return source instanceof HTMLImageElement
+    ? imageToPng(source)
+    : svgToPng(source);
+}
+
 export async function copyImageWithReferenceToClipboard(
   source: HTMLImageElement,
   referenceText: string,

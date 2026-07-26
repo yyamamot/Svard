@@ -8,6 +8,7 @@ import type {
   AppConfig,
   DocumentDiffPreview,
   DocumentLinkResolution,
+  DocumentMediaSnapshot,
 } from "../../../core/types";
 import type { CopyText } from "../../hooks/documentLinks/types";
 import { useMouseGestures } from "../../hooks/useMouseGestures";
@@ -43,6 +44,15 @@ interface UseDiffPreviewInteractionsOptions {
     container: HTMLElement,
     variant?: CaptureAreaVariant,
   ) => void;
+  onPrepareAgentSelection?: (range: Range) => (() => void) | undefined;
+  onAddAgentMedia?: (
+    snapshot: DocumentMediaSnapshot,
+    side: "left" | "right",
+  ) => void;
+  resolveAgentMediaDiagram?: (
+    target: HTMLElement,
+    side: "left" | "right",
+  ) => { type: string; source: string } | undefined;
   openContextMenu: (
     event: MouseEvent<HTMLElement>,
     items: ContextMenuItem[],
@@ -79,6 +89,9 @@ export function useDiffPreviewInteractions({
   onClose,
   onOpenDiagramPreview,
   onBeginCaptureArea,
+  onPrepareAgentSelection,
+  onAddAgentMedia,
+  resolveAgentMediaDiagram,
   openContextMenu,
   openDocument,
   openExternalUrl,
@@ -115,6 +128,9 @@ export function useDiffPreviewInteractions({
         openExternalUrl,
         onOpenDiagramPreview,
         onBeginCaptureArea,
+        onPrepareAgentSelection,
+        onAddAgentMedia,
+        resolveAgentMediaDiagram,
         showInlineNotice,
       }),
     [
@@ -122,6 +138,9 @@ export function useDiffPreviewInteractions({
       copyText,
       onOpenDiagramPreview,
       onBeginCaptureArea,
+      onPrepareAgentSelection,
+      onAddAgentMedia,
+      resolveAgentMediaDiagram,
       openContextMenu,
       openDocument,
       openExternalUrl,

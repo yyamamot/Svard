@@ -6,7 +6,9 @@ import type {
   GitBranchDiffPreviewBatchItem,
   DocumentDiffStreamPreview,
   DocumentLinkResolution,
+  DocumentMediaSnapshot,
   DocumentPayload,
+  DocumentSelectionSnapshot,
   KrokiRequest,
   KrokiResult,
   LocalImageResolveContext,
@@ -26,6 +28,7 @@ import type {
   RenderedDiffNavigationTarget,
 } from "../../lib/gitRenderedDiff";
 import type { GesturePoint } from "../../../core/mouseGestures";
+import type { SelectionRevealTarget } from "../../lib/diffDocumentSelection";
 
 export type SectionLoadState =
   | { status: "idle" }
@@ -119,6 +122,15 @@ export interface DocumentDiffStreamPanelProps {
   openExternalUrl: (url: string) => Promise<void>;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
   onOpenDiffPreview?: (preview: DocumentDiffPreview) => void;
+  onAddAgentSelection?: (
+    snapshot: DocumentSelectionSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
+  onAddAgentMedia?: (
+    snapshot: DocumentMediaSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
+  initialViewMode?: DiffStreamViewMode;
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
