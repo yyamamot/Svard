@@ -1,4 +1,10 @@
 import { applyGitDiffRenderedCoreAdvancedScenario } from "./renderedCoreAdvanced.mjs";
+import {
+  exerciseRenderedDiffAgentMedia,
+  exerciseRenderedDiffAgentSelection,
+  largeMarkdownTableSource,
+  sampleCodeFenceWordHighlight,
+} from "./renderedCoreHelpers.mjs";
 export async function applyGitDiffRenderedCoreScenario(context) {
   const scenario = context.scenario;
   const page = context.page;
@@ -209,7 +215,9 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     });
   } else if (
     scenario === "viewer-git-diff-rendered-markdown" ||
-    scenario === "viewer-diff-context-menu-rendered"
+    scenario === "viewer-diff-context-menu-rendered" ||
+    scenario === "viewer-agent-chat-diff-selection" ||
+    scenario === "viewer-agent-chat-diff-media-context"
   ) {
     if (scenario === "viewer-diff-context-menu-rendered") {
       await page.evaluate(async () => {
@@ -245,9 +253,29 @@ export async function applyGitDiffRenderedCoreScenario(context) {
       window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
     );
     await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
-    if (scenario === "viewer-git-diff-rendered-markdown") {
+    if (
+      scenario === "viewer-git-diff-rendered-markdown" ||
+      scenario === "viewer-agent-chat-diff-selection" ||
+      scenario === "viewer-agent-chat-diff-media-context"
+    ) {
       await page.getByRole("button", { name: "Changes Only" }).click();
       await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
+    }
+    if (scenario === "viewer-agent-chat-diff-selection") {
+      await exerciseRenderedDiffAgentSelection(page, {
+        paneReviewId: "git-rendered-right-pane",
+        restoredPanelReviewId: "git-diff-preview-panel",
+        resultKey: "__SVARD_DIFF_AGENT_SELECTION_CHECK__",
+      });
+      return true;
+    }
+    if (scenario === "viewer-agent-chat-diff-media-context") {
+      await exerciseRenderedDiffAgentMedia(page, {
+        paneReviewId: "git-rendered-right-pane",
+        restoredPanelReviewId: "git-diff-preview-panel",
+        resultKey: "__SVARD_DIFF_AGENT_MEDIA_CHECK__",
+      });
+      return true;
     }
     if (scenario === "viewer-diff-context-menu-rendered") {
       await page.getByRole("button", { name: "Changes Only" }).click();
@@ -773,65 +801,4 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     return false;
   }
   return true;
-}
-
-function largeMarkdownTableSource({ includeLocalPlantUmlCache }) {
-  const rows = [
-    ["Documents", "Open files", "Stable"],
-    ["Diagrams", "Fast diagram loading", "Stable"],
-    ...(includeLocalPlantUmlCache
-      ? [["Diagrams", "Local PlantUML SVG cache", "Stable"]]
-      : []),
-    ["Files", "File tree", "Stable"],
-    ["Search", "Quick Open", "Stable"],
-    ["Navigation", "Table of contents", "Stable"],
-    ["Review", "Source Control changes", "Stable"],
-    ["Review", "Rendered diff", "Stable"],
-    ["Review", "Table view", "Stable"],
-    ["Review", "Change navigation", "Stable"],
-    ["Context", "Copy as TSV", "Stable"],
-    ["Context", "Open in editor", "Stable"],
-    ["Preferences", "Theme", "Stable"],
-    ["Preferences", "Cache", "Stable"],
-  ];
-  return `# Large Table Row Addition
-
-| Area | Feature | Status |
-| --- | --- | --- |
-${rows.map((row) => `| ${row.join(" | ")} |`).join("\n")}
-`;
-}
-
-async function sampleCodeFenceWordHighlight(page, rootSelectors) {
-  return await page.evaluate((selectors) => {
-    const root = selectors
-      .map((selector) => document.querySelector(selector))
-      .find((node) => node instanceof HTMLElement);
-    const codeHighlights = Array.from(
-      root?.querySelectorAll(
-        ".git-rendered-block-content pre.hljs .git-inline-word-highlight",
-      ) ?? [],
-    );
-    return {
-      codeHighlightCount: codeHighlights.length,
-      hasCodeWordHighlight: codeHighlights.length > 0,
-      codeHighlightsHaveNoReviewId: codeHighlights.every(
-        (node) => !node.hasAttribute("data-review-id"),
-      ),
-      preservesSyntaxTokens:
-        (root?.querySelectorAll(
-          ".git-rendered-block-content pre.hljs .hljs-keyword",
-        ).length ?? 0) > 0 &&
-        (root?.querySelectorAll(
-          ".git-rendered-block-content pre.hljs .hljs-string",
-        ).length ?? 0) > 0,
-      hasNoMathHighlight:
-        (root?.querySelectorAll(
-          ".katex .git-inline-word-highlight, .math-inline .git-inline-word-highlight, .math-block .git-inline-word-highlight",
-        ).length ?? 0) === 0,
-      hasNoSvgHighlight:
-        (root?.querySelectorAll("svg .git-inline-word-highlight").length ??
-          0) === 0,
-    };
-  }, rootSelectors);
 }

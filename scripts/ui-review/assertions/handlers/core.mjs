@@ -159,6 +159,8 @@ export async function buildCoreAssertions(context) {
       scenario === "viewer-move-tab-to-new-window" ||
       scenario === "viewer-zen-mode-prototype" ||
       scenario === "viewer-zen-mode-diff-preview" ||
+      scenario === "viewer-agent-chat-diff-context-reliability" ||
+      scenario === "viewer-agent-chat-change-review" ||
       scenario === "viewer-git-diff-too-complex-source-fallback" ||
       scenario === "viewer-topbar-direct-layout-controls" ||
       scenario.startsWith("viewer-git-timeline-") ||

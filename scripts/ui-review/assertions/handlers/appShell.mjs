@@ -91,6 +91,261 @@ export async function buildAppShellAssertions(context) {
             );
           })
         : true,
+    hasCodexOpenUi:
+      scenario === "viewer-codex-openui" ||
+      scenario === "viewer-codex-multifile"
+        ? await page.evaluate(() => {
+            if (
+              window.__SVARD_CODEX_MULTIFILE_CHECK__ &&
+              !window.__SVARD_CODEX_OPENUI_CHECK__
+            ) {
+              const result = window.__SVARD_CODEX_MULTIFILE_CHECK__;
+              return (
+                result.currentDocumentPending === true &&
+                result.readOnlyDefault === true &&
+                result.settingsRequireNewChat === true &&
+                result.executionSettingsApplied === true &&
+                result.dangerConfirmationShown === true &&
+                result.dangerCancelKeptWorkspaceWrite === true &&
+                result.initialComposerBottomAligned === true &&
+                result.sharedCount === 4 &&
+                result.contextCountAfterSwitch === 4 &&
+                result.internalDragAdded === true &&
+                result.internalDragPreviewVisible === true &&
+                result.internalDropTargetVisible === true &&
+                result.nativeDropAdded === true &&
+                result.newChatAvailable === true &&
+                result.staleBlocked === true &&
+                result.unsupportedRejected === true &&
+                document.querySelectorAll(
+                  '[data-review-id="codex-openui-response"]',
+                ).length >= 1
+              );
+            }
+            const result = window.__SVARD_CODEX_OPENUI_CHECK__;
+            return (
+              result?.documentWidth >= 300 &&
+              result?.aiWidth >= 320 &&
+              document.querySelectorAll('[data-review-id="codex-main-split"]')
+                .length === 1 &&
+              document.querySelectorAll(
+                '[data-review-id="codex-openui-response"]',
+              ).length >= 1 &&
+              document.querySelectorAll('[data-review-id="right-sidebar"]')
+                .length === 0
+            );
+          })
+        : true,
+    hasCodexInitialSidebar:
+      scenario === "viewer-codex-openui" ||
+      scenario === "viewer-codex-multifile"
+        ? await page.evaluate(
+            () =>
+              (
+                window.__SVARD_CODEX_OPENUI_CHECK__ ??
+                window.__SVARD_CODEX_MULTIFILE_CHECK__
+              )?.initialRightSidebar === true,
+          )
+        : true,
+    hasCodexSplitBlock:
+      scenario === "viewer-codex-openui"
+        ? await page.evaluate(
+            () =>
+              window.__SVARD_CODEX_OPENUI_CHECK__?.splitViewBlocked === true,
+          )
+        : true,
+    hasCodexFocusedResponse:
+      scenario === "viewer-codex-openui" ||
+      scenario === "viewer-codex-multifile"
+        ? await page.evaluate(
+            () =>
+              (
+                window.__SVARD_CODEX_OPENUI_CHECK__ ??
+                window.__SVARD_CODEX_MULTIFILE_CHECK__
+              )?.focusedResponseVisible === true,
+          )
+        : true,
+    hasCodexPlainTextFallback:
+      scenario === "viewer-codex-openui"
+        ? await page.evaluate(
+            () =>
+              window.__SVARD_CODEX_OPENUI_CHECK__?.plainTextFallback === true,
+          )
+        : true,
+    hasCodexSidebarRestore:
+      scenario === "viewer-codex-openui" ||
+      scenario === "viewer-codex-multifile"
+        ? await page.evaluate(
+            () =>
+              (
+                window.__SVARD_CODEX_OPENUI_CHECK__ ??
+                window.__SVARD_CODEX_MULTIFILE_CHECK__
+              )?.rightSidebarRestored === true,
+          )
+        : true,
+    hasAgentStage5:
+      scenario === "viewer-agent-chat-streaming" ||
+      scenario === "viewer-agent-chat-approval" ||
+      scenario === "viewer-agent-chat-openui" ||
+      scenario === "viewer-agent-chat-openui-exploration" ||
+      scenario === "viewer-agent-chat-image-input" ||
+      scenario === "viewer-agent-chat-activity" ||
+      scenario === "viewer-agent-chat-output-hygiene" ||
+      scenario === "viewer-agent-chat-markdown-answer" ||
+      scenario === "viewer-agent-chat-conversation-usability" ||
+      scenario === "viewer-agent-chat-running-input-control" ||
+      scenario === "viewer-agent-chat-change-review" ||
+      scenario === "viewer-agent-chat-selection" ||
+      scenario === "viewer-agent-chat-selection-image" ||
+      scenario === "viewer-agent-chat-active-file" ||
+      scenario === "viewer-agent-chat-session-management" ||
+      scenario === "viewer-agent-chat-dark-theme"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_STAGE5_CHECK__;
+            return (
+              result?.initialRightSidebar === true &&
+              result?.composerBottomAligned === true &&
+              result?.compactComposerBottomAligned === true &&
+              result?.currentActivityVisible === true &&
+              result?.darkControlsThemed === true &&
+              result?.reasoningVisible === true &&
+              result?.toolVisible === true &&
+              result?.approvalResolved === true &&
+              result?.activityFailureVisible === true &&
+              result?.emptyActivityHidden === true &&
+              result?.openUiVisible === true &&
+              result?.explorationInteraction === true &&
+              result?.groupedReadActivity === true &&
+              result?.focusedAnswerVisible === true &&
+              result?.rightSidebarRestored === true
+            );
+          })
+        : true,
+    hasSelectionExtraction:
+      scenario === "viewer-selection-extraction"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_SELECTION_EXTRACTION_CHECK__;
+            return (
+              result?.inspectorVisible === true &&
+              result?.toolbarVisible === true &&
+              result?.toolbarAvoidsSelection === true
+            );
+          })
+        : true,
+    hasAgentOutputHygiene:
+      scenario === "viewer-agent-chat-output-hygiene"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_OUTPUT_HYGIENE_CHECK__;
+            return (
+              result?.hasOpenUiRoot === false &&
+              result?.hasInternalMemory === false &&
+              result?.hasZeroDuration === false &&
+              result?.emptyDetails === 0 &&
+              result?.workspaceReadVisible === true
+            );
+          })
+        : true,
+    hasAgentConversationUsability:
+      scenario === "viewer-agent-chat-conversation-usability"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_USABILITY_CHECK__;
+            return (
+              result?.restoredInput === true &&
+              result?.markdownCopied === true &&
+              result?.codeCopied === true &&
+              result?.rawDslCopied === false &&
+              result?.newActivityVisible === true &&
+              result?.jumpedToLatest === true &&
+              result?.turnCount === 3
+            );
+          })
+        : true,
+    hasAgentRunningInputControl:
+      scenario === "viewer-agent-chat-running-input-control"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_RUNNING_INPUT_CHECK__;
+            return (
+              result?.steeredVisible === true && result?.queuedTurnCount >= 2
+            );
+          })
+        : true,
+    hasAgentChangeReview:
+      scenario === "viewer-agent-chat-change-review"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_CHANGE_REVIEW_CHECK__;
+            return (
+              result?.chatMaintained === true && result?.fivePaths === true
+            );
+          })
+        : true,
+    hasAgentImageInput:
+      scenario === "viewer-agent-chat-image-input"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_IMAGE_CHECK__;
+            return (
+              result?.attachedBeforeRemove === 3 &&
+              result?.attachedAfterRemove === 2 &&
+              result?.attachedWhileWorking === true &&
+              result?.internalDragPreviewVisible === true &&
+              result?.historyImages === 3 &&
+              result?.pendingImages === 0
+            );
+          })
+        : true,
+    hasAgentSelection:
+      scenario === "viewer-agent-chat-selection" ||
+      scenario === "viewer-agent-chat-selection-image"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_SELECTION_CHECK__;
+            return (
+              result?.historySelections === 1 &&
+              result?.pendingSelections === 0 &&
+              result?.mixedContentOrder === true
+            );
+          })
+        : true,
+    hasAgentMediaContext:
+      scenario === "viewer-agent-chat-media-context"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_MEDIA_CHECK__;
+            return (
+              result?.historyMedia === true &&
+              result?.pendingMedia === 0 &&
+              result?.hasLocation === true &&
+              result?.hasDiagramSource === true &&
+              result?.ordered === true
+            );
+          })
+        : true,
+    hasAgentActiveFile:
+      scenario === "viewer-agent-chat-active-file"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_ACTIVE_FILE_CHECK__;
+            return (
+              result?.initialFocusChipCount === 0 &&
+              result?.firstFocusCount === 0 &&
+              result?.firstActivePath?.endsWith("/docs/mvp-guide.adoc") &&
+              result?.secondActivePath?.endsWith(
+                "/docs/render-fixtures.adoc",
+              ) &&
+              result?.secondFocusCount === 1 &&
+              typeof result?.secondFocusPath === "string" &&
+              result.secondFocusPath !== result.secondActivePath
+            );
+          })
+        : true,
+    hasAgentSessionManagement:
+      scenario === "viewer-agent-chat-session-management"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_SESSION_MANAGEMENT_CHECK__;
+            return (
+              result?.automaticTitleVisible === true &&
+              result?.currentNamed === true &&
+              result?.deleteConfirmation === true &&
+              result?.readOnlyHistory === true
+            );
+          })
+        : true,
     hasSplitBasic:
       scenario === "viewer-split-basic"
         ? (await page.locator('[data-review-id="viewer-split"]').count()) ===

@@ -325,6 +325,38 @@ export async function buildGitDiffSourceControlAssertions(context) {
             );
           })
         : true,
+    hasSourceControlAllDiffsSelection:
+      scenario === "viewer-source-control-all-diffs-selection"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_ALL_DIFFS_AGENT_SELECTION_CHECK__;
+            return (
+              result?.overlayRestored === true &&
+              result?.revisionVisible === true
+            );
+          })
+        : true,
+    hasSourceControlAllDiffsMedia:
+      scenario === "viewer-source-control-all-diffs-media-context"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_ALL_DIFFS_AGENT_MEDIA_CHECK__;
+            return (
+              result?.overlayRestored === true &&
+              result?.revisionVisible === true &&
+              result?.modeCount === 3
+            );
+          })
+        : true,
+    hasAgentDiffContextReliability:
+      scenario === "viewer-agent-chat-diff-context-reliability"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_DIFF_CONTEXT_RELIABILITY_CHECK__;
+            return (
+              result?.overlayRestored === true &&
+              result?.modeCount === 3 &&
+              result?.orderedKinds?.join(",") === "selection,media"
+            );
+          })
+        : true,
     hasTooComplexDiffSourceFallback:
       scenario === "viewer-git-diff-too-complex-source-fallback"
         ? await page.evaluate(() => {

@@ -5,6 +5,9 @@ export async function applyAppShellPreferencesScenario(context) {
     scenario === "viewer-preferences" ||
     scenario === "viewer-preferences-kroki-remote-self-managed"
   ) {
+    if (scenario === "viewer-preferences-agent-executable") {
+      await page.setViewportSize({ width: 1280, height: 840 });
+    }
     await openPreferencesPage(page, "preferences-dialog");
     await selectPreferencesSection(page, "Kroki");
     await page
@@ -440,6 +443,83 @@ export async function applyAppShellPreferencesScenario(context) {
       .locator('[data-review-id="remote-provider-github-token-status"]')
       .filter({ hasText: "Ready for PR target detection" })
       .waitFor();
+  } else if (
+    scenario === "viewer-preferences-agent-providers" ||
+    scenario === "viewer-preferences-agent-models" ||
+    scenario === "viewer-preferences-agent-runtime-cache" ||
+    scenario === "viewer-preferences-agent-executable"
+  ) {
+    await openPreferencesPage(page, "preferences-dialog");
+    await selectPreferencesSection(
+      page,
+      "AI Providers",
+      "preferences-tab-agent-providers",
+    );
+    await page
+      .locator('[data-review-id="agent-provider-codex-status"]')
+      .waitFor();
+    await page
+      .locator('[data-review-id="agent-provider-codex-model"]')
+      .selectOption("codex-balanced");
+    await page
+      .locator('[data-review-id="agent-provider-codex-reasoning"]')
+      .selectOption("high");
+    await page
+      .locator('[data-review-id="agent-provider-codex-personality"]')
+      .selectOption("pragmatic");
+    await page
+      .locator('[data-review-id="agent-provider-codex-permission"]')
+      .selectOption("agent");
+    if (scenario === "viewer-preferences-agent-runtime-cache") {
+      const initialLoads = await page.evaluate(
+        () => window.__SVARD_AGENT_RUNTIME_LOAD_COUNT__,
+      );
+      await selectPreferencesSection(
+        page,
+        "General",
+        "preferences-tab-general",
+      );
+      await selectPreferencesSection(
+        page,
+        "AI Providers",
+        "preferences-tab-agent-providers",
+      );
+      const remountLoads = await page.evaluate(
+        () => window.__SVARD_AGENT_RUNTIME_LOAD_COUNT__,
+      );
+      if (remountLoads !== initialLoads) {
+        throw new Error("AI Providers remount reloaded the provider runtime.");
+      }
+      await page.getByRole("button", { name: "Refresh Codex" }).click();
+      await page.waitForFunction(
+        (previous) =>
+          window.__SVARD_AGENT_RUNTIME_LOAD_COUNT__ === Number(previous) + 1,
+        initialLoads,
+      );
+      await page
+        .locator('[data-review-id="agent-provider-codex-status"]')
+        .filter({ hasText: "Ready" })
+        .waitFor();
+    } else if (scenario === "viewer-preferences-agent-executable") {
+      await page.evaluate(() => {
+        window.__SVARD_AGENT_EXECUTABLE_PICK__ = "/mock/custom/codex";
+      });
+      await page.getByRole("button", { name: "Choose executable…" }).click();
+      await page
+        .locator('[data-review-id="agent-provider-codex-installation-detail"]')
+        .filter({ hasText: "Custom executable" })
+        .waitFor();
+      await page.getByRole("button", { name: "Reset to Automatic" }).click();
+      await page
+        .locator('[data-review-id="agent-provider-codex-installation-detail"]')
+        .filter({ hasText: "PATH installation" })
+        .waitFor();
+      await page.setViewportSize({ width: 960, height: 640 });
+      await page
+        .locator('[data-review-id="agent-provider-codex-installation"]')
+        .waitFor();
+      await page.setViewportSize({ width: 1280, height: 840 });
+    }
   } else if (scenario === "viewer-preferences-diagrams-polish") {
     await openPreferencesPage(page, "preferences-dialog");
     await selectPreferencesSection(

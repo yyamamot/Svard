@@ -68,6 +68,27 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
   const diffRegressionSuite = samples.diffRegressionSuite;
   const renderedPlaceholderGrouping = samples.renderedPlaceholderGrouping;
   return {
+    hasAgentDiffSelection:
+      scenario === "viewer-agent-chat-diff-selection"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_DIFF_AGENT_SELECTION_CHECK__;
+            return (
+              result?.overlayRestored === true &&
+              result?.revisionVisible === true
+            );
+          })
+        : true,
+    hasAgentDiffMedia:
+      scenario === "viewer-agent-chat-diff-media-context"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_DIFF_AGENT_MEDIA_CHECK__;
+            return (
+              result?.overlayRestored === true &&
+              result?.revisionVisible === true &&
+              result?.modeCount === 3
+            );
+          })
+        : true,
     hasGitDiffRenderedMarkdown:
       scenario === "viewer-git-diff-rendered-markdown"
         ? (await page

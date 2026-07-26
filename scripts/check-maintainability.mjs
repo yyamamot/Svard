@@ -7,13 +7,14 @@ const artifactRoot = path.join(repoRoot, ".artifacts", "maintainability");
 const reportPath = path.join(artifactRoot, "report.json");
 const budgetMode = process.argv.includes("--budget");
 const budgetPath = path.join(artifactRoot, "budget-report.json");
-const budgets = {
+export const maintainabilityBudgets = {
   severeCountMax: 1,
-  warningCountMax: 10,
+  warningCountMax: 0,
   severeFileLineMax: {
     "scripts/ui-review/scenarios/handlers/gitDiff.mjs": 2026,
   },
 };
+const budgets = maintainabilityBudgets;
 
 const trackedExtensions = new Set([
   ".css",
@@ -25,10 +26,9 @@ const trackedExtensions = new Set([
   ".tsx",
 ]);
 
-const excludedDirectoryNames = new Set(["node_modules"]);
+const excludedDirectoryNames = new Set([".artifacts", "node_modules"]);
 
 const excludedDirectoryPrefixes = [
-  ".artifacts/",
   "Arto/",
   "dist/",
   "public/vendor/",

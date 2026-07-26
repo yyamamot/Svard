@@ -115,6 +115,53 @@ const preferenceScenarioMetadata = {
       "remote-provider-github-test",
     ],
   },
+  "viewer-preferences-agent-providers": {
+    usesPreferencesPageShell: true,
+    optionalCoreMarkers: preferencesOptionalCoreMarkers,
+    requiredMarkers: [
+      "preferences-tab-agent-providers",
+      "agent-provider-codex-status",
+      "agent-provider-codex-model",
+      "agent-provider-codex-reasoning",
+      "agent-provider-codex-personality",
+      "agent-provider-codex-permission",
+    ],
+  },
+  "viewer-preferences-agent-models": {
+    usesPreferencesPageShell: true,
+    optionalCoreMarkers: preferencesOptionalCoreMarkers,
+    requiredMarkers: [
+      "preferences-tab-agent-providers",
+      "agent-provider-codex-status",
+      "agent-provider-codex-model",
+      "agent-provider-codex-reasoning",
+      "agent-provider-codex-personality",
+      "agent-provider-codex-permission",
+    ],
+  },
+  "viewer-preferences-agent-runtime-cache": {
+    usesPreferencesPageShell: true,
+    optionalCoreMarkers: preferencesOptionalCoreMarkers,
+    requiredMarkers: [
+      "preferences-tab-agent-providers",
+      "agent-provider-codex-status",
+      "agent-provider-codex-model",
+      "agent-provider-codex-reasoning",
+      "agent-provider-codex-personality",
+      "agent-provider-codex-permission",
+    ],
+  },
+  "viewer-preferences-agent-executable": {
+    usesPreferencesPageShell: true,
+    optionalCoreMarkers: preferencesOptionalCoreMarkers,
+    requiredMarkers: [
+      "preferences-tab-agent-providers",
+      "agent-provider-codex-status",
+      "agent-provider-codex-installation",
+      "agent-provider-codex-installation-detail",
+      "agent-provider-codex-model",
+    ],
+  },
   "viewer-preferences-diagrams-polish": {
     usesPreferencesPageShell: true,
     optionalCoreMarkers: preferencesOptionalCoreMarkers,

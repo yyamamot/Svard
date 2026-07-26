@@ -83,9 +83,9 @@ async function acquireUiReviewLock(args) {
   }
 }
 
-function run(command, args) {
+function run(command, args, env = process.env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: "inherit" });
+    const child = spawn(command, args, { stdio: "inherit", env });
     child.on("exit", (code) => {
       if (code === 0) {
         resolve();
@@ -108,7 +108,12 @@ async function main() {
   let server = null;
 
   try {
-    await run("pnpm", ["run", "build"]);
+    const buildEnvironment = args.scenario.startsWith("viewer-agent-chat-")
+      ? {
+          ...process.env,
+        }
+      : process.env;
+    await run("pnpm", ["run", "build"], buildEnvironment);
     server = await preview({
       preview: {
         host: "127.0.0.1",
