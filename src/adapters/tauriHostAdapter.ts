@@ -1,14 +1,23 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { setTheme as setAppTheme } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { buildFileDocumentDiffPreview } from "../core/documentDiff";
 import { isSafeExternalUrlToOpen } from "../ui/lib/path";
+import { TauriAgentFacade } from "./tauriHost/agent";
+import { invokeCommand } from "./tauriHost/invoke";
 import type {
   AppConfig,
+  CodexCliProbe,
+  CodexContextFile,
+  CodexContextFileLoadInput,
+  CodexContextSearchInput,
+  CodexContextSearchItem,
+  CodexTurnEvent,
+  CodexTurnInput,
+  CodexTurnOutcome,
   DirectoryEntry,
   DocumentOrderCatalog,
   DocumentOrderLoadOptions,
@@ -96,40 +105,89 @@ interface GitStatusWatchEventPayload {
   kind: string;
 }
 
-interface TauriStructuredError {
-  code?: unknown;
-  message?: unknown;
+function workspaceRootForSelectedPath(
+  path: string,
+  workspaceRoot?: string | null,
+): string | null {
+  if (!workspaceRoot) {
+    return null;
+  }
+  const normalizedPath = path.replaceAll("\\", "/");
+  const normalizedRoot = workspaceRoot
+    .replaceAll("\\", "/")
+    .replace(/\/+$/u, "");
+  return normalizedPath.startsWith(`${normalizedRoot}/`) ? workspaceRoot : null;
 }
 
-function normalizeTauriError(error: unknown): Error {
-  if (error instanceof Error) {
-    return error;
+export class TauriHostAdapter extends TauriAgentFacade implements HostAdapter {
+  probeCodex(): Promise<CodexCliProbe> {
+    return invokeCommand("probe_codex");
   }
-  if (typeof error === "string") {
-    return new Error(error);
-  }
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    typeof (error as TauriStructuredError).message === "string"
-  ) {
-    return new Error((error as { message: string }).message);
-  }
-  return new Error("Tauri command failed.");
-}
 
-async function invokeCommand<T>(
-  command: string,
-  args?: Record<string, unknown>,
-): Promise<T> {
-  try {
-    return await invoke<T>(command, args);
-  } catch (error) {
-    throw normalizeTauriError(error);
+  loadCodexContextFile(
+    input: CodexContextFileLoadInput,
+  ): Promise<CodexContextFile> {
+    return invokeCommand("load_codex_context_file", { input });
   }
-}
 
-export class TauriHostAdapter implements HostAdapter {
+  async pickCodexContextFiles(
+    workspaceRoot?: string | null,
+  ): Promise<CodexContextFile[]> {
+    const selected = await open({ multiple: true });
+    const paths =
+      typeof selected === "string"
+        ? [selected]
+        : Array.isArray(selected)
+          ? selected
+          : [];
+    return Promise.all(
+      paths.map(async (path) => {
+        const selectedWorkspaceRoot = workspaceRootForSelectedPath(
+          path,
+          workspaceRoot,
+        );
+        const resolvedPath = selectedWorkspaceRoot
+          ? path
+          : await this.resolveDroppedCodexContextPath(path);
+        return this.loadCodexContextFile({
+          path: resolvedPath,
+          workspaceRoot: selectedWorkspaceRoot,
+          contextId: globalThis.crypto.randomUUID(),
+        });
+      }),
+    );
+  }
+
+  searchCodexContextFiles(
+    input: CodexContextSearchInput,
+  ): Promise<CodexContextSearchItem[]> {
+    return invokeCommand("search_codex_context_files", { input });
+  }
+
+  resolveDroppedCodexContextPath(path: string): Promise<string> {
+    return invokeCommand("resolve_dropped_codex_context_path", { path });
+  }
+
+  runCodexTurn(
+    input: CodexTurnInput,
+    onEvent: (event: CodexTurnEvent) => void,
+  ): Promise<CodexTurnOutcome> {
+    const onEventChannel = new Channel<CodexTurnEvent>();
+    onEventChannel.onmessage = onEvent;
+    return invokeCommand("run_codex_turn", {
+      input,
+      onEvent: onEventChannel,
+    });
+  }
+
+  cancelCodexTurn(runId: string): Promise<void> {
+    return invokeCommand("cancel_codex_turn", { runId });
+  }
+
+  closeCodexSession(clientSessionId: string): Promise<void> {
+    return invokeCommand("close_codex_session", { clientSessionId });
+  }
+
   saveSvgFile(fileName: string, svg: string): Promise<boolean> {
     return invokeCommand("save_svg_file", { fileName, svg });
   }
@@ -335,9 +393,8 @@ export class TauriHostAdapter implements HostAdapter {
     onEvent: (event: NativeFileDropEvent) => void,
   ): Promise<WatchHandle> {
     let disposed = false;
-    const webview = getCurrentWebview();
     const currentWindow = getCurrentWindow();
-    const unlisten = await webview.onDragDropEvent(async (event) => {
+    const unlisten = await currentWindow.onDragDropEvent(async (event) => {
       if (disposed) {
         return;
       }

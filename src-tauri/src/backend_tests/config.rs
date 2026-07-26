@@ -48,6 +48,8 @@ fn default_config_keeps_kroki_disabled() {
     assert!(config.kroki.require_remote_confirmation);
     assert_eq!(config.network.http_proxy.mode, "disabled");
     assert!(config.network.http_proxy.url.is_none());
+    assert_eq!(config.agent_providers.codex.executable.mode, "auto");
+    assert!(config.agent_providers.codex.executable.path.is_none());
     assert!(!config.remote_providers.github.enabled);
     assert_eq!(
         config.remote_providers.github.host_url,
@@ -105,6 +107,15 @@ fn config_round_trips_to_json() {
     config.zen_mode.apply_to_diff_preview = true;
     config.network.http_proxy.mode = HttpProxyMode::Custom;
     config.network.http_proxy.url = Some("http://proxy.local:8080".to_string());
+    config.agent_providers.codex.executable.mode = "custom".to_string();
+    config.agent_providers.codex.executable.path =
+        Some("/Applications/Codex.app/Contents/MacOS/codex".to_string());
+    config.agent_providers.codex.model = Some("gpt-5.6-terra".to_string());
+    config.agent_providers.codex.reasoning_effort = "high".to_string();
+    config.agent_providers.codex.personality = "pragmatic".to_string();
+    config.agent_providers.codex.permission_mode = "agent".to_string();
+    config.agent_providers.codex.network_access = true;
+    config.agent_providers.codex.web_search = true;
     config.remote_providers.github.enabled = true;
     config.remote_providers.github.host_url = "https://github.example.test".to_string();
     config.remote_providers.github.token_stored = true;
@@ -214,6 +225,20 @@ fn config_round_trips_to_json() {
         loaded.network.http_proxy.url.as_deref(),
         Some("http://proxy.local:8080")
     );
+    assert_eq!(loaded.agent_providers.codex.executable.mode, "custom");
+    assert_eq!(
+        loaded.agent_providers.codex.executable.path.as_deref(),
+        Some("/Applications/Codex.app/Contents/MacOS/codex")
+    );
+    assert_eq!(
+        loaded.agent_providers.codex.model.as_deref(),
+        Some("gpt-5.6-terra")
+    );
+    assert_eq!(loaded.agent_providers.codex.reasoning_effort, "high");
+    assert_eq!(loaded.agent_providers.codex.personality, "pragmatic");
+    assert_eq!(loaded.agent_providers.codex.permission_mode, "agent");
+    assert!(loaded.agent_providers.codex.network_access);
+    assert!(loaded.agent_providers.codex.web_search);
     assert!(loaded.remote_providers.github.enabled);
     assert_eq!(
         loaded.remote_providers.github.host_url,

@@ -60,6 +60,7 @@
     "perf:source-control:file-history:budget": "node scripts/source-control-file-history-perf-probe.mjs --budget --out .artifacts/perf/source-control-file-history-budget.json",
     "benchmark:workspace": "node scripts/workspace-performance-benchmark.mjs",
     "check:ui-scenarios": "node scripts/check-ui-scenarios.mjs",
+    "check:codex-app-server-protocol": "node scripts/check-codex-app-server-protocol.mjs",
     "version:set": "node scripts/set-release-version.mjs",
     "version:check": "node scripts/check-release-version.mjs",
     "mirror:commit-last": "node scripts/mirror-commit-last.mjs",
@@ -68,6 +69,9 @@
   },
   "dependencies": {
     "@asciidoctor/core": "3.0.4",
+    "@openuidev/react-headless": "0.9.3",
+    "@openuidev/react-lang": "0.2.9",
+    "@openuidev/react-ui": "0.13.1",
     "@tauri-apps/api": "2.11.0",
     "@tauri-apps/plugin-dialog": "2.7.1",
     "@tauri-apps/plugin-opener": "2.5.4",
@@ -82,7 +86,9 @@
     "markdown-it-footnote": "^4.0.0",
     "mermaid": "11.15.0",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "zod": "4.4.3",
+    "zustand": "4.5.7"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

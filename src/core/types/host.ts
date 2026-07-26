@@ -1,4 +1,30 @@
 import type {
+  AgentApprovalResponseInput,
+  AgentEvent,
+  AgentExecutablePreference,
+  AgentImageAttachment,
+  AgentImageDiscardInput,
+  AgentImageStageInput,
+  AgentProviderId,
+  AgentProviderRuntimeOptions,
+  AgentProviderRuntimeSnapshot,
+  AgentSessionArchiveInput,
+  AgentSessionDeleteInput,
+  AgentSessionHistoryInput,
+  AgentSessionHistoryPage,
+  AgentSessionInfo,
+  AgentSessionListInput,
+  AgentSessionPage,
+  AgentSessionRenameInput,
+  AgentSessionResumeInput,
+  AgentSessionStartInput,
+  AgentSessionSummary,
+  AgentSteerInput,
+  AgentSteerOutcome,
+  AgentTurnInput,
+  AgentTurnOutcome,
+} from "./agent";
+import type {
   AppConfig,
   BookmarkEntry,
   LayoutConfig,
@@ -53,6 +79,16 @@ import type {
   PlantUmlSvgCacheWriteInput,
   PlantUmlSvgCacheWriteResult,
 } from "./render";
+import type {
+  CodexCliProbe,
+  CodexContextFile,
+  CodexContextFileLoadInput,
+  CodexContextSearchInput,
+  CodexContextSearchItem,
+  CodexTurnEvent,
+  CodexTurnInput,
+  CodexTurnOutcome,
+} from "./codex";
 
 export interface WatchHandle {
   dispose(): void;
@@ -101,6 +137,61 @@ export interface ViewerWindowOpenRequest {
 }
 
 export interface HostAdapter {
+  peekAgentProviderRuntime(
+    providerId: AgentProviderId,
+    executablePreference?: AgentExecutablePreference,
+  ): AgentProviderRuntimeSnapshot | null;
+  getAgentProviderRuntime(
+    providerId: AgentProviderId,
+    options?: AgentProviderRuntimeOptions,
+  ): Promise<AgentProviderRuntimeSnapshot>;
+  pickAgentExecutable(
+    providerId: AgentProviderId,
+  ): Promise<AgentExecutablePreference | null>;
+  startAgentSession(
+    input: AgentSessionStartInput,
+    onEvent: (event: AgentEvent) => void,
+  ): Promise<AgentSessionInfo>;
+  listAgentSessions(input: AgentSessionListInput): Promise<AgentSessionPage>;
+  resumeAgentSession(
+    input: AgentSessionResumeInput,
+    onEvent: (event: AgentEvent) => void,
+  ): Promise<AgentSessionInfo>;
+  readAgentSessionHistory(
+    input: AgentSessionHistoryInput,
+  ): Promise<AgentSessionHistoryPage>;
+  renameAgentSession(
+    input: AgentSessionRenameInput,
+  ): Promise<AgentSessionSummary>;
+  setAgentSessionArchived(
+    input: AgentSessionArchiveInput,
+  ): Promise<AgentSessionSummary>;
+  deleteAgentSession(input: AgentSessionDeleteInput): Promise<void>;
+  sendAgentTurn(input: AgentTurnInput): Promise<AgentTurnOutcome>;
+  steerAgentTurn(input: AgentSteerInput): Promise<AgentSteerOutcome>;
+  stageAgentImage(input: AgentImageStageInput): Promise<AgentImageAttachment>;
+  pickAgentImages(clientSessionId: string): Promise<AgentImageAttachment[]>;
+  discardAgentImage(input: AgentImageDiscardInput): Promise<void>;
+  respondToAgentApproval(input: AgentApprovalResponseInput): Promise<void>;
+  cancelAgentTurn(clientSessionId: string, clientTurnId: string): Promise<void>;
+  closeAgentSession(clientSessionId: string): Promise<void>;
+  probeCodex(): Promise<CodexCliProbe>;
+  loadCodexContextFile(
+    input: CodexContextFileLoadInput,
+  ): Promise<CodexContextFile>;
+  pickCodexContextFiles(
+    workspaceRoot?: string | null,
+  ): Promise<CodexContextFile[]>;
+  searchCodexContextFiles(
+    input: CodexContextSearchInput,
+  ): Promise<CodexContextSearchItem[]>;
+  resolveDroppedCodexContextPath(path: string): Promise<string>;
+  runCodexTurn(
+    input: CodexTurnInput,
+    onEvent: (event: CodexTurnEvent) => void,
+  ): Promise<CodexTurnOutcome>;
+  cancelCodexTurn(runId: string): Promise<void>;
+  closeCodexSession(clientSessionId: string): Promise<void>;
   pickDocument(): Promise<string | null>;
   pickDirectory(): Promise<string | null>;
   resolveDroppedDocumentPath(path: string): Promise<string>;

@@ -19,6 +19,7 @@ tauri-build = { version = "2.6.2", features = [] }
 base64 = "0.22"
 filetime = "0.2"
 gix = { version = "0.83", default-features = false, features = ["basic", "status", "sha1"] }
+image = { version = "=0.25.6", default-features = false, features = ["jpeg", "png", "webp"] }
 notify = "8"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }

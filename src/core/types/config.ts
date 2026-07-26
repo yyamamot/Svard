@@ -1,4 +1,5 @@
 import type { CommandId } from "../commands";
+import type { AgentExecutablePreference } from "./agent";
 import type { DocumentFormat } from "./document";
 
 export interface AppConfig {
@@ -14,6 +15,7 @@ export interface AppConfig {
   diagram: DiagramConfig;
   kroki: KrokiConfig;
   network: NetworkConfig;
+  agentProviders: AgentProvidersConfig;
   remoteProviders: RemoteProvidersConfig;
   security: SecurityConfig;
   experimental: ExperimentalConfig;
@@ -144,6 +146,30 @@ export interface NetworkConfig {
 export interface HttpProxyConfig {
   mode: "disabled" | "custom";
   url: string | null;
+}
+
+export type AgentProviderConfigId =
+  | "codex-app-server"
+  | "claude-code-cli"
+  | "github-copilot-cli";
+
+export type CodexReasoningEffort = string;
+
+export type CodexPersonality = "default" | "friendly" | "pragmatic" | "none";
+
+export interface AgentProvidersConfig {
+  activeProvider: AgentProviderConfigId;
+  codex: CodexAgentProviderConfig;
+}
+
+export interface CodexAgentProviderConfig {
+  executable: AgentExecutablePreference;
+  model: string | null;
+  reasoningEffort: CodexReasoningEffort;
+  personality: CodexPersonality;
+  permissionMode: "observe" | "agent" | "fullAccess";
+  networkAccess: boolean;
+  webSearch: boolean;
 }
 
 export interface RemoteProvidersConfig {

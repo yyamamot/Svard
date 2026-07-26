@@ -1,10 +1,20 @@
+import { MockAgentFacade } from "./mockHost/agent";
 import { createMockDocumentFacade } from "./mockHost/document";
+import { createMockCodexContextFacade } from "./mockHost/codex";
 import { createMockGitFacade } from "./mockHost/git";
 import { createMockKrokiFacade } from "./mockHost/kroki";
 import { createMockProviderTokenFacade } from "./mockHost/providerTokens";
 import { createMockWatcherFacade } from "./mockHost/watchers";
 import type {
   AppConfig,
+  CodexCliProbe,
+  CodexContextFile,
+  CodexContextFileLoadInput,
+  CodexContextSearchInput,
+  CodexContextSearchItem,
+  CodexTurnEvent,
+  CodexTurnInput,
+  CodexTurnOutcome,
   DesktopOpenRequest,
   DirectoryWatchEvent,
   DocumentLinkResolution,
@@ -51,7 +61,96 @@ import type {
 } from "../core/types";
 import { searchMockWorkspace } from "../core/workspaceSearch";
 
-export class MockHostAdapter implements HostAdapter {
+export class MockHostAdapter extends MockAgentFacade implements HostAdapter {
+  private readonly cancelledCodexRuns = new Set<string>();
+  private readonly codexSessions = new Set<string>();
+  private readonly codexContexts = createMockCodexContextFacade();
+
+  probeCodex(): Promise<CodexCliProbe> {
+    return Promise.resolve({
+      state: "ready",
+      source: "path",
+      version: "codex-cli mock",
+    });
+  }
+
+  loadCodexContextFile(
+    input: CodexContextFileLoadInput,
+  ): Promise<CodexContextFile> {
+    return this.codexContexts.loadCodexContextFile(input);
+  }
+
+  pickCodexContextFiles(
+    workspaceRoot?: string | null,
+  ): Promise<CodexContextFile[]> {
+    return this.codexContexts.pickCodexContextFiles(workspaceRoot);
+  }
+
+  searchCodexContextFiles(
+    input: CodexContextSearchInput,
+  ): Promise<CodexContextSearchItem[]> {
+    return this.codexContexts.searchCodexContextFiles(input);
+  }
+
+  resolveDroppedCodexContextPath(path: string): Promise<string> {
+    return this.codexContexts.resolveDroppedCodexContextPath(path);
+  }
+
+  async runCodexTurn(
+    input: CodexTurnInput,
+    onEvent: (event: CodexTurnEvent) => void,
+  ): Promise<CodexTurnOutcome> {
+    if (typeof window !== "undefined") {
+      (
+        window as typeof window & {
+          __SVARD_LAST_CODEX_TURN_INPUT__?: CodexTurnInput;
+        }
+      ).__SVARD_LAST_CODEX_TURN_INPUT__ = structuredClone(input);
+    }
+    this.cancelledCodexRuns.delete(input.runId);
+    if (input.openUiPrompt && !this.codexSessions.has(input.clientSessionId)) {
+      this.codexSessions.add(input.clientSessionId);
+      onEvent({ type: "sessionStarted" });
+    }
+    if (input.contextAdditions.length > 0) {
+      onEvent({
+        type: "contextAccepted",
+        contextIds: input.contextAdditions.map((context) => context.contextId),
+      });
+    }
+    onEvent({ type: "turnStarted" });
+    const delay = input.question.toLowerCase().includes("cancel") ? 800 : 180;
+    await new Promise((resolve) => globalThis.setTimeout(resolve, delay));
+
+    if (this.cancelledCodexRuns.delete(input.runId)) {
+      onEvent({ type: "cancelled" });
+      return { status: "cancelled" };
+    }
+
+    const text = input.question.toLowerCase().includes("invalid openui")
+      ? "<UnknownComponent value='blocked' />"
+      : input.responseMode === "visualize"
+        ? 'root = DocumentAnswer("Document comparison", "The synthetic document separates safe local rendering from optional remote behavior.", ["Local rendering remains the default", "Remote behavior requires explicit consent", "Codex receives a text snapshot only"], [])'
+        : [
+            "This is a deterministic Mock Codex response.",
+            "",
+            "The document is treated as reference data, and no file path or workspace metadata was sent.",
+          ].join("\n");
+    onEvent({ type: "assistantCompleted", text });
+    onEvent({ type: "completed" });
+    return { status: "completed" };
+  }
+
+  cancelCodexTurn(runId: string): Promise<void> {
+    this.cancelledCodexRuns.add(runId);
+    return Promise.resolve();
+  }
+
+  closeCodexSession(_clientSessionId: string): Promise<void> {
+    this.codexSessions.delete(_clientSessionId);
+    return Promise.resolve();
+  }
+
   saveSvgFile(_fileName: string, _svg: string): Promise<boolean> {
     return Promise.resolve(false);
   }

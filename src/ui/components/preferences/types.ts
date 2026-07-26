@@ -15,6 +15,7 @@ export type PreferencesSectionId =
   | "diagrams"
   | "kroki"
   | "network"
+  | "agentProviders"
   | "remoteProviders"
   | "security"
   | "experimental"
@@ -91,6 +92,12 @@ export interface KrokiSectionProps {
 
 export interface NetworkSectionProps {
   config: AppConfig;
+  onChange: (config: AppConfig) => void;
+}
+
+export interface AgentProvidersSectionProps {
+  config: AppConfig;
+  host: HostAdapter;
   onChange: (config: AppConfig) => void;
 }
 

@@ -76,6 +76,21 @@ export const defaultConfig: AppConfig = {
       url: null,
     },
   },
+  agentProviders: {
+    activeProvider: "codex-app-server",
+    codex: {
+      executable: {
+        mode: "auto",
+        path: null,
+      },
+      model: null,
+      reasoningEffort: "default",
+      personality: "default",
+      permissionMode: "observe",
+      networkAccess: false,
+      webSearch: false,
+    },
+  },
   remoteProviders: {
     github: {
       enabled: false,

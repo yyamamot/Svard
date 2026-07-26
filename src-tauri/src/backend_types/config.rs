@@ -165,6 +165,8 @@ pub struct AppConfig {
     pub kroki: KrokiConfig,
     #[serde(default = "default_network_config")]
     pub network: NetworkConfig,
+    #[serde(default = "default_agent_providers_config")]
+    pub agent_providers: AgentProvidersConfig,
     #[serde(default = "default_remote_providers_config")]
     pub remote_providers: RemoteProvidersConfig,
     pub security: SecurityConfig,
@@ -300,6 +302,43 @@ pub struct HttpProxyConfig {
     pub mode: HttpProxyMode,
     #[serde(default)]
     pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentProvidersConfig {
+    #[serde(default = "default_agent_provider_id")]
+    pub active_provider: String,
+    #[serde(default = "default_codex_agent_provider_config")]
+    pub codex: CodexAgentProviderConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexAgentProviderConfig {
+    #[serde(default = "default_codex_executable_preference")]
+    pub executable: CodexExecutablePreference,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default = "default_codex_reasoning_effort")]
+    pub reasoning_effort: String,
+    #[serde(default = "default_codex_personality")]
+    pub personality: String,
+    #[serde(default = "default_agent_permission_mode")]
+    pub permission_mode: String,
+    #[serde(default)]
+    pub network_access: bool,
+    #[serde(default)]
+    pub web_search: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexExecutablePreference {
+    #[serde(default = "default_codex_executable_mode")]
+    pub mode: String,
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -443,6 +482,52 @@ fn default_network_config() -> NetworkConfig {
     }
 }
 
+fn default_agent_provider_id() -> String {
+    "codex-app-server".to_string()
+}
+
+fn default_codex_reasoning_effort() -> String {
+    "default".to_string()
+}
+
+fn default_codex_executable_mode() -> String {
+    "auto".to_string()
+}
+
+fn default_codex_executable_preference() -> CodexExecutablePreference {
+    CodexExecutablePreference {
+        mode: default_codex_executable_mode(),
+        path: None,
+    }
+}
+
+fn default_codex_personality() -> String {
+    "default".to_string()
+}
+
+fn default_agent_permission_mode() -> String {
+    "observe".to_string()
+}
+
+fn default_codex_agent_provider_config() -> CodexAgentProviderConfig {
+    CodexAgentProviderConfig {
+        executable: default_codex_executable_preference(),
+        model: None,
+        reasoning_effort: default_codex_reasoning_effort(),
+        personality: default_codex_personality(),
+        permission_mode: default_agent_permission_mode(),
+        network_access: false,
+        web_search: false,
+    }
+}
+
+fn default_agent_providers_config() -> AgentProvidersConfig {
+    AgentProvidersConfig {
+        active_provider: default_agent_provider_id(),
+        codex: default_codex_agent_provider_config(),
+    }
+}
+
 fn default_github_provider_config() -> RemoteProviderConfig {
     RemoteProviderConfig {
         enabled: false,
@@ -573,6 +658,7 @@ pub fn default_config() -> AppConfig {
             require_remote_confirmation: true,
         },
         network: default_network_config(),
+        agent_providers: default_agent_providers_config(),
         remote_providers: default_remote_providers_config(),
         security: SecurityConfig {
             allow_local_images: true,

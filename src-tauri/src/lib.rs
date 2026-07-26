@@ -3,21 +3,25 @@ use std::{
     env,
     path::{Path, PathBuf},
     sync::{
-        Mutex,
         atomic::{AtomicU64, Ordering},
+        Mutex,
     },
     time::{SystemTime, UNIX_EPOCH},
 };
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
-use tauri::{Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder, window::Color};
+use tauri::{window::Color, Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_dialog::DialogExt;
 
+mod agent_app_server;
+mod agent_session_registry;
 mod antora_order;
 mod antora_playbook;
 mod app_error;
 mod backend_types;
 mod cache_prune;
+mod codex_executable;
+mod codex_spike;
 mod config;
 mod desktop_open;
 mod document_io;
@@ -40,15 +44,18 @@ mod watchers;
 mod workspace_paths;
 mod zensical_order;
 
+use agent_app_server::*;
 pub use app_error::*;
 pub use backend_types::*;
 use cache_prune::*;
+use codex_spike::*;
 use config::*;
 use desktop_open::*;
 use document_io::*;
 pub use git_diff::{
-    GitDiffResourceSource, GitFileHistory, GitFileHistoryCacheState, GitFileHistoryCacheStatus,
-    GitFileHistoryMetrics, GitFileHistoryStatus, git_file_history_for_path_with_cache,
+    git_file_history_for_path_with_cache, GitDiffResourceSource, GitFileHistory,
+    GitFileHistoryCacheState, GitFileHistoryCacheStatus, GitFileHistoryMetrics,
+    GitFileHistoryStatus,
 };
 use kroki::*;
 use local_assets::*;
@@ -62,16 +69,30 @@ const CONFIG_FILE_NAME: &str = "config.json";
 static VIEWER_WINDOW_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[tauri::command]
-async fn save_svg_file(app: tauri::AppHandle, file_name: String, svg: String) -> Result<bool, AppError> {
+async fn save_svg_file(
+    app: tauri::AppHandle,
+    file_name: String,
+    svg: String,
+) -> Result<bool, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(path) = app.dialog().file().add_filter("SVG image", &["svg"]).set_file_name(&file_name).blocking_save_file() else {
+        let Some(path) = app
+            .dialog()
+            .file()
+            .add_filter("SVG image", &["svg"])
+            .set_file_name(&file_name)
+            .blocking_save_file()
+        else {
             return Ok(false);
         };
-        let path = path.as_path().ok_or_else(|| AppError::from("failed to resolve SVG save path"))?;
+        let path = path
+            .as_path()
+            .ok_or_else(|| AppError::from("failed to resolve SVG save path"))?;
         std::fs::write(path, svg)
             .map_err(|error| AppError::from(format!("failed to write SVG file: {error}")))?;
         Ok(true)
-    }).await.map_err(|error| AppError::from(format!("failed to save SVG file: {error}")))?
+    })
+    .await
+    .map_err(|error| AppError::from(format!("failed to save SVG file: {error}")))?
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
@@ -968,11 +989,41 @@ pub fn run() {
         .manage(GitStatusWatchState::default())
         .manage(git_diff::GitFileHistoryCacheState::default())
         .manage(ObsidianVaultCacheState::default())
+        .manage(CodexProcessState::default())
+        .manage(AgentAppServerState::default())
         .setup(|app| {
             apply_saved_app_theme(app);
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                window.state::<CodexProcessState>().cleanup_all();
+                window.state::<AgentAppServerState>().cleanup_all();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
+            get_agent_provider_runtime,
+            start_agent_session,
+            list_agent_sessions,
+            resume_agent_session,
+            read_agent_session_history,
+            rename_agent_session,
+            set_agent_session_archived,
+            delete_agent_session,
+            send_agent_turn,
+            stage_agent_image,
+            discard_agent_image,
+            respond_to_agent_approval,
+            cancel_agent_turn,
+            steer_agent_turn,
+            close_agent_session,
+            probe_codex,
+            load_codex_context_file,
+            resolve_dropped_codex_context_path,
+            search_codex_context_files,
+            run_codex_turn,
+            cancel_codex_turn,
+            close_codex_session,
             open_document,
             save_svg_file,
             search_workspace,
