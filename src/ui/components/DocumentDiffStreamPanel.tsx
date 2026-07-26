@@ -24,6 +24,10 @@ import {
   type CaptureAreaRect,
   type CaptureAreaVariant,
 } from "../lib/captureArea";
+import {
+  RenderedDiffSelectionController,
+  type RenderedDiffSelectionActionBridge,
+} from "./RenderedDiffSelectionController";
 
 export function DocumentDiffStreamPanel({
   config,
@@ -47,6 +51,9 @@ export function DocumentDiffStreamPanel({
   openExternalUrl,
   onOpenDiagramPreview,
   onOpenDiffPreview,
+  onAddAgentSelection,
+  onAddAgentMedia,
+  initialViewMode,
   showInlineNotice,
   showLightweightActionFeedback = () => undefined,
   loadDocumentContext,
@@ -60,6 +67,8 @@ export function DocumentDiffStreamPanel({
 }: DocumentDiffStreamPanelProps) {
   const measurement = useAllDiffsUiPerformance();
   const panelRef = useRef<HTMLElement | null>(null);
+  const renderedSelectionActionRef =
+    useRef<RenderedDiffSelectionActionBridge | null>(null);
   const streamBodyRef = useRef<HTMLDivElement | null>(null);
   const filesPickerRef = useRef<HTMLDivElement | null>(null);
   const filesButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -71,7 +80,9 @@ export function DocumentDiffStreamPanel({
           .map((item) => item.documentPath ?? item.path),
       ),
   );
-  const [viewMode, setViewMode] = useState<DiffStreamViewMode>("full");
+  const [viewMode, setViewMode] = useState<DiffStreamViewMode>(
+    initialViewMode ?? "full",
+  );
   const [filesOpen, setFilesOpen] = useState(false);
   const [fileFilter, setFileFilter] = useState("");
   const [activeFileIndex, setActiveFileIndex] = useState(0);
@@ -417,6 +428,36 @@ export function DocumentDiffStreamPanel({
         onMouseMoveCapture={handleStreamMouseMove}
         onMouseUpCapture={handleStreamMouseUp}
       >
+        <RenderedDiffSelectionController
+          actionRef={renderedSelectionActionRef}
+          rootRef={panelRef}
+          comparisonLabel={preview.comparisonLabel}
+          onAddSelection={onAddAgentSelection}
+          resolveContext={(pane) => {
+            const section = pane.closest<HTMLElement>("[data-stream-key]");
+            const key = section?.dataset.streamKey;
+            const state = key ? loadStates[key] : undefined;
+            const side = pane.dataset.captureSide;
+            return state?.status === "ready" &&
+              (side === "left" || side === "right")
+              ? { preview: state.preview, side }
+              : null;
+          }}
+          resolveRevealTarget={(pane, context) => ({
+            kind: "diffStream",
+            stream: preview,
+            itemPath:
+              pane.closest<HTMLElement>("[data-stream-key]")?.dataset
+                .streamKey ??
+              context.preview.relativePath ??
+              "",
+            viewMode,
+            side: context.side,
+          })}
+          showNotice={(message) =>
+            showInlineNotice(message, { tone: "warning" })
+          }
+        />
         <MouseGestureTrail points={mouseGestureTrail} />
         <header className="git-diff-toolbar diff-stream-toolbar">
           <div className="diff-stream-title-group">
@@ -595,6 +636,20 @@ export function DocumentDiffStreamPanel({
                 openExternalUrl={openExternalUrl}
                 onOpenDiagramPreview={onOpenDiagramPreview}
                 onOpenDiffPreview={onOpenDiffPreview}
+                onPrepareAgentSelection={(range) =>
+                  renderedSelectionActionRef.current?.prepareContextMenuAsk(
+                    range,
+                  )
+                }
+                onAddAgentMedia={(snapshot, side) =>
+                  onAddAgentMedia?.(snapshot, {
+                    kind: "diffStream",
+                    stream: preview,
+                    itemPath: item.documentPath ?? item.path,
+                    viewMode,
+                    side,
+                  })
+                }
                 onBeginCaptureArea={beginSectionCaptureArea}
                 showInlineNotice={showInlineNotice}
                 reviewState={

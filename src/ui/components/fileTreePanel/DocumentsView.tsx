@@ -1,12 +1,14 @@
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import type {
   DocumentOrderNode,
   DocumentOrderResult,
   GitDiffStatus,
 } from "../../../core/types";
 import {
+  activateCodexContextPointerCapture,
   prepareFileCompareDragData,
+  prepareCodexContextPointerCapture,
   scheduleClearFileCompareDragData,
   writeFileCompareDragData,
 } from "../../lib/fileCompareDrag";
@@ -14,11 +16,6 @@ import { fileGitStatusBadgeLabel } from "../../lib/gitStatusBadgeLabels";
 import { gitStatusDisplay } from "../../lib/gitStatusDisplay";
 import type { DocumentReviewSessionControls } from "../../lib/documentReviewSession";
 import {
-  summarizeDocumentReviewSession,
-  uniqueDocumentReviewPaths,
-} from "../../lib/documentReviewSession";
-import {
-  buildDocumentOrderChangeCounts,
   collectDocumentOrderPaths,
   documentOrderSectionKey,
   sectionHeaderDocument,
@@ -27,7 +24,6 @@ import {
   type OpenDocumentTreeModel,
   type OpenDocumentTreeNode,
 } from "../../lib/fileTreeDocuments";
-import { registerDocumentsPanelCommandBridge } from "../../lib/documentsPanelCommandBridge";
 import { fileName } from "../../lib/path";
 import {
   DocumentReviewRowControls,
@@ -41,6 +37,7 @@ import type {
   DocumentsFilter,
   FilesViewMode,
 } from "./types";
+import { useDocumentsViewController } from "./useDocumentsViewController";
 
 interface DocumentsViewProps {
   activeDocumentOrder: ActiveDocumentOrder;
@@ -83,168 +80,28 @@ export function DocumentsView({
   onOpenGitDiff,
   onRegisterDocumentsPanelCommands,
 }: DocumentsViewProps) {
-  const [expandedDocumentOrderSections, setExpandedDocumentOrderSections] =
-    useState<Set<string>>(() => new Set());
-  const lastAutoExpandedContextRef = useRef<string | undefined>(undefined);
-  const documentsViewRef = useRef<HTMLDivElement | null>(null);
-  const autoExpandContext = useMemo(
-    () =>
-      activePath && autoExpandSectionKeys.size
-        ? `${viewMode}:${activePath}:${[...autoExpandSectionKeys].join("|")}`
-        : undefined,
-    [activePath, autoExpandSectionKeys, viewMode],
-  );
-  const activeDocumentOrderChangeCounts = useMemo(
-    () =>
-      activeDocumentOrder
-        ? buildDocumentOrderChangeCounts({
-            gitStatusByPath: fileTreeGitStatusByPath,
-            nodes: activeDocumentOrder.order.nodes,
-            source: activeDocumentOrder.order.source,
-          })
-        : null,
-    [activeDocumentOrder, fileTreeGitStatusByPath],
-  );
-  const documentsChangedCount = useMemo(() => {
-    if (viewMode === "documents-path") {
-      return openDocumentTree.changedCount;
-    }
-    if (activeDocumentOrder && activeDocumentOrderChangeCounts) {
-      const navPaths = collectDocumentOrderPaths(
-        activeDocumentOrder.order.nodes,
-      );
-      const notInNavChangedCount = documentRows.filter(
-        (row) => row.isChanged && !navPaths.has(row.entry.path),
-      ).length;
-      return activeDocumentOrderChangeCounts.totalCount + notInNavChangedCount;
-    }
-    return documentRows.filter((row) => row.isChanged).length;
-  }, [
-    activeDocumentOrder,
+  const {
     activeDocumentOrderChangeCounts,
-    documentRows,
-    openDocumentTree.changedCount,
-    viewMode,
-  ]);
-  const reviewTargetPaths = useMemo(() => {
-    const documentRowPaths = documentRows
-      .filter((row) => row.isChanged)
-      .map((row) => row.entry.path);
-    if (!activeDocumentOrder) {
-      return uniqueDocumentReviewPaths(documentRowPaths);
-    }
-    const navPaths = [
-      ...collectDocumentOrderPaths(activeDocumentOrder.order.nodes),
-    ].filter((path) => gitStatusDisplay(fileTreeGitStatusByPath[path]));
-    const navPathSet = new Set(navPaths);
-    const notInNavPaths = documentRowPaths.filter(
-      (path) => !navPathSet.has(path),
-    );
-    return uniqueDocumentReviewPaths([...navPaths, ...notInNavPaths]);
-  }, [activeDocumentOrder, documentRows, fileTreeGitStatusByPath]);
-  const [reviewCursorPath, setReviewCursorPath] = useState<string | null>(null);
-  useEffect(() => {
-    setReviewCursorPath((current) =>
-      current && reviewTargetPaths.includes(current) ? current : null,
-    );
-  }, [reviewTargetPaths]);
-  const currentReviewPath =
-    reviewCursorPath && reviewTargetPaths.includes(reviewCursorPath)
-      ? reviewCursorPath
-      : activePath && reviewTargetPaths.includes(activePath)
-        ? activePath
-        : null;
-  const reviewSummary = useMemo(
-    () =>
-      summarizeDocumentReviewSession({
-        stateByPath: documentReviewSession.stateByPath,
-        targetPaths: reviewTargetPaths,
-      }),
-    [documentReviewSession.stateByPath, reviewTargetPaths],
-  );
-
-  function openReviewDiff(path: string): void {
-    setReviewCursorPath(path);
-    onOpenGitDiff(path);
-  }
-
-  const scrollActiveDocumentIntoView = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      const activeElement =
-        documentsViewRef.current?.querySelector<HTMLElement>(
-          '[data-document-order-active="true"]',
-        );
-      activeElement?.scrollIntoView?.({ block: "nearest" });
-    });
-  }, []);
-
-  const expandAndScrollCurrentDocument = useCallback(() => {
-    if (!autoExpandContext || !autoExpandSectionKeys.size) {
-      return false;
-    }
-    lastAutoExpandedContextRef.current = autoExpandContext;
-    setExpandedDocumentOrderSections((current) => {
-      const next = new Set(current);
-      for (const key of autoExpandSectionKeys) {
-        next.add(key);
-      }
-      return next;
-    });
-    scrollActiveDocumentIntoView();
-    return true;
-  }, [autoExpandContext, autoExpandSectionKeys, scrollActiveDocumentIntoView]);
-
-  const revealCurrentDocument = useCallback(
-    () => (activeDocumentOrder ? expandAndScrollCurrentDocument() : false),
-    [activeDocumentOrder, expandAndScrollCurrentDocument],
-  );
-
-  const collapseAllDocumentSections = useCallback(() => {
-    setExpandedDocumentOrderSections(new Set());
-  }, []);
-
-  useEffect(() => {
-    if (
-      !autoExpandContext ||
-      lastAutoExpandedContextRef.current === autoExpandContext
-    ) {
-      return;
-    }
-    expandAndScrollCurrentDocument();
-  }, [autoExpandContext, expandAndScrollCurrentDocument]);
-
-  useEffect(() => {
-    const commands: DocumentsPanelCommands = {
-      collapseAllDocumentSections,
-      revealCurrentDocument,
-      canRevealCurrentDocument: () =>
-        Boolean(activeDocumentOrder && autoExpandContext),
-    };
-    onRegisterDocumentsPanelCommands?.(commands);
-    registerDocumentsPanelCommandBridge(commands);
-    return () => {
-      onRegisterDocumentsPanelCommands?.(null);
-      registerDocumentsPanelCommandBridge(null);
-    };
-  }, [
+    currentReviewPath,
+    documentsChangedCount,
+    documentsViewRef,
+    expandedDocumentOrderSections,
+    openReviewDiff,
+    reviewSummary,
+    reviewTargetPaths,
+    toggleDocumentOrderSection,
+  } = useDocumentsViewController({
     activeDocumentOrder,
-    autoExpandContext,
-    collapseAllDocumentSections,
+    activePath,
+    autoExpandSectionKeys,
+    documentReviewSession,
+    documentRows,
+    fileTreeGitStatusByPath,
+    openDocumentTree,
+    viewMode,
+    onOpenGitDiff,
     onRegisterDocumentsPanelCommands,
-    revealCurrentDocument,
-  ]);
-
-  function toggleDocumentOrderSection(sectionKey: string) {
-    setExpandedDocumentOrderSections((current) => {
-      const next = new Set(current);
-      if (next.has(sectionKey)) {
-        next.delete(sectionKey);
-      } else {
-        next.add(sectionKey);
-      }
-      return next;
-    });
-  }
+  });
 
   function renderDocumentEntries(): React.ReactNode {
     if (!rootDirectory) {
@@ -673,10 +530,23 @@ export function DocumentsView({
           row.gitStatus ? `${entry.name}, ${row.gitStatus.label}` : entry.name
         }
         draggable
-        onPointerDown={() => {
+        onPointerDown={(event) => {
           prepareFileCompareDragData(entry.path);
+          prepareCodexContextPointerCapture(
+            event.currentTarget,
+            event.pointerId,
+          );
         }}
         onDragStart={(event) => {
+          if (
+            activateCodexContextPointerCapture({
+              clientX: event.clientX,
+              clientY: event.clientY,
+            })
+          ) {
+            event.preventDefault();
+            return;
+          }
           writeFileCompareDragData(event.dataTransfer, entry.path);
         }}
         onDragEnd={() => scheduleClearFileCompareDragData()}
@@ -687,10 +557,23 @@ export function DocumentsView({
           style={{ paddingLeft: `${8 + depth * 12}px` }}
           aria-label={entry.name}
           draggable
-          onPointerDown={() => {
+          onPointerDown={(event) => {
             prepareFileCompareDragData(entry.path);
+            prepareCodexContextPointerCapture(
+              event.currentTarget,
+              event.pointerId,
+            );
           }}
           onDragStart={(event) => {
+            if (
+              activateCodexContextPointerCapture({
+                clientX: event.clientX,
+                clientY: event.clientY,
+              })
+            ) {
+              event.preventDefault();
+              return;
+            }
             writeFileCompareDragData(event.dataTransfer, entry.path);
           }}
           onDragEnd={() => scheduleClearFileCompareDragData()}
@@ -768,10 +651,23 @@ export function DocumentsView({
             : `${node.title}${isOpen ? ", open" : ""}`
         }
         draggable
-        onPointerDown={() => {
+        onPointerDown={(event) => {
           prepareFileCompareDragData(node.path);
+          prepareCodexContextPointerCapture(
+            event.currentTarget,
+            event.pointerId,
+          );
         }}
         onDragStart={(event) => {
+          if (
+            activateCodexContextPointerCapture({
+              clientX: event.clientX,
+              clientY: event.clientY,
+            })
+          ) {
+            event.preventDefault();
+            return;
+          }
           writeFileCompareDragData(event.dataTransfer, node.path);
         }}
         onDragEnd={() => scheduleClearFileCompareDragData()}
@@ -782,10 +678,23 @@ export function DocumentsView({
           style={{ paddingLeft: `${8 + node.depth * 12}px` }}
           aria-label={node.title}
           draggable
-          onPointerDown={() => {
+          onPointerDown={(event) => {
             prepareFileCompareDragData(node.path);
+            prepareCodexContextPointerCapture(
+              event.currentTarget,
+              event.pointerId,
+            );
           }}
           onDragStart={(event) => {
+            if (
+              activateCodexContextPointerCapture({
+                clientX: event.clientX,
+                clientY: event.clientY,
+              })
+            ) {
+              event.preventDefault();
+              return;
+            }
             writeFileCompareDragData(event.dataTransfer, node.path);
           }}
           onDragEnd={() => scheduleClearFileCompareDragData()}

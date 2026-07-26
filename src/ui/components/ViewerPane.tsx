@@ -42,6 +42,7 @@ import type {
   AppConfig,
   BookmarkEntry,
   DocumentPayload,
+  DocumentSelectionSnapshot,
 } from "../../core/types";
 import type { GesturePoint } from "../../core/mouseGestures";
 import type {
@@ -57,6 +58,16 @@ import type {
   ViewerPaneSnapshot,
   ViewerPostDiffGitMarkerContext,
 } from "../types";
+import {
+  extractDocumentSelection,
+  selectionOriginalTextReference,
+  selectionPlainCopy,
+  selectionSnapshotText,
+  selectionTextReference,
+} from "../lib/documentSelection";
+import { useSelectionRangeController } from "../hooks/useSelectionRangeController";
+import { useSelectionSnapshotActions } from "../hooks/useSelectionSnapshotActions";
+import { SelectionMiniToolbar } from "./SelectionMiniToolbar";
 
 export const loadingMessageDelayMs = 200;
 const wheelZoomDeltaThreshold = 80;
@@ -119,6 +130,8 @@ interface ViewerPaneProps {
   onPickDocument: () => void;
   onClearRecentDocuments: () => void;
   onClearRecentDirectories: () => void;
+  onAddAgentSelection?: (snapshot: DocumentSelectionSnapshot) => void;
+  onShowSelectionNotice?: (message: string) => void;
 }
 
 export function ViewerPane({
@@ -170,6 +183,8 @@ export function ViewerPane({
   onPickDocument,
   onClearRecentDocuments,
   onClearRecentDirectories,
+  onAddAgentSelection,
+  onShowSelectionNotice,
   resolveRevisionLensTargets,
 }: ViewerPaneProps) {
   const isFocused = !splitEnabled || paneId === focusedPaneId;
@@ -200,6 +215,14 @@ export function ViewerPane({
   const [captureAreaActive, setCaptureAreaActive] = useState(false);
   const [captureAreaVariant, setCaptureAreaVariant] =
     useState<CaptureAreaVariant>("plain");
+  const [inspectedSelection, setInspectedSelection] =
+    useState<DocumentSelectionSnapshot | null>(null);
+  const selectionScenario = new URLSearchParams(window.location.search);
+  const selectionScenarioId = selectionScenario.get("scenario") ?? "";
+  const selectionInspectorEnabled =
+    selectionScenarioId.includes("selection-extraction") ||
+    (import.meta.env.DEV &&
+      selectionScenario.get("selectionInspector") === "1");
   const platform = useMemo(() => detectPlatform(), []);
   const setArticleNode = useCallback(
     (node: HTMLElement | null) => {
@@ -213,6 +236,73 @@ export function ViewerPane({
     },
     [articleRef, isFocused],
   );
+
+  const showSelectionNotice = useCallback(
+    (message: string) => onShowSelectionNotice?.(message),
+    [onShowSelectionNotice],
+  );
+  const resolveViewerSelection = useCallback(
+    (range: Range, article: HTMLElement) => {
+      if (
+        !payload ||
+        !result ||
+        !article.contains(range.startContainer) ||
+        !article.contains(range.endContainer)
+      ) {
+        return {};
+      }
+      return {
+        selection: {
+          bounds: article.closest<HTMLElement>(".viewer-pane") ?? article,
+          context: {
+            article,
+            document: payload,
+            renderResult: result,
+          },
+        },
+      };
+    },
+    [payload, result],
+  );
+  const documentSelection = useSelectionRangeController({
+    enabled: isFocused && Boolean(payload && result),
+    isPointerSelectionTarget: (target, article) => article.contains(target),
+    resetKey: `${payload?.path ?? ""}:${articleRenderIdentity}`,
+    resolveSelection: resolveViewerSelection,
+    rootRef: articleNodeRef,
+    showNotice: showSelectionNotice,
+  });
+  const prepareViewerSelection = useCallback(
+    async (
+      active: NonNullable<typeof documentSelection.active>,
+    ): Promise<DocumentSelectionSnapshot> =>
+      extractDocumentSelection({
+        article: active.context.article,
+        document: active.context.document,
+        range: active.range.cloneRange(),
+        renderResult: active.context.renderResult,
+      }),
+    [],
+  );
+  const attachViewerSelection = useCallback(
+    (snapshot: DocumentSelectionSnapshot) => {
+      setInspectedSelection(snapshot);
+      onAddAgentSelection?.(snapshot);
+    },
+    [onAddAgentSelection],
+  );
+  const selectionActions = useSelectionSnapshotActions({
+    active: documentSelection.active,
+    canAsk: Boolean(onAddAgentSelection),
+    dismissSelection: documentSelection.dismiss,
+    onAddSelection: attachViewerSelection,
+    prepareSnapshot: prepareViewerSelection,
+    showNotice: showSelectionNotice,
+  });
+
+  useEffect(() => {
+    setInspectedSelection(null);
+  }, [articleRenderIdentity, payload?.path]);
 
   useEffect(() => {
     renderCountRef.current += 1;
@@ -489,6 +579,91 @@ export function ViewerPane({
         </div>
       )}
       {isFocused && <MouseGestureTrail points={mouseGestureTrail} />}
+      {isFocused && documentSelection.active ? (
+        <SelectionMiniToolbar
+          toolbarRef={documentSelection.toolbarRef}
+          placement={documentSelection.active}
+          canAsk={Boolean(onAddAgentSelection)}
+          menuOpen={Boolean(selectionActions.menuSnapshot)}
+          onAsk={() => void selectionActions.ask()}
+          onCopy={() => void selectionActions.copy(selectionPlainCopy)}
+          onToggleMenu={() => void selectionActions.toggleMenu()}
+          actions={[
+            selectionActions.textReferenceAction(selectionTextReference),
+            ...(payload &&
+            selectionActions.menuSnapshot &&
+            selectionOriginalTextReference(
+              selectionActions.menuSnapshot,
+              payload.source,
+            )
+              ? [
+                  {
+                    id: "original-text-reference",
+                    label: "Copy Original Text Reference",
+                    onSelect: () =>
+                      void selectionActions.copy((snapshot) =>
+                        selectionOriginalTextReference(
+                          snapshot,
+                          payload.source,
+                        ),
+                      ),
+                  },
+                ]
+              : []),
+            ...(selectionInspectorEnabled && selectionActions.menuSnapshot
+              ? [
+                  {
+                    id: "inspect-selection",
+                    label: "Inspect Selection",
+                    onSelect: () => {
+                      setInspectedSelection(selectionActions.menuSnapshot);
+                      selectionActions.setMenuSnapshot(null);
+                    },
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : null}
+      {isFocused && selectionInspectorEnabled && inspectedSelection ? (
+        <aside
+          className="selection-inspector"
+          data-review-id="selection-inspector"
+        >
+          <header>
+            <strong>Selection Inspector</strong>
+            <button
+              type="button"
+              aria-label="Close selection inspector"
+              onClick={() => setInspectedSelection(null)}
+            >
+              <X size={13} />
+            </button>
+          </header>
+          <details open>
+            <summary>Visible text</summary>
+            <pre>{inspectedSelection.plainText}</pre>
+          </details>
+          <details>
+            <summary>Model serialization</summary>
+            <pre>{selectionSnapshotText(inspectedSelection)}</pre>
+          </details>
+          <details>
+            <summary>AST / provenance / diagnostics</summary>
+            <pre>
+              {JSON.stringify(
+                {
+                  blocks: inspectedSelection.blocks,
+                  provenance: inspectedSelection.provenance,
+                  diagnostics: inspectedSelection.diagnostics,
+                },
+                null,
+                2,
+              )}
+            </pre>
+          </details>
+        </aside>
+      ) : null}
       {isFocused && inlineNotice && (
         <div
           className={`inline-notice ${inlineNotice.tone}`}

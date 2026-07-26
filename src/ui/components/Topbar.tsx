@@ -7,6 +7,7 @@ import {
   Focus,
   PanelLeft,
   PanelRight,
+  Bot,
   Settings,
   X,
 } from "lucide-react";
@@ -31,6 +32,9 @@ interface TopbarProps {
   zenModeActive: boolean;
   hideTabs?: boolean;
   documentOrderNavigation?: DocumentOrderNavigationState | null;
+  codexSpikeAvailable?: boolean;
+  codexSpikeActive?: boolean;
+  onOpenCodexSpike?: () => void;
   onActivateTab: (tab: WorkspaceTab) => void;
   onCloseTab: (tab: WorkspaceTab) => void;
   onToggleTabMore: () => void;
@@ -52,6 +56,9 @@ export function Topbar({
   zenModeActive,
   hideTabs = false,
   documentOrderNavigation = null,
+  codexSpikeAvailable = false,
+  codexSpikeActive = false,
+  onOpenCodexSpike,
   onActivateTab,
   onCloseTab,
   onToggleTabMore,
@@ -211,6 +218,21 @@ export function Topbar({
         </div>
       )}
       <div className="toolbar">
+        {codexSpikeAvailable ? (
+          <button
+            type="button"
+            className={`icon-button topbar-mode-toggle ${
+              codexSpikeActive ? "active" : ""
+            }`}
+            data-review-id="codex-spike-toggle"
+            aria-label={codexSpikeActive ? "Close AI Chat" : "AI Chat"}
+            title={codexSpikeActive ? "Close AI Chat" : "AI Chat"}
+            aria-pressed={codexSpikeActive}
+            onClick={onOpenCodexSpike}
+          >
+            <Bot size={17} />
+          </button>
+        ) : null}
         {documentOrderNavigation ? (
           <div
             className="document-order-navigation"

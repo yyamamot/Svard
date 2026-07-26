@@ -21,6 +21,16 @@ import {
   type CaptureAreaRect,
   type CaptureAreaVariant,
 } from "../lib/captureArea";
+import type {
+  DocumentMediaSnapshot,
+  DocumentSelectionSnapshot,
+} from "../../core/types";
+import type { SelectionRevealTarget } from "../lib/diffDocumentSelection";
+import { renderedDiffDiagramForTarget } from "../lib/documentMedia";
+import {
+  RenderedDiffSelectionController,
+  type RenderedDiffSelectionActionBridge,
+} from "./RenderedDiffSelectionController";
 import { diffPreviewIdentityKey } from "../lib/diffPreviewWatch";
 import type { RenderedDiffPresentation } from "../lib/gitRenderedDiff";
 import { DiffToolbar } from "./gitDiffPreview/toolbar";
@@ -88,6 +98,15 @@ interface DocumentDiffPreviewPanelProps {
   setLastMouseGesture?: (gesture: MouseGestureAutomation | null) => void;
   watchState?: DiffPreviewWatchState;
   onRefreshPreview?: () => void;
+  onAddAgentSelection?: (
+    snapshot: DocumentSelectionSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
+  onAddAgentMedia?: (
+    snapshot: DocumentMediaSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
+  initialRenderedView?: "preview" | "rendered";
   onClose: (handoff?: DiffPreviewCloseHandoff) => void;
 }
 
@@ -116,6 +135,9 @@ export function DocumentDiffPreviewPanel({
   setLastMouseGesture,
   watchState,
   onRefreshPreview,
+  onAddAgentSelection,
+  onAddAgentMedia,
+  initialRenderedView,
   onClose,
 }: DocumentDiffPreviewPanelProps) {
   const panelRef = useRef<HTMLElement | null>(null);
@@ -123,9 +145,11 @@ export function DocumentDiffPreviewPanel({
   const rightRef = useRef<HTMLDivElement | null>(null);
   const renderedLeftRef = useRef<HTMLDivElement | null>(null);
   const renderedRightRef = useRef<HTMLDivElement | null>(null);
+  const renderedSelectionActionRef =
+    useRef<RenderedDiffSelectionActionBridge | null>(null);
   const syncingScrollRef = useRef(false);
   const programmaticScrollElementsRef = useRef(new Set<HTMLDivElement>());
-  const [view, setView] = useState<DiffView>("preview");
+  const [view, setView] = useState<DiffView>(initialRenderedView ?? "preview");
   const [isExpanded, setIsExpanded] = useState(true);
   const [syncScrollEnabled, setSyncScrollEnabled] = useState(true);
   const [activeChangeIndex, setActiveChangeIndex] = useState(0);
@@ -275,6 +299,23 @@ export function DocumentDiffPreviewPanel({
     onBeginCaptureArea: (container, variant) => {
       beginCaptureArea(container, variant);
     },
+    onPrepareAgentSelection: (range) =>
+      renderedSelectionActionRef.current?.prepareContextMenuAsk(range),
+    onAddAgentMedia: (snapshot, side) =>
+      onAddAgentMedia?.(snapshot, {
+        kind: "diffPreview",
+        preview,
+        view: activeView === "preview" ? "preview" : "rendered",
+        side,
+      }),
+    resolveAgentMediaDiagram: (target, side) =>
+      renderedDiffDiagramForTarget(
+        target,
+        activeView === "rendered"
+          ? renderedChangedEntries
+          : renderedPresentation.entries,
+        side,
+      ),
     openContextMenu,
     openDocument,
     openExternalUrl,
@@ -291,12 +332,12 @@ export function DocumentDiffPreviewPanel({
   });
 
   useEffect(() => {
-    setView(sourceOnly ? "source" : "preview");
+    setView(sourceOnly ? "source" : (initialRenderedView ?? "preview"));
     setIsExpanded(true);
     setActiveTableIndex(0);
     setActiveChangeIndex(0);
     setCaptureAreaState(null);
-  }, [previewIdentityKey, sourceOnly]);
+  }, [initialRenderedView, previewIdentityKey, sourceOnly]);
 
   useEffect(() => {
     setActiveChangeIndex(0);
@@ -448,6 +489,29 @@ export function DocumentDiffPreviewPanel({
           syncDirectScroll={syncDirectScroll}
           syncRenderedScroll={syncRenderedScroll}
         />
+        {(activeView === "preview" || activeView === "rendered") && (
+          <RenderedDiffSelectionController
+            actionRef={renderedSelectionActionRef}
+            rootRef={panelRef}
+            comparisonLabel={`${preview.leftLabel} → ${preview.rightLabel}`}
+            onAddSelection={onAddAgentSelection}
+            resolveContext={(pane) => {
+              const side = pane.dataset.captureSide;
+              return side === "left" || side === "right"
+                ? { preview, side }
+                : null;
+            }}
+            resolveRevealTarget={(_pane, context) => ({
+              kind: "diffPreview",
+              preview,
+              view: activeView,
+              side: context.side,
+            })}
+            showNotice={(message) =>
+              showInlineNotice(message, { tone: "warning" })
+            }
+          />
+        )}
         {activeCaptureAreaState && (
           <CaptureAreaOverlay
             article={activeCaptureAreaState.article}

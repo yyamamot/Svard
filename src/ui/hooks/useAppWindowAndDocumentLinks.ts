@@ -31,6 +31,8 @@ interface UseAppWindowAndDocumentLinksOptions extends AppWindowActionsOptions {
   setSelectedDiagramId: (id: string) => void;
   showInlineNotice: UseDocumentLinksOptions["showInlineNotice"];
   onBeginCaptureArea: () => void;
+  onAddAgentSelection?: UseDocumentLinksOptions["onAddAgentSelection"];
+  onAddAgentMedia?: UseDocumentLinksOptions["onAddAgentMedia"];
   sourceControl: SourceControlDocumentLinkActions;
   tryKrokiFallback: (key: string) => void;
 }
@@ -50,6 +52,8 @@ export function useAppWindowAndDocumentLinks({
   openDocument,
   openPathInEditor,
   onBeginCaptureArea,
+  onAddAgentSelection,
+  onAddAgentMedia,
   openPreferencesTab,
   orderedTabs,
   paneSnapshots,
@@ -127,6 +131,9 @@ export function useAppWindowAndDocumentLinks({
     showLightweightActionFeedback,
     saveSvgFile: (fileName, svg) => host.saveSvgFile(fileName, svg),
     onBeginCaptureArea,
+    onAddAgentSelection,
+    onAddAgentMedia,
+    workspaceRoot: rootDirectory,
   });
 
   return { documentLinks, windowActions };

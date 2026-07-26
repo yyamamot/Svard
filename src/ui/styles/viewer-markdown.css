@@ -1,4 +1,5 @@
 @import "./viewer-markdown/base.css";
+@import "./viewer-markdown/shortcuts.css";
 @import "./viewer-markdown/markdown-content.css";
 @import "./viewer-markdown/post-diff-markers.css";
 @import "./viewer-markdown/git-change-highlights.css";

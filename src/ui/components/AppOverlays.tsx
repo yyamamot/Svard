@@ -4,7 +4,9 @@ import type {
   DocumentDiffPreview,
   DocumentDiffStreamPreview,
   DocumentLinkResolution,
+  DocumentMediaSnapshot,
   DocumentPayload,
+  DocumentSelectionSnapshot,
   GitCommitDetails,
   GitRefItem,
   GitRefKind,
@@ -41,6 +43,7 @@ import { ShortcutGestureHints } from "./ShortcutGestureHints";
 import type { CopyText } from "../hooks/documentLinks/types";
 import type { ContextMenuItem } from "../types";
 import type { DiffPreviewWatchState } from "../lib/diffPreviewWatch";
+import type { SelectionRevealTarget } from "../lib/diffDocumentSelection";
 
 interface ExternalLinkConfirmationRequest {
   url: string;
@@ -120,6 +123,15 @@ interface AppOverlaysProps {
   onExternalLinkConfirmation: (confirmed: boolean) => void;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
   onOpenDocumentDiffPreviewFromStream: (preview: DocumentDiffPreview) => void;
+  onAddAgentDiffSelection: (
+    snapshot: DocumentSelectionSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
+  onAddAgentDiffMedia: (
+    snapshot: DocumentMediaSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
+  selectionRevealTarget?: SelectionRevealTarget | null;
   onOpenDocument: (path: string) => Promise<void>;
   onOpenGitCommitDetailsFile: (
     details: GitCommitDetails,
@@ -189,6 +201,9 @@ export function AppOverlays({
   onExternalLinkConfirmation,
   onOpenDiagramPreview,
   onOpenDocumentDiffPreviewFromStream,
+  onAddAgentDiffSelection,
+  onAddAgentDiffMedia,
+  selectionRevealTarget,
   onOpenDocument,
   onOpenGitCommitDetailsFile,
   onOpenAllDiffs,
@@ -306,6 +321,13 @@ export function AppOverlays({
           setLastMouseGesture={onSetLastMouseGesture}
           watchState={diffPreviewWatchState}
           onRefreshPreview={onRefreshDiffPreview}
+          onAddAgentSelection={onAddAgentDiffSelection}
+          onAddAgentMedia={onAddAgentDiffMedia}
+          initialRenderedView={
+            selectionRevealTarget?.kind === "diffPreview"
+              ? selectionRevealTarget.view
+              : undefined
+          }
           onClose={onCloseDocumentDiffPreview}
         />
       )}
@@ -340,6 +362,13 @@ export function AppOverlays({
           openExternalUrl={openDiffExternalUrl}
           onOpenDiagramPreview={onOpenDiagramPreview}
           onOpenDiffPreview={onOpenDocumentDiffPreviewFromStream}
+          onAddAgentSelection={onAddAgentDiffSelection}
+          onAddAgentMedia={onAddAgentDiffMedia}
+          initialViewMode={
+            selectionRevealTarget?.kind === "diffStream"
+              ? selectionRevealTarget.viewMode
+              : undefined
+          }
           showInlineNotice={showInlineNotice}
           showLightweightActionFeedback={showLightweightActionFeedback}
           resolveLocalImage={resolveDiffLocalImage}

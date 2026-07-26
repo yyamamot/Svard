@@ -40,6 +40,21 @@ type RawAppConfig = Partial<AppConfig> & {
       url?: unknown;
     };
   };
+  agentProviders?: {
+    activeProvider?: unknown;
+    codex?: {
+      executable?: {
+        mode?: unknown;
+        path?: unknown;
+      };
+      model?: unknown;
+      reasoningEffort?: unknown;
+      personality?: unknown;
+      permissionMode?: unknown;
+      networkAccess?: unknown;
+      webSearch?: unknown;
+    };
+  };
   remoteProviders?: {
     github?: RawRemoteProviderConfig;
     gitlab?: RawRemoteProviderConfig;
@@ -107,6 +122,7 @@ export function normalizeConfig(config: AppConfig): AppConfig {
     reader: normalizeReaderConfig(config, rawConfig),
     zenMode: normalizeZenModeConfig(config, rawConfig),
     network: normalizeNetworkConfig(config, rawConfig),
+    agentProviders: normalizeAgentProvidersConfig(rawConfig),
     diagram: normalizeDiagramConfig(config, rawConfig),
     remoteProviders: normalizeRemoteProvidersConfig(rawConfig),
     security: normalizeSecurityConfig(config, rawConfig),
@@ -250,6 +266,42 @@ function normalizeNetworkConfig(
         "disabled",
       ),
       url: trimmedStringOrNull(rawConfig.network?.httpProxy?.url),
+    },
+  };
+}
+
+function normalizeAgentProvidersConfig(
+  rawConfig: RawAppConfig,
+): AppConfig["agentProviders"] {
+  const codex = rawConfig.agentProviders?.codex;
+  return {
+    activeProvider: "codex-app-server",
+    codex: {
+      ...defaultConfig.agentProviders.codex,
+      executable:
+        codex?.executable?.mode === "custom"
+          ? {
+              mode: "custom",
+              path: trimmedStringOrNull(codex.executable.path),
+            }
+          : {
+              mode: "auto",
+              path: null,
+            },
+      model: trimmedStringOrNull(codex?.model),
+      reasoningEffort: trimmedStringOrNull(codex?.reasoningEffort) ?? "default",
+      personality: oneOf(
+        codex?.personality,
+        ["friendly", "pragmatic", "none"] as const,
+        "default",
+      ),
+      permissionMode: oneOf(
+        codex?.permissionMode,
+        ["agent", "fullAccess"] as const,
+        "observe",
+      ),
+      networkAccess: codex?.networkAccess === true,
+      webSearch: codex?.webSearch === true,
     },
   };
 }

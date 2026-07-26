@@ -1,8 +1,10 @@
 import { ChevronDown, ChevronRight, FileText, FolderOpen } from "lucide-react";
 import type { DirectoryEntry, GitDiffStatus } from "../../../core/types";
-import { isSupportedDocumentPath } from "../../../core/documentFormat";
+import { isSupportedCodexContextPath } from "../../../core/codexContextPath";
 import {
+  activateCodexContextPointerCapture,
   prepareFileCompareDragData,
+  prepareCodexContextPointerCapture,
   scheduleClearFileCompareDragData,
   writeFileCompareDragData,
 } from "../../lib/fileCompareDrag";
@@ -175,7 +177,8 @@ function FileTreeRow({
     : fileGitStatus
       ? fileGitStatusBadgeLabel(fileGitStatus, entry.name)
       : undefined;
-  const canDragCompare = !isDirectory && isSupportedDocumentPath(entry.path);
+  const canDragCompare =
+    !isDirectory && isSupportedCodexContextPath(entry.path);
   const openLabel = isDirectory
     ? `${entry.name}, ${isExpanded ? "expanded" : "collapsed"}`
     : `${entry.name}${isOpenDocument ? ", open" : ""}`;
@@ -202,13 +205,26 @@ function FileTreeRow({
         title={gitStatus ? `${entry.path} · ${gitStatus.label}` : undefined}
         aria-label={gitStatus ? `${entry.name}, ${gitStatus.label}` : undefined}
         draggable={canDragCompare}
-        onPointerDown={() => {
+        onPointerDown={(event) => {
           if (canDragCompare) {
             prepareFileCompareDragData(entry.path);
+            prepareCodexContextPointerCapture(
+              event.currentTarget,
+              event.pointerId,
+            );
           }
         }}
         onDragStart={(event) => {
           if (canDragCompare) {
+            if (
+              activateCodexContextPointerCapture({
+                clientX: event.clientX,
+                clientY: event.clientY,
+              })
+            ) {
+              event.preventDefault();
+              return;
+            }
             writeFileCompareDragData(event.dataTransfer, entry.path);
           }
         }}
@@ -221,13 +237,26 @@ function FileTreeRow({
           aria-label={openLabel}
           aria-expanded={isDirectory ? isExpanded : undefined}
           draggable={canDragCompare}
-          onPointerDown={() => {
+          onPointerDown={(event) => {
             if (canDragCompare) {
               prepareFileCompareDragData(entry.path);
+              prepareCodexContextPointerCapture(
+                event.currentTarget,
+                event.pointerId,
+              );
             }
           }}
           onDragStart={(event) => {
             if (canDragCompare) {
+              if (
+                activateCodexContextPointerCapture({
+                  clientX: event.clientX,
+                  clientY: event.clientY,
+                })
+              ) {
+                event.preventDefault();
+                return;
+              }
               writeFileCompareDragData(event.dataTransfer, entry.path);
             }
           }}

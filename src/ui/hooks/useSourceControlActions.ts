@@ -210,6 +210,17 @@ export function useSourceControlActions({
     });
   }
 
+  async function reviewAgentChanges() {
+    try {
+      await setSourceControlView("changes");
+      refreshGitChanges("agent-review-changes");
+    } catch {
+      showInlineNotice("Source Control could not be opened.", {
+        tone: "warning",
+      });
+    }
+  }
+
   async function setSourceControlGraphScope(scope: GitCommitGraphScope) {
     if (scope === "repository") {
       setGitTimelinePath(null);
@@ -844,6 +855,7 @@ export function useSourceControlActions({
     loadMoreGitRefs,
     reloadGitRefs,
     refreshGitChanges,
+    reviewAgentChanges,
     setSourceControlView,
     showGitDiff,
     showGitFileHistory,

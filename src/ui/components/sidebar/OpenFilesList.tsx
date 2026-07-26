@@ -18,7 +18,9 @@ import {
 import { hasMovedBeyondThreshold } from "../../../core/reorderDrag";
 import type { DocumentPayload, GitDiffStatus } from "../../../core/types";
 import {
+  activateCodexContextPointerCapture,
   prepareFileCompareDragData,
+  prepareCodexContextPointerCapture,
   scheduleClearFileCompareDragData,
   writeFileCompareDragData,
 } from "../../lib/fileCompareDrag";
@@ -318,13 +320,26 @@ export function OpenFilesList({
                 gitStatus ? gitStatusByPath[tab.path] : undefined
               }
               draggable={isSupportedDocumentPath(tab.path)}
-              onPointerDown={() => {
+              onPointerDown={(event) => {
                 if (isSupportedDocumentPath(tab.path)) {
                   prepareFileCompareDragData(tab.path);
+                  prepareCodexContextPointerCapture(
+                    event.currentTarget,
+                    event.pointerId,
+                  );
                 }
               }}
               onDragStart={(event) => {
                 if (isSupportedDocumentPath(tab.path)) {
+                  if (
+                    activateCodexContextPointerCapture({
+                      clientX: event.clientX,
+                      clientY: event.clientY,
+                    })
+                  ) {
+                    event.preventDefault();
+                    return;
+                  }
                   writeFileCompareDragData(event.dataTransfer, tab.path);
                 }
               }}

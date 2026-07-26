@@ -6,7 +6,9 @@ import { isSupportedDocumentPath } from "../../../core/documentFormat";
 import { hasMovedBeyondThreshold } from "../../../core/reorderDrag";
 import type { BookmarkEntry, GitDiffStatus } from "../../../core/types";
 import {
+  activateCodexContextPointerCapture,
   prepareFileCompareDragData,
+  prepareCodexContextPointerCapture,
   scheduleClearFileCompareDragData,
   writeFileCompareDragData,
 } from "../../lib/fileCompareDrag";
@@ -181,12 +183,16 @@ export function BookmarksPanel({
         draggable={
           bookmark.kind === "file" && isSupportedDocumentPath(bookmark.path)
         }
-        onPointerDown={() => {
+        onPointerDown={(event) => {
           if (
             bookmark.kind === "file" &&
             isSupportedDocumentPath(bookmark.path)
           ) {
             prepareFileCompareDragData(bookmark.path);
+            prepareCodexContextPointerCapture(
+              event.currentTarget,
+              event.pointerId,
+            );
           }
         }}
         onDragStart={(event) => {
@@ -194,6 +200,15 @@ export function BookmarksPanel({
             bookmark.kind === "file" &&
             isSupportedDocumentPath(bookmark.path)
           ) {
+            if (
+              activateCodexContextPointerCapture({
+                clientX: event.clientX,
+                clientY: event.clientY,
+              })
+            ) {
+              event.preventDefault();
+              return;
+            }
             writeFileCompareDragData(event.dataTransfer, bookmark.path);
           }
         }}

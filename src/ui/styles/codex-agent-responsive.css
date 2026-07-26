@@ -1,0 +1,48 @@
+@media (max-width: 720px) {
+  .codex-openui-grid,
+  .codex-openui-code-diff > div,
+  .codex-openui-image-gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.theme-dark .codex-main-resizer:hover::after,
+.theme-dark .codex-main-resizer.active::after,
+.theme-dark .codex-openui-chart-track > span {
+  background: #62b8a5;
+}
+
+@media (max-width: 1040px) {
+  .app-shell.codex-panel-active {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .codex-main-split {
+    grid-template-columns:
+      minmax(300px, var(--codex-document-width)) 14px
+      minmax(320px, 1fr);
+  }
+
+  .codex-panel-header {
+    align-items: flex-start;
+  }
+
+  .codex-panel-actions {
+    gap: 3px;
+  }
+
+  .codex-visualize-toggle {
+    width: 32px;
+    overflow: hidden;
+    padding-inline: 7px;
+    color: transparent;
+    font-size: 0;
+    gap: 0;
+  }
+
+  .codex-visualize-toggle svg {
+    flex: 0 0 auto;
+    color: var(--reader-text);
+    stroke: var(--reader-text);
+  }
+}

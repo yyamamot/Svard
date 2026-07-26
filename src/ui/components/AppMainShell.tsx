@@ -2,6 +2,7 @@ import type {
   ComponentProps,
   CSSProperties,
   PointerEvent as ReactPointerEvent,
+  ReactNode,
 } from "react";
 import { AppOverlays } from "./AppOverlays";
 import { LeftSidebar } from "./LeftSidebar";
@@ -10,6 +11,7 @@ import { PreferencesPanel } from "./PreferencesPanel";
 import { RightSidebar } from "./RightSidebar";
 import { Topbar } from "./Topbar";
 import { ViewerPane } from "./ViewerPane";
+import { CodexMainSplit } from "./CodexMainSplit";
 import type { LinkPreviewState } from "../lib/linkPreview";
 import type { PaneId, ViewerPaneSnapshot } from "../types";
 
@@ -29,6 +31,8 @@ interface AppMainShellProps {
   showLinkHoverStatus: boolean;
   showZenModeExitControl: boolean;
   splitEnabled: boolean;
+  codexPanel: ReactNode | null;
+  codexPanelOpen: boolean;
   splitResizeState: unknown;
   topbarHidden: boolean;
   leftSidebarProps: ComponentProps<typeof LeftSidebar>;
@@ -62,6 +66,8 @@ export function AppMainShell({
   showLinkHoverStatus,
   showZenModeExitControl,
   splitEnabled,
+  codexPanel,
+  codexPanelOpen,
   splitResizeState,
   topbarHidden,
   leftSidebarProps,
@@ -125,6 +131,12 @@ export function AppMainShell({
             />
             {renderViewerPane("right", paneSnapshots.right)}
           </div>
+        ) : codexPanel ? (
+          <CodexMainSplit
+            open={codexPanelOpen}
+            panel={codexPanel}
+            viewer={renderViewerPane("left", paneSnapshots.left)}
+          />
         ) : (
           renderViewerPane("left", paneSnapshots.left)
         )}

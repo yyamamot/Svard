@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
   min-height: 34px;
   margin: 0 8px 7px;
   border-bottom: 1px solid #d8e0e4;
@@ -124,7 +124,7 @@
 .tree-root {
   display: flex;
   align-items: center;
-  min-width: 0;
+  min-width: 24px;
   gap: 6px;
   padding: 0 3px;
   overflow: hidden;

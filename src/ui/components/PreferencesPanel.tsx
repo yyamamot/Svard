@@ -27,6 +27,7 @@ import type {
   MouseGestureMappingConfig,
 } from "../../core/types";
 import { CacheSection } from "./preferences/CacheSection";
+import { AgentProvidersSection } from "./preferences/AgentProvidersSection";
 import { DiagramsSection } from "./preferences/DiagramsSection";
 import { ExperimentalSection } from "./preferences/ExperimentalSection";
 import { GeneralSection } from "./preferences/GeneralSection";
@@ -49,6 +50,7 @@ const preferenceSections: Array<{ id: PreferencesSectionId; title: string }> = [
   { id: "diagrams", title: "Diagrams" },
   { id: "kroki", title: "Kroki" },
   { id: "network", title: "Network" },
+  { id: "agentProviders", title: "AI Providers" },
   { id: "remoteProviders", title: "PR / MR Providers" },
   { id: "security", title: "Security" },
   { id: "cache", title: "Cache" },
@@ -590,6 +592,14 @@ export function PreferencesPanel({
         return <ExperimentalSection config={config} onChange={onChange} />;
       case "network":
         return <NetworkSection config={config} onChange={onChange} />;
+      case "agentProviders":
+        return (
+          <AgentProvidersSection
+            config={config}
+            host={host}
+            onChange={onChange}
+          />
+        );
       case "remoteProviders":
         return (
           <RemoteProvidersSection
