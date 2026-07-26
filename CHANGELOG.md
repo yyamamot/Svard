@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.5
+## Unreleased
 
 - Added workspace-native Codex AI Chat with Markdown responses and an explicit Visualize mode for interactive OpenUI output.
 - Added configurable Codex model, reasoning, personality, access, network, and web-search settings with per-session snapshots.
@@ -9,6 +9,8 @@
 - Added retry input restoration, answer and code copying, scroll-follow controls, and Cmd/Ctrl+Enter sending.
 - Added Queue, Steer, and Stop and Send controls for follow-up input while an AI response is running.
 - Added changed-file summaries with a direct path to Source Control > Changes for reviewing the current working tree.
+
+## 1.0.5
 
 - Added LLM-ready text, original source, and diff references with file, line, and section context.
 - Added LLM-ready image copying for images, diagrams, and captured Viewer and Diff areas with optional source references.
