@@ -5,7 +5,7 @@ import {
   WORKSPACE_BOOT_BENCHMARK_SCENARIO,
   buildWorkspaceBootBenchmarkUrl,
   installWorkspaceBootBenchmarkCollector,
-} from "../../scripts/ui-review/core/capture.mjs";
+} from "../../scripts/ui-review/core/captureBenchmarks.mjs";
 
 interface WorkspaceBootBenchmark {
   schemaVersion: number;

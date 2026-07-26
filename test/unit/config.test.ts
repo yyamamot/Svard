@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { defaultConfig } from "../../src/core/defaultConfig";
+import type { AppConfig } from "../../src/core/types";
 import { normalizeConfig } from "../../src/ui/lib/config";
 
 describe("config normalization", () => {
@@ -251,6 +252,81 @@ describe("config normalization", () => {
     expect(config.network.httpProxy).toEqual({
       mode: "disabled",
       url: null,
+    });
+  });
+
+  it("normalizes Agent provider defaults and supported Codex quality settings", () => {
+    const missing = normalizeConfig({
+      ...defaultConfig,
+      agentProviders: undefined,
+    } as unknown as typeof defaultConfig);
+    const configured = normalizeConfig({
+      ...defaultConfig,
+      agentProviders: {
+        activeProvider: "codex-app-server",
+        codex: {
+          executable: { mode: "auto", path: null },
+          model: "  gpt-5.6-sol  ",
+          reasoningEffort: "high",
+          personality: "pragmatic",
+          permissionMode: "agent",
+          networkAccess: true,
+          webSearch: true,
+        },
+      },
+    });
+
+    expect(missing.agentProviders).toEqual(defaultConfig.agentProviders);
+    expect(configured.agentProviders.codex).toEqual({
+      executable: { mode: "auto", path: null },
+      model: "gpt-5.6-sol",
+      reasoningEffort: "high",
+      personality: "pragmatic",
+      permissionMode: "agent",
+      networkAccess: true,
+      webSearch: true,
+    });
+  });
+
+  it("migrates legacy Codex settings to automatic executable discovery", () => {
+    const legacy = structuredClone(defaultConfig) as unknown as {
+      agentProviders: {
+        activeProvider: string;
+        codex: Omit<AppConfig["agentProviders"]["codex"], "executable"> & {
+          executable?: undefined;
+        };
+      };
+    };
+    delete legacy.agentProviders.codex.executable;
+    const normalized = normalizeConfig(legacy as unknown as AppConfig);
+    expect(normalized.agentProviders.codex.executable).toEqual({
+      mode: "auto",
+      path: null,
+    });
+  });
+
+  it("preserves provider-defined reasoning effort while normalizing other settings", () => {
+    const normalized = normalizeConfig({
+      ...defaultConfig,
+      agentProviders: {
+        activeProvider: "unknown",
+        codex: {
+          model: " ",
+          reasoningEffort: "maximum",
+          personality: "dramatic",
+          permissionMode: "unrestricted",
+          networkAccess: "yes",
+          webSearch: 1,
+        },
+      },
+    } as unknown as typeof defaultConfig);
+
+    expect(normalized.agentProviders).toEqual({
+      ...defaultConfig.agentProviders,
+      codex: {
+        ...defaultConfig.agentProviders.codex,
+        reasoningEffort: "maximum",
+      },
     });
   });
 

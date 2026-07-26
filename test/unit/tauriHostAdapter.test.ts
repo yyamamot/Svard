@@ -20,14 +20,9 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: tauriMocks.listen,
 }));
 
-vi.mock("@tauri-apps/api/webview", () => ({
-  getCurrentWebview: () => ({
-    onDragDropEvent: tauriMocks.onDragDropEvent,
-  }),
-}));
-
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
+    onDragDropEvent: tauriMocks.onDragDropEvent,
     scaleFactor: tauriMocks.scaleFactor,
   }),
 }));

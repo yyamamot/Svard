@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { isExcludedMaintainabilityPath } from "../../scripts/check-maintainability.mjs";
+import {
+  isExcludedMaintainabilityPath,
+  maintainabilityBudgets,
+} from "../../scripts/check-maintainability.mjs";
 
 describe("maintainability script", () => {
+  it("ratchets the warning budget to zero", () => {
+    expect(maintainabilityBudgets.warningCountMax).toBe(0);
+    expect(maintainabilityBudgets.severeCountMax).toBe(1);
+  });
+
   it("excludes dependency and generated directories by exact path and descendants", () => {
     expect(isExcludedMaintainabilityPath("node_modules")).toBe(true);
     expect(
@@ -18,6 +26,16 @@ describe("maintainability script", () => {
     expect(isExcludedMaintainabilityPath("site/dist/index.html")).toBe(true);
     expect(isExcludedMaintainabilityPath(".artifacts")).toBe(true);
     expect(isExcludedMaintainabilityPath(".artifacts/report.json")).toBe(true);
+    expect(
+      isExcludedMaintainabilityPath(
+        "src-tauri/.artifacts/maintainability/report.json",
+      ),
+    ).toBe(true);
+    expect(
+      isExcludedMaintainabilityPath(
+        "packages/viewer/.artifacts/ui-review/report.json",
+      ),
+    ).toBe(true);
   });
 
   it("keeps repo-owned source files eligible for maintainability checks", () => {
@@ -29,6 +47,12 @@ describe("maintainability script", () => {
       false,
     );
     expect(isExcludedMaintainabilityPath("site/src/styles/global.css")).toBe(
+      false,
+    );
+    expect(
+      isExcludedMaintainabilityPath("src-tauri/src/artifacts/collector.rs"),
+    ).toBe(false);
+    expect(isExcludedMaintainabilityPath("src/ui/.artifacts-state.ts")).toBe(
       false,
     );
   });

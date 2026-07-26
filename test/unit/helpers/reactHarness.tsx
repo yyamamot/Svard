@@ -15,6 +15,10 @@ export interface ReactRootHarness {
     element: HTMLInputElement | null | undefined,
     value: string,
   ) => Promise<void>;
+  setTextAreaValue: (
+    element: HTMLTextAreaElement | null | undefined,
+    value: string,
+  ) => Promise<void>;
   pressKey: (key: string, init?: KeyboardEventInit) => Promise<void>;
 }
 
@@ -79,6 +83,17 @@ export function createReactRootHarness(): ReactRootHarness {
         element?.focus();
         const valueSetter = Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
+          "value",
+        )?.set;
+        valueSetter?.call(element, value);
+        element?.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    },
+    setTextAreaValue: async (element, value) => {
+      await act(async () => {
+        element?.focus();
+        const valueSetter = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
           "value",
         )?.set;
         valueSetter?.call(element, value);

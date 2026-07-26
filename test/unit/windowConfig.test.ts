@@ -188,6 +188,35 @@ describe("window config merge", () => {
     });
   });
 
+  it("persists Agent Provider settings on save", () => {
+    const windowConfig = {
+      ...defaultConfig,
+      agentProviders: {
+        activeProvider: "codex-app-server" as const,
+        codex: {
+          executable: {
+            mode: "custom" as const,
+            path: "/Applications/Codex.app/Contents/MacOS/codex",
+          },
+          model: "gpt-5.6-terra",
+          reasoningEffort: "high",
+          personality: "pragmatic" as const,
+          permissionMode: "agent" as const,
+          networkAccess: true,
+          webSearch: true,
+        },
+      },
+    };
+
+    expect(
+      mergeWindowConfigForSave({
+        persistedConfig: defaultConfig,
+        windowConfig,
+        windowSessionId: "main",
+      }).agentProviders,
+    ).toEqual(windowConfig.agentProviders);
+  });
+
   it("applies persisted shared settings without replacing window session", () => {
     const persistedConfig = {
       ...defaultConfig,
@@ -198,6 +227,16 @@ describe("window config merge", () => {
       layout: {
         ...defaultConfig.layout,
         openFilesCollapsed: true,
+      },
+      agentProviders: {
+        activeProvider: "codex-app-server" as const,
+        codex: {
+          ...defaultConfig.agentProviders.codex,
+          model: "gpt-5.6-terra",
+          reasoningEffort: "high",
+          permissionMode: "agent" as const,
+          networkAccess: true,
+        },
       },
       workspace: {
         ...defaultConfig.workspace,
@@ -252,6 +291,7 @@ describe("window config merge", () => {
       sidebarVisible: true,
       rightSidebarVisible: true,
       zoom: 120,
+      agentProviders: persistedConfig.agentProviders,
       layout: {
         openFilesCollapsed: false,
       },

@@ -115,6 +115,37 @@ export function readLabel() {
     expect(blocks[1]?.html).toContain("data:image/svg+xml");
   });
 
+  it("keeps diagram source as internal block metadata for the rendered side", () => {
+    const source = "flowchart LR\nBefore --> After";
+    const [block] = blocksFromHtml(
+      `<div class="diagram-slot" data-diagram-id="mermaid-1" data-diagram-type="mermaid"></div>`,
+      {
+        diagramSources: new Map([["mermaid-1", { type: "mermaid", source }]]),
+      },
+    );
+
+    expect(block?.diagram).toEqual({ type: "mermaid", source });
+    expect(block?.html).not.toContain(source);
+  });
+
+  it("keeps diagram source after the placeholder is replaced by rendered output", () => {
+    const source = "flowchart LR\nBefore --> After";
+    const [block] = blocksFromHtml(
+      `<div class="diagram-inline" data-review-id="mermaid-render" data-diagram-id="mermaid-1">
+        <svg role="img"><text>Before to After</text></svg>
+      </div>`,
+      {
+        diagramSources: new Map([["mermaid-1", { type: "mermaid", source }]]),
+      },
+    );
+
+    expect(block).toMatchObject({
+      kind: "diagram",
+      diagram: { type: "mermaid", source },
+    });
+    expect(block?.html).not.toContain(source);
+  });
+
   it("uses image placeholders for unhydrated rendered diff images", () => {
     const [block] = blocksFromHtml(
       `<p><img src="https://example.test/remote.png" alt="Remote diagram"></p>`,

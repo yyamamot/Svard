@@ -66,6 +66,10 @@ function menuItemsFor(
     preview?: DocumentDiffPreview;
     selector?: string;
     onOpenDiagramPreview?: (preview: DiagramPreviewState) => void;
+    resolveAgentMediaDiagram?: () =>
+      | { type: string; source: string }
+      | undefined;
+    onAddAgentMedia?: () => void;
   } = {},
 ) {
   const container = document.createElement("div");
@@ -94,6 +98,8 @@ function menuItemsFor(
     confirmExternalLink: vi.fn().mockResolvedValue(true),
     openExternalUrl: vi.fn(),
     onOpenDiagramPreview,
+    onAddAgentMedia: options.onAddAgentMedia,
+    resolveAgentMediaDiagram: options.resolveAgentMediaDiagram,
     showInlineNotice: vi.fn(),
   });
   return {
@@ -104,6 +110,64 @@ function menuItemsFor(
 }
 
 describe("diff preview context menu", () => {
+  it("prepares the exact rendered selection before opening its Ask AI action", () => {
+    const container = document.createElement("div");
+    container.innerHTML = "<p>Selected rendered text</p>";
+    document.body.append(container);
+    const text = container.querySelector("p")?.firstChild;
+    expect(text).toBeInstanceOf(Text);
+    const range = document.createRange();
+    range.selectNodeContents(text as Text);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    Object.defineProperty(range, "getClientRects", {
+      configurable: true,
+      value: () =>
+        [
+          {
+            bottom: 20,
+            height: 20,
+            left: 0,
+            right: 200,
+            top: 0,
+            width: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+          } as DOMRect,
+        ] as unknown as DOMRectList,
+    });
+    const runPreparedAsk = vi.fn();
+    const prepareAgentSelection = vi.fn().mockReturnValue(runPreparedAsk);
+
+    const items = diffPreviewContextMenuItems({
+      container,
+      event: { clientX: 10, clientY: 10 },
+      target: container.querySelector<HTMLElement>("p") ?? container,
+      side: "right",
+      surface: "rendered",
+      preview: basePreview,
+      copyText: vi.fn(),
+      openDocument: vi.fn(),
+      openPathInEditor: vi.fn(),
+      resolveDocumentLink: vi.fn(),
+      confirmExternalLink: vi.fn(),
+      openExternalUrl: vi.fn(),
+      onOpenDiagramPreview: vi.fn(),
+      onPrepareAgentSelection: prepareAgentSelection,
+      showInlineNotice: vi.fn(),
+    });
+
+    expect(prepareAgentSelection).toHaveBeenCalledOnce();
+    expect(prepareAgentSelection.mock.calls[0]?.[0].toString()).toBe(
+      "Selected rendered text",
+    );
+    items.find((item) => item.label === "Ask AI about selection")?.onSelect();
+    expect(runPreparedAsk).toHaveBeenCalledOnce();
+    container.remove();
+  });
+
   it("uses rendered source block actions from the viewer menu", () => {
     expect(
       menuLabelsFor(
@@ -158,6 +222,28 @@ describe("diff preview context menu", () => {
       "Copy Image with Reference",
       "Copy Image Path",
     ]);
+  });
+
+  it("resolves rendered diagram source while building its Ask AI action", () => {
+    const resolveAgentMediaDiagram = vi.fn().mockReturnValue({
+      type: "mermaid",
+      source: "flowchart LR\nA --> B",
+    });
+    const { cleanup, items } = menuItemsFor(
+      `<div class="diagram-inline-image"><svg></svg></div>`,
+      {
+        selector: "svg",
+        resolveAgentMediaDiagram,
+        onAddAgentMedia: vi.fn(),
+      },
+    );
+
+    expect(items.map((item) => item.label)).toContain("Ask AI");
+    expect(resolveAgentMediaDiagram).toHaveBeenCalledWith(
+      expect.any(SVGElement),
+      "right",
+    );
+    cleanup();
   });
 
   it("uses URL terminology for displayed external images", () => {
@@ -404,7 +490,7 @@ describe("diff preview context menu", () => {
     );
     expect(copyText).toHaveBeenCalledWith(
       "Text reference",
-      expect.stringContaining("File: /workspace/docs/guide.md"),
+      expect.stringContaining("File: docs/guide.md"),
     );
   });
 
@@ -454,9 +540,7 @@ describe("diff preview context menu", () => {
     container.remove();
     expect(copyText).toHaveBeenCalledWith(
       "Diff reference",
-      expect.stringContaining(
-        "Before (HEAD):\nFile: /workspace/docs/guide.md:1-1",
-      ),
+      expect.stringContaining("Before (HEAD):\nFile: docs/guide.md:1-1"),
     );
   });
 

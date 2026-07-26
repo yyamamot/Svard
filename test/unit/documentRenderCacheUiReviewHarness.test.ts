@@ -5,7 +5,7 @@ import {
   DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO,
   buildDocumentRenderCacheBenchmarkUrl,
   installDocumentRenderCacheBenchmarkCollector,
-} from "../../scripts/ui-review/core/capture.mjs";
+} from "../../scripts/ui-review/core/captureBenchmarks.mjs";
 // @ts-expect-error UI assertion handlers are runtime JavaScript modules.
 import { buildOpenFilesAssertions } from "../../scripts/ui-review/assertions/handlers/filesBookmarks/openFiles.mjs";
 

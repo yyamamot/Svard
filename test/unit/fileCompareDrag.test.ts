@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  activateCodexContextPointerCapture,
   clearFileCompareDragData,
+  codexContextPointerDragStartEvent,
   fileCompareDragType,
+  isCodexContextPointerDragActive,
   isRecentFileCompareDragSession,
+  prepareCodexContextPointerCapture,
   prepareFileCompareDragData,
   readCurrentFileCompareDragData,
   readFileCompareDragData,
@@ -31,6 +35,7 @@ function fakeDataTransfer({ failSetData = false } = {}): DataTransfer {
 describe("file compare drag payload", () => {
   afterEach(() => {
     clearFileCompareDragData();
+    document.body.replaceChildren();
   });
 
   it("writes and reads the internal document path payload", () => {
@@ -106,6 +111,62 @@ describe("file compare drag payload", () => {
       vi.runAllTimers();
 
       expect(readCurrentFileCompareDragData()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("captures the pointer only after a Codex context drag starts", () => {
+    const codexPanel = document.createElement("div");
+    codexPanel.dataset.reviewId = "codex-panel";
+    document.body.append(codexPanel);
+
+    const target = document.createElement("button");
+    const setPointerCapture = vi.fn();
+    const onDragStart = vi.fn();
+    target.setPointerCapture = setPointerCapture;
+    document.body.append(target);
+    window.addEventListener(codexContextPointerDragStartEvent, onDragStart);
+
+    prepareFileCompareDragData("/workspace/docs/prepared.md");
+    prepareCodexContextPointerCapture(target, 7);
+
+    expect(setPointerCapture).not.toHaveBeenCalled();
+    expect(
+      activateCodexContextPointerCapture({ clientX: 120, clientY: 80 }),
+    ).toBe(true);
+    expect(setPointerCapture).toHaveBeenCalledWith(7);
+    expect(isCodexContextPointerDragActive()).toBe(true);
+    expect(onDragStart).toHaveBeenCalledOnce();
+    expect((onDragStart.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({
+      clientX: 120,
+      clientY: 80,
+      path: "/workspace/docs/prepared.md",
+    });
+
+    window.removeEventListener(codexContextPointerDragStartEvent, onDragStart);
+  });
+
+  it("keeps the internal path until the pointer-based drop finishes", () => {
+    vi.useFakeTimers();
+    try {
+      const codexPanel = document.createElement("div");
+      codexPanel.dataset.reviewId = "codex-panel";
+      document.body.append(codexPanel);
+
+      const target = document.createElement("button");
+      target.setPointerCapture = vi.fn();
+      document.body.append(target);
+
+      prepareFileCompareDragData("/workspace/docs/long-drag.md");
+      prepareCodexContextPointerCapture(target, 9);
+      activateCodexContextPointerCapture();
+      scheduleClearFileCompareDragData();
+      vi.runAllTimers();
+
+      expect(readCurrentFileCompareDragData()).toBe(
+        "/workspace/docs/long-drag.md",
+      );
     } finally {
       vi.useRealTimers();
     }
