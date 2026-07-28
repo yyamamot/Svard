@@ -1,4 +1,5 @@
 import type { MouseEvent } from "react";
+import { Paperclip } from "lucide-react";
 import {
   isLocationReferenceTarget,
   locationReferenceForElement,
@@ -28,6 +29,7 @@ import {
   addSourceItems,
 } from "../../hooks/documentLinks/contextMenuItems";
 import { documentSelectionAtPoint } from "../../hooks/documentLinks/shared";
+import { menuIcon } from "../../hooks/documentLinks/shared";
 import { addTableItems } from "../../hooks/documentLinks/tableActions";
 import {
   buildDiffDiagramComparisonPreview,
@@ -73,6 +75,7 @@ export function createDiffPreviewContextMenuHandler({
   openExternalUrl,
   onOpenDiagramPreview,
   onBeginCaptureArea,
+  onPrepareAgentChange,
   onPrepareAgentSelection,
   onAddAgentMedia,
   resolveAgentMediaDiagram,
@@ -101,6 +104,7 @@ export function createDiffPreviewContextMenuHandler({
       openExternalUrl,
       onOpenDiagramPreview,
       onBeginCaptureArea,
+      onPrepareAgentChange,
       onPrepareAgentSelection,
       onAddAgentMedia,
       resolveAgentMediaDiagram,
@@ -135,6 +139,7 @@ export function diffPreviewContextMenuItems({
   openExternalUrl,
   onOpenDiagramPreview,
   onBeginCaptureArea,
+  onPrepareAgentChange,
   onPrepareAgentSelection,
   onAddAgentMedia,
   resolveAgentMediaDiagram,
@@ -168,6 +173,8 @@ export function diffPreviewContextMenuItems({
     surface === "rendered" && selectionRange
       ? onPrepareAgentSelection?.(selectionRange)
       : undefined;
+  const attachAgentChange =
+    surface === "rendered" ? onPrepareAgentChange?.(target, side) : undefined;
   const table = resolveDiffContextTable({
     container,
     event,
@@ -176,6 +183,7 @@ export function diffPreviewContextMenuItems({
   });
 
   if (selection) {
+    const selectionItemsStart = items.length;
     addSelectionItems(
       items,
       table,
@@ -218,10 +226,20 @@ export function diffPreviewContextMenuItems({
         : undefined,
       askAgentSelection,
     );
+    if (attachAgentChange) {
+      items.splice(
+        selectionItemsStart + (askAgentSelection ? 1 : 0),
+        0,
+        agentChangeContextMenuItem(attachAgentChange),
+      );
+    }
     return items;
   }
 
   if (surface === "rendered") {
+    if (attachAgentChange) {
+      items.push(agentChangeContextMenuItem(attachAgentChange));
+    }
     addRenderedSurfaceItems(items, {
       preview,
       target,
@@ -262,6 +280,23 @@ export function diffPreviewContextMenuItems({
     );
   }
   return items;
+}
+
+function agentChangeContextMenuItem(
+  action: NonNullable<
+    ReturnType<
+      NonNullable<DiffPreviewContextMenuOptions["onPrepareAgentChange"]>
+    >
+  >,
+): ContextMenuItem {
+  return {
+    id: "attach-agent-current-change",
+    label: "Attach current change",
+    icon: menuIcon(Paperclip),
+    enabled: action.enabled,
+    title: action.title,
+    onSelect: action.onSelect,
+  };
 }
 
 function safeReferenceValue<T extends { value: string } | undefined>(

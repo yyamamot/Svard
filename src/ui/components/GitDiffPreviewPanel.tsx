@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent, RefObject } from "react";
 import type {
   AppConfig,
+  DocumentChangeSnapshot,
   DocumentDiffPreview,
   DocumentLinkResolution,
   DocumentPayload,
@@ -28,6 +29,10 @@ import type {
 import type { SelectionRevealTarget } from "../lib/diffDocumentSelection";
 import { renderedDiffDiagramForTarget } from "../lib/documentMedia";
 import {
+  extractRenderedDiffCurrentChange,
+  renderedDiffChangeIndexAtTarget,
+} from "../lib/renderedDiffCurrentChange";
+import {
   RenderedDiffSelectionController,
   type RenderedDiffSelectionActionBridge,
 } from "./RenderedDiffSelectionController";
@@ -47,6 +52,11 @@ import type {
   DiagramPreviewState,
   MouseGestureAutomation,
 } from "../types";
+import {
+  DiffAgentDock,
+  emptyDiffAgentDockControls,
+  type DiffAgentDockControls,
+} from "./DiffAgentDock";
 import type { CopyText } from "../hooks/documentLinks/types";
 
 export interface DiffPreviewCloseHandoff {
@@ -106,7 +116,13 @@ interface DocumentDiffPreviewPanelProps {
     snapshot: DocumentMediaSnapshot,
     revealTarget: SelectionRevealTarget,
   ) => void;
+  onAddAgentChange?: (
+    snapshot: DocumentChangeSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
+  agentDock?: DiffAgentDockControls;
   initialRenderedView?: "preview" | "rendered";
+  revealChangeIndex?: number;
   onClose: (handoff?: DiffPreviewCloseHandoff) => void;
 }
 
@@ -137,7 +153,10 @@ export function DocumentDiffPreviewPanel({
   onRefreshPreview,
   onAddAgentSelection,
   onAddAgentMedia,
+  onAddAgentChange,
+  agentDock = emptyDiffAgentDockControls,
   initialRenderedView,
+  revealChangeIndex,
   onClose,
 }: DocumentDiffPreviewPanelProps) {
   const panelRef = useRef<HTMLElement | null>(null);
@@ -236,6 +255,41 @@ export function DocumentDiffPreviewPanel({
   const closeWithHandoff = useCallback(() => {
     onClose({ preview, renderedPresentation });
   }, [onClose, preview, renderedPresentation]);
+  const attachCurrentChange = useCallback(
+    async (changeIndex = activeChangeIndex, revealSide?: "left" | "right") => {
+      const root = panelRef.current;
+      const target = renderedPresentation.navigationTargets[changeIndex];
+      if (!root || !target || !onAddAgentChange) return;
+      try {
+        const snapshot = await extractRenderedDiffCurrentChange({
+          comparisonLabel: `${preview.leftLabel} → ${preview.rightLabel}`,
+          presentation: renderedPresentation,
+          preview,
+          root,
+          target,
+        });
+        onAddAgentChange(snapshot, {
+          kind: "diffPreview",
+          preview,
+          view: activeView === "preview" ? "preview" : "rendered",
+          side: revealSide ?? target.primarySide,
+          changeIndex: target.index,
+        });
+      } catch {
+        showInlineNotice("The current rendered change could not be prepared.", {
+          tone: "warning",
+        });
+      }
+    },
+    [
+      activeChangeIndex,
+      activeView,
+      onAddAgentChange,
+      preview,
+      renderedPresentation,
+      showInlineNotice,
+    ],
+  );
   const beginCaptureArea = useCallback(
     (container?: HTMLElement, variant: CaptureAreaVariant = "plain") => {
       const renderedPane =
@@ -299,6 +353,28 @@ export function DocumentDiffPreviewPanel({
     onBeginCaptureArea: (container, variant) => {
       beginCaptureArea(container, variant);
     },
+    onPrepareAgentChange: (target, side) => {
+      const root = panelRef.current;
+      if (!root) return undefined;
+      const changeIndex = renderedDiffChangeIndexAtTarget(target, root);
+      if (changeIndex === null) return undefined;
+      const change = renderedPresentation.navigationTargets[changeIndex];
+      if (!change) return undefined;
+      setActiveChangeIndex(changeIndex);
+      const enabled =
+        Boolean(onAddAgentChange) &&
+        agentDock.available &&
+        !renderedSummaryLoading;
+      return {
+        enabled,
+        title: enabled
+          ? "Attach the right-clicked rendered change"
+          : !agentDock.available
+            ? "Open a workspace to attach the current change"
+            : "The rendered change is not ready to attach",
+        onSelect: () => attachCurrentChange(changeIndex, side),
+      };
+    },
     onPrepareAgentSelection: (range) =>
       renderedSelectionActionRef.current?.prepareContextMenuAsk(range),
     onAddAgentMedia: (snapshot, side) =>
@@ -342,6 +418,16 @@ export function DocumentDiffPreviewPanel({
   useEffect(() => {
     setActiveChangeIndex(0);
   }, [activeView, activeTableIndex]);
+
+  useEffect(() => {
+    if (
+      revealChangeIndex === undefined ||
+      !renderedPresentation.navigationTargets[revealChangeIndex]
+    ) {
+      return;
+    }
+    setActiveChangeIndex(revealChangeIndex);
+  }, [renderedPresentation.navigationTargets, revealChangeIndex]);
 
   useEffect(() => {
     setActiveChangeIndex((current) => {
@@ -388,6 +474,12 @@ export function DocumentDiffPreviewPanel({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest(".git-diff-agent-dock")
+      ) {
+        return;
+      }
       if (event.key === "Escape" && activeCaptureAreaState) {
         event.preventDefault();
         setCaptureAreaState(null);
@@ -433,6 +525,8 @@ export function DocumentDiffPreviewPanel({
         <MouseGestureTrail points={mouseGestureTrail} />
         {!chromeHidden && (
           <DiffToolbar
+            agentChatAvailable={agentDock.available}
+            agentChatOpen={agentDock.open}
             config={config}
             preview={preview}
             title={title}
@@ -456,6 +550,7 @@ export function DocumentDiffPreviewPanel({
             onToggleExpanded={() => setIsExpanded((current) => !current)}
             onSyncScrollChange={setSyncScrollEnabled}
             onClose={closeWithHandoff}
+            onToggleAgentChat={agentDock.onToggle}
           />
         )}
 
@@ -526,6 +621,7 @@ export function DocumentDiffPreviewPanel({
             onClose={() => setCaptureAreaState(null)}
           />
         )}
+        <DiffAgentDock controls={agentDock} />
       </section>
     </div>
   );

@@ -39,20 +39,26 @@ export async function exerciseRenderedDiffAgentSelection(
     .locator('[data-review-id="selection-mini-toolbar"]')
     .getByRole("button", { name: "Ask AI" })
     .click();
-  await page.locator(".agent-selection-card").waitFor();
+  const dock = page.locator('[data-review-id="git-diff-agent-dock"]');
+  await dock.waitFor();
+  const card = dock.locator(".agent-selection-card");
+  await card.waitFor();
+  const questionBlank = (await dock.locator("textarea").inputValue()) === "";
   const revisionVisible = await page
-    .locator(".agent-selection-card")
+    .locator('[data-review-id="git-diff-agent-dock"] .agent-selection-card')
     .getByText(/After|Working tree/u)
     .count();
-  await page
-    .locator(".agent-selection-card")
+  await card
     .getByRole("button", { name: "Return to selected content" })
     .click();
   await page.locator(`[data-review-id="${restoredPanelReviewId}"]`).waitFor();
+  await dock.waitFor();
   await page.evaluate(
-    ({ resultKey, revisionVisible }) => {
+    ({ questionBlank, resultKey, revisionVisible }) => {
       window[resultKey] = {
-        overlayRestored: true,
+        dockVisible: true,
+        overlayMaintained: true,
+        questionBlank,
         revisionVisible: revisionVisible > 0,
         toolbarOpaque:
           getComputedStyle(
@@ -62,7 +68,7 @@ export async function exerciseRenderedDiffAgentSelection(
           ).backgroundColor !== "rgba(0, 0, 0, 0)",
       };
     },
-    { resultKey, revisionVisible },
+    { questionBlank, resultKey, revisionVisible },
   );
 }
 
@@ -81,22 +87,83 @@ export async function exerciseRenderedDiffAgentMedia(
     .locator('[data-review-id="context-menu"]')
     .getByRole("menuitem", { name: "Ask AI" })
     .click();
-  const card = page.locator(".agent-media-card");
+  const dock = page.locator('[data-review-id="git-diff-agent-dock"]');
+  await dock.waitFor();
+  const card = dock.locator(".agent-media-card");
   await card.waitFor();
+  const questionBlank = (await dock.locator("textarea").inputValue()) === "";
   const revisionVisible = await card.getByText(/After|Working tree/u).count();
   const modeCount = await card.locator(".agent-media-mode button").count();
   await card.getByRole("button", { name: "Show" }).click();
   await page.locator(`[data-review-id="${restoredPanelReviewId}"]`).waitFor();
+  await dock.waitFor();
   await page.evaluate(
-    ({ modeCount, resultKey, revisionVisible }) => {
+    ({ modeCount, questionBlank, resultKey, revisionVisible }) => {
       window[resultKey] = {
+        dockVisible: true,
         modeCount,
-        overlayRestored: true,
+        overlayMaintained: true,
+        questionBlank,
         revisionVisible: revisionVisible > 0,
       };
     },
-    { modeCount, resultKey, revisionVisible },
+    { modeCount, questionBlank, resultKey, revisionVisible },
   );
+}
+
+export async function sampleDiffAgentDockLayout(page) {
+  return page.evaluate(() => {
+    const rect = (selector) =>
+      document.querySelector(selector)?.getBoundingClientRect() ?? null;
+    const toolbar = rect(".git-diff-toolbar");
+    const dock = rect('[data-review-id="git-diff-agent-dock"]');
+    const composer = rect(".agent-composer-dock");
+    const resizer = rect('[data-review-id="git-diff-agent-dock-resizer"]');
+    const leftPane = rect(
+      '[data-review-id="git-rendered-left-pane"], [data-review-id="git-full-preview-left-pane"]',
+    );
+    const rightPane = rect(
+      '[data-review-id="git-rendered-right-pane"], [data-review-id="git-full-preview-right-pane"]',
+    );
+    const scrollAreas = Array.from(
+      document.querySelectorAll(".git-rendered-scroll"),
+    );
+    for (const area of scrollAreas) {
+      area.scrollTop = area.scrollHeight;
+    }
+    const scrollMetrics = scrollAreas.map((area) => ({
+      clientHeight: area.clientHeight,
+      scrollHeight: area.scrollHeight,
+      scrollTop: area.scrollTop,
+    }));
+    return {
+      composerInsideDock: Boolean(
+        composer &&
+        dock &&
+        composer.top >= dock.top &&
+        composer.bottom <= dock.bottom + 1,
+      ),
+      diffEndReachable:
+        scrollAreas.length >= 2 &&
+        scrollAreas.every(
+          (area) => area.scrollTop + area.clientHeight >= area.scrollHeight - 2,
+        ),
+      dockBelowToolbar: Boolean(toolbar && dock && dock.top >= toolbar.bottom),
+      panesVisible: Boolean(
+        leftPane &&
+        rightPane &&
+        leftPane.width >= 280 &&
+        rightPane.width >= 280,
+      ),
+      resizerHitTarget: resizer?.height ?? 0,
+      scrollMetrics,
+      themeDark: document.querySelector(".app-shell.theme-dark") !== null,
+      toolbarInsideViewport: Boolean(
+        toolbar && toolbar.left >= 0 && toolbar.right <= window.innerWidth + 1,
+      ),
+      viewport: { height: window.innerHeight, width: window.innerWidth },
+    };
+  });
 }
 
 export function largeMarkdownTableSource({ includeLocalPlantUmlCache }) {

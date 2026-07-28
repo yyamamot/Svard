@@ -102,6 +102,22 @@
   outline-offset: 2px;
 }
 
+.agent-context-reveal {
+  animation: agent-context-reveal-pulse 1.6s ease-out;
+}
+
+@keyframes agent-context-reveal-pulse {
+  0%,
+  45% {
+    outline: 3px solid color-mix(in srgb, #287466 72%, transparent);
+    outline-offset: 2px;
+  }
+
+  100% {
+    outline-color: transparent;
+  }
+}
+
 .git-rendered-block-meta {
   display: inline-flex;
   align-items: center;

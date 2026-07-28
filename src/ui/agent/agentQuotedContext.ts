@@ -1,5 +1,8 @@
 import type { AgentQuotedContext } from "../../core/types";
-import { isDocumentMediaSnapshot } from "../../core/types";
+import {
+  isDocumentChangeSnapshot,
+  isDocumentMediaSnapshot,
+} from "../../core/types";
 import { selectionSnapshotText } from "../lib/documentSelection";
 
 const maximumQuotedContexts = 8;
@@ -40,7 +43,12 @@ export function appendAgentQuotedContext(
       new TextEncoder().encode(
         isDocumentMediaSnapshot(context)
           ? (context.diagram?.source ?? "")
-          : selectionSnapshotText(context),
+          : isDocumentChangeSnapshot(context)
+            ? [context.before, context.after]
+                .filter((selection) => selection !== undefined)
+                .map((selection) => selectionSnapshotText(selection))
+                .join("\n")
+            : selectionSnapshotText(context),
       ).length,
     0,
   );
@@ -55,7 +63,11 @@ export function appendAgentQuotedContext(
       ? context.visual
         ? [context.visual]
         : []
-      : context.imageResources,
+      : isDocumentChangeSnapshot(context)
+        ? [context.before, context.after].flatMap(
+            (selection) => selection?.imageResources ?? [],
+          )
+        : context.imageResources,
   );
   if (images.length > maximumQuotedImages) {
     return {

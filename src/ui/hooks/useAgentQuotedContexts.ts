@@ -7,7 +7,10 @@ import {
   type SetStateAction,
 } from "react";
 import type { AgentQuotedContext } from "../../core/types";
-import { isDocumentMediaSnapshot } from "../../core/types";
+import {
+  isDocumentChangeSnapshot,
+  isDocumentMediaSnapshot,
+} from "../../core/types";
 import { appendAgentQuotedContext } from "../agent/agentQuotedContext";
 import { revealDocumentMedia } from "../lib/documentMedia";
 import { revealDocumentSelection } from "../lib/documentSelection";
@@ -162,6 +165,7 @@ export function useAgentQuotedContextReveal({
     if (
       !pendingReveal ||
       isDocumentMediaSnapshot(pendingReveal.snapshot) ||
+      isDocumentChangeSnapshot(pendingReveal.snapshot) ||
       pendingReveal.target.kind !== "document" ||
       documentPath !== pendingReveal.target.documentPath
     ) {
@@ -280,6 +284,7 @@ export function useAgentQuotedContextReveal({
     if (
       !pendingReveal ||
       isDocumentMediaSnapshot(pendingReveal.snapshot) ||
+      isDocumentChangeSnapshot(pendingReveal.snapshot) ||
       pendingReveal.target.kind === "document"
     ) {
       return;
@@ -303,6 +308,59 @@ export function useAgentQuotedContextReveal({
         window.setTimeout(reveal, 50);
       } else {
         showInlineNotice("The diff changed after selection.", {
+          tone: "warning",
+        });
+        setPendingReveal(null);
+      }
+    };
+    window.setTimeout(reveal, 0);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    documentDiffPreview,
+    documentDiffStreamPreview,
+    pendingReveal,
+    setPendingReveal,
+    showInlineNotice,
+  ]);
+
+  useEffect(() => {
+    if (
+      !pendingReveal ||
+      !isDocumentChangeSnapshot(pendingReveal.snapshot) ||
+      pendingReveal.target.kind === "document" ||
+      pendingReveal.target.changeIndex === undefined
+    ) {
+      return;
+    }
+    const changeIndex = pendingReveal.target.changeIndex;
+    const targetKind = pendingReveal.target.kind;
+    let cancelled = false;
+    let attempts = 0;
+    const reveal = () => {
+      if (cancelled) return;
+      const root = document.querySelector<HTMLElement>(
+        targetKind === "diffStream" ? ".diff-stream-panel" : ".git-diff-panel",
+      );
+      const target = root?.querySelector<HTMLElement>(
+        `[data-change-index="${changeIndex}"]`,
+      );
+      if (target) {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+        target.classList.add("agent-context-reveal");
+        window.setTimeout(
+          () => target.classList.remove("agent-context-reveal"),
+          1600,
+        );
+        setPendingReveal(null);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 40) {
+        window.setTimeout(reveal, 50);
+      } else {
+        showInlineNotice("The diff changed after this change was attached.", {
           tone: "warning",
         });
         setPendingReveal(null);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type {
+  DocumentChangeSnapshot,
   DocumentMediaSnapshot,
   DocumentSelectionSnapshot,
 } from "../../src/core/types";
@@ -44,6 +45,23 @@ function media(snapshotId: string, byteLength = 3): DocumentMediaSnapshot {
       byteLength,
     },
     defaultMode: "visual",
+    diagnostics: [],
+  };
+}
+
+function change(
+  snapshotId: string,
+  before = selection(`${snapshotId}:before`, "before"),
+  after = selection(`${snapshotId}:after`, "after"),
+): DocumentChangeSnapshot {
+  return {
+    snapshotId,
+    contextType: "change",
+    documentPath: "docs/guide.md",
+    comparisonLabel: "HEAD → Working Tree",
+    changeKind: "changed",
+    before,
+    after,
     diagnostics: [],
   };
 }
@@ -101,6 +119,34 @@ describe("Agent quoted context transaction", () => {
     ).toMatchObject({
       ok: false,
       message: "Add no more than 4 images to one question.",
+    });
+  });
+
+  it("counts a paired change as one item and combines both side sizes", () => {
+    const seven = Array.from({ length: 7 }, (_, index) =>
+      selection(`selection-${index}`),
+    );
+    const appended = appendAgentQuotedContext(seven, change("change-1"));
+    expect(appended).toMatchObject({
+      ok: true,
+      contexts: expect.arrayContaining([
+        expect.objectContaining({ snapshotId: "change-1" }),
+      ]),
+    });
+
+    const half = "x".repeat(512 * 1024 + 1);
+    expect(
+      appendAgentQuotedContext(
+        [],
+        change(
+          "large-change",
+          selection("large-before", half),
+          selection("large-after", half),
+        ),
+      ),
+    ).toMatchObject({
+      ok: false,
+      message: "The selected content for this question is larger than 1 MiB.",
     });
   });
 

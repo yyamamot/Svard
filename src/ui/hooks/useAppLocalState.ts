@@ -20,9 +20,12 @@ import type {
   SmartScrollAnchor,
 } from "../types";
 import type { ActivateTabForHistory } from "./useNavigationHistory";
+import type { MainAgentPanelPlacement } from "../agent/agentPanelTypes";
 
 export function useAppLocalState() {
   const [codexPanelOpen, setCodexPanelOpen] = useState(false);
+  const [agentPanelPlacement, setAgentPanelPlacement] =
+    useState<MainAgentPanelPlacement>("right");
   const viewerRef = useRef<HTMLElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
   const activateTabForHistoryRef = useRef<ActivateTabForHistory | null>(null);
@@ -94,6 +97,7 @@ export function useAppLocalState() {
 
   return {
     activeHeadingId,
+    agentPanelPlacement,
     activateTabForHistoryRef,
     articleRef,
     captureAreaRequest,
@@ -130,6 +134,7 @@ export function useAppLocalState() {
     searchIndex,
     searchInputRef,
     setActiveHeadingId,
+    setAgentPanelPlacement,
     setCaptureAreaRequest,
     setCodexPanelOpen,
     setConfig,

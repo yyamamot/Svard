@@ -61,7 +61,6 @@ export function AgentProvidersSection({
   useEffect(() => {
     void loadCodexRuntime();
     // The host instance is stable for the lifetime of the Preferences page.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host, codex.executable.mode, codex.executable.path]);
 
   function updateCodex(patch: Partial<AppConfig["agentProviders"]["codex"]>) {
@@ -101,7 +100,6 @@ export function AgentProvidersSection({
       updateCodex({ personality: "default" });
     }
     // Only provider capability changes should normalize this saved value.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModel?.model, selectedModel?.supportsPersonality]);
 
   function changeModel(model: string) {

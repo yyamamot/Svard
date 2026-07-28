@@ -40,6 +40,7 @@ export function useAgentRunningTurnControl({
   selectionImageAttachmentsRef,
   sessionIdRef,
   sessionReadyRef,
+  workspaceGeneration,
   setActionNotice,
   setImages,
   setQuestion,
@@ -57,6 +58,7 @@ export function useAgentRunningTurnControl({
   >;
   sessionIdRef: MutableRefObject<string>;
   sessionReadyRef: MutableRefObject<boolean>;
+  workspaceGeneration: number;
   setActionNotice: Dispatch<SetStateAction<string | null>>;
   setImages: Dispatch<SetStateAction<AgentImageAttachment[]>>;
   setQuestion: Dispatch<SetStateAction<string>>;
@@ -73,12 +75,14 @@ export function useAgentRunningTurnControl({
   dispatchPreparedTurnRef.current = dispatchPreparedTurn;
 
   async function sendSteer(prepared: PreparedAgentTurn, targetTurnId: string) {
+    const preparedSessionId = prepared.input.clientSessionId;
     try {
       const outcome = await host.steerAgentTurn({
         ...prepared.input,
         clientTurnId: targetTurnId,
         clientSteerId: crypto.randomUUID(),
       });
+      if (sessionIdRef.current !== preparedSessionId) return;
       if (outcome.status === "failed") {
         setActionNotice(outcome.message);
         return;
@@ -107,6 +111,7 @@ export function useAgentRunningTurnControl({
       onQuotedContextsAccepted?.(prepared.selectionIds);
       setActionNotice("Steering applied to the current response.");
     } catch (error) {
+      if (sessionIdRef.current !== preparedSessionId) return;
       setActionNotice(
         error instanceof Error ? error.message : "Steering could not be sent.",
       );
@@ -114,6 +119,11 @@ export function useAgentRunningTurnControl({
       setRunningAction(null);
     }
   }
+
+  useEffect(() => {
+    setPendingTurn(null);
+    setRunningAction(null);
+  }, [workspaceGeneration]);
 
   async function handlePrepared(
     prepared: PreparedAgentTurn,

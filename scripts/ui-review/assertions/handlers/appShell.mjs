@@ -199,7 +199,10 @@ export async function buildAppShellAssertions(context) {
       scenario === "viewer-agent-chat-selection-image" ||
       scenario === "viewer-agent-chat-active-file" ||
       scenario === "viewer-agent-chat-session-management" ||
-      scenario === "viewer-agent-chat-dark-theme"
+      scenario === "viewer-agent-chat-workspace-isolation" ||
+      scenario === "viewer-agent-chat-main-bottom-dock" ||
+      scenario === "viewer-agent-chat-dark-theme" ||
+      scenario === "viewer-agent-chat-composer-access"
         ? await page.evaluate(() => {
             const result = window.__SVARD_AGENT_STAGE5_CHECK__;
             return (
@@ -216,7 +219,6 @@ export async function buildAppShellAssertions(context) {
               result?.openUiVisible === true &&
               result?.explorationInteraction === true &&
               result?.groupedReadActivity === true &&
-              result?.focusedAnswerVisible === true &&
               result?.rightSidebarRestored === true
             );
           })
@@ -343,6 +345,59 @@ export async function buildAppShellAssertions(context) {
               result?.currentNamed === true &&
               result?.deleteConfirmation === true &&
               result?.readOnlyHistory === true
+            );
+          })
+        : true,
+    hasAgentWorkspaceIsolation:
+      scenario === "viewer-agent-chat-workspace-isolation"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_WORKSPACE_ISOLATION_CHECK__;
+            return (
+              result?.darkThemeMaintained === true &&
+              result?.draftCleared === true &&
+              result?.newConversationStarted === true &&
+              result?.oldConversationCleared === true &&
+              result?.panelMaintained === true
+            );
+          })
+        : true,
+    hasAgentMainBottomDock:
+      scenario === "viewer-agent-chat-main-bottom-dock"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_MAIN_BOTTOM_DOCK_CHECK__;
+            return (
+              result?.bottomPlacement === true &&
+              result?.bottomRestored === true &&
+              result?.compactLayoutValid === true &&
+              result?.darkThemeMaintained === true &&
+              result?.diffDrawerMaintained === true &&
+              result?.draftPreserved === true &&
+              result?.resized === true &&
+              result?.rightPlacementMaintained === true &&
+              result?.rightSidebarHidden === true &&
+              result?.splitReopenMaintained === true &&
+              result?.splitViewMaintained === true &&
+              result?.streamingMoveMaintained === true
+            );
+          })
+        : true,
+    hasAgentComposerAccess:
+      scenario === "viewer-agent-chat-composer-access"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_COMPOSER_ACCESS_CHECK__;
+            return (
+              result?.bottomMaintained === true &&
+              result?.darkThemeMaintained === true &&
+              result?.diffMaintained === true &&
+              result?.draftPreserved === true &&
+              result?.focusRestored === true &&
+              result?.headerControlRemoved === true &&
+              result?.initialObserve === true &&
+              result?.insideViewport === true &&
+              result?.opensAbove === true &&
+              result?.popoverStayedOpen === true &&
+              result?.rightMaintained === true &&
+              result?.toolbarBelowInput === true
             );
           })
         : true,

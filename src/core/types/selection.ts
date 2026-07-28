@@ -130,14 +130,32 @@ export interface DocumentMediaSnapshot {
   diffContext?: DocumentSelectionDiffContext;
 }
 
+export interface DocumentChangeSnapshot {
+  snapshotId: string;
+  contextType: "change";
+  documentPath: string;
+  comparisonLabel: string;
+  changeKind: "added" | "removed" | "changed";
+  before?: DocumentSelectionSnapshot;
+  after?: DocumentSelectionSnapshot;
+  diagnostics: SelectionDiagnostic[];
+}
+
 export type AgentQuotedContext =
   | DocumentSelectionSnapshot
-  | DocumentMediaSnapshot;
+  | DocumentMediaSnapshot
+  | DocumentChangeSnapshot;
 
 export function isDocumentMediaSnapshot(
   context: AgentQuotedContext,
 ): context is DocumentMediaSnapshot {
   return "contextType" in context && context.contextType === "media";
+}
+
+export function isDocumentChangeSnapshot(
+  context: AgentQuotedContext,
+): context is DocumentChangeSnapshot {
+  return "contextType" in context && context.contextType === "change";
 }
 
 export type AgentTurnContentPart =

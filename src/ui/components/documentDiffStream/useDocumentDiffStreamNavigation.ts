@@ -121,6 +121,9 @@ export function useDocumentDiffStreamNavigation({
     },
     [panelRef],
   );
+  const activateTarget = useCallback((target: DiffStreamTarget) => {
+    setActiveTarget(target);
+  }, []);
 
   const moveToUnloadedDocument = useCallback(
     (direction: 1 | -1) => {
@@ -333,6 +336,7 @@ export function useDocumentDiffStreamNavigation({
   ]);
 
   return {
+    activateTarget,
     activeTarget,
     loadedTargets,
     moveTarget,

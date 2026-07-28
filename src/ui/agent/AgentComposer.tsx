@@ -9,10 +9,14 @@ import {
   X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { isDocumentMediaSnapshot } from "../../core/types";
+import {
+  isDocumentChangeSnapshot,
+  isDocumentMediaSnapshot,
+} from "../../core/types";
 import { selectionSnapshotText } from "../lib/documentSelection";
 import { fileName } from "../lib/path";
-import { selectionDisplayLabel } from "./agentPanelModel";
+import { AgentAccessMenu } from "./AgentAccessMenu";
+import { changeDisplayLabel, selectionDisplayLabel } from "./agentPanelModel";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
 import type { AgentSessionController } from "./useAgentSessionController";
 import type { AgentTurnComposer } from "./useAgentTurnComposer";
@@ -31,7 +35,9 @@ export function AgentComposer({
     host,
     onRemoveQuotedContext,
     onReturnToQuotedContext,
+    placement = "mainRight",
     quotedContexts: providedQuotedContexts = [],
+    workspaceRoot,
   } = hostProps;
   const {
     activeTurnId,
@@ -39,6 +45,7 @@ export function AgentComposer({
     addMenuOpen,
     attachments,
     composerDockRef,
+    composerInputRef,
     dropActive,
     focusFiles,
     imageErrors,
@@ -280,6 +287,53 @@ export function AgentComposer({
                 </article>
               );
             }
+            if (isDocumentChangeSnapshot(context)) {
+              const change = context;
+              return (
+                <details
+                  className="agent-selection-card agent-change-card"
+                  data-review-id="agent-current-change-attachment"
+                  key={change.snapshotId}
+                >
+                  <summary>
+                    <FileText size={13} />
+                    <span>{changeDisplayLabel(change)}</span>
+                    <button
+                      type="button"
+                      aria-label="Return to current change"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        onReturnToQuotedContext?.(change);
+                      }}
+                    >
+                      Show
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Remove current change"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        removeQuotedContext(change.snapshotId);
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </summary>
+                  {change.before ? (
+                    <section>
+                      <small>Before · {change.before.documentRevision}</small>
+                      <pre>{selectionSnapshotText(change.before)}</pre>
+                    </section>
+                  ) : null}
+                  {change.after ? (
+                    <section>
+                      <small>After · {change.after.documentRevision}</small>
+                      <pre>{selectionSnapshotText(change.after)}</pre>
+                    </section>
+                  ) : null}
+                </details>
+              );
+            }
             const selection = context;
             return (
               <details
@@ -391,44 +445,8 @@ export function AgentComposer({
         </div>
       ) : null}
       <div className="agent-composer">
-        <div className="agent-add-menu">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Add files or images"
-            aria-expanded={addMenuOpen}
-            onClick={() => setAddMenuOpen((value) => !value)}
-          >
-            <Plus size={17} />
-          </button>
-          {addMenuOpen ? (
-            <div role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setAddMenuOpen(false);
-                  void pickFocusFiles();
-                }}
-              >
-                <FileText size={14} />
-                Add files…
-              </button>
-              {probe?.capabilities.imageInput ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={sessionStarting}
-                  onClick={() => void pickImages()}
-                >
-                  <FileImage size={14} />
-                  Add images…
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
         <textarea
+          ref={composerInputRef}
           value={question}
           placeholder="Ask about this workspace · ⌘/Ctrl+Enter to send"
           rows={2}
@@ -447,86 +465,137 @@ export function AgentComposer({
             }
           }}
         />
-        {activeTurnId ? (
-          <div
-            className="agent-running-turn-actions"
-            data-review-id="agent-running-turn-actions"
-          >
-            <button
-              type="button"
-              className="agent-running-primary"
-              aria-label="Queue"
-              disabled={!hasDraft || Boolean(pendingTurn) || sessionStarting}
-              onClick={() => void submit()}
-            >
-              <Send size={15} />
-              Queue
-            </button>
-            <details className="agent-running-action-menu">
-              <summary aria-label="Choose running response action">
-                <ChevronDown size={15} />
-              </summary>
-              <div role="menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={!hasDraft || Boolean(pendingTurn)}
-                  onClick={() => void submit()}
-                >
-                  Queue
-                </button>
-                {probe?.capabilities.turnSteering ? (
+        <div className="agent-composer-toolbar">
+          <div className="agent-composer-toolbar-start">
+            <div className="agent-add-menu">
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Add files or images"
+                aria-expanded={addMenuOpen}
+                onClick={() => {
+                  session.setSettingsOpen(false);
+                  setAddMenuOpen((value) => !value);
+                }}
+              >
+                <Plus size={17} />
+              </button>
+              {addMenuOpen ? (
+                <div role="menu">
                   <button
                     type="button"
                     role="menuitem"
-                    disabled={
-                      !hasDraft ||
-                      Boolean(pendingTurn) ||
-                      Boolean(runningAction) ||
-                      !steeringModeMatches
-                    }
-                    title={
-                      steeringModeMatches
-                        ? undefined
-                        : "Steer cannot change Auto/Visualize mode. Use Queue or Stop and Send."
-                    }
-                    onClick={() => void steer()}
+                    onClick={() => {
+                      setAddMenuOpen(false);
+                      void pickFocusFiles();
+                    }}
                   >
-                    Steer
+                    <FileText size={14} />
+                    Add files…
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={!hasDraft || Boolean(pendingTurn)}
-                  onClick={() => void stopAndSend()}
-                >
-                  Stop and Send
-                </button>
-              </div>
-            </details>
+                  {probe?.capabilities.imageInput ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={sessionStarting}
+                      onClick={() => void pickImages()}
+                    >
+                      <FileImage size={14} />
+                      Add images…
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <AgentAccessMenu
+              onBeforeOpen={() => setAddMenuOpen(false)}
+              placement={placement}
+              probe={probe}
+              session={session}
+              workspaceRoot={workspaceRoot}
+            />
+          </div>
+          {activeTurnId ? (
+            <div
+              className="agent-running-turn-actions"
+              data-review-id="agent-running-turn-actions"
+            >
+              <button
+                type="button"
+                className="agent-running-primary"
+                aria-label="Queue"
+                disabled={!hasDraft || Boolean(pendingTurn) || sessionStarting}
+                onClick={() => void submit()}
+              >
+                <Send size={15} />
+                Queue
+              </button>
+              <details className="agent-running-action-menu">
+                <summary aria-label="Choose running response action">
+                  <ChevronDown size={15} />
+                </summary>
+                <div role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!hasDraft || Boolean(pendingTurn)}
+                    onClick={() => void submit()}
+                  >
+                    Queue
+                  </button>
+                  {probe?.capabilities.turnSteering ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={
+                        !hasDraft ||
+                        Boolean(pendingTurn) ||
+                        Boolean(runningAction) ||
+                        !steeringModeMatches
+                      }
+                      title={
+                        steeringModeMatches
+                          ? undefined
+                          : "Steer cannot change Auto/Visualize mode. Use Queue or Stop and Send."
+                      }
+                      onClick={() => void steer()}
+                    >
+                      Steer
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!hasDraft || Boolean(pendingTurn)}
+                    onClick={() => void stopAndSend()}
+                  >
+                    Stop and Send
+                  </button>
+                </div>
+              </details>
+              <button
+                type="button"
+                className="agent-send-button"
+                aria-label="Cancel"
+                onClick={() =>
+                  void host.cancelAgentTurn(sessionIdRef.current, activeTurnId)
+                }
+              >
+                <Square size={15} />
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
               className="agent-send-button"
-              aria-label="Cancel"
-              onClick={() =>
-                void host.cancelAgentTurn(sessionIdRef.current, activeTurnId)
-              }
+              aria-label="Send"
+              disabled={!ready || sessionStarting || !hasDraft}
+              onClick={() => void submit()}
             >
-              <Square size={15} />
+              <Send size={16} />
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="agent-send-button"
-            aria-label="Send"
-            disabled={!ready || sessionStarting || !hasDraft}
-            onClick={() => void submit()}
-          >
-            <Send size={16} />
-          </button>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

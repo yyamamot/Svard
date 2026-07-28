@@ -15,7 +15,11 @@ import { diffContextForTarget } from "./diffContext";
 export function shouldIgnoreDiffMouseGestureTarget(target: EventTarget | null) {
   return (
     target instanceof HTMLElement &&
-    Boolean(target.closest(".git-diff-toolbar, .git-diff-overview"))
+    Boolean(
+      target.closest(
+        ".git-diff-toolbar, .git-diff-overview, .git-diff-agent-dock",
+      ),
+    )
   );
 }
 
@@ -50,7 +54,11 @@ export function handleDiffPanelContextMenu({
     return;
   }
   const target = event.target as HTMLElement;
-  if (target.closest(".git-diff-toolbar, .git-diff-overview")) {
+  if (
+    target.closest(
+      ".git-diff-toolbar, .git-diff-overview, .git-diff-agent-dock",
+    )
+  ) {
     return;
   }
   const context = diffContextForTarget(target);

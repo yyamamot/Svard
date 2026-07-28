@@ -1,6 +1,7 @@
 import type { MouseEvent, RefObject } from "react";
 import type {
   AppConfig,
+  DocumentChangeSnapshot,
   DocumentDiffPreview,
   GitDiffPreviewBatchEntry,
   GitBranchDiffPreviewBatchItem,
@@ -29,6 +30,7 @@ import type {
 } from "../../lib/gitRenderedDiff";
 import type { GesturePoint } from "../../../core/mouseGestures";
 import type { SelectionRevealTarget } from "../../lib/diffDocumentSelection";
+import type { DiffAgentDockControls } from "../DiffAgentDock";
 
 export type SectionLoadState =
   | { status: "idle" }
@@ -69,6 +71,7 @@ export type DiffStreamTarget = Pick<
 };
 
 export interface DocumentDiffStreamPanelProps {
+  agentDock?: DiffAgentDockControls;
   config: AppConfig | null;
   changeMarkersHidden?: boolean;
   preview: DocumentDiffStreamPreview;
@@ -130,7 +133,15 @@ export interface DocumentDiffStreamPanelProps {
     snapshot: DocumentMediaSnapshot,
     revealTarget: SelectionRevealTarget,
   ) => void;
+  onAddAgentChange?: (
+    snapshot: DocumentChangeSnapshot,
+    revealTarget: SelectionRevealTarget,
+  ) => void;
   initialViewMode?: DiffStreamViewMode;
+  revealChangeTarget?: {
+    itemPath: string;
+    changeIndex: number;
+  };
   showInlineNotice: (
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },

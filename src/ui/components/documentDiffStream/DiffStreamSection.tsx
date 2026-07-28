@@ -19,6 +19,7 @@ import {
   allDiffsUiPerformanceNow,
   useAllDiffsUiPerformance,
 } from "../../lib/allDiffsUiPerformance";
+import type { PreparedAgentChangeAction } from "../gitDiffPreview/contextMenuTypes";
 
 export const DiffStreamSection = memo(function DiffStreamSection({
   activeChangeIndex,
@@ -36,6 +37,7 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   openExternalUrl,
   onOpenDiagramPreview,
   onOpenDiffPreview,
+  onPrepareAgentChange,
   onPrepareAgentSelection,
   onAddAgentMedia,
   onBeginCaptureArea,
@@ -69,6 +71,10 @@ export const DiffStreamSection = memo(function DiffStreamSection({
   openExternalUrl: (url: string) => Promise<void>;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
   onOpenDiffPreview?: (preview: DocumentDiffPreview) => void;
+  onPrepareAgentChange?: (
+    target: HTMLElement,
+    side: "left" | "right",
+  ) => PreparedAgentChangeAction | undefined;
   onPrepareAgentSelection?: (range: Range) => (() => void) | undefined;
   onAddAgentMedia?: (
     snapshot: DocumentMediaSnapshot,
@@ -190,6 +196,7 @@ export const DiffStreamSection = memo(function DiffStreamSection({
             confirmExternalLink={confirmExternalLink}
             openExternalUrl={openExternalUrl}
             onOpenDiagramPreview={onOpenDiagramPreview}
+            onPrepareAgentChange={onPrepareAgentChange}
             onPrepareAgentSelection={onPrepareAgentSelection}
             onAddAgentMedia={onAddAgentMedia}
             onBeginCaptureArea={onBeginCaptureArea}

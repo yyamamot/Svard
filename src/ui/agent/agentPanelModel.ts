@@ -7,6 +7,7 @@ import type {
   AgentSessionHistoryTurn,
   AgentSessionStartInput,
   AppConfig,
+  DocumentChangeSnapshot,
   DocumentPayload,
   DocumentSelectionSnapshot,
 } from "../../core/types";
@@ -196,4 +197,14 @@ export function selectionDisplayLabel(selection: DocumentSelectionSnapshot) {
     selection.documentPath.split(/[\\/]/u).pop() ??
     "Document selection"
   );
+}
+
+export function changeDisplayLabel(change: DocumentChangeSnapshot) {
+  const kind =
+    change.changeKind === "added"
+      ? "Added"
+      : change.changeKind === "removed"
+        ? "Removed"
+        : "Changed";
+  return `${change.documentPath} · ${kind} · ${change.comparisonLabel}`;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, X } from "lucide-react";
+import { MessageSquareText, RefreshCw, X } from "lucide-react";
 import { emptyDocumentReviewSessionControls } from "../lib/documentReviewSession";
 import {
   allDiffsUiPerformanceNow,
@@ -9,6 +9,7 @@ import { MouseGestureTrail } from "./MouseGestureTrail";
 import { DiffStreamChangeRuler } from "./documentDiffStream/DiffStreamChangeRuler";
 import { DiffStreamSection } from "./documentDiffStream/DiffStreamSection";
 import type {
+  DiffStreamTarget,
   DiffStreamViewMode,
   DocumentDiffStreamPanelProps,
 } from "./documentDiffStream/types";
@@ -17,6 +18,7 @@ import { createDocumentDiffStreamGitPreviewLoader } from "./documentDiffStream/g
 import { useDocumentDiffStreamLoader } from "./documentDiffStream/useDocumentDiffStreamLoader";
 import { useDocumentDiffStreamNavigation } from "./documentDiffStream/useDocumentDiffStreamNavigation";
 import { CaptureAreaOverlay } from "./CaptureAreaOverlay";
+import { DiffAgentDock, emptyDiffAgentDockControls } from "./DiffAgentDock";
 import {
   captureAreaFailureNotice,
   captureAreaReferenceForRect,
@@ -28,8 +30,19 @@ import {
   RenderedDiffSelectionController,
   type RenderedDiffSelectionActionBridge,
 } from "./RenderedDiffSelectionController";
+import { buildRenderedDiffPresentation } from "../lib/gitRenderedDiff";
+import {
+  extractRenderedDiffCurrentChange,
+  renderedDiffChangeIndexAtTarget,
+} from "../lib/renderedDiffCurrentChange";
+
+type AttachCurrentChangeTarget = Pick<
+  DiffStreamTarget,
+  "changeIndex" | "fileIndex"
+>;
 
 export function DocumentDiffStreamPanel({
+  agentDock = emptyDiffAgentDockControls,
   config,
   changeMarkersHidden = false,
   preview,
@@ -53,7 +66,9 @@ export function DocumentDiffStreamPanel({
   onOpenDiffPreview,
   onAddAgentSelection,
   onAddAgentMedia,
+  onAddAgentChange,
   initialViewMode,
+  revealChangeTarget,
   showInlineNotice,
   showLightweightActionFeedback = () => undefined,
   loadDocumentContext,
@@ -113,6 +128,12 @@ export function DocumentDiffStreamPanel({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest(".git-diff-agent-dock")
+      ) {
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         if (captureAreaState) {
@@ -230,6 +251,7 @@ export function DocumentDiffStreamPanel({
   );
 
   const {
+    activateTarget,
     activeTarget,
     loadedTargets,
     moveTarget,
@@ -249,6 +271,86 @@ export function DocumentDiffStreamPanel({
     beginCaptureArea: beginCurrentCaptureArea,
     canCaptureArea: canCaptureCurrentArea,
   });
+
+  useEffect(() => {
+    if (!revealChangeTarget) return;
+    const fileIndex = preview.items.findIndex(
+      (item) =>
+        (item.documentPath ?? item.path) === revealChangeTarget.itemPath,
+    );
+    if (fileIndex < 0) return;
+    const key =
+      preview.items[fileIndex]?.documentPath ?? preview.items[fileIndex]?.path;
+    if (!key) return;
+    expandSection(key);
+    void ensureSectionLoaded(key, "navigation");
+    const target = loadedTargets.find(
+      (candidate) =>
+        candidate.fileIndex === fileIndex &&
+        candidate.changeIndex === revealChangeTarget.changeIndex,
+    );
+    if (target) selectTarget(target);
+  }, [
+    ensureSectionLoaded,
+    expandSection,
+    loadedTargets,
+    preview.items,
+    revealChangeTarget,
+    selectTarget,
+  ]);
+
+  const attachCurrentChange = useCallback(
+    async (
+      targetToAttach: AttachCurrentChangeTarget | null = activeTarget,
+      revealSide?: "left" | "right",
+    ) => {
+      if (!targetToAttach || !onAddAgentChange) return;
+      const item = preview.items[targetToAttach.fileIndex];
+      if (!item) return;
+      const itemPath = item.documentPath ?? item.path;
+      const state = loadStates[itemPath];
+      const root = streamBodyRef.current
+        ?.querySelector<HTMLElement>(
+          `[data-stream-index="${targetToAttach.fileIndex}"]`,
+        )
+        ?.querySelector<HTMLElement>(".diff-stream-rendered-body");
+      if (state?.status !== "ready" || !root) return;
+      const presentation = buildRenderedDiffPresentation(state.summary.blocks);
+      const target = presentation.navigationTargets[targetToAttach.changeIndex];
+      if (!target) return;
+      try {
+        const snapshot = await extractRenderedDiffCurrentChange({
+          comparisonLabel:
+            preview.comparisonLabel ??
+            `${state.preview.leftLabel} → ${state.preview.rightLabel}`,
+          presentation,
+          preview: state.preview,
+          root,
+          target,
+        });
+        onAddAgentChange(snapshot, {
+          kind: "diffStream",
+          stream: preview,
+          itemPath,
+          viewMode,
+          side: revealSide ?? target.primarySide,
+          changeIndex: target.index,
+        });
+      } catch {
+        showInlineNotice("The current rendered change could not be prepared.", {
+          tone: "warning",
+        });
+      }
+    },
+    [
+      activeTarget,
+      loadStates,
+      onAddAgentChange,
+      preview,
+      showInlineNotice,
+      viewMode,
+    ],
+  );
 
   useEffect(() => {
     if (!captureAreaState) return;
@@ -599,6 +701,24 @@ export function DocumentDiffStreamPanel({
             </button>
             <button
               type="button"
+              className={`git-diff-agent-toggle ${agentDock.open ? "active" : ""}`}
+              data-review-id="diff-stream-agent-toggle"
+              aria-pressed={agentDock.open}
+              disabled={!agentDock.available}
+              title={
+                agentDock.available
+                  ? agentDock.open
+                    ? "Hide AI Chat"
+                    : "Show AI Chat"
+                  : "Open a workspace to use AI Chat"
+              }
+              onClick={agentDock.onToggle}
+            >
+              <MessageSquareText size={14} />
+              Ask AI
+            </button>
+            <button
+              type="button"
               aria-label="Close all diffs"
               onClick={onClose}
             >
@@ -641,6 +761,33 @@ export function DocumentDiffStreamPanel({
                     range,
                   )
                 }
+                onPrepareAgentChange={(target, side) => {
+                  const root = target.closest<HTMLElement>(
+                    ".diff-stream-rendered-body",
+                  );
+                  if (!root) return undefined;
+                  const changeIndex = renderedDiffChangeIndexAtTarget(
+                    target,
+                    root,
+                  );
+                  if (changeIndex === null) return undefined;
+                  const targetToAttach = loadedTargets.find(
+                    (candidate) =>
+                      candidate.fileIndex === index &&
+                      candidate.changeIndex === changeIndex,
+                  );
+                  if (!targetToAttach) return undefined;
+                  activateTarget(targetToAttach);
+                  const enabled =
+                    Boolean(onAddAgentChange) && agentDock.available;
+                  return {
+                    enabled,
+                    title: enabled
+                      ? "Attach the right-clicked rendered change"
+                      : "Open a workspace to attach the current change",
+                    onSelect: () => attachCurrentChange(targetToAttach, side),
+                  };
+                }}
                 onAddAgentMedia={(snapshot, side) =>
                   onAddAgentMedia?.(snapshot, {
                     kind: "diffStream",
@@ -690,6 +837,7 @@ export function DocumentDiffStreamPanel({
             onClose={() => setCaptureAreaState(null)}
           />
         ) : null}
+        <DiffAgentDock controls={agentDock} />
       </section>
     </div>
   );

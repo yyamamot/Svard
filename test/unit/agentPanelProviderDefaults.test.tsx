@@ -104,6 +104,100 @@ describe("AgentPanelHost provider defaults", () => {
     });
   });
 
+  it("keeps the conversation visible without a focused-answer toggle", () => {
+    render(true);
+
+    expect(
+      harness.container.querySelector('[aria-label="Hide Chat"]'),
+    ).toBeNull();
+    expect(
+      harness.container.querySelector('[aria-label="Show Chat"]'),
+    ).toBeNull();
+    expect(harness.container.querySelector(".agent-conversation")).toBeTruthy();
+  });
+
+  it("moves Agent access below the question input", async () => {
+    render(true);
+
+    expect(
+      harness.container.querySelector('[aria-label="Agent settings"]'),
+    ).toBeNull();
+    const textarea =
+      harness.container.querySelector<HTMLTextAreaElement>("textarea");
+    const trigger = harness.container.querySelector<HTMLButtonElement>(
+      '[data-review-id="agent-access-trigger"]',
+    );
+    if (!textarea || !trigger) {
+      throw new Error("Composer access controls are unavailable.");
+    }
+    expect(trigger?.getAttribute("aria-label")).toBe("Agent access: Observe");
+    expect(
+      textarea.compareDocumentPosition(trigger) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await harness.click(trigger);
+    const popover = document.querySelector(
+      '[data-review-id="agent-access-popover"]',
+    );
+    expect(popover?.textContent).toContain("Changing access starts a new chat");
+    const agentRadio = [...popover!.querySelectorAll("label")]
+      .find((label) => label.textContent?.trim() === "Agent")
+      ?.querySelector<HTMLInputElement>('input[type="radio"]');
+    await harness.click(agentRadio);
+    expect(host.sessionInputs).toHaveLength(0);
+    expect(trigger?.getAttribute("aria-label")).toBe("Agent access: Agent");
+
+    await harness.pressKey("Escape");
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector('[data-review-id="agent-access-popover"]'),
+      ).toBeNull(),
+    );
+    await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
+
+    await harness.click(trigger);
+    await harness.pointerDown(document.body);
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector('[data-review-id="agent-access-popover"]'),
+      ).toBeNull(),
+    );
+  });
+
+  it("keeps the draft when Agent access starts a replacement chat", async () => {
+    render(true);
+    await sendQuestion("Start the current chat");
+    await vi.waitFor(() => expect(host.sessionInputs).toHaveLength(1));
+    await vi.waitFor(() =>
+      expect(
+        harness.container.querySelector(
+          '.agent-turn[data-turn-status="completed"]',
+        ),
+      ).toBeTruthy(),
+    );
+
+    const textarea =
+      harness.container.querySelector<HTMLTextAreaElement>("textarea");
+    await harness.setTextAreaValue(textarea, "Keep this draft");
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[data-review-id="agent-access-trigger"]',
+      ),
+    );
+    const agentRadio = [...document.querySelectorAll("label")]
+      .find((label) => label.textContent?.trim() === "Agent")
+      ?.querySelector<HTMLInputElement>('input[type="radio"]');
+    await harness.click(agentRadio);
+
+    await vi.waitFor(() => expect(host.sessionInputs).toHaveLength(2));
+    expect(host.sessionInputs[1]?.permissionMode).toBe("agent");
+    expect(textarea?.value).toBe("Keep this draft");
+    expect(
+      document.querySelector('[data-review-id="agent-access-popover"]'),
+    ).toBeTruthy();
+  });
+
   it("sends OpenUI instructions only for Visualize turns", async () => {
     render(true);
     await sendQuestion("Build a dashboard in normal chat.");
@@ -275,6 +369,28 @@ describe("AgentPanelHost provider defaults", () => {
       expect(
         harness.container.querySelectorAll(".agent-image-chip:not(.error)"),
       ).toHaveLength(1),
+    );
+
+    const textarea =
+      harness.container.querySelector<HTMLTextAreaElement>("textarea");
+    await harness.setTextAreaValue(textarea, "Keep the document question");
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[data-review-id="agent-access-trigger"]',
+      ),
+    );
+    const agentRadio = [...document.querySelectorAll("label")]
+      .find((label) => label.textContent?.trim() === "Agent")
+      ?.querySelector<HTMLInputElement>('input[type="radio"]');
+    await harness.click(agentRadio);
+
+    await vi.waitFor(() => expect(host.sessionInputs).toHaveLength(2));
+    expect(textarea?.value).toBe("Keep the document question");
+    expect(
+      harness.container.querySelectorAll(".agent-image-chip:not(.error)"),
+    ).toHaveLength(0);
+    expect(harness.container.textContent).toContain(
+      "Reattach direct images before sending this question.",
     );
   });
 });

@@ -238,7 +238,7 @@ export function mockGeneratedSessionTitle(question: string) {
     .trim()
     .replace(/[.!?。！？、,;:]+$/u, "");
   if (!normalized) return null;
-  if (/^[\x00-\x7F]+$/u.test(normalized)) {
+  if (/^[\p{ASCII}]+$/u.test(normalized)) {
     const title = normalized.split(" ").slice(0, 6).join(" ");
     return `${title.charAt(0).toUpperCase()}${title.slice(1)}`.slice(0, 80);
   }

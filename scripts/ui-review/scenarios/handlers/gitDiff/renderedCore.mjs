@@ -1,4 +1,5 @@
 import { applyGitDiffRenderedCoreAdvancedScenario } from "./renderedCoreAdvanced.mjs";
+import { exerciseRenderedDiffAgentDock } from "./renderedAgentDock.mjs";
 import {
   exerciseRenderedDiffAgentMedia,
   exerciseRenderedDiffAgentSelection,
@@ -217,8 +218,12 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     scenario === "viewer-git-diff-rendered-markdown" ||
     scenario === "viewer-diff-context-menu-rendered" ||
     scenario === "viewer-agent-chat-diff-selection" ||
-    scenario === "viewer-agent-chat-diff-media-context"
+    scenario === "viewer-agent-chat-diff-media-context" ||
+    scenario === "viewer-agent-chat-diff-dock"
   ) {
+    if (scenario === "viewer-agent-chat-diff-dock") {
+      await page.setViewportSize({ width: 1280, height: 840 });
+    }
     if (scenario === "viewer-diff-context-menu-rendered") {
       await page.evaluate(async () => {
         await window.__SVARD_COMMANDS__?.dispatch("preferences.open");
@@ -256,7 +261,8 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     if (
       scenario === "viewer-git-diff-rendered-markdown" ||
       scenario === "viewer-agent-chat-diff-selection" ||
-      scenario === "viewer-agent-chat-diff-media-context"
+      scenario === "viewer-agent-chat-diff-media-context" ||
+      scenario === "viewer-agent-chat-diff-dock"
     ) {
       await page.getByRole("button", { name: "Changes Only" }).click();
       await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
@@ -275,6 +281,10 @@ export async function applyGitDiffRenderedCoreScenario(context) {
         restoredPanelReviewId: "git-diff-preview-panel",
         resultKey: "__SVARD_DIFF_AGENT_MEDIA_CHECK__",
       });
+      return true;
+    }
+    if (scenario === "viewer-agent-chat-diff-dock") {
+      await exerciseRenderedDiffAgentDock(page);
       return true;
     }
     if (scenario === "viewer-diff-context-menu-rendered") {

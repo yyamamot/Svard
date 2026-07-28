@@ -841,5 +841,8 @@ function isSafeReferenceHref(href: string) {
 function normalizeVisibleText(value: string) {
   return value
     .replace(/\r\n?/gu, "\n")
-    .replace(/[\u200b\u200c\u200d\ufeff]/gu, "");
+    .replaceAll("\u200b", "")
+    .replaceAll("\u200c", "")
+    .replaceAll("\u200d", "")
+    .replaceAll("\ufeff", "");
 }

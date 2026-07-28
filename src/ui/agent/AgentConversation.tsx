@@ -10,7 +10,10 @@ import {
   X,
 } from "lucide-react";
 import type { HostAdapter } from "../../core/types";
-import { isDocumentMediaSnapshot } from "../../core/types";
+import {
+  isDocumentChangeSnapshot,
+  isDocumentMediaSnapshot,
+} from "../../core/types";
 import {
   SvardOpenUiAnswer,
   validateOpenUiResponse,
@@ -24,7 +27,7 @@ import {
   type AgentActivityItem,
   type AgentConversationTurn,
 } from "./agentChatState";
-import { selectionDisplayLabel } from "./agentPanelModel";
+import { changeDisplayLabel, selectionDisplayLabel } from "./agentPanelModel";
 import type { AgentSessionController } from "./useAgentSessionController";
 import type { AgentTurnComposer } from "./useAgentTurnComposer";
 
@@ -153,6 +156,11 @@ function ConversationTurn({
                     <FileImage size={12} />
                   )}
                   {context.displayLabel}
+                </span>
+              ) : isDocumentChangeSnapshot(context) ? (
+                <span key={context.snapshotId}>
+                  <FileText size={12} />
+                  {changeDisplayLabel(context)}
                 </span>
               ) : (
                 <span key={context.snapshotId}>
@@ -366,7 +374,6 @@ export function AgentConversation({
 }) {
   const {
     activeTurnId,
-    chatVisible,
     olderHistoryCursor,
     olderHistoryLoading,
     newActivityAvailable,
@@ -378,7 +385,6 @@ export function AgentConversation({
     loadOlderSessionHistory,
   } = session;
   const {
-    lastAnsweredTurn,
     openAgentExternalLink,
     openAgentWorkspaceFile,
     resolveAgentWorkspaceImage,
@@ -386,30 +392,6 @@ export function AgentConversation({
     restoreTurnInput,
     submit,
   } = composer;
-  if (!chatVisible) {
-    return (
-      <div className="agent-focused-answer">
-        {lastAnsweredTurn?.answer ? (
-          <SvardOpenUiAnswer
-            content={redactAgentWorkspacePaths(
-              lastAnsweredTurn.answer,
-              workspaceRoot,
-            )}
-            disabled={Boolean(activeTurnId)}
-            images={lastAnsweredTurn.images}
-            isStreaming={lastAnsweredTurn.status === "running"}
-            onAgentAction={(message) => void submit(message)}
-            onOpenExternalLink={openAgentExternalLink}
-            onOpenFile={openAgentWorkspaceFile}
-            preferUi={lastAnsweredTurn.responseMode === "visualize"}
-            resolveWorkspaceImage={resolveAgentWorkspaceImage}
-          />
-        ) : (
-          "No answer yet."
-        )}
-      </div>
-    );
-  }
   return (
     <div className="agent-conversation-shell">
       <div

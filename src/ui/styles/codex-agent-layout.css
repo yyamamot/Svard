@@ -13,6 +13,17 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.codex-main-split.placement-bottom {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows:
+    minmax(0, 1fr) 18px
+    minmax(220px, min(var(--codex-bottom-height), 60%));
+}
+
+.codex-main-split.placement-bottom.closed {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .codex-document-pane,
 .codex-ai-pane {
   min-width: 0;
@@ -51,6 +62,26 @@
   left: 7px;
   width: 3px;
   background: #287466;
+}
+
+.codex-main-split.placement-bottom .codex-main-resizer {
+  min-width: 0;
+  min-height: 18px;
+  cursor: row-resize;
+}
+
+.codex-main-split.placement-bottom .codex-main-resizer::after {
+  inset: 8px 0 auto;
+  width: auto;
+  height: 1px;
+}
+
+.codex-main-split.placement-bottom .codex-main-resizer:hover::after,
+.codex-main-split.placement-bottom .codex-main-resizer.active::after {
+  top: 7px;
+  left: 0;
+  width: auto;
+  height: 3px;
 }
 
 .codex-panel {
@@ -96,81 +127,6 @@
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.codex-execution-settings {
-  position: absolute;
-  z-index: 80;
-  top: 46px;
-  right: 8px;
-  display: grid;
-  width: min(320px, calc(100% - 16px));
-  gap: 11px;
-  border: 1px solid var(--reader-border);
-  border-radius: 9px;
-  padding: 12px;
-  color: var(--reader-text);
-  background: var(--reader-surface);
-  box-shadow: 0 12px 28px rgb(18 31 36 / 18%);
-}
-
-.codex-execution-settings-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.codex-execution-settings-heading > span {
-  border-radius: 999px;
-  padding: 2px 6px;
-  color: #754811;
-  background: color-mix(in srgb, #f4d996 30%, var(--reader-surface));
-  font-size: 9px;
-}
-
-.codex-execution-settings fieldset {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  border: 0;
-  padding: 0;
-}
-
-.codex-execution-settings legend {
-  margin-bottom: 4px;
-  color: var(--reader-muted);
-  font-size: 10px;
-  font-weight: 650;
-}
-
-.codex-execution-settings fieldset label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 24px;
-  font-size: 11px;
-}
-
-.codex-execution-toggle {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: 7px;
-  font-size: 11px;
-}
-
-.codex-execution-toggle > small {
-  grid-column: 2;
-  color: var(--reader-muted);
-  font-size: 9px;
-}
-
-.codex-execution-settings > p {
-  margin: 0;
-  color: var(--reader-muted);
-  font-size: 9px;
-  line-height: 1.4;
 }
 
 .codex-execution-danger {

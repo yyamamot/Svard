@@ -11,6 +11,7 @@ import type {
   AgentSteerOutcome,
   AgentTurnInput,
   AgentTurnOutcome,
+  DocumentChangeSnapshot,
   DocumentSelectionSnapshot,
 } from "../../src/core/types";
 import { AgentPanelHost } from "../../src/ui/agent/AgentPanelHost";
@@ -36,6 +37,37 @@ function selection(snapshotId: string): DocumentSelectionSnapshot {
     ],
     imageResources: [],
     provenance: [],
+    diagnostics: [],
+  };
+}
+
+function currentChange(): DocumentChangeSnapshot {
+  const before = selection("change:before");
+  before.documentRevision = "HEAD";
+  before.plainText = "Before value";
+  before.blocks[0] = {
+    type: "prose",
+    role: "paragraph",
+    markdown: "Before value",
+    plainText: "Before value",
+  };
+  const after = selection("change:after");
+  after.documentRevision = "Working Tree";
+  after.plainText = "After value";
+  after.blocks[0] = {
+    type: "prose",
+    role: "paragraph",
+    markdown: "After value",
+    plainText: "After value",
+  };
+  return {
+    snapshotId: "current-change",
+    contextType: "change",
+    documentPath: "docs/guide.md",
+    comparisonLabel: "HEAD → Working Tree",
+    changeKind: "changed",
+    before,
+    after,
     diagnostics: [],
   };
 }
@@ -161,6 +193,27 @@ describe("Agent Chat conversation usability", () => {
       configurable: true,
       value: undefined,
     });
+  });
+
+  it("sends a paired current change in Before then After order", async () => {
+    harness.render(
+      <TestPanel host={host} initialQuotedContexts={[currentChange()]} />,
+    );
+
+    await sendQuestion("この変更を説明してください");
+    await vi.waitFor(() => expect(host.turnInputs).toHaveLength(1));
+
+    const text = (host.turnInputs[0]?.contentParts ?? [])
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n");
+    expect(text).toContain(
+      "Current rendered change: docs/guide.md · Changed · HEAD → Working Tree",
+    );
+    expect(text.indexOf("Before value")).toBeLessThan(
+      text.indexOf("After value"),
+    );
+    expect(text).toContain("untrusted reference data");
   });
 
   async function sendQuestion(question: string) {

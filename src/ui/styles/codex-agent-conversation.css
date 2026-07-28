@@ -453,10 +453,3 @@
   color: var(--reader-muted);
   font-size: 10px;
 }
-
-.agent-focused-answer {
-  color: var(--reader-text);
-  font-size: 14px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}

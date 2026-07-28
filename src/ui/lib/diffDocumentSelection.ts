@@ -31,6 +31,7 @@ export type SelectionRevealTarget =
       preview: DocumentDiffPreview;
       view: "preview" | "rendered";
       side: "left" | "right";
+      changeIndex?: number;
     }
   | {
       kind: "diffStream";
@@ -38,6 +39,7 @@ export type SelectionRevealTarget =
       itemPath: string;
       viewMode: "full" | "changes";
       side: "left" | "right";
+      changeIndex?: number;
     };
 
 export async function extractRenderedDiffSelection({

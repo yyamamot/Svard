@@ -108,4 +108,39 @@ describe("DiffToolbar watch state", () => {
       )?.disabled,
     ).toBe(true);
   });
+
+  it("toggles the diff AI Chat without adding a question", () => {
+    const onToggleAgentChat = vi.fn();
+    render({
+      agentChatAvailable: true,
+      agentChatOpen: false,
+      onToggleAgentChat,
+    });
+
+    const button = container.querySelector<HTMLButtonElement>(
+      '[data-review-id="git-diff-agent-toggle"]',
+    );
+    expect(button?.textContent).toContain("Ask AI");
+    expect(button?.getAttribute("aria-pressed")).toBe("false");
+    act(() => button?.click());
+    expect(onToggleAgentChat).toHaveBeenCalledOnce();
+  });
+
+  it("disables diff AI Chat without a workspace", () => {
+    render({ agentChatAvailable: false });
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        '[data-review-id="git-diff-agent-toggle"]',
+      )?.disabled,
+    ).toBe(true);
+  });
+
+  it("omits the current change attachment toolbar action", () => {
+    render({ agentChatAvailable: true });
+    expect(
+      container.querySelector(
+        '[data-review-id="git-diff-attach-current-change"]',
+      ),
+    ).toBeNull();
+  });
 });

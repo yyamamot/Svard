@@ -9,6 +9,8 @@
 - Added retry input restoration, answer and code copying, scroll-follow controls, and Cmd/Ctrl+Enter sending.
 - Added Queue, Steer, and Stop and Send controls for follow-up input while an AI response is running.
 - Added changed-file summaries with a direct path to Source Control > Changes for reviewing the current working tree.
+- Added a resizable AI Chat drawer to Diff Preview and All diffs while preserving the current conversation, draft, and running response.
+- Added right-click attachment of the current rendered change as an exact Before/After reference for free-form AI Chat questions.
 
 ## 1.0.5
 

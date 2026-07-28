@@ -1,3 +1,5 @@
+import { exerciseAttachCurrentChange } from "./attachCurrentChange.mjs";
+
 export function isSourceControlAllDiffsScenario(scenario) {
   return (
     scenario === "viewer-source-control-all-diffs" ||
@@ -7,6 +9,7 @@ export function isSourceControlAllDiffsScenario(scenario) {
     scenario === "viewer-source-control-all-diffs-selection" ||
     scenario === "viewer-source-control-all-diffs-media-context" ||
     scenario === "viewer-agent-chat-diff-context-reliability" ||
+    scenario === "viewer-agent-chat-attach-current-change" ||
     scenario === "viewer-git-diff-too-complex-source-fallback"
   );
 }
@@ -32,6 +35,10 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     .locator('[data-review-id="diff-stream-rendered-block"]')
     .first()
     .waitFor();
+  if (context?.scenario === "viewer-agent-chat-attach-current-change") {
+    await exerciseAttachCurrentChange(page);
+    return;
+  }
   if (context?.scenario === "viewer-agent-chat-diff-context-reliability") {
     const pane = page
       .locator('[data-review-id="diff-stream-right-pane"]')
@@ -75,12 +82,19 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     }
     const selectionCard = page.locator(".agent-selection-card");
     await selectionCard.waitFor();
+    const dock = page.locator('[data-review-id="git-diff-agent-dock"]');
+    await dock.waitFor();
+    const composer = dock.locator("textarea");
+    const questionBlank = (await composer.inputValue()) === "";
+    await composer.fill("選択した変更の前提を説明してください");
+    const draft = await composer.inputValue();
     await selectionCard
       .getByRole("button", { name: "Return to selected content" })
       .click();
     await page
       .locator('[data-review-id="source-control-all-diffs-panel"]')
       .waitFor();
+    await dock.waitFor();
     const diagram = page
       .locator(
         '[data-review-id="diff-stream-right-pane"] [data-diagram-id] svg, [data-review-id="diff-stream-right-pane"] [data-diagram-id] img',
@@ -113,15 +127,26 @@ export async function applySourceControlAllDiffsScenario(page, context) {
     await page
       .locator('[data-review-id="source-control-all-diffs-panel"]')
       .waitFor();
+    await dock.waitFor();
+    const draftAfterContext = await composer.inputValue();
     await page.evaluate(
-      ({ modeCount, orderedKinds }) => {
+      ({
+        draft,
+        draftAfterContext,
+        modeCount,
+        orderedKinds,
+        questionBlank,
+      }) => {
         window.__SVARD_DIFF_CONTEXT_RELIABILITY_CHECK__ = {
+          dockVisible: true,
+          draftPreserved: draftAfterContext === draft,
           modeCount,
           orderedKinds,
-          overlayRestored: true,
+          overlayMaintained: true,
+          questionBlank,
         };
       },
-      { modeCount, orderedKinds },
+      { draft, draftAfterContext, modeCount, orderedKinds, questionBlank },
     );
     if (modeCount !== 3 || orderedKinds.join(",") !== "selection,media") {
       throw new Error(

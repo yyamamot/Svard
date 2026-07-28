@@ -1,12 +1,11 @@
 import type { MouseEvent, RefObject } from "react";
 import type {
   AppConfig,
+  AgentQuotedContext,
   DocumentDiffPreview,
   DocumentDiffStreamPreview,
   DocumentLinkResolution,
-  DocumentMediaSnapshot,
   DocumentPayload,
-  DocumentSelectionSnapshot,
   GitCommitDetails,
   GitRefItem,
   GitRefKind,
@@ -44,6 +43,7 @@ import type { CopyText } from "../hooks/documentLinks/types";
 import type { ContextMenuItem } from "../types";
 import type { DiffPreviewWatchState } from "../lib/diffPreviewWatch";
 import type { SelectionRevealTarget } from "../lib/diffDocumentSelection";
+import type { DiffAgentDockControls } from "./DiffAgentDock";
 
 interface ExternalLinkConfirmationRequest {
   url: string;
@@ -60,6 +60,7 @@ export interface GitRefPickerState {
 }
 
 interface AppOverlaysProps {
+  agentDock: DiffAgentDockControls;
   chooseCompareDocument: () => Promise<string | null>;
   config: AppConfig | null;
   contextMenu: ContextMenuState | null;
@@ -123,12 +124,8 @@ interface AppOverlaysProps {
   onExternalLinkConfirmation: (confirmed: boolean) => void;
   onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
   onOpenDocumentDiffPreviewFromStream: (preview: DocumentDiffPreview) => void;
-  onAddAgentDiffSelection: (
-    snapshot: DocumentSelectionSnapshot,
-    revealTarget: SelectionRevealTarget,
-  ) => void;
-  onAddAgentDiffMedia: (
-    snapshot: DocumentMediaSnapshot,
+  onAddAgentDiffContext: (
+    snapshot: AgentQuotedContext,
     revealTarget: SelectionRevealTarget,
   ) => void;
   selectionRevealTarget?: SelectionRevealTarget | null;
@@ -154,6 +151,7 @@ interface AppOverlaysProps {
 }
 
 export function AppOverlays({
+  agentDock,
   chooseCompareDocument,
   config,
   contextMenu,
@@ -201,8 +199,7 @@ export function AppOverlays({
   onExternalLinkConfirmation,
   onOpenDiagramPreview,
   onOpenDocumentDiffPreviewFromStream,
-  onAddAgentDiffSelection,
-  onAddAgentDiffMedia,
+  onAddAgentDiffContext,
   selectionRevealTarget,
   onOpenDocument,
   onOpenGitCommitDetailsFile,
@@ -296,6 +293,7 @@ export function AppOverlays({
 
       {documentDiffPreview && (
         <DocumentDiffPreviewPanel
+          agentDock={agentDock}
           key={`${documentDiffPreview.source}:${documentDiffPreview.relativePath ?? ""}:${documentDiffPreview.leftPath ?? ""}:${documentDiffPreview.rightPath ?? ""}`}
           preview={documentDiffPreview}
           chromeHidden={diffPreviewChromeHidden}
@@ -321,11 +319,17 @@ export function AppOverlays({
           setLastMouseGesture={onSetLastMouseGesture}
           watchState={diffPreviewWatchState}
           onRefreshPreview={onRefreshDiffPreview}
-          onAddAgentSelection={onAddAgentDiffSelection}
-          onAddAgentMedia={onAddAgentDiffMedia}
+          onAddAgentSelection={onAddAgentDiffContext}
+          onAddAgentMedia={onAddAgentDiffContext}
+          onAddAgentChange={onAddAgentDiffContext}
           initialRenderedView={
             selectionRevealTarget?.kind === "diffPreview"
               ? selectionRevealTarget.view
+              : undefined
+          }
+          revealChangeIndex={
+            selectionRevealTarget?.kind === "diffPreview"
+              ? selectionRevealTarget.changeIndex
               : undefined
           }
           onClose={onCloseDocumentDiffPreview}
@@ -334,6 +338,7 @@ export function AppOverlays({
 
       {documentDiffStreamPreview && (
         <DocumentDiffStreamPanel
+          agentDock={agentDock}
           preview={documentDiffStreamPreview}
           config={config}
           changeMarkersHidden={diffPreviewChromeHidden}
@@ -362,11 +367,21 @@ export function AppOverlays({
           openExternalUrl={openDiffExternalUrl}
           onOpenDiagramPreview={onOpenDiagramPreview}
           onOpenDiffPreview={onOpenDocumentDiffPreviewFromStream}
-          onAddAgentSelection={onAddAgentDiffSelection}
-          onAddAgentMedia={onAddAgentDiffMedia}
+          onAddAgentSelection={onAddAgentDiffContext}
+          onAddAgentMedia={onAddAgentDiffContext}
+          onAddAgentChange={onAddAgentDiffContext}
           initialViewMode={
             selectionRevealTarget?.kind === "diffStream"
               ? selectionRevealTarget.viewMode
+              : undefined
+          }
+          revealChangeTarget={
+            selectionRevealTarget?.kind === "diffStream" &&
+            selectionRevealTarget.changeIndex !== undefined
+              ? {
+                  itemPath: selectionRevealTarget.itemPath,
+                  changeIndex: selectionRevealTarget.changeIndex,
+                }
               : undefined
           }
           showInlineNotice={showInlineNotice}

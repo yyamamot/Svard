@@ -240,6 +240,83 @@
   flex: 0 0 auto;
 }
 
+.git-diff-agent-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  padding: 6px 9px;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.git-diff-agent-toggle:hover:not(:disabled),
+.git-diff-agent-toggle:focus-visible,
+.git-diff-agent-toggle.active {
+  border-color: color-mix(in srgb, #287466 56%, var(--reader-border));
+  background: color-mix(in srgb, #287466 12%, var(--reader-bg));
+}
+
+.git-diff-agent-toggle:disabled {
+  opacity: 0.48;
+}
+
+.git-diff-agent-dock {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-rows: 24px minmax(0, 1fr);
+  min-height: 220px;
+  max-height: 60%;
+  border-top: 1px solid var(--reader-border);
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  box-shadow: 0 -12px 30px rgb(15 28 33 / 14%);
+}
+
+.git-diff-agent-dock-resizer {
+  position: relative;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.git-diff-agent-dock-resizer::after {
+  position: absolute;
+  top: 10px;
+  right: calc(50% - 32px);
+  width: 64px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--reader-border);
+  content: "";
+}
+
+.git-diff-agent-dock-resizer:hover::after,
+.git-diff-agent-dock-resizer:focus-visible::after {
+  background: #287466;
+}
+
+.git-diff-agent-dock-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.git-diff-agent-dock-content > .agent-panel {
+  height: 100%;
+}
+
+@media (max-width: 1040px) {
+  .git-diff-agent-toggle {
+    padding-inline: 7px;
+  }
+}
+
 .git-diff-body-with-ruler {
   flex: 1;
   display: flex;

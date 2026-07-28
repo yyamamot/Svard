@@ -73,7 +73,9 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
         ? await page.evaluate(() => {
             const result = window.__SVARD_DIFF_AGENT_SELECTION_CHECK__;
             return (
-              result?.overlayRestored === true &&
+              result?.dockVisible === true &&
+              result?.overlayMaintained === true &&
+              result?.questionBlank === true &&
               result?.revisionVisible === true
             );
           })
@@ -83,9 +85,39 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
         ? await page.evaluate(() => {
             const result = window.__SVARD_DIFF_AGENT_MEDIA_CHECK__;
             return (
-              result?.overlayRestored === true &&
+              result?.dockVisible === true &&
+              result?.overlayMaintained === true &&
+              result?.questionBlank === true &&
               result?.revisionVisible === true &&
               result?.modeCount === 3
+            );
+          })
+        : true,
+    hasAgentDiffDock:
+      scenario === "viewer-agent-chat-diff-dock"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_DIFF_AGENT_DOCK_CHECK__;
+            const layouts = [result?.regularLayout, result?.compactDarkLayout];
+            return (
+              result?.dockVisible === true &&
+              result?.draftPreserved === true &&
+              result?.resized === true &&
+              result?.togglePressed === true &&
+              result?.regularLayout?.viewport?.width === 1280 &&
+              result?.regularLayout?.viewport?.height === 840 &&
+              result?.regularLayout?.themeDark === false &&
+              result?.compactDarkLayout?.viewport?.width === 960 &&
+              result?.compactDarkLayout?.viewport?.height === 640 &&
+              result?.compactDarkLayout?.themeDark === true &&
+              layouts.every(
+                (layout) =>
+                  layout?.composerInsideDock === true &&
+                  layout?.diffEndReachable === true &&
+                  layout?.dockBelowToolbar === true &&
+                  layout?.panesVisible === true &&
+                  layout?.resizerHitTarget >= 24 &&
+                  layout?.toolbarInsideViewport === true,
+              )
             );
           })
         : true,

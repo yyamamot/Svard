@@ -13,6 +13,7 @@ import {
 import type { ContextMenuItem, DiagramPreviewState } from "../../types";
 import { documentFormatForPath } from "../../../core/documentFormat";
 import { createDiffPreviewContextMenuHandler } from "../gitDiffPreview/contextMenu";
+import type { PreparedAgentChangeAction } from "../gitDiffPreview/contextMenuTypes";
 import {
   RenderedDiffPane,
   renderedEntryChangeIndex,
@@ -39,6 +40,7 @@ export const DiffStreamRenderedSection = memo(
     confirmExternalLink,
     openExternalUrl,
     onOpenDiagramPreview,
+    onPrepareAgentChange,
     onPrepareAgentSelection,
     onAddAgentMedia,
     onBeginCaptureArea,
@@ -63,6 +65,10 @@ export const DiffStreamRenderedSection = memo(
     confirmExternalLink: (url: string) => Promise<boolean>;
     openExternalUrl: (url: string) => Promise<void>;
     onOpenDiagramPreview: (preview: DiagramPreviewState | null) => void;
+    onPrepareAgentChange?: (
+      target: HTMLElement,
+      side: "left" | "right",
+    ) => PreparedAgentChangeAction | undefined;
     onPrepareAgentSelection?: (range: Range) => (() => void) | undefined;
     onAddAgentMedia?: (
       snapshot: DocumentMediaSnapshot,
@@ -118,6 +124,7 @@ export const DiffStreamRenderedSection = memo(
             );
             if (section) onBeginCaptureArea(section, variant);
           },
+          onPrepareAgentChange,
           onPrepareAgentSelection,
           onAddAgentMedia,
           resolveAgentMediaDiagram: (target, side) =>
@@ -128,6 +135,7 @@ export const DiffStreamRenderedSection = memo(
         confirmExternalLink,
         copyText,
         onOpenDiagramPreview,
+        onPrepareAgentChange,
         onPrepareAgentSelection,
         onAddAgentMedia,
         onBeginCaptureArea,

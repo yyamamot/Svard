@@ -1,31 +1,28 @@
 import { runAgentChatUsabilityScenario } from "./agentChatUsability.mjs";
 import {
+  recordAgentMainBottomStreamingMove,
+  runAgentMainBottomDockScenario,
+} from "./agentChatMainBottomDock.mjs";
+import {
+  confirmAgentComposerFullAccess,
+  exerciseAgentComposerAccessPlacements,
+  prepareAgentComposerAccessScenario,
+  reopenAgentComposerAccessForCapture,
+} from "./agentChatComposerAccess.mjs";
+import { runAgentWorkspaceIsolationScenario } from "./agentChatWorkspaceIsolation.mjs";
+import {
   recordAgentChangeReviewScenario,
   isAgentChatScenario,
   runAgentRunningInputScenario,
   shouldRestoreAgentViewport,
+  usesResponsiveAgentViewport,
 } from "./agentChatRunningControls.mjs";
 
 export async function applyAppShellAgentChatScenario(context) {
   const scenario = context.scenario;
   const page = context.page;
   if (isAgentChatScenario(scenario)) {
-    if (
-      scenario === "viewer-agent-chat-image-input" ||
-      scenario === "viewer-agent-chat-openui-exploration" ||
-      scenario === "viewer-agent-chat-activity" ||
-      scenario === "viewer-agent-chat-output-hygiene" ||
-      scenario === "viewer-agent-chat-markdown-answer" ||
-      scenario === "viewer-agent-chat-conversation-usability" ||
-      scenario === "viewer-agent-chat-running-input-control" ||
-      scenario === "viewer-agent-chat-change-review" ||
-      scenario === "viewer-agent-chat-selection" ||
-      scenario === "viewer-agent-chat-selection-image" ||
-      scenario === "viewer-agent-chat-media-context" ||
-      scenario === "viewer-agent-chat-active-file" ||
-      scenario === "viewer-agent-chat-session-management" ||
-      scenario === "viewer-agent-chat-dark-theme"
-    ) {
+    if (usesResponsiveAgentViewport(scenario)) {
       await page.setViewportSize({ width: 1280, height: 840 });
     }
     if (scenario === "viewer-agent-chat-dark-theme") {
@@ -191,6 +188,10 @@ export async function applyAppShellAgentChatScenario(context) {
         panelBox.y + panelBox.height - (composerBox.y + composerBox.height),
       ) <= 4,
     );
+
+    if (scenario === "viewer-agent-chat-composer-access") {
+      await prepareAgentComposerAccessScenario({ composer, page });
+    }
 
     if (scenario === "viewer-agent-chat-image-input") {
       const internalDragSource = page
@@ -367,6 +368,8 @@ export async function applyAppShellAgentChatScenario(context) {
       await composer.fill("Build an OpenUI dashboard for this workspace.");
     } else if (scenario === "viewer-agent-chat-approval") {
       await composer.fill("Approval is required for this workspace check.");
+    } else if (scenario === "viewer-agent-chat-composer-access") {
+      // The scenario prepared its Japanese draft before opening the access menu.
     } else if (scenario === "viewer-agent-chat-activity") {
       await composer.fill("Show activity failure handling.");
     } else if (scenario === "viewer-agent-chat-output-hygiene") {
@@ -420,6 +423,12 @@ export async function applyAppShellAgentChatScenario(context) {
     } else if (scenario !== "viewer-agent-chat-image-input") {
       await composer.press("Meta+Enter");
     }
+    if (scenario === "viewer-agent-chat-composer-access") {
+      await confirmAgentComposerFullAccess({ page });
+    }
+    if (scenario === "viewer-agent-chat-main-bottom-dock") {
+      await recordAgentMainBottomStreamingMove({ composer, page });
+    }
     if (scenario === "viewer-agent-chat-running-input-control") {
       await runAgentRunningInputScenario({ composer, page });
     }
@@ -460,6 +469,9 @@ export async function applyAppShellAgentChatScenario(context) {
           "completed"
         );
       });
+    }
+    if (scenario === "viewer-agent-chat-composer-access") {
+      await exerciseAgentComposerAccessPlacements({ page });
     }
     if (scenario === "viewer-agent-chat-change-review") {
       await recordAgentChangeReviewScenario({ page });
@@ -567,6 +579,12 @@ export async function applyAppShellAgentChatScenario(context) {
           readOnlyHistory,
         },
       );
+    }
+    if (scenario === "viewer-agent-chat-workspace-isolation") {
+      await runAgentWorkspaceIsolationScenario({ composer, page });
+    }
+    if (scenario === "viewer-agent-chat-main-bottom-dock") {
+      await runAgentMainBottomDockScenario({ composer, page });
     }
     if (scenario === "viewer-agent-chat-active-file") {
       const firstTurn = await page.evaluate(
@@ -771,9 +789,6 @@ export async function applyAppShellAgentChatScenario(context) {
           .count()) === 1;
       await page.getByRole("button", { name: "Cancel" }).click();
     }
-    await page.getByRole("button", { name: "Hide Chat" }).click();
-    const focusedAnswerVisible =
-      (await page.locator(".agent-focused-answer").count()) === 1;
     await page
       .locator('[data-review-id="agent-panel"]')
       .getByRole("button", { name: "Close AI Chat" })
@@ -784,44 +799,13 @@ export async function applyAppShellAgentChatScenario(context) {
     await page.locator('[data-review-id="right-sidebar"]').waitFor();
     const rightSidebarRestored =
       (await page.locator('[data-review-id="right-sidebar"]').count()) === 1;
-    if (
-      scenario === "viewer-agent-chat-image-input" ||
-      scenario === "viewer-agent-chat-openui-exploration" ||
-      scenario === "viewer-agent-chat-activity" ||
-      scenario === "viewer-agent-chat-output-hygiene" ||
-      scenario === "viewer-agent-chat-markdown-answer" ||
-      scenario === "viewer-agent-chat-conversation-usability" ||
-      scenario === "viewer-agent-chat-running-input-control" ||
-      scenario === "viewer-agent-chat-change-review" ||
-      scenario === "viewer-agent-chat-selection" ||
-      scenario === "viewer-agent-chat-selection-image" ||
-      scenario === "viewer-agent-chat-media-context" ||
-      scenario === "viewer-agent-chat-active-file" ||
-      scenario === "viewer-agent-chat-session-management" ||
-      scenario === "viewer-agent-chat-dark-theme"
-    ) {
+    if (usesResponsiveAgentViewport(scenario)) {
       await page.setViewportSize({ width: 960, height: 640 });
     }
     await page.locator('[data-review-id="codex-spike-toggle"]').click();
     await page.locator('[data-review-id="agent-panel"]').waitFor();
     let compactComposerBottomAligned = true;
-    if (
-      scenario === "viewer-agent-chat-image-input" ||
-      scenario === "viewer-agent-chat-openui-exploration" ||
-      scenario === "viewer-agent-chat-activity" ||
-      scenario === "viewer-agent-chat-output-hygiene" ||
-      scenario === "viewer-agent-chat-markdown-answer" ||
-      scenario === "viewer-agent-chat-conversation-usability" ||
-      scenario === "viewer-agent-chat-running-input-control" ||
-      scenario === "viewer-agent-chat-change-review" ||
-      scenario === "viewer-agent-chat-selection" ||
-      scenario === "viewer-agent-chat-selection-image" ||
-      scenario === "viewer-agent-chat-media-context" ||
-      scenario === "viewer-agent-chat-active-file" ||
-      scenario === "viewer-agent-chat-session-management" ||
-      scenario === "viewer-agent-chat-dark-theme"
-    ) {
-      await page.getByRole("button", { name: "Show Chat" }).click();
+    if (usesResponsiveAgentViewport(scenario)) {
       await page.locator(".agent-conversation").evaluate((conversation) => {
         conversation.scrollTop = 0;
       });
@@ -841,6 +825,9 @@ export async function applyAppShellAgentChatScenario(context) {
         ) <= 4,
       );
     }
+    if (scenario === "viewer-agent-chat-composer-access") {
+      await reopenAgentComposerAccessForCapture({ page });
+    }
     if (shouldRestoreAgentViewport(scenario)) {
       await page.setViewportSize({ width: 1280, height: 840 });
       await page.locator('[data-review-id="left-sidebar"]').waitFor();
@@ -858,7 +845,6 @@ export async function applyAppShellAgentChatScenario(context) {
         darkControlsThemed,
         explorationInteraction,
         emptyActivityHidden,
-        focusedAnswerVisible,
         groupedReadActivity,
         initialRightSidebar,
         markdownAnswerVisible,

@@ -14,6 +14,7 @@ import { ViewerPane } from "./ViewerPane";
 import { CodexMainSplit } from "./CodexMainSplit";
 import type { LinkPreviewState } from "../lib/linkPreview";
 import type { PaneId, ViewerPaneSnapshot } from "../types";
+import type { MainAgentPanelPlacement } from "../agent/agentPanelTypes";
 
 type ViewerPaneSharedProps = Omit<
   ComponentProps<typeof ViewerPane>,
@@ -33,6 +34,7 @@ interface AppMainShellProps {
   splitEnabled: boolean;
   codexPanel: ReactNode | null;
   codexPanelOpen: boolean;
+  agentPanelPlacement: MainAgentPanelPlacement;
   splitResizeState: unknown;
   topbarHidden: boolean;
   leftSidebarProps: ComponentProps<typeof LeftSidebar>;
@@ -68,6 +70,7 @@ export function AppMainShell({
   splitEnabled,
   codexPanel,
   codexPanelOpen,
+  agentPanelPlacement,
   splitResizeState,
   topbarHidden,
   leftSidebarProps,
@@ -95,6 +98,29 @@ export function AppMainShell({
     );
   }
 
+  function renderViewerSurface() {
+    if (!splitEnabled) {
+      return renderViewerPane("left", paneSnapshots.left);
+    }
+    return (
+      <div className="viewer-split" data-review-id="viewer-split">
+        {renderViewerPane("left", paneSnapshots.left)}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize split panes"
+          className={`viewer-split-resizer ${splitResizeState ? "active" : ""}`}
+          data-review-id="viewer-split-resizer"
+          onPointerDown={onBeginViewerSplitResize}
+          onPointerMove={onUpdateViewerSplitResize}
+          onPointerUp={onEndViewerSplitResize}
+          onPointerCancel={onEndViewerSplitResize}
+        />
+        {renderViewerPane("right", paneSnapshots.right)}
+      </div>
+    );
+  }
+
   return (
     <div
       className={className}
@@ -115,30 +141,15 @@ export function AppMainShell({
 
         {preferencesPanelProps ? (
           <PreferencesPanel {...preferencesPanelProps} />
-        ) : splitEnabled ? (
-          <div className="viewer-split" data-review-id="viewer-split">
-            {renderViewerPane("left", paneSnapshots.left)}
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize split panes"
-              className={`viewer-split-resizer ${splitResizeState ? "active" : ""}`}
-              data-review-id="viewer-split-resizer"
-              onPointerDown={onBeginViewerSplitResize}
-              onPointerMove={onUpdateViewerSplitResize}
-              onPointerUp={onEndViewerSplitResize}
-              onPointerCancel={onEndViewerSplitResize}
-            />
-            {renderViewerPane("right", paneSnapshots.right)}
-          </div>
         ) : codexPanel ? (
           <CodexMainSplit
             open={codexPanelOpen}
             panel={codexPanel}
-            viewer={renderViewerPane("left", paneSnapshots.left)}
+            placement={agentPanelPlacement}
+            viewer={renderViewerSurface()}
           />
         ) : (
-          renderViewerPane("left", paneSnapshots.left)
+          renderViewerSurface()
         )}
       </main>
 

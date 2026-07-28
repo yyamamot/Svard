@@ -35,6 +35,7 @@ import { useQuickOpenCandidates } from "./hooks/useQuickOpenCandidates";
 import { useQuickOpenActions } from "./hooks/useQuickOpenActions";
 import { useQuickOpenShellState } from "./hooks/useQuickOpenShellState";
 import { useDiffOverlayCommandRefs } from "./hooks/useDiffOverlayCommandRefs";
+import { useDiffAgentDockState } from "./hooks/useDiffAgentDockState";
 import { useRecentWorkspaceActions } from "./hooks/useRecentWorkspaceActions";
 import { useSearchQueryForPath } from "./hooks/useSearchQueryForPath";
 import { useSearchState } from "./hooks/useSearchState";
@@ -57,14 +58,14 @@ import { useAgentQuotedContextReveal, useAgentQuotedContextState } from "./hooks
 import { useZenModeActions } from "./hooks/useZenModeActions";
 import { createAppTopbarProps } from "./lib/appTopbarProps";
 import type { CaptureAreaVariant } from "./lib/captureArea";
-import type { SelectionRevealTarget } from "./lib/diffDocumentSelection";
 import { appHost as host } from "./appHost";
-import type { AgentQuotedContext, AppConfig } from "../core/types";
+import type { AppConfig } from "../core/types";
+import { panelPlacement } from "./agent/agentPanelTypes";
 export function App() {
   const local = useAppLocalState();
   // prettier-ignore
   const {
-    activeHeadingId, activateTabForHistoryRef, articleRef, captureAreaRequest,
+    activeHeadingId, activateTabForHistoryRef, agentPanelPlacement, articleRef, captureAreaRequest,
     closeTabRef, codexPanelOpen, config, confirmedRemoteDiagramKeys, copyTextRef,
     diagramPreview, documentDiffPreview, documentHtml, documentHtmlRevision,
     documentPayload, documentRenderRevision, error, fileComparePickerOpen,
@@ -72,7 +73,7 @@ export function App() {
     linkPreview, navigationBackStack, navigationForwardStack, openFilesFilter,
     openFilesFilterInputRef, pendingSmartScrollAnchor, query, quickOpenInputRef,
     recentlyVisitedLocations, refreshSourceControlFromFileTreeRef, renderResult,
-    rightSidebarTab, searchHits, searchIndex, searchInputRef, setActiveHeadingId,
+    rightSidebarTab, searchHits, searchIndex, searchInputRef, setActiveHeadingId, setAgentPanelPlacement,
     setCaptureAreaRequest, setCodexPanelOpen, setConfig,
     setConfirmedRemoteDiagramKeys, setDiagramPreview, setDocumentDiffPreview,
     setDocumentHtml, setDocumentHtmlRevision, setDocumentPayload,
@@ -495,17 +496,13 @@ export function App() {
   });
   refreshSourceControlFromFileTreeRef.current =
     refreshSourceControlFromFileTree;
-  function addAgentDiffQuotedContext(
-    snapshot: AgentQuotedContext,
-    revealTarget: SelectionRevealTarget,
-  ) {
-    if (!registerAgentQuotedContext(snapshot, revealTarget)) return;
-    closeDocumentDiffPreview();
-    closeDocumentDiffStreamPreview();
-    setCodexPanelOpen(true);
-  }
-  const addAgentDiffSelection = addAgentDiffQuotedContext;
-  const addAgentDiffMedia = addAgentDiffQuotedContext;
+  // prettier-ignore
+  const { addQuotedContext: addAgentDiffQuotedContext, agentDock: diffAgentDock,
+    focusRequest: diffAgentFocusRequest, mainPanelOpen: mainAgentPanelOpen,
+    mountTarget: diffAgentMountTarget } = useDiffAgentDockState({
+      available: agentChatAvailable, chatOpen: codexPanelOpen,
+      diffOpen: Boolean(documentDiffPreview || documentDiffStreamPreview), onChatOpenChange: setCodexPanelOpen, registerQuotedContext: registerAgentQuotedContext,
+    });
   const matchCount = searchHits.length;
   const {
     activateSearchHit,
@@ -1010,17 +1007,14 @@ export function App() {
     dispatchCommand: (commandId) => void dispatchCommand(commandId),
     openDocumentTab: workspaceTabActions.openDocumentWorkspaceTab,
     openPreferencesTab, preferencesOpen, setCodexPanelOpen, setTabMoreOpen,
-    showSplitViewNotice: () =>
-      showInlineNotice("Split Viewを閉じてください。", { tone: "warning" }),
-    splitEnabled,
   });
   return (
     // prettier-ignore
     <AppMainShell
       appShellStyle={appShellStyle}
-      className={`app-shell theme-${config?.theme ?? "light"} ${effectiveSidebarVisible ? "" : "left-collapsed"} ${effectiveRightSidebarVisible && !codexPanelOpen ? "" : "right-collapsed"} ${codexPanelOpen ? "codex-panel-active" : ""} ${zenModeApplies ? "zen-mode-active" : ""} ${sidebarResizeState ? "is-resizing-sidebar" : ""} ${openFilesSplitResizeState ? "is-resizing-sidebar-split" : ""} ${splitResizeState ? "is-resizing-viewer-split" : ""}`}
+      className={`app-shell theme-${config?.theme ?? "light"} ${effectiveSidebarVisible ? "" : "left-collapsed"} ${effectiveRightSidebarVisible && !mainAgentPanelOpen ? "" : "right-collapsed"} ${mainAgentPanelOpen ? "codex-panel-active" : ""} ${zenModeApplies ? "zen-mode-active" : ""} ${sidebarResizeState ? "is-resizing-sidebar" : ""} ${openFilesSplitResizeState ? "is-resizing-sidebar-split" : ""} ${splitResizeState ? "is-resizing-viewer-split" : ""}`}
       effectiveRightSidebarVisible={
-        effectiveRightSidebarVisible && !codexPanelOpen
+        effectiveRightSidebarVisible && !mainAgentPanelOpen
       }
       effectiveSidebarVisible={effectiveSidebarVisible}
       linkHoverDestination={linkHoverDestination}
@@ -1029,11 +1023,13 @@ export function App() {
       showLinkHoverStatus={!(zenModeApplies && zenModeConfig.hideStatusBar)}
       showZenModeExitControl={showZenModeExitControl}
       splitEnabled={splitEnabled}
-      codexPanelOpen={codexPanelOpen}
+      agentPanelPlacement={agentPanelPlacement}
+      codexPanelOpen={mainAgentPanelOpen}
       codexPanel={
         <AppAgentPanel
           activeDocument={activeDocumentPayload}
           confirmExternalLink={confirmExternalLink}
+          focusRequest={diffAgentFocusRequest}
           host={host}
           open={codexPanelOpen}
           onClose={() => setCodexPanelOpen(false)}
@@ -1045,6 +1041,7 @@ export function App() {
           onRemoveQuotedContext={removeQuotedContext}
           onQuotedContextsAccepted={acceptQuotedContexts}
           onReviewChanges={sourceControl.reviewAgentChanges}
+          onMainPlacementChange={setAgentPanelPlacement}
           onReturnToQuotedContext={(snapshot) => {
             const target = beginQuotedContextReveal(snapshot);
             if (target.kind === "diffPreview") {
@@ -1056,6 +1053,8 @@ export function App() {
             }
           }}
           preferencesOpen={preferencesOpen}
+          placement={panelPlacement(agentPanelPlacement, diffAgentMountTarget)}
+          portalTarget={diffAgentMountTarget}
           workspaceRoot={rootDirectory}
         />
       }
@@ -1142,6 +1141,7 @@ export function App() {
       rightSidebarProps={preferencesOpen ? null : rightSidebarProps}
       rightSidebarResizeActive={sidebarResizeState?.side === "right"}
       overlaysProps={{
+        agentDock: diffAgentDock,
         chooseCompareDocument, config, confirmedRemoteDiagramKeys, contextMenu,
         confirmExternalLink,
         copyText: documentLinks.copyText,
@@ -1173,8 +1173,7 @@ export function App() {
         onExternalLinkConfirmation: resolveExternalLinkConfirmation,
         onOpenDiagramPreview: setDiagramPreview,
         onOpenDocumentDiffPreviewFromStream: openDocumentDiffPreviewFromStream,
-        onAddAgentDiffSelection: addAgentDiffSelection,
-        onAddAgentDiffMedia: addAgentDiffMedia,
+        onAddAgentDiffContext: addAgentDiffQuotedContext,
         selectionRevealTarget:
           pendingQuotedContextReveal?.target.kind === "document"
             ? null

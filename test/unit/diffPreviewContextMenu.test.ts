@@ -140,6 +140,15 @@ describe("diff preview context menu", () => {
     });
     const runPreparedAsk = vi.fn();
     const prepareAgentSelection = vi.fn().mockReturnValue(runPreparedAsk);
+    const attachCurrentChange = vi.fn();
+    const prepareAgentChange = vi.fn().mockReturnValue({
+      enabled: true,
+      onSelect: attachCurrentChange,
+    });
+    container
+      .querySelector("p")
+      ?.classList.add("git-rendered-structured-child-change");
+    container.querySelector("p")?.setAttribute("data-change-index", "2");
 
     const items = diffPreviewContextMenuItems({
       container,
@@ -155,16 +164,82 @@ describe("diff preview context menu", () => {
       confirmExternalLink: vi.fn(),
       openExternalUrl: vi.fn(),
       onOpenDiagramPreview: vi.fn(),
+      onPrepareAgentChange: prepareAgentChange,
       onPrepareAgentSelection: prepareAgentSelection,
       showInlineNotice: vi.fn(),
     });
 
     expect(prepareAgentSelection).toHaveBeenCalledOnce();
+    expect(prepareAgentChange).toHaveBeenCalledOnce();
     expect(prepareAgentSelection.mock.calls[0]?.[0].toString()).toBe(
       "Selected rendered text",
     );
+    expect(items.slice(0, 2).map((item) => item.label)).toEqual([
+      "Ask AI about selection",
+      "Attach current change",
+    ]);
     items.find((item) => item.label === "Ask AI about selection")?.onSelect();
+    items.find((item) => item.label === "Attach current change")?.onSelect();
     expect(runPreparedAsk).toHaveBeenCalledOnce();
+    expect(attachCurrentChange).toHaveBeenCalledOnce();
+    container.remove();
+  });
+
+  it("offers Attach current change first only for an exact rendered change", () => {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <article class="git-rendered-block change-target" data-change-index="3">
+        <div class="git-rendered-block-content"><p>Changed text</p></div>
+      </article>
+      <p class="context">Unchanged context</p>
+    `;
+    document.body.append(container);
+    const attachCurrentChange = vi.fn();
+    const prepareAgentChange = vi.fn().mockReturnValue({
+      enabled: true,
+      onSelect: attachCurrentChange,
+      title: "Attach the right-clicked rendered change",
+    });
+    const changedTarget = container.querySelector<HTMLElement>(
+      ".git-rendered-block-content p",
+    )!;
+    const sharedOptions = {
+      container,
+      event: { clientX: 0, clientY: 0 },
+      side: "right" as const,
+      surface: "rendered" as const,
+      preview: basePreview,
+      copyText: vi.fn(),
+      openDocument: vi.fn(),
+      openPathInEditor: vi.fn(),
+      resolveDocumentLink: vi.fn(),
+      confirmExternalLink: vi.fn(),
+      openExternalUrl: vi.fn(),
+      onOpenDiagramPreview: vi.fn(),
+      onPrepareAgentChange: prepareAgentChange,
+      showInlineNotice: vi.fn(),
+    };
+
+    const changedItems = diffPreviewContextMenuItems({
+      ...sharedOptions,
+      target: changedTarget,
+    });
+    expect(changedItems[0]).toMatchObject({
+      id: "attach-agent-current-change",
+      label: "Attach current change",
+      enabled: true,
+    });
+    changedItems[0]?.onSelect();
+    expect(attachCurrentChange).toHaveBeenCalledOnce();
+
+    prepareAgentChange.mockReturnValueOnce(undefined);
+    const contextItems = diffPreviewContextMenuItems({
+      ...sharedOptions,
+      target: container.querySelector<HTMLElement>(".context")!,
+    });
+    expect(
+      contextItems.some((item) => item.label === "Attach current change"),
+    ).toBe(false);
     container.remove();
   });
 

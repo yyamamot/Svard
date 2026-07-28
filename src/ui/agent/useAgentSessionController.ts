@@ -13,7 +13,10 @@ import type {
   DocumentMediaMode,
 } from "../../core/types";
 import { initialAgentChatState, reduceAgentChat } from "./agentChatState";
+import { createAgentFullAccessActions } from "./agentFullAccessActions";
 import { applyAgentSessionTitleEvent } from "./agentSessionTitleEvents";
+import { createAgentSessionHistoryLoaders } from "./agentSessionHistoryLoaders";
+import { createAgentSessionManagementActions } from "./agentSessionManagementActions";
 import { useAgentConversationScroll } from "./useAgentConversationScroll";
 import {
   createAgentSessionStartInput,
@@ -23,11 +26,16 @@ import {
   type AgentRuntimeSettingsSnapshot,
 } from "./agentPanelModel";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
+import {
+  useAgentActionNotice,
+  workspaceChangedAgentNotice,
+} from "./useAgentActionNotice";
+import { useAgentSessionContextCleanup } from "./useAgentSessionContextCleanup";
+import { useAgentWorkspaceIsolation } from "./useAgentWorkspaceIsolation";
 
 type AgentSessionLifecycle = "idle" | "starting" | "ready" | "closed";
 type PendingSessionAction = () => void | Promise<void>;
 type PendingFullAccessTransaction = () => Promise<boolean>;
-
 export function useAgentSessionController({
   host,
   open,
@@ -61,7 +69,6 @@ export function useAgentSessionController({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmFullAccess, setConfirmFullAccess] = useState(false);
   const [responseMode, setResponseMode] = useState<AgentResponseMode>("auto");
-  const [chatVisible, setChatVisible] = useState(true);
   const [question, setQuestion] = useState("");
   const [focusFiles, setFocusFiles] = useState<AgentFocusFile[]>([]);
   const [attachments, setAttachments] = useState<AgentAttachment[]>([]);
@@ -73,7 +80,7 @@ export function useAgentSessionController({
   const [mediaModes, setMediaModes] = useState<
     Record<string, DocumentMediaMode>
   >({});
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useAgentActionNotice();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyArchived, setHistoryArchived] = useState(false);
   const [sessionPage, setSessionPage] = useState<AgentSessionPage | null>(null);
@@ -112,12 +119,61 @@ export function useAgentSessionController({
   const pendingFullAccessTransactionRef =
     useRef<PendingFullAccessTransaction | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const activeTurnId = state.activeTurnId;
   const selectionImageAttachmentsRef = useRef(
     new Map<string, AgentImageAttachment>(),
   );
   const submittedSelectionIdsRef = useRef<string[]>([]);
-
+  const { clearSessionLocalContext, preserveContextForAccessChange } =
+    useAgentSessionContextCleanup({
+      selectionImages: selectionImageAttachmentsRef,
+      submittedSelectionIds: submittedSelectionIdsRef,
+      setAttachments,
+      setFocusFiles,
+      setImageErrors,
+      setImages,
+      setMediaModes,
+      setRestoredQuotedContexts,
+    });
+  const workspaceIsolation = useAgentWorkspaceIsolation({
+    activeTurnId,
+    host,
+    onReset: () => {
+      pendingSessionActionRef.current = null;
+      pendingFullAccessTransactionRef.current = null;
+      sessionSettingsRef.current = null;
+      sessionTitleEventsRef.current.clear();
+      acceptedTurnIdsRef.current.clear();
+      submittedSelectionIdsRef.current = [];
+      setSessionSettings(null);
+      setPermissionMode(codexDefaults.permissionMode);
+      setNetworkAccess(codexDefaults.networkAccess);
+      setWebSearch(codexDefaults.webSearch);
+      setQuestion("");
+      setActionNotice(workspaceRoot ? workspaceChangedAgentNotice : null);
+      setHistoryOpen(false);
+      setSessionPage(null);
+      setSessionListLoading(false);
+      setSessionListError(null);
+      setOlderHistoryCursor(null);
+      setOlderHistoryLoading(false);
+      setPendingFullAccessResume(null);
+      setConfirmFullAccess(false);
+      setConfirmClosedFullAccessResume(false);
+      setAddMenuOpen(false);
+      setDropActive(false);
+      resetConversationFollow();
+      dispatch({ type: "reset" });
+      clearSessionLocalContext();
+    },
+    resumeClosedSessionRef,
+    sessionIdRef,
+    sessionReadyRef,
+    sessionStartingRef,
+    setSessionLifecycle,
+    workspaceRoot,
+  });
   useEffect(() => {
     if (!open || !workspaceRoot) return;
     let cancelled = false;
@@ -145,7 +201,6 @@ export function useAgentSessionController({
     open,
     workspaceRoot,
   ]);
-
   useEffect(() => {
     if (
       sessionReady ||
@@ -175,7 +230,6 @@ export function useAgentSessionController({
     runtime,
     sessionReady,
   ]);
-
   const handleEvent = useCallback(
     (event: AgentEvent) => {
       if (event.type === "sessionReady") {
@@ -220,7 +274,6 @@ export function useAgentSessionController({
     },
     [onQuotedContextsAccepted],
   );
-
   useEffect(() => {
     if (!terminateSession) return;
     if (sessionReady) {
@@ -240,20 +293,10 @@ export function useAgentSessionController({
     acceptedTurnIdsRef.current.clear();
   }, [host, sessionReady, terminateSession]);
 
-  function clearSessionLocalContext() {
-    setImages([]);
-    setRestoredQuotedContexts([]);
-    setImageErrors([]);
-    setFocusFiles([]);
-    setAttachments([]);
-    setMediaModes({});
-    selectionImageAttachmentsRef.current.clear();
-    submittedSelectionIdsRef.current = [];
-  }
-
   async function startIdleSession(
     fullAccessConfirmed = false,
   ): Promise<boolean> {
+    await workspaceIsolation.ensureWorkspaceBoundary();
     if (
       sessionReadyRef.current ||
       sessionStartingRef.current ||
@@ -278,24 +321,39 @@ export function useAgentSessionController({
     sessionStartingRef.current = true;
     setSessionLifecycle("starting");
     setActionNotice(null);
+    const clientSessionId = sessionIdRef.current;
+    const operation = workspaceIsolation.createOperationToken(
+      clientSessionId,
+      workspaceRoot,
+    );
     try {
       await host.startAgentSession(
         createAgentSessionStartInput({
-          clientSessionId: sessionIdRef.current,
+          clientSessionId,
           networkAccess,
           permissionMode,
           settings,
           webSearch,
           workspaceRoot,
         }),
-        handleEvent,
+        workspaceIsolation.guardEvents(operation, handleEvent),
       );
+      if (
+        !workspaceIsolation.isOperationCurrent(operation) ||
+        !workspaceIsolation.bindSession(operation)
+      ) {
+        await host.closeAgentSession(clientSessionId).catch(() => undefined);
+        return false;
+      }
       sessionReadyRef.current = true;
       setSessionLifecycle("ready");
       resumeClosedSessionRef.current = false;
       return true;
     } catch (error) {
-      await host.closeAgentSession(sessionIdRef.current).catch(() => undefined);
+      await host.closeAgentSession(clientSessionId).catch(() => undefined);
+      if (!workspaceIsolation.isOperationCurrent(operation)) {
+        return false;
+      }
       sessionReadyRef.current = false;
       setSessionLifecycle("idle");
       setActionNotice(
@@ -305,12 +363,14 @@ export function useAgentSessionController({
       );
       return false;
     } finally {
-      sessionStartingRef.current = false;
+      if (workspaceIsolation.isOperationCurrent(operation)) {
+        sessionStartingRef.current = false;
+      }
     }
   }
-
   async function ensureSessionReady(action: PendingSessionAction) {
-    if (sessionReadyRef.current) {
+    await workspaceIsolation.ensureWorkspaceBoundary();
+    if (workspaceIsolation.isSessionCurrent()) {
       await action();
       return;
     }
@@ -335,43 +395,18 @@ export function useAgentSessionController({
       await action();
     }
   }
-
-  function cancelFullAccessStart() {
-    pendingSessionActionRef.current = null;
-    pendingFullAccessTransactionRef.current = null;
-    setConfirmFullAccess(false);
-    setConfirmClosedFullAccessResume(false);
-  }
-
-  async function confirmFullAccessStart(closedSession: boolean) {
-    setConfirmFullAccess(false);
-    setConfirmClosedFullAccessResume(false);
-    const sessionAction = pendingSessionActionRef.current;
-    const transaction = pendingFullAccessTransactionRef.current;
-    pendingSessionActionRef.current = null;
-    pendingFullAccessTransactionRef.current = null;
-    let ready = false;
-    if (closedSession) {
-      ready = await resumeClosedSessionTransaction(true);
-    } else if (transaction) {
-      ready = await transaction();
-    } else {
-      ready = await startIdleSession(true);
-    }
-    if (ready && sessionAction) {
-      await sessionAction();
-    }
-  }
-
   async function startSessionTransaction({
     nextMode,
     nextNetworkAccess = networkAccess,
     nextWebSearch = webSearch,
+    preserveComposerContext = false,
   }: {
     nextMode: AgentPermissionMode;
     nextNetworkAccess?: boolean;
     nextWebSearch?: boolean;
+    preserveComposerContext?: boolean;
   }) {
+    await workspaceIsolation.ensureWorkspaceBoundary();
     if (
       activeTurnId ||
       sessionStartingRef.current ||
@@ -382,11 +417,19 @@ export function useAgentSessionController({
     }
     const previousSessionReady = sessionReadyRef.current;
     const previousSessionId = sessionIdRef.current;
+    const previousSessionWorkspaceRoot =
+      workspaceIsolation.sessionWorkspaceRootRef.current;
     const nextSessionId = crypto.randomUUID();
     const settings = createAgentSessionSettingsSnapshot(codexDefaults, runtime);
     sessionStartingRef.current = true;
+    sessionReadyRef.current = false;
+    sessionIdRef.current = nextSessionId;
     setSessionLifecycle("starting");
     setActionNotice(null);
+    const operation = workspaceIsolation.createOperationToken(
+      nextSessionId,
+      workspaceRoot,
+    );
     try {
       await host.startAgentSession(
         createAgentSessionStartInput({
@@ -397,9 +440,15 @@ export function useAgentSessionController({
           webSearch: nextWebSearch,
           workspaceRoot,
         }),
-        handleEvent,
+        workspaceIsolation.guardEvents(operation, handleEvent),
       );
-      sessionIdRef.current = nextSessionId;
+      if (
+        !workspaceIsolation.isOperationCurrent(operation) ||
+        !workspaceIsolation.bindSession(operation)
+      ) {
+        await host.closeAgentSession(nextSessionId).catch(() => undefined);
+        return false;
+      }
       sessionReadyRef.current = true;
       sessionSettingsRef.current = settings;
       setSessionSettings(settings);
@@ -411,7 +460,15 @@ export function useAgentSessionController({
       setOlderHistoryCursor(null);
       resetConversationFollow();
       dispatch({ type: "reset" });
-      clearSessionLocalContext();
+      if (preserveComposerContext) {
+        if (preserveContextForAccessChange(images.length)) {
+          setActionNotice(
+            "Access changed. Reattach direct images before sending this question.",
+          );
+        }
+      } else {
+        clearSessionLocalContext();
+      }
       if (previousSessionId !== nextSessionId) {
         await host.closeAgentSession(previousSessionId);
       }
@@ -421,25 +478,25 @@ export function useAgentSessionController({
       return true;
     } catch (error) {
       await host.closeAgentSession(nextSessionId).catch(() => undefined);
+      if (!workspaceIsolation.isOperationCurrent(operation)) {
+        return false;
+      }
+      sessionStartingRef.current = false;
+      sessionIdRef.current = previousSessionId;
       sessionReadyRef.current = previousSessionReady;
+      workspaceIsolation.sessionWorkspaceRootRef.current =
+        previousSessionWorkspaceRoot;
       setSessionLifecycle(previousSessionReady ? "ready" : "idle");
       setActionNotice(
         error instanceof Error ? error.message : "Could not start a new chat.",
       );
       return false;
     } finally {
-      sessionStartingRef.current = false;
+      if (workspaceIsolation.isOperationCurrent(operation)) {
+        sessionStartingRef.current = false;
+      }
     }
   }
-
-  async function restartSession(nextMode = permissionMode) {
-    if (!sessionReadyRef.current && !resumeClosedSessionRef.current) {
-      setPermissionMode(nextMode);
-      return;
-    }
-    await startSessionTransaction({ nextMode });
-  }
-
   async function selectPermissionMode(nextMode: AgentPermissionMode) {
     if (!sessionReadyRef.current && !resumeClosedSessionRef.current) {
       setPermissionMode(nextMode);
@@ -447,13 +504,15 @@ export function useAgentSessionController({
     }
     if (nextMode === "fullAccess") {
       pendingFullAccessTransactionRef.current = () =>
-        startSessionTransaction({ nextMode });
+        startSessionTransaction({ nextMode, preserveComposerContext: true });
       setConfirmFullAccess(true);
       return;
     }
-    await startSessionTransaction({ nextMode });
+    await startSessionTransaction({
+      nextMode,
+      preserveComposerContext: true,
+    });
   }
-
   async function selectNetworkAccess(nextNetworkAccess: boolean) {
     if (!sessionReadyRef.current && !resumeClosedSessionRef.current) {
       setNetworkAccess(nextNetworkAccess);
@@ -462,9 +521,9 @@ export function useAgentSessionController({
     await startSessionTransaction({
       nextMode: permissionMode,
       nextNetworkAccess,
+      preserveComposerContext: true,
     });
   }
-
   async function selectWebSearch(nextWebSearch: boolean) {
     if (!sessionReadyRef.current && !resumeClosedSessionRef.current) {
       setWebSearch(nextWebSearch);
@@ -473,6 +532,7 @@ export function useAgentSessionController({
     await startSessionTransaction({
       nextMode: permissionMode,
       nextWebSearch,
+      preserveComposerContext: true,
     });
   }
 
@@ -504,64 +564,35 @@ export function useAgentSessionController({
     });
   }
 
-  async function loadSessionPage(reset: boolean, archived = historyArchived) {
-    if (!workspaceRoot) return;
-    const titleSequenceBeforeRequest = sessionTitleEventSequenceRef.current;
-    setSessionListLoading(true);
-    setSessionListError(null);
-    try {
-      const page = await host.listAgentSessions({
-        providerId: "codex-app-server",
-        workspaceRoot,
-        archived,
-        cursor: reset ? null : sessionPage?.nextCursor,
-        limit: 30,
-      });
-      const sessions = page.sessions.map((session) => {
-        const titleEvent = sessionTitleEventsRef.current.get(
-          session.clientSessionId,
-        );
-        return titleEvent && titleEvent.sequence > titleSequenceBeforeRequest
-          ? { ...session, title: titleEvent.title }
-          : session;
-      });
-      const currentPage = { ...page, sessions };
-      setSessionPage((current) => {
-        if (reset || !current) return currentPage;
-        const known = new Set(
-          current.sessions.map((session) => session.clientSessionId),
-        );
-        return {
-          ...currentPage,
-          sessions: [
-            ...current.sessions,
-            ...currentPage.sessions.filter(
-              (session) => !known.has(session.clientSessionId),
-            ),
-          ],
-        };
-      });
-    } catch (error) {
-      setSessionListError(
-        error instanceof Error
-          ? error.message
-          : "Chat history could not be loaded.",
-      );
-    } finally {
-      setSessionListLoading(false);
-    }
-  }
-
-  async function openSessionHistory() {
-    const nextOpen = !historyOpen;
-    setHistoryOpen(nextOpen);
-    setSettingsOpen(false);
-    if (nextOpen) {
-      await loadSessionPage(true, historyArchived);
-    }
-  }
+  const { loadOlderSessionHistory, loadSessionPage, openSessionHistory } =
+    createAgentSessionHistoryLoaders({
+      dispatch,
+      historyArchived,
+      historyPrependScrollRef,
+      historyOpen,
+      host,
+      olderHistoryCursor,
+      olderHistoryLoading,
+      scrollRef,
+      sessionIdRef,
+      sessionPage,
+      sessionTitleEventSequenceRef,
+      sessionTitleEventsRef,
+      setActionNotice,
+      setOlderHistoryCursor,
+      setOlderHistoryLoading,
+      setHistoryOpen,
+      setSessionListError,
+      setSessionListLoading,
+      setSessionPage,
+      setSettingsOpen,
+      state,
+      workspaceIsolation,
+      workspaceRoot,
+    });
 
   async function resumeClosedSessionTransaction(fullAccessConfirmed: boolean) {
+    await workspaceIsolation.ensureWorkspaceBoundary();
     if (
       sessionStartingRef.current ||
       !workspaceRoot ||
@@ -573,6 +604,10 @@ export function useAgentSessionController({
     sessionStartingRef.current = true;
     setSessionLifecycle("starting");
     setProbeError(null);
+    const operation = workspaceIsolation.createOperationToken(
+      clientSessionId,
+      workspaceRoot,
+    );
     try {
       await host.resumeAgentSession(
         {
@@ -583,12 +618,19 @@ export function useAgentSessionController({
             codexDefaults.executable,
           fullAccessConfirmed,
         },
-        handleEvent,
+        workspaceIsolation.guardEvents(operation, handleEvent),
       );
       const history = await host.readAgentSessionHistory({
         clientSessionId,
         limit: 50,
       });
+      if (
+        !workspaceIsolation.isOperationCurrent(operation) ||
+        !workspaceIsolation.bindSession(operation)
+      ) {
+        await host.closeAgentSession(clientSessionId).catch(() => undefined);
+        return false;
+      }
       resetConversationFollow();
       dispatch({
         type: "hydrate",
@@ -602,6 +644,9 @@ export function useAgentSessionController({
       return true;
     } catch (error) {
       await host.closeAgentSession(clientSessionId).catch(() => undefined);
+      if (!workspaceIsolation.isOperationCurrent(operation)) {
+        return false;
+      }
       sessionReadyRef.current = false;
       setSessionLifecycle("closed");
       setActionNotice(
@@ -611,14 +656,27 @@ export function useAgentSessionController({
       );
       return false;
     } finally {
-      sessionStartingRef.current = false;
+      if (workspaceIsolation.isOperationCurrent(operation)) {
+        sessionStartingRef.current = false;
+      }
     }
   }
+
+  const { cancelFullAccessStart, confirmFullAccessStart } =
+    createAgentFullAccessActions({
+      pendingFullAccessTransactionRef,
+      pendingSessionActionRef,
+      resumeClosedSessionTransaction,
+      setConfirmClosedFullAccessResume,
+      setConfirmFullAccess,
+      startIdleSession,
+    });
 
   async function resumeSessionTransaction(
     summary: AgentSessionSummary,
     fullAccessConfirmed = false,
   ) {
+    await workspaceIsolation.ensureWorkspaceBoundary();
     if (
       activeTurnId ||
       sessionStartingRef.current ||
@@ -635,10 +693,19 @@ export function useAgentSessionController({
       return;
     }
     const previousSessionId = sessionIdRef.current;
+    const previousSessionReady = sessionReadyRef.current;
+    const previousSessionWorkspaceRoot =
+      workspaceIsolation.sessionWorkspaceRootRef.current;
     const nextSessionId = summary.clientSessionId;
     sessionStartingRef.current = true;
+    sessionReadyRef.current = false;
+    sessionIdRef.current = nextSessionId;
     setSessionLifecycle("starting");
     setSessionListError(null);
+    const operation = workspaceIsolation.createOperationToken(
+      nextSessionId,
+      workspaceRoot,
+    );
     try {
       await host.resumeAgentSession(
         {
@@ -647,12 +714,19 @@ export function useAgentSessionController({
           executablePreference: codexDefaults.executable,
           fullAccessConfirmed,
         },
-        handleEvent,
+        workspaceIsolation.guardEvents(operation, handleEvent),
       );
       const history = await host.readAgentSessionHistory({
         clientSessionId: nextSessionId,
         limit: 50,
       });
+      if (
+        !workspaceIsolation.isOperationCurrent(operation) ||
+        !workspaceIsolation.bindSession(operation)
+      ) {
+        await host.closeAgentSession(nextSessionId).catch(() => undefined);
+        return;
+      }
       const settings: AgentRuntimeSettingsSnapshot = {
         executablePreference: { ...codexDefaults.executable },
         model: summary.settings.model,
@@ -660,7 +734,6 @@ export function useAgentSessionController({
         reasoningEffort: summary.settings.reasoningEffort,
         personality: summary.settings.personality,
       };
-      sessionIdRef.current = nextSessionId;
       sessionReadyRef.current = true;
       sessionSettingsRef.current = settings;
       setSessionSettings(settings);
@@ -681,110 +754,38 @@ export function useAgentSessionController({
       await host.closeAgentSession(previousSessionId);
     } catch (error) {
       await host.closeAgentSession(nextSessionId).catch(() => undefined);
-      sessionReadyRef.current = sessionReady;
-      setSessionLifecycle(sessionReady ? "ready" : "idle");
+      if (!workspaceIsolation.isOperationCurrent(operation)) {
+        return;
+      }
+      sessionStartingRef.current = false;
+      sessionIdRef.current = previousSessionId;
+      sessionReadyRef.current = previousSessionReady;
+      workspaceIsolation.sessionWorkspaceRootRef.current =
+        previousSessionWorkspaceRoot;
+      setSessionLifecycle(previousSessionReady ? "ready" : "idle");
       setSessionListError(
         error instanceof Error
           ? error.message
           : "This chat could not be resumed.",
       );
     } finally {
-      sessionStartingRef.current = false;
-    }
-  }
-
-  async function loadOlderSessionHistory() {
-    if (!olderHistoryCursor || olderHistoryLoading) return;
-    setOlderHistoryLoading(true);
-    try {
-      const page = await host.readAgentSessionHistory({
-        clientSessionId: sessionIdRef.current,
-        cursor: olderHistoryCursor,
-        limit: 50,
-      });
-      const known = new Set(state.turns.map((turn) => turn.id));
-      if (scrollRef.current) {
-        historyPrependScrollRef.current = {
-          height: scrollRef.current.scrollHeight,
-          top: scrollRef.current.scrollTop,
-        };
+      if (workspaceIsolation.isOperationCurrent(operation)) {
+        sessionStartingRef.current = false;
       }
-      dispatch({
-        type: "hydrate",
-        turns: [
-          ...page.turns
-            .filter((turn) => !known.has(turn.id))
-            .map(restoredConversationTurn),
-          ...state.turns,
-        ],
-      });
-      setOlderHistoryCursor(page.nextCursor);
-    } catch (error) {
-      setActionNotice(
-        error instanceof Error
-          ? error.message
-          : "Earlier chat history could not be loaded.",
-      );
-    } finally {
-      setOlderHistoryLoading(false);
     }
   }
 
-  async function renameSession(summary: AgentSessionSummary, title: string) {
-    try {
-      await host.renameAgentSession({
-        clientSessionId: summary.clientSessionId,
-        title,
-        executablePreference: codexDefaults.executable,
-      });
-      await loadSessionPage(true, historyArchived);
-    } catch (error) {
-      setSessionListError(
-        error instanceof Error
-          ? error.message
-          : "The chat could not be renamed.",
-      );
-      throw error;
-    }
-  }
-
-  async function setSessionArchived(
-    summary: AgentSessionSummary,
-    archived: boolean,
-  ) {
-    try {
-      await host.setAgentSessionArchived({
-        clientSessionId: summary.clientSessionId,
-        archived,
-        executablePreference: codexDefaults.executable,
-      });
-      await loadSessionPage(true, historyArchived);
-    } catch (error) {
-      setSessionListError(
-        error instanceof Error
-          ? error.message
-          : "The chat archive could not be updated.",
-      );
-      throw error;
-    }
-  }
-
-  async function deleteSession(summary: AgentSessionSummary) {
-    try {
-      await host.deleteAgentSession({
-        clientSessionId: summary.clientSessionId,
-        executablePreference: codexDefaults.executable,
-      });
-      await loadSessionPage(true, historyArchived);
-    } catch (error) {
-      setSessionListError(
-        error instanceof Error
-          ? error.message
-          : "The chat could not be deleted.",
-      );
-      throw error;
-    }
-  }
+  const { deleteSession, renameSession, setSessionArchived } =
+    createAgentSessionManagementActions({
+      executablePreference: codexDefaults.executable,
+      historyArchived,
+      host,
+      loadSessionPage,
+      sessionIdRef,
+      setSessionListError,
+      workspaceIsolation,
+      workspaceRoot,
+    });
 
   async function closeSessionRuntime() {
     pendingSessionActionRef.current = null;
@@ -822,8 +823,6 @@ export function useAgentSessionController({
     setConfirmFullAccess,
     responseMode,
     setResponseMode,
-    chatVisible,
-    setChatVisible,
     question,
     setQuestion,
     focusFiles,
@@ -867,10 +866,13 @@ export function useAgentSessionController({
     followLatestConversation,
     handleConversationScroll,
     composerDockRef,
+    composerInputRef,
     activeTurnId,
     selectionImageAttachmentsRef,
     submittedSelectionIdsRef,
     acceptedTurnIdsRef,
+    workspaceGeneration: workspaceIsolation.generation,
+    isSessionWorkspaceCurrent: workspaceIsolation.isSessionCurrent,
     closeSessionRuntime,
     ensureSessionReady,
     cancelFullAccessStart,

@@ -351,9 +351,47 @@ export async function buildGitDiffSourceControlAssertions(context) {
         ? await page.evaluate(() => {
             const result = window.__SVARD_DIFF_CONTEXT_RELIABILITY_CHECK__;
             return (
-              result?.overlayRestored === true &&
+              result?.dockVisible === true &&
+              result?.draftPreserved === true &&
+              result?.overlayMaintained === true &&
+              result?.questionBlank === true &&
               result?.modeCount === 3 &&
               result?.orderedKinds?.join(",") === "selection,media"
+            );
+          })
+        : true,
+    hasAttachCurrentChange:
+      scenario === "viewer-agent-chat-attach-current-change"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_ATTACH_CURRENT_CHANGE_CHECK__;
+            const layouts = [result?.regularLayout, result?.compactDarkLayout];
+            return (
+              result?.beforeVisible === true &&
+              result?.afterVisible === true &&
+              result?.draftPreserved === true &&
+              result?.immutable === true &&
+              result?.overlayMaintained === true &&
+              result?.questionBlank === true &&
+              result?.allDiffsRestored === true &&
+              result?.allDiffsContextMenu === true &&
+              result?.singleAfterVisible === true &&
+              result?.singleBeforeVisible === true &&
+              result?.singleContextMenu === true &&
+              result?.singleDiffAttached === true &&
+              result?.singleDraftPreserved === true &&
+              result?.toolbarRemoved === true &&
+              result?.regularLayout?.viewport?.width === 1280 &&
+              result?.regularLayout?.viewport?.height === 840 &&
+              result?.regularLayout?.themeDark === false &&
+              result?.compactDarkLayout?.viewport?.width === 960 &&
+              result?.compactDarkLayout?.viewport?.height === 640 &&
+              result?.compactDarkLayout?.themeDark === true &&
+              layouts.every(
+                (layout) =>
+                  layout?.cardVisible === true &&
+                  layout?.composerInsideViewport === true &&
+                  layout?.toolbarInsideViewport === true,
+              )
             );
           })
         : true,

@@ -28,6 +28,7 @@ import {
 } from "./diffPreviewInteractionEvents";
 import { dispatchDiffPreviewMouseGestureCommand } from "./mouseGestures";
 import type { DiffView } from "./types";
+import type { PreparedAgentChangeAction } from "./contextMenuTypes";
 import { useDiffPreviewGestureScroll } from "./useDiffPreviewGestureScroll";
 
 interface UseDiffPreviewInteractionsOptions {
@@ -45,6 +46,10 @@ interface UseDiffPreviewInteractionsOptions {
     variant?: CaptureAreaVariant,
   ) => void;
   onPrepareAgentSelection?: (range: Range) => (() => void) | undefined;
+  onPrepareAgentChange?: (
+    target: HTMLElement,
+    side: "left" | "right",
+  ) => PreparedAgentChangeAction | undefined;
   onAddAgentMedia?: (
     snapshot: DocumentMediaSnapshot,
     side: "left" | "right",
@@ -89,6 +94,7 @@ export function useDiffPreviewInteractions({
   onClose,
   onOpenDiagramPreview,
   onBeginCaptureArea,
+  onPrepareAgentChange,
   onPrepareAgentSelection,
   onAddAgentMedia,
   resolveAgentMediaDiagram,
@@ -128,6 +134,7 @@ export function useDiffPreviewInteractions({
         openExternalUrl,
         onOpenDiagramPreview,
         onBeginCaptureArea,
+        onPrepareAgentChange,
         onPrepareAgentSelection,
         onAddAgentMedia,
         resolveAgentMediaDiagram,
@@ -138,6 +145,7 @@ export function useDiffPreviewInteractions({
       copyText,
       onOpenDiagramPreview,
       onBeginCaptureArea,
+      onPrepareAgentChange,
       onPrepareAgentSelection,
       onAddAgentMedia,
       resolveAgentMediaDiagram,

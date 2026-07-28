@@ -5,10 +5,15 @@ import type {
   HostAdapter,
 } from "../../core/types";
 import { AgentPanelHost } from "../agent/AgentPanelHost";
+import type {
+  AgentPanelPlacement,
+  MainAgentPanelPlacement,
+} from "../agent/agentPanelTypes";
 
 export function AppAgentPanel({
   activeDocument,
   confirmExternalLink,
+  focusRequest,
   host,
   onClose,
   onOpenDocument,
@@ -16,7 +21,10 @@ export function AppAgentPanel({
   onReviewChanges,
   onRemoveQuotedContext,
   onReturnToQuotedContext,
+  onMainPlacementChange,
   open,
+  placement,
+  portalTarget,
   preferencesOpen,
   providerConfig,
   quotedContexts,
@@ -24,6 +32,7 @@ export function AppAgentPanel({
 }: {
   activeDocument: DocumentPayload | null;
   confirmExternalLink: (url: string) => Promise<boolean>;
+  focusRequest?: number;
   host: HostAdapter;
   onClose: () => void;
   onOpenDocument: (path: string) => void | Promise<void>;
@@ -31,7 +40,10 @@ export function AppAgentPanel({
   onReviewChanges: () => void | Promise<void>;
   onRemoveQuotedContext: (snapshotId: string) => void;
   onReturnToQuotedContext: (snapshot: AgentQuotedContext) => void;
+  onMainPlacementChange: (placement: MainAgentPanelPlacement) => void;
   open: boolean;
+  placement?: AgentPanelPlacement;
+  portalTarget?: HTMLElement | null;
   preferencesOpen: boolean;
   providerConfig: AppConfig["agentProviders"];
   quotedContexts: AgentQuotedContext[];
@@ -41,6 +53,7 @@ export function AppAgentPanel({
     <AgentPanelHost
       activeDocument={activeDocument}
       confirmExternalLink={confirmExternalLink}
+      focusRequest={focusRequest}
       host={host}
       open={open}
       onClose={onClose}
@@ -51,6 +64,9 @@ export function AppAgentPanel({
       onQuotedContextsAccepted={onQuotedContextsAccepted}
       onReviewChanges={onReviewChanges}
       onReturnToQuotedContext={onReturnToQuotedContext}
+      onMainPlacementChange={onMainPlacementChange}
+      placement={placement}
+      portalTarget={portalTarget}
       terminateSession={preferencesOpen}
       workspaceRoot={workspaceRoot}
     />

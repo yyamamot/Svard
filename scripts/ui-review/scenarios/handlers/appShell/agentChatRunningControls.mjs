@@ -53,6 +53,31 @@ export function shouldRestoreAgentViewport(scenario) {
     "viewer-agent-chat-running-input-control",
     "viewer-agent-chat-change-review",
     "viewer-agent-chat-media-context",
+    "viewer-agent-chat-workspace-isolation",
+    "viewer-agent-chat-main-bottom-dock",
+    "viewer-agent-chat-composer-access",
+  ].includes(scenario);
+}
+
+export function usesResponsiveAgentViewport(scenario) {
+  return [
+    "viewer-agent-chat-image-input",
+    "viewer-agent-chat-openui-exploration",
+    "viewer-agent-chat-activity",
+    "viewer-agent-chat-output-hygiene",
+    "viewer-agent-chat-markdown-answer",
+    "viewer-agent-chat-conversation-usability",
+    "viewer-agent-chat-running-input-control",
+    "viewer-agent-chat-change-review",
+    "viewer-agent-chat-selection",
+    "viewer-agent-chat-selection-image",
+    "viewer-agent-chat-media-context",
+    "viewer-agent-chat-active-file",
+    "viewer-agent-chat-session-management",
+    "viewer-agent-chat-workspace-isolation",
+    "viewer-agent-chat-main-bottom-dock",
+    "viewer-agent-chat-dark-theme",
+    "viewer-agent-chat-composer-access",
   ].includes(scenario);
 }
 
@@ -74,6 +99,9 @@ export function isAgentChatScenario(scenario) {
     "viewer-agent-chat-media-context",
     "viewer-agent-chat-active-file",
     "viewer-agent-chat-session-management",
+    "viewer-agent-chat-workspace-isolation",
+    "viewer-agent-chat-main-bottom-dock",
     "viewer-agent-chat-dark-theme",
+    "viewer-agent-chat-composer-access",
   ].includes(scenario);
 }

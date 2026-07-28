@@ -23,8 +23,6 @@ export function createAppTopbarProps({
   preferencesOpen,
   setCodexPanelOpen,
   setTabMoreOpen,
-  showSplitViewNotice,
-  splitEnabled,
 }: {
   activateDocumentTab: (path: string) => void;
   base: TopbarBaseProps;
@@ -36,8 +34,6 @@ export function createAppTopbarProps({
   preferencesOpen: boolean;
   setCodexPanelOpen: Dispatch<SetStateAction<boolean>>;
   setTabMoreOpen: Dispatch<SetStateAction<boolean>>;
-  showSplitViewNotice: () => void;
-  splitEnabled: boolean;
 }): TopbarProps {
   return {
     ...base,
@@ -47,8 +43,6 @@ export function createAppTopbarProps({
     onOpenCodexSpike: () => {
       if (codexPanelOpen) {
         setCodexPanelOpen(false);
-      } else if (splitEnabled) {
-        showSplitViewNotice();
       } else {
         setCodexPanelOpen(true);
       }

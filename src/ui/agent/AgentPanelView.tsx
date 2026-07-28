@@ -1,9 +1,8 @@
 import {
-  Eye,
-  EyeOff,
   History,
+  PanelBottom,
+  PanelRight,
   RotateCcw,
-  Settings2,
   ShieldAlert,
   Sparkles,
   X,
@@ -25,11 +24,17 @@ export function AgentPanelView({
   hostProps: AgentPanelHostProps;
   session: AgentSessionController;
 }) {
-  const { host, onClose, onReviewChanges, workspaceRoot } = hostProps;
+  const {
+    host,
+    onClose,
+    onMainPlacementChange,
+    onReviewChanges,
+    placement = "mainRight",
+    workspaceRoot,
+  } = hostProps;
   const { probe, ready } = composer;
   const {
     activeTurnId,
-    chatVisible,
     cancelFullAccessStart,
     closeSessionRuntime,
     confirmFullAccessStart,
@@ -54,18 +59,12 @@ export function AgentPanelView({
     sessionPage,
     sessionStarting,
     sessionSettings,
-    selectNetworkAccess,
-    selectPermissionMode,
-    selectWebSearch,
-    setChatVisible,
     setHistoryArchived,
     setHistoryOpen,
     setPendingFullAccessResume,
     setResponseMode,
     setSessionArchived,
     setSettingsOpen,
-    settingsOpen,
-    webSearch,
   } = session;
   return (
     <aside className="codex-panel agent-panel" data-review-id="agent-panel">
@@ -107,14 +106,6 @@ export function AgentPanelView({
           </button>
           <button
             type="button"
-            className={`icon-button ${settingsOpen ? "active" : ""}`}
-            aria-label="Agent settings"
-            onClick={() => setSettingsOpen((value) => !value)}
-          >
-            <Settings2 size={15} />
-          </button>
-          <button
-            type="button"
             className={`icon-button ${historyOpen ? "active" : ""}`}
             aria-label="Open chat history"
             disabled={!workspaceRoot}
@@ -122,30 +113,57 @@ export function AgentPanelView({
           >
             <History size={15} />
           </button>
+          {placement !== "diffDock" ? (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={
+                placement === "mainBottom"
+                  ? "Move AI Chat to right"
+                  : "Move AI Chat to bottom"
+              }
+              title={
+                placement === "mainBottom"
+                  ? "Move AI Chat to right"
+                  : "Move AI Chat to bottom"
+              }
+              onClick={() =>
+                onMainPlacementChange?.(
+                  placement === "mainBottom" ? "right" : "bottom",
+                )
+              }
+            >
+              {placement === "mainBottom" ? (
+                <PanelRight size={15} />
+              ) : (
+                <PanelBottom size={15} />
+              )}
+            </button>
+          ) : null}
           <button
             type="button"
             className="icon-button"
             aria-label="Start new chat"
             disabled={sessionStarting}
-            onClick={() => void restartSessionFromProviderDefaults()}
+            onClick={() => {
+              setSettingsOpen(false);
+              void restartSessionFromProviderDefaults();
+            }}
           >
             <RotateCcw size={15} />
           </button>
           <button
             type="button"
             className="icon-button"
-            aria-label={chatVisible ? "Hide Chat" : "Show Chat"}
-            onClick={() => setChatVisible((value) => !value)}
-          >
-            {chatVisible ? <EyeOff size={15} /> : <Eye size={15} />}
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close AI Chat"
+            aria-label={
+              placement === "diffDock" ? "Hide AI Chat" : "Close AI Chat"
+            }
             onClick={() => {
               void (async () => {
-                await closeSessionRuntime();
+                setSettingsOpen(false);
+                if (placement !== "diffDock") {
+                  await closeSessionRuntime();
+                }
                 onClose();
               })();
             }}
@@ -176,61 +194,6 @@ export function AgentPanelView({
           sessions={sessionPage?.sessions ?? []}
           showArchived={historyArchived}
         />
-      ) : null}
-
-      {settingsOpen ? (
-        <section
-          className="codex-execution-settings"
-          aria-label="Agent settings"
-        >
-          <div className="codex-execution-settings-heading">
-            <strong>Agent access</strong>
-            <span>New chat</span>
-          </div>
-          <fieldset>
-            <legend>Permission mode</legend>
-            {(["observe", "agent", "fullAccess"] as const).map((mode) => (
-              <label key={mode}>
-                <input
-                  type="radio"
-                  checked={permissionMode === mode}
-                  disabled={sessionStarting}
-                  onChange={() => void selectPermissionMode(mode)}
-                />
-                <span>{permissionLabel(mode)}</span>
-              </label>
-            ))}
-          </fieldset>
-          {probe?.capabilities.networkAccess ? (
-            <label className="codex-execution-toggle">
-              <input
-                type="checkbox"
-                checked={networkAccess}
-                disabled={sessionStarting}
-                onChange={(event) => {
-                  void selectNetworkAccess(event.target.checked);
-                }}
-              />
-              <span>Network access</span>
-              <small>Allow commands to connect to the network.</small>
-            </label>
-          ) : null}
-          {probe?.capabilities.webSearch ? (
-            <label className="codex-execution-toggle">
-              <input
-                type="checkbox"
-                checked={webSearch}
-                disabled={sessionStarting}
-                onChange={(event) => {
-                  void selectWebSearch(event.target.checked);
-                }}
-              />
-              <span>Web search</span>
-              <small>Allow the provider to search the web.</small>
-            </label>
-          ) : null}
-          <p>The agent works from the folder currently open in Svard.</p>
-        </section>
       ) : null}
 
       {confirmFullAccess ? (

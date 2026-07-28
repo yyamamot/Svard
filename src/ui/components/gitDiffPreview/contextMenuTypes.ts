@@ -13,6 +13,12 @@ import type { ContextMenuItem, DiagramPreviewState } from "../../types";
 export type DiffSide = "left" | "right";
 export type DiffSurface = "rendered" | "source" | "table";
 
+export interface PreparedAgentChangeAction {
+  enabled: boolean;
+  onSelect: () => void | Promise<void>;
+  title?: string;
+}
+
 export interface DiffPreviewContextMenuOptions {
   allowLocationReference?: boolean;
   preview: DocumentDiffPreview;
@@ -40,6 +46,10 @@ export interface DiffPreviewContextMenuOptions {
     revealTarget: SelectionRevealTarget,
   ) => void;
   onPrepareAgentSelection?: (range: Range) => (() => void) | undefined;
+  onPrepareAgentChange?: (
+    target: HTMLElement,
+    side: DiffSide,
+  ) => PreparedAgentChangeAction | undefined;
   onAddAgentMedia?: (snapshot: DocumentMediaSnapshot, side: DiffSide) => void;
   resolveAgentMediaDiagram?: (
     target: HTMLElement,

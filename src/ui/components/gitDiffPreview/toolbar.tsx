@@ -1,4 +1,10 @@
-import { Maximize2, Minimize2, RefreshCw, X } from "lucide-react";
+import {
+  Maximize2,
+  MessageSquareText,
+  Minimize2,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import type { AppConfig, DocumentDiffPreview } from "../../../core/types";
 import type { DiffPreviewWatchState } from "../../lib/diffPreviewWatch";
 import {
@@ -38,6 +44,8 @@ export function DiffToolbar({
   watchState,
   renderedSummaryLoading,
   renderedBlockCount,
+  agentChatAvailable = false,
+  agentChatOpen = false,
   sourceOnly = false,
   onMoveChange,
   onRefreshPreview,
@@ -45,6 +53,7 @@ export function DiffToolbar({
   onToggleExpanded,
   onSyncScrollChange,
   onClose,
+  onToggleAgentChat = () => undefined,
 }: {
   config: AppConfig | null;
   preview: DocumentDiffPreview;
@@ -58,6 +67,8 @@ export function DiffToolbar({
   watchState?: DiffPreviewWatchState;
   renderedSummaryLoading: boolean;
   renderedBlockCount: number;
+  agentChatAvailable?: boolean;
+  agentChatOpen?: boolean;
   sourceOnly?: boolean;
   onMoveChange: (offset: number) => void;
   onRefreshPreview?: () => void;
@@ -65,6 +76,7 @@ export function DiffToolbar({
   onToggleExpanded: () => void;
   onSyncScrollChange: (enabled: boolean) => void;
   onClose: () => void;
+  onToggleAgentChat?: () => void;
 }) {
   const watchLabel = diffPreviewWatchLabel(watchState);
   const watchMessage = diffPreviewWatchMessage(watchState);
@@ -203,6 +215,24 @@ export function DiffToolbar({
         </button>
       </div>
       <div className="git-diff-window-controls">
+        <button
+          type="button"
+          className={`git-diff-agent-toggle ${agentChatOpen ? "active" : ""}`}
+          data-review-id="git-diff-agent-toggle"
+          aria-pressed={agentChatOpen}
+          disabled={!agentChatAvailable}
+          title={
+            agentChatAvailable
+              ? agentChatOpen
+                ? "Hide AI Chat"
+                : "Show AI Chat"
+              : "Open a workspace to use AI Chat"
+          }
+          onClick={onToggleAgentChat}
+        >
+          <MessageSquareText size={14} />
+          Ask AI
+        </button>
         <ShortcutGestureHints
           config={config}
           context="diffPreview"
