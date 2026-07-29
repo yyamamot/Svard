@@ -45,6 +45,8 @@ pub(super) fn spawn_session_with_executable(
     executable: CodexExecutable,
     image_input: bool,
     turn_steering: bool,
+    context_usage: bool,
+    manual_compaction: bool,
     launch: AgentSessionLaunch,
 ) -> Result<Arc<AgentSession>, String> {
     let automatic_title = match &launch {
@@ -54,6 +56,9 @@ pub(super) fn spawn_session_with_executable(
     let workspace_root = canonical_workspace(&input.workspace_root)?;
     let scratch_directory = create_scratch_directory()?;
     let mut command = executable.command();
+    if input.context_profile == AgentContextProfile::Focused {
+        apply_focused_process_overrides(&mut command);
+    }
     command
         .args(["app-server", "--stdio"])
         .current_dir(&workspace_root)
@@ -122,10 +127,13 @@ pub(super) fn spawn_session_with_executable(
         item_phases: Mutex::new(HashMap::new()),
         thread_id: Mutex::new(None),
         active_turn: Mutex::new(None),
+        manual_compaction: Mutex::new(None),
         staged_images: Mutex::new(HashMap::new()),
         image_counter: AtomicU64::new(0),
         image_input: AtomicBool::new(image_input),
         turn_steering: AtomicBool::new(turn_steering),
+        context_usage: AtomicBool::new(context_usage),
+        manual_compaction_supported: AtomicBool::new(manual_compaction),
         automatic_title: Mutex::new(automatic_title),
         title_update_lock: Mutex::new(()),
         closed: AtomicBool::new(false),
@@ -150,6 +158,24 @@ pub(super) fn spawn_session_with_executable(
             REQUEST_TIMEOUT,
         )?;
         session.notify("initialized")?;
+        let config = if input.context_profile == AgentContextProfile::Focused {
+            let skills = session
+                .request(
+                    "skills/list",
+                    json!({
+                        "cwds": [workspace_root.to_string_lossy()],
+                        "forceReload": true,
+                    }),
+                    REQUEST_TIMEOUT,
+                )
+                .map_err(|_| "Focused context is unavailable.".to_string())?;
+            let skill_names = focused_skill_names(&skills)?;
+            focused_thread_config(&skill_names, input.web_search)
+        } else {
+            json!({
+                "web_search": if input.web_search { "live" } else { "disabled" },
+            })
+        };
         let common = json!({
             "cwd": workspace_root.to_string_lossy(),
             "runtimeWorkspaceRoots": [workspace_root.to_string_lossy()],
@@ -161,9 +187,7 @@ pub(super) fn spawn_session_with_executable(
                 AgentPermissionMode::Agent => "workspace-write",
                 AgentPermissionMode::FullAccess => "danger-full-access",
             },
-            "config": {
-                "web_search": if input.web_search { "live" } else { "disabled" },
-            },
+            "config": config,
         });
         let thread_result = match launch {
             AgentSessionLaunch::Start => {
@@ -212,6 +236,14 @@ pub(super) fn validate_session_runtime(
     if runtime.probe.state != "ready" {
         return Err(
             "Codex is not ready. Refresh Codex in AI Providers after resolving the issue."
+                .to_string(),
+        );
+    }
+    if input.context_profile == AgentContextProfile::Focused
+        && !runtime.probe.capabilities.focused_context
+    {
+        return Err(
+            "Focused context is unavailable for this Codex installation. Refresh Codex or use Provider extensions."
                 .to_string(),
         );
     }
@@ -307,6 +339,11 @@ pub(super) fn session_snapshot(input: &AgentSessionStartInput) -> AgentSessionSn
         permission_mode: permission_mode_id(input.permission_mode).to_string(),
         network_access: input.network_access,
         web_search: input.web_search,
+        context_profile: match input.context_profile {
+            AgentContextProfile::Focused => "focused",
+            AgentContextProfile::ProviderDefaults => "providerDefaults",
+        }
+        .to_string(),
         model: input.model.clone(),
         reasoning_effort: input.reasoning_effort.clone(),
         personality: input.personality.clone(),
@@ -363,6 +400,9 @@ pub fn start_agent_session(
     )?;
     let image_input = validate_session_runtime(&input, &runtime.snapshot)?;
     let turn_steering = runtime.snapshot.probe.capabilities.turn_steering;
+    let context_usage = runtime.snapshot.probe.capabilities.context_usage;
+    let manual_compaction = runtime.snapshot.probe.capabilities.manual_compaction;
+    let focused_context = runtime.snapshot.probe.capabilities.focused_context;
     let executable = runtime.executable.ok_or_else(|| {
         "Codex is unavailable. Refresh Codex or choose another executable in AI Providers."
             .to_string()
@@ -373,6 +413,8 @@ pub fn start_agent_session(
         executable,
         image_input,
         turn_steering,
+        context_usage,
+        manual_compaction,
         AgentSessionLaunch::Start,
     ) {
         Ok(session) => session,
@@ -386,6 +428,9 @@ pub fn start_agent_session(
     let capabilities = AgentCapabilities::with_protocol_features(
         session.image_input.load(Ordering::SeqCst),
         session.turn_steering.load(Ordering::SeqCst),
+        session.context_usage.load(Ordering::SeqCst),
+        session.manual_compaction_supported.load(Ordering::SeqCst),
+        focused_context,
     );
     let provider_thread_id = session
         .thread_id
@@ -441,6 +486,7 @@ pub fn start_agent_session(
         client_session_id: input.client_session_id,
         provider_id: "codex-app-server",
         capabilities,
+        context_profile: input.context_profile,
     })
 }
 
@@ -451,6 +497,11 @@ pub(super) fn settings_from_record(
         permission_mode: permission_mode_from_id(&record.snapshot.permission_mode)?,
         network_access: record.snapshot.network_access,
         web_search: record.snapshot.web_search,
+        context_profile: match record.snapshot.context_profile.as_str() {
+            "focused" => AgentContextProfile::Focused,
+            "providerDefaults" => AgentContextProfile::ProviderDefaults,
+            _ => return Err("The saved agent context profile is invalid.".to_string()),
+        },
         model: record.snapshot.model.clone(),
         reasoning_effort: record.snapshot.reasoning_effort.clone(),
         personality: record.snapshot.personality.clone(),
@@ -526,6 +577,17 @@ pub(super) fn resume_start_input(
     record: &AgentSessionRecord,
 ) -> Result<AgentSessionStartInput, String> {
     let permission_mode = permission_mode_from_id(&record.snapshot.permission_mode)?;
+    let context_profile = match record.snapshot.context_profile.as_str() {
+        "focused" => AgentContextProfile::Focused,
+        "providerDefaults" => AgentContextProfile::ProviderDefaults,
+        _ => return Err("The saved agent context profile is invalid.".to_string()),
+    };
+    if input
+        .context_profile
+        .is_some_and(|requested| requested != context_profile)
+    {
+        return Err("The saved agent context profile does not match this chat.".to_string());
+    }
     if permission_mode == AgentPermissionMode::FullAccess && !input.full_access_confirmed {
         return Err("Full Access must be confirmed before resuming this chat.".to_string());
     }
@@ -537,6 +599,7 @@ pub(super) fn resume_start_input(
         permission_mode,
         network_access: record.snapshot.network_access,
         web_search: record.snapshot.web_search,
+        context_profile,
         model: record.snapshot.model.clone(),
         reasoning_effort: record.snapshot.reasoning_effort.clone(),
         personality: record.snapshot.personality.clone(),
@@ -594,6 +657,9 @@ pub fn resume_agent_session(
     )?;
     let image_input = validate_session_runtime(&start_input, &runtime.snapshot)?;
     let turn_steering = runtime.snapshot.probe.capabilities.turn_steering;
+    let context_usage = runtime.snapshot.probe.capabilities.context_usage;
+    let manual_compaction = runtime.snapshot.probe.capabilities.manual_compaction;
+    let focused_context = runtime.snapshot.probe.capabilities.focused_context;
     let executable = runtime.executable.ok_or_else(|| {
         "Codex is unavailable. Refresh Codex or choose another executable in AI Providers."
             .to_string()
@@ -604,6 +670,8 @@ pub fn resume_agent_session(
         executable,
         image_input,
         turn_steering,
+        context_usage,
+        manual_compaction,
         AgentSessionLaunch::Resume {
             provider_thread_id: record.provider_thread_id.clone(),
         },
@@ -625,6 +693,9 @@ pub fn resume_agent_session(
     let capabilities = AgentCapabilities::with_protocol_features(
         session.image_input.load(Ordering::SeqCst),
         session.turn_steering.load(Ordering::SeqCst),
+        session.context_usage.load(Ordering::SeqCst),
+        session.manual_compaction_supported.load(Ordering::SeqCst),
+        focused_context,
     );
     session.emit(AgentEvent::SessionReady {
         client_session_id: input.client_session_id.clone(),
@@ -653,6 +724,7 @@ pub fn resume_agent_session(
         client_session_id: input.client_session_id,
         provider_id: "codex-app-server",
         capabilities,
+        context_profile: start_input.context_profile,
     })
 }
 

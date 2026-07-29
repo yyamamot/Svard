@@ -15,9 +15,17 @@ import type {
 import { initialAgentChatState, reduceAgentChat } from "./agentChatState";
 import { createAgentFullAccessActions } from "./agentFullAccessActions";
 import { applyAgentSessionTitleEvent } from "./agentSessionTitleEvents";
+import {
+  createAgentAccessSelectors,
+  createAgentContextProfileSelector,
+  createRestartSessionFromProviderDefaults,
+  effectiveContextProfile,
+  type AgentSessionAccessTransactionInput,
+} from "./agentSessionAccessActions";
 import { createAgentSessionHistoryLoaders } from "./agentSessionHistoryLoaders";
 import { createAgentSessionManagementActions } from "./agentSessionManagementActions";
 import { useAgentConversationScroll } from "./useAgentConversationScroll";
+import { useAgentContextPressure } from "./useAgentContextPressure";
 import {
   createAgentSessionStartInput,
   createAgentSessionSettingsSnapshot,
@@ -66,6 +74,9 @@ export function useAgentSessionController({
     codexDefaults.networkAccess,
   );
   const [webSearch, setWebSearch] = useState(codexDefaults.webSearch);
+  const [contextProfile, setContextProfile] = useState(
+    effectiveContextProfile(codexDefaults, runtime),
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmFullAccess, setConfirmFullAccess] = useState(false);
   const [responseMode, setResponseMode] = useState<AgentResponseMode>("auto");
@@ -121,6 +132,25 @@ export function useAgentSessionController({
   const composerDockRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const activeTurnId = state.activeTurnId;
+  const {
+    captureContextPressure,
+    compactContext: compactContextOperation,
+    contextCompactionStatus,
+    contextUsage,
+    handleContextEvent,
+    lastCompaction,
+    resetContextPressure,
+    restoreContextPressure,
+  } = useAgentContextPressure({
+    activeTurnId,
+    hasHistory: state.turns.length > 0,
+    host,
+    manualCompactionSupported:
+      runtime?.probe.capabilities.manualCompaction ?? false,
+    sessionIdRef,
+    sessionReadyRef,
+    setActionNotice,
+  });
   const selectionImageAttachmentsRef = useRef(
     new Map<string, AgentImageAttachment>(),
   );
@@ -150,6 +180,7 @@ export function useAgentSessionController({
       setPermissionMode(codexDefaults.permissionMode);
       setNetworkAccess(codexDefaults.networkAccess);
       setWebSearch(codexDefaults.webSearch);
+      setContextProfile(effectiveContextProfile(codexDefaults, runtime));
       setQuestion("");
       setActionNotice(workspaceRoot ? workspaceChangedAgentNotice : null);
       setHistoryOpen(false);
@@ -163,6 +194,7 @@ export function useAgentSessionController({
       setConfirmClosedFullAccessResume(false);
       setAddMenuOpen(false);
       setDropActive(false);
+      resetContextPressure();
       resetConversationFollow();
       dispatch({ type: "reset" });
       clearSessionLocalContext();
@@ -219,6 +251,7 @@ export function useAgentSessionController({
       );
       sessionSettingsRef.current = settings;
       setSessionSettings(settings);
+      setContextProfile(settings.contextProfile);
     }
   }, [
     codexDefaults.model,
@@ -226,6 +259,7 @@ export function useAgentSessionController({
     codexDefaults.permissionMode,
     codexDefaults.personality,
     codexDefaults.reasoningEffort,
+    codexDefaults.contextProfile,
     codexDefaults.webSearch,
     runtime,
     sessionReady,
@@ -270,9 +304,10 @@ export function useAgentSessionController({
           setSessionPage,
         );
       }
+      handleContextEvent(event);
       dispatch({ type: "event", event });
     },
-    [onQuotedContextsAccepted],
+    [handleContextEvent, onQuotedContextsAccepted],
   );
   useEffect(() => {
     if (!terminateSession) return;
@@ -315,7 +350,10 @@ export function useAgentSessionController({
       setConfirmFullAccess(true);
       return false;
     }
-    const settings = createAgentSessionSettingsSnapshot(codexDefaults, runtime);
+    const settings = {
+      ...createAgentSessionSettingsSnapshot(codexDefaults, runtime),
+      contextProfile,
+    };
     sessionSettingsRef.current = settings;
     setSessionSettings(settings);
     sessionStartingRef.current = true;
@@ -399,13 +437,9 @@ export function useAgentSessionController({
     nextMode,
     nextNetworkAccess = networkAccess,
     nextWebSearch = webSearch,
+    nextContextProfile = contextProfile,
     preserveComposerContext = false,
-  }: {
-    nextMode: AgentPermissionMode;
-    nextNetworkAccess?: boolean;
-    nextWebSearch?: boolean;
-    preserveComposerContext?: boolean;
-  }) {
+  }: AgentSessionAccessTransactionInput) {
     await workspaceIsolation.ensureWorkspaceBoundary();
     if (
       activeTurnId ||
@@ -420,7 +454,10 @@ export function useAgentSessionController({
     const previousSessionWorkspaceRoot =
       workspaceIsolation.sessionWorkspaceRootRef.current;
     const nextSessionId = crypto.randomUUID();
-    const settings = createAgentSessionSettingsSnapshot(codexDefaults, runtime);
+    const settings = {
+      ...createAgentSessionSettingsSnapshot(codexDefaults, runtime),
+      contextProfile: nextContextProfile,
+    };
     sessionStartingRef.current = true;
     sessionReadyRef.current = false;
     sessionIdRef.current = nextSessionId;
@@ -455,11 +492,13 @@ export function useAgentSessionController({
       setPermissionMode(nextMode);
       setNetworkAccess(nextNetworkAccess);
       setWebSearch(nextWebSearch);
+      setContextProfile(nextContextProfile);
       setSessionLifecycle("ready");
       resumeClosedSessionRef.current = false;
       setOlderHistoryCursor(null);
       resetConversationFollow();
       dispatch({ type: "reset" });
+      resetContextPressure();
       if (preserveComposerContext) {
         if (preserveContextForAccessChange(images.length)) {
           setActionNotice(
@@ -497,73 +536,51 @@ export function useAgentSessionController({
       }
     }
   }
-  async function selectPermissionMode(nextMode: AgentPermissionMode) {
-    if (!sessionReadyRef.current && !resumeClosedSessionRef.current) {
-      setPermissionMode(nextMode);
-      return;
-    }
-    if (nextMode === "fullAccess") {
-      pendingFullAccessTransactionRef.current = () =>
-        startSessionTransaction({ nextMode, preserveComposerContext: true });
-      setConfirmFullAccess(true);
-      return;
-    }
-    await startSessionTransaction({
-      nextMode,
-      preserveComposerContext: true,
+  const sessionOpen = () =>
+    sessionReadyRef.current || resumeClosedSessionRef.current;
+  const requestFullAccessConfirmation = (
+    transaction: () => Promise<boolean>,
+  ) => {
+    pendingFullAccessTransactionRef.current = transaction;
+    setConfirmFullAccess(true);
+  };
+  const { selectNetworkAccess, selectPermissionMode, selectWebSearch } =
+    createAgentAccessSelectors({
+      permissionMode,
+      requestFullAccessConfirmation,
+      sessionOpen,
+      setNetworkAccess,
+      setPermissionMode,
+      setWebSearch,
+      startSessionTransaction,
     });
-  }
-  async function selectNetworkAccess(nextNetworkAccess: boolean) {
-    if (!sessionReadyRef.current && !resumeClosedSessionRef.current) {
-      setNetworkAccess(nextNetworkAccess);
-      return;
-    }
-    await startSessionTransaction({
-      nextMode: permissionMode,
-      nextNetworkAccess,
-      preserveComposerContext: true,
+  const selectContextProfile = createAgentContextProfileSelector({
+    permissionMode,
+    runtime,
+    sessionOpen,
+    setContextProfile,
+    startSessionTransaction,
+  });
+  const defaultContextProfile = effectiveContextProfile(codexDefaults, runtime);
+  const restartSessionFromProviderDefaults =
+    createRestartSessionFromProviderDefaults({
+      codexDefaults,
+      contextProfile: defaultContextProfile,
+      sessionOpen,
+      clearIdleSession: () => {
+        setPermissionMode(codexDefaults.permissionMode);
+        setNetworkAccess(codexDefaults.networkAccess);
+        setWebSearch(codexDefaults.webSearch);
+        setContextProfile(defaultContextProfile);
+        setQuestion("");
+        resetConversationFollow();
+        dispatch({ type: "reset" });
+        resetContextPressure();
+        clearSessionLocalContext();
+      },
+      requestFullAccessConfirmation,
+      startSessionTransaction,
     });
-  }
-  async function selectWebSearch(nextWebSearch: boolean) {
-    if (!sessionReadyRef.current && !resumeClosedSessionRef.current) {
-      setWebSearch(nextWebSearch);
-      return;
-    }
-    await startSessionTransaction({
-      nextMode: permissionMode,
-      nextWebSearch,
-      preserveComposerContext: true,
-    });
-  }
-
-  async function restartSessionFromProviderDefaults() {
-    if (!sessionReadyRef.current && !resumeClosedSessionRef.current) {
-      setPermissionMode(codexDefaults.permissionMode);
-      setNetworkAccess(codexDefaults.networkAccess);
-      setWebSearch(codexDefaults.webSearch);
-      setQuestion("");
-      resetConversationFollow();
-      dispatch({ type: "reset" });
-      clearSessionLocalContext();
-      return;
-    }
-    if (codexDefaults.permissionMode === "fullAccess") {
-      pendingFullAccessTransactionRef.current = () =>
-        startSessionTransaction({
-          nextMode: "fullAccess",
-          nextNetworkAccess: codexDefaults.networkAccess,
-          nextWebSearch: codexDefaults.webSearch,
-        });
-      setConfirmFullAccess(true);
-      return;
-    }
-    await startSessionTransaction({
-      nextMode: codexDefaults.permissionMode,
-      nextNetworkAccess: codexDefaults.networkAccess,
-      nextWebSearch: codexDefaults.webSearch,
-    });
-  }
-
   const { loadOlderSessionHistory, loadSessionPage, openSessionHistory } =
     createAgentSessionHistoryLoaders({
       dispatch,
@@ -616,6 +633,8 @@ export function useAgentSessionController({
           executablePreference:
             sessionSettingsRef.current?.executablePreference ??
             codexDefaults.executable,
+          contextProfile:
+            sessionSettingsRef.current?.contextProfile ?? contextProfile,
           fullAccessConfirmed,
         },
         workspaceIsolation.guardEvents(operation, handleEvent),
@@ -696,10 +715,12 @@ export function useAgentSessionController({
     const previousSessionReady = sessionReadyRef.current;
     const previousSessionWorkspaceRoot =
       workspaceIsolation.sessionWorkspaceRootRef.current;
+    const previousContextPressure = captureContextPressure();
     const nextSessionId = summary.clientSessionId;
     sessionStartingRef.current = true;
     sessionReadyRef.current = false;
     sessionIdRef.current = nextSessionId;
+    resetContextPressure();
     setSessionLifecycle("starting");
     setSessionListError(null);
     const operation = workspaceIsolation.createOperationToken(
@@ -712,6 +733,7 @@ export function useAgentSessionController({
           clientSessionId: nextSessionId,
           workspaceRoot,
           executablePreference: codexDefaults.executable,
+          contextProfile: summary.settings.contextProfile,
           fullAccessConfirmed,
         },
         workspaceIsolation.guardEvents(operation, handleEvent),
@@ -733,6 +755,7 @@ export function useAgentSessionController({
         modelDisplayName: summary.settings.model ?? "Codex default",
         reasoningEffort: summary.settings.reasoningEffort,
         personality: summary.settings.personality,
+        contextProfile: summary.settings.contextProfile,
       };
       sessionReadyRef.current = true;
       sessionSettingsRef.current = settings;
@@ -740,6 +763,7 @@ export function useAgentSessionController({
       setPermissionMode(summary.settings.permissionMode);
       setNetworkAccess(summary.settings.networkAccess);
       setWebSearch(summary.settings.webSearch);
+      setContextProfile(summary.settings.contextProfile);
       setOlderHistoryCursor(history.nextCursor);
       setSessionLifecycle("ready");
       resumeClosedSessionRef.current = false;
@@ -763,6 +787,7 @@ export function useAgentSessionController({
       workspaceIsolation.sessionWorkspaceRootRef.current =
         previousSessionWorkspaceRoot;
       setSessionLifecycle(previousSessionReady ? "ready" : "idle");
+      restoreContextPressure(previousContextPressure);
       setSessionListError(
         error instanceof Error
           ? error.message
@@ -804,73 +829,46 @@ export function useAgentSessionController({
     clearSessionLocalContext();
   }
 
+  async function compactContext() {
+    setSettingsOpen(false);
+    setAddMenuOpen(false);
+    await compactContextOperation();
+  }
+
   return {
-    runtime,
-    probeError,
-    sessionReady,
-    sessionStarting,
-    sessionSettings,
-    codexDefaults,
-    permissionMode,
-    setPermissionMode,
-    networkAccess,
-    setNetworkAccess,
-    webSearch,
-    setWebSearch,
-    settingsOpen,
-    setSettingsOpen,
-    confirmFullAccess,
-    setConfirmFullAccess,
-    responseMode,
-    setResponseMode,
-    question,
-    setQuestion,
-    focusFiles,
-    setFocusFiles,
-    attachments,
-    setAttachments,
-    images,
-    setImages,
-    restoredQuotedContexts,
-    setRestoredQuotedContexts,
-    imageErrors,
-    setImageErrors,
-    mediaModes,
-    setMediaModes,
-    actionNotice,
-    setActionNotice,
-    historyOpen,
-    setHistoryOpen,
-    historyArchived,
-    setHistoryArchived,
-    sessionPage,
-    sessionListLoading,
-    sessionListError,
-    olderHistoryCursor,
-    olderHistoryLoading,
-    pendingFullAccessResume,
-    setPendingFullAccessResume,
-    confirmClosedFullAccessResume,
-    setConfirmClosedFullAccessResume,
-    addMenuOpen,
-    setAddMenuOpen,
-    dropActive,
-    setDropActive,
-    state,
-    dispatch,
-    sessionIdRef,
-    sessionReadyRef,
-    resumeClosedSessionRef,
-    scrollRef,
-    newActivityAvailable,
-    followLatestConversation,
-    handleConversationScroll,
-    composerDockRef,
-    composerInputRef,
-    activeTurnId,
-    selectionImageAttachmentsRef,
-    submittedSelectionIdsRef,
-    acceptedTurnIdsRef,
+    ...{ runtime, probeError, sessionReady, sessionStarting, sessionSettings },
+    ...{ codexDefaults, permissionMode, setPermissionMode },
+    ...{
+      networkAccess,
+      setNetworkAccess,
+      webSearch,
+      setWebSearch,
+      contextProfile,
+      setContextProfile,
+    },
+    ...{
+      settingsOpen,
+      setSettingsOpen,
+      confirmFullAccess,
+      setConfirmFullAccess,
+    },
+    ...{ responseMode, setResponseMode, question, setQuestion },
+    ...{ focusFiles, setFocusFiles, attachments, setAttachments },
+    ...{ images, setImages, restoredQuotedContexts, setRestoredQuotedContexts },
+    ...{ imageErrors, setImageErrors, mediaModes, setMediaModes },
+    ...{ actionNotice, setActionNotice, historyOpen, setHistoryOpen },
+    ...{ historyArchived, setHistoryArchived, sessionPage },
+    ...{ sessionListLoading, sessionListError, olderHistoryCursor },
+    ...{ olderHistoryLoading, pendingFullAccessResume },
+    ...{ setPendingFullAccessResume, confirmClosedFullAccessResume },
+    ...{ setConfirmClosedFullAccessResume, addMenuOpen, setAddMenuOpen },
+    ...{ dropActive, setDropActive, contextUsage, contextCompactionStatus },
+    ...{ lastCompaction, state, dispatch, sessionIdRef, sessionReadyRef },
+    ...{ resumeClosedSessionRef, scrollRef, newActivityAvailable },
+    ...{ followLatestConversation, handleConversationScroll },
+    ...{ composerDockRef, composerInputRef, activeTurnId },
+    ...{ selectionImageAttachmentsRef, submittedSelectionIdsRef },
+    ...{ acceptedTurnIdsRef },
     workspaceGeneration: workspaceIsolation.generation,
     isSessionWorkspaceCurrent: workspaceIsolation.isSessionCurrent,
     closeSessionRuntime,
@@ -881,6 +879,7 @@ export function useAgentSessionController({
     selectPermissionMode,
     selectNetworkAccess,
     selectWebSearch,
+    selectContextProfile,
     restartSessionFromProviderDefaults,
     loadSessionPage,
     openSessionHistory,
@@ -890,6 +889,7 @@ export function useAgentSessionController({
     renameSession,
     setSessionArchived,
     deleteSession,
+    compactContext,
   };
 }
 

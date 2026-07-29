@@ -1,5 +1,6 @@
 import type {
   AgentActiveFile,
+  AgentContextProfile,
   AgentExecutablePreference,
   AgentPermissionMode,
   AgentProbe,
@@ -32,6 +33,7 @@ export interface AgentRuntimeSettingsSnapshot {
   modelDisplayName: string;
   reasoningEffort: string | null;
   personality: "friendly" | "pragmatic" | "none" | null;
+  contextProfile: AgentContextProfile;
 }
 
 export function activeFileForTurn(
@@ -55,6 +57,10 @@ export function createAgentSessionSettingsSnapshot(
     reasoningEffort:
       codex.reasoningEffort === "default" ? null : codex.reasoningEffort,
     personality: codex.personality === "default" ? null : codex.personality,
+    contextProfile:
+      runtime?.probe.capabilities.focusedContext === true
+        ? codex.contextProfile
+        : "providerDefaults",
   };
 }
 
@@ -81,6 +87,7 @@ export function createAgentSessionStartInput({
     permissionMode,
     networkAccess,
     webSearch,
+    contextProfile: settings.contextProfile,
     model: settings.model,
     reasoningEffort: settings.reasoningEffort,
     personality: settings.personality,

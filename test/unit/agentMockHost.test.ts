@@ -72,6 +72,58 @@ describe("MockHostAdapter agent provider", () => {
     });
   });
 
+  it("fails closed when focused context is unsupported or cannot be applied", async () => {
+    const globals = globalThis as typeof globalThis & {
+      __SVARD_AGENT_FOCUSED_CONTEXT__?: boolean;
+      __SVARD_AGENT_FOCUSED_CONTEXT_START_FAILURE__?: boolean;
+    };
+    globals.__SVARD_AGENT_FOCUSED_CONTEXT__ = false;
+    try {
+      const unsupportedHost = new MockHostAdapter();
+      const runtime =
+        await unsupportedHost.getAgentProviderRuntime("codex-app-server");
+      expect(runtime.probe.capabilities.focusedContext).toBe(false);
+      await expect(
+        unsupportedHost.startAgentSession(
+          {
+            providerId: "codex-app-server",
+            executablePreference: { mode: "auto", path: null },
+            clientSessionId: "unsupported-focused",
+            workspaceRoot: "/workspace",
+            permissionMode: "observe",
+            networkAccess: false,
+            webSearch: false,
+            contextProfile: "focused",
+          },
+          () => undefined,
+        ),
+      ).rejects.toThrow("unavailable");
+    } finally {
+      delete globals.__SVARD_AGENT_FOCUSED_CONTEXT__;
+    }
+
+    globals.__SVARD_AGENT_FOCUSED_CONTEXT_START_FAILURE__ = true;
+    try {
+      await expect(
+        new MockHostAdapter().startAgentSession(
+          {
+            providerId: "codex-app-server",
+            executablePreference: { mode: "auto", path: null },
+            clientSessionId: "failed-focused",
+            workspaceRoot: "/workspace",
+            permissionMode: "observe",
+            networkAccess: false,
+            webSearch: false,
+            contextProfile: "focused",
+          },
+          () => undefined,
+        ),
+      ).rejects.toThrow("could not be applied");
+    } finally {
+      delete globals.__SVARD_AGENT_FOCUSED_CONTEXT_START_FAILURE__;
+    }
+  });
+
   it("rejects unavailable model settings and disables images for text-only models", async () => {
     const host = new MockHostAdapter();
     await expect(
@@ -163,6 +215,67 @@ describe("MockHostAdapter agent provider", () => {
         __SVARD_AGENT_LAST_TURN_INPUT__?: unknown;
       }
     ).__SVARD_AGENT_LAST_TURN_INPUT__;
+  });
+
+  it("fixtures context usage and automatic and manual compaction lifecycles", async () => {
+    const host = new MockHostAdapter();
+    const events: AgentEvent[] = [];
+    await host.startAgentSession(
+      {
+        providerId: "codex-app-server",
+        executablePreference: { mode: "auto", path: null },
+        clientSessionId: "context-session",
+        workspaceRoot: "/workspace",
+        permissionMode: "observe",
+        networkAccess: false,
+        webSearch: false,
+      },
+      (event) => events.push(event),
+    );
+    await host.sendAgentTurn({
+      clientSessionId: "context-session",
+      clientTurnId: "context-turn",
+      question: "Trigger automatic compaction.",
+      responseMode: "auto",
+      focusFiles: [],
+      imageAttachmentIds: [],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "contextCompactionStarted",
+          source: "automatic",
+        }),
+        expect.objectContaining({
+          type: "contextCompactionCompleted",
+          source: "automatic",
+        }),
+        expect.objectContaining({
+          type: "contextUsageUpdated",
+          usage: {
+            usedTokens: 50_000,
+            contextWindowTokens: 250_000,
+            remainingPercent: 80,
+          },
+        }),
+      ]),
+    );
+
+    const outcome = await host.compactAgentSession("context-session");
+    expect(outcome).toEqual({ status: "completed" });
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "contextCompactionStarted",
+          source: "manual",
+        }),
+        expect.objectContaining({
+          type: "contextCompactionCompleted",
+          source: "manual",
+        }),
+      ]),
+    );
   });
 
   it("updates a new chat from fallback to a generated title once", async () => {

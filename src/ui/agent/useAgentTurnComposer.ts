@@ -74,6 +74,7 @@ export function useAgentTurnComposer(
     acceptedTurnIdsRef,
     attachments,
     composerDockRef,
+    contextCompactionStatus,
     dispatch,
     ensureSessionReady,
     focusFiles,
@@ -146,7 +147,8 @@ export function useAgentTurnComposer(
         turnImages.length === 0 &&
         turnQuotedContexts.length === 0) ||
       pendingTurn ||
-      sessionStarting
+      sessionStarting ||
+      contextCompactionStatus === "running"
     )
       return;
     const selectionBytes = [
@@ -855,7 +857,10 @@ export function useAgentTurnComposer(
   }, [open, workspaceRoot]);
 
   const probe: AgentProbe | null = runtime?.probe ?? null;
-  const ready = probe?.state === "ready" && Boolean(workspaceRoot);
+  const ready =
+    probe?.state === "ready" &&
+    Boolean(workspaceRoot) &&
+    contextCompactionStatus !== "running";
   return {
     submit,
     openAgentWorkspaceFile,

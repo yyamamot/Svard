@@ -13,6 +13,7 @@ fn saved_session_record(workspace_root: &Path, permission_mode: &str) -> AgentSe
             permission_mode: permission_mode.to_string(),
             network_access: true,
             web_search: true,
+            context_profile: "providerDefaults".to_string(),
             model: Some("saved-model".to_string()),
             reasoning_effort: Some("medium".to_string()),
             personality: Some("pragmatic".to_string()),
@@ -28,6 +29,7 @@ fn full_access_resume_requires_explicit_confirmation() {
         client_session_id: record.client_session_id.clone(),
         workspace_root: workspace.path().to_string_lossy().into_owned(),
         executable_preference: CodexExecutablePreference::default(),
+        context_profile: Some(AgentContextProfile::ProviderDefaults),
         full_access_confirmed: false,
     };
     assert!(resume_start_input(&input, &record)
@@ -39,6 +41,22 @@ fn full_access_resume_requires_explicit_confirmation() {
     assert!(resumed.network_access);
     assert!(resumed.web_search);
     assert_eq!(resumed.model.as_deref(), Some("saved-model"));
+}
+
+#[test]
+fn resume_rejects_a_context_profile_change() {
+    let workspace = tempfile::tempdir().unwrap();
+    let record = saved_session_record(workspace.path(), "observe");
+    let input = AgentSessionResumeInput {
+        client_session_id: record.client_session_id.clone(),
+        workspace_root: workspace.path().to_string_lossy().into_owned(),
+        executable_preference: CodexExecutablePreference::default(),
+        context_profile: Some(AgentContextProfile::Focused),
+        full_access_confirmed: false,
+    };
+    assert!(resume_start_input(&input, &record)
+        .unwrap_err()
+        .contains("does not match"));
 }
 
 #[test]
@@ -398,10 +416,13 @@ fn observe_never_enables_network() {
         item_phases: Mutex::new(HashMap::new()),
         thread_id: Mutex::new(None),
         active_turn: Mutex::new(None),
+        manual_compaction: Mutex::new(None),
         staged_images: Mutex::new(HashMap::new()),
         image_counter: AtomicU64::new(0),
         image_input: AtomicBool::new(true),
         turn_steering: AtomicBool::new(true),
+        context_usage: AtomicBool::new(true),
+        manual_compaction_supported: AtomicBool::new(true),
         automatic_title: Mutex::new(AutomaticTitleState::Finished),
         title_update_lock: Mutex::new(()),
         closed: AtomicBool::new(false),
@@ -438,10 +459,13 @@ fn codex_quality_settings_use_supported_turn_start_fields() {
         item_phases: Mutex::new(HashMap::new()),
         thread_id: Mutex::new(None),
         active_turn: Mutex::new(None),
+        manual_compaction: Mutex::new(None),
         staged_images: Mutex::new(HashMap::new()),
         image_counter: AtomicU64::new(0),
         image_input: AtomicBool::new(true),
         turn_steering: AtomicBool::new(true),
+        context_usage: AtomicBool::new(true),
+        manual_compaction_supported: AtomicBool::new(true),
         automatic_title: Mutex::new(AutomaticTitleState::Finished),
         title_update_lock: Mutex::new(()),
         closed: AtomicBool::new(false),
@@ -706,10 +730,13 @@ fn external_attachment_uses_safe_label_and_untrusted_context() {
         item_phases: Mutex::new(HashMap::new()),
         thread_id: Mutex::new(None),
         active_turn: Mutex::new(None),
+        manual_compaction: Mutex::new(None),
         staged_images: Mutex::new(HashMap::new()),
         image_counter: AtomicU64::new(0),
         image_input: AtomicBool::new(true),
         turn_steering: AtomicBool::new(true),
+        context_usage: AtomicBool::new(true),
+        manual_compaction_supported: AtomicBool::new(true),
         automatic_title: Mutex::new(AutomaticTitleState::Finished),
         title_update_lock: Mutex::new(()),
         closed: AtomicBool::new(false),

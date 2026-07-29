@@ -326,6 +326,31 @@ export function AgentProvidersSection({
           </span>
         </label>
 
+        {probe === null || probe.capabilities.focusedContext ? (
+          <label>
+            Default context profile
+            <select
+              data-review-id="agent-provider-codex-context-profile"
+              value={codex.contextProfile}
+              disabled={probing || probe === null}
+              onChange={(event) =>
+                updateCodex({
+                  contextProfile: event.target
+                    .value as AppConfig["agentProviders"]["codex"]["contextProfile"],
+                })
+              }
+            >
+              <option value="focused">Focused</option>
+              <option value="providerDefaults">Provider extensions</option>
+            </select>
+            <span className="mode-help">
+              Focused excludes provider Memory, Skills catalog, Plugins, and
+              Apps. Workspace instructions remain; MCP and global instructions
+              are not isolated.
+            </span>
+          </label>
+        ) : null}
+
         <div className="agent-provider-toggles">
           <label className="checkbox-row">
             <input

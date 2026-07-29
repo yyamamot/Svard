@@ -202,7 +202,9 @@ export async function buildAppShellAssertions(context) {
       scenario === "viewer-agent-chat-workspace-isolation" ||
       scenario === "viewer-agent-chat-main-bottom-dock" ||
       scenario === "viewer-agent-chat-dark-theme" ||
-      scenario === "viewer-agent-chat-composer-access"
+      scenario === "viewer-agent-chat-composer-access" ||
+      scenario === "viewer-agent-chat-context-pressure" ||
+      scenario === "viewer-agent-chat-context-profile"
         ? await page.evaluate(() => {
             const result = window.__SVARD_AGENT_STAGE5_CHECK__;
             return (
@@ -398,6 +400,43 @@ export async function buildAppShellAssertions(context) {
               result?.popoverStayedOpen === true &&
               result?.rightMaintained === true &&
               result?.toolbarBelowInput === true
+            );
+          })
+        : true,
+    hasAgentContextPressure:
+      scenario === "viewer-agent-chat-context-pressure"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_CONTEXT_PRESSURE_CHECK__;
+            return (
+              result?.automaticNoticeVisible === true &&
+              result?.bottomMaintained === true &&
+              result?.diffMaintained === true &&
+              result?.draftPreserved === true &&
+              result?.exactUsageVisible === true &&
+              result?.gettingFullVisible === true &&
+              result?.manualResultVisible === true &&
+              result?.nearlyFullVisible === true &&
+              result?.normalVisible === true &&
+              result?.rightMaintained === true &&
+              result?.sendSuppressed === true
+            );
+          })
+        : true,
+    hasAgentContextProfile:
+      scenario === "viewer-agent-chat-context-profile"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_CONTEXT_PROFILE_CHECK__;
+            return (
+              result?.bottomMaintained === true &&
+              result?.boundaryVisible === true &&
+              result?.darkThemeMaintained === true &&
+              result?.diffMaintained === true &&
+              result?.draftPreserved === true &&
+              result?.focusedVisible === true &&
+              result?.insideViewport === true &&
+              result?.opensAbove === true &&
+              result?.providerExtensionsSelected === true &&
+              result?.rightMaintained === true
             );
           })
         : true,

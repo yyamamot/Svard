@@ -272,6 +272,7 @@ describe("config normalization", () => {
           permissionMode: "agent",
           networkAccess: true,
           webSearch: true,
+          contextProfile: "providerDefaults",
         },
       },
     });
@@ -285,6 +286,7 @@ describe("config normalization", () => {
       permissionMode: "agent",
       networkAccess: true,
       webSearch: true,
+      contextProfile: "providerDefaults",
     });
   });
 

@@ -18,6 +18,8 @@ pub(crate) struct AgentSessionSnapshot {
     pub(crate) permission_mode: String,
     pub(crate) network_access: bool,
     pub(crate) web_search: bool,
+    #[serde(default = "default_context_profile")]
+    pub(crate) context_profile: String,
     pub(crate) model: Option<String>,
     pub(crate) reasoning_effort: Option<String>,
     pub(crate) personality: Option<String>,
@@ -41,6 +43,10 @@ pub(crate) struct AgentSessionRecord {
 
 fn default_available() -> bool {
     true
+}
+
+fn default_context_profile() -> String {
+    "providerDefaults".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -351,6 +357,7 @@ mod tests {
                 permission_mode: "agent".to_string(),
                 network_access: false,
                 web_search: false,
+                context_profile: "focused".to_string(),
                 model: None,
                 reasoning_effort: None,
                 personality: None,
@@ -385,6 +392,20 @@ mod tests {
             vec!["newer", "older"]
         );
         assert!(page.next_cursor.is_none());
+    }
+
+    #[test]
+    fn legacy_snapshot_without_context_profile_uses_provider_defaults() {
+        let snapshot: AgentSessionSnapshot = serde_json::from_value(serde_json::json!({
+            "permissionMode": "observe",
+            "networkAccess": false,
+            "webSearch": false,
+            "model": null,
+            "reasoningEffort": null,
+            "personality": null
+        }))
+        .unwrap();
+        assert_eq!(snapshot.context_profile, "providerDefaults");
     }
 
     #[test]

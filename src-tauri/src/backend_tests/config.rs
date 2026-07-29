@@ -50,6 +50,7 @@ fn default_config_keeps_kroki_disabled() {
     assert!(config.network.http_proxy.url.is_none());
     assert_eq!(config.agent_providers.codex.executable.mode, "auto");
     assert!(config.agent_providers.codex.executable.path.is_none());
+    assert_eq!(config.agent_providers.codex.context_profile, "focused");
     assert!(!config.remote_providers.github.enabled);
     assert_eq!(
         config.remote_providers.github.host_url,
@@ -116,6 +117,7 @@ fn config_round_trips_to_json() {
     config.agent_providers.codex.permission_mode = "agent".to_string();
     config.agent_providers.codex.network_access = true;
     config.agent_providers.codex.web_search = true;
+    config.agent_providers.codex.context_profile = "providerDefaults".to_string();
     config.remote_providers.github.enabled = true;
     config.remote_providers.github.host_url = "https://github.example.test".to_string();
     config.remote_providers.github.token_stored = true;
@@ -239,6 +241,10 @@ fn config_round_trips_to_json() {
     assert_eq!(loaded.agent_providers.codex.permission_mode, "agent");
     assert!(loaded.agent_providers.codex.network_access);
     assert!(loaded.agent_providers.codex.web_search);
+    assert_eq!(
+        loaded.agent_providers.codex.context_profile,
+        "providerDefaults"
+    );
     assert!(loaded.remote_providers.github.enabled);
     assert_eq!(
         loaded.remote_providers.github.host_url,

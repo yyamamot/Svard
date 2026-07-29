@@ -1,5 +1,6 @@
 import type {
   AgentApprovalResponseInput,
+  AgentCompactionOutcome,
   AgentEvent,
   AgentExecutablePreference,
   AgentImageAttachment,
@@ -174,6 +175,7 @@ export interface HostAdapter {
   discardAgentImage(input: AgentImageDiscardInput): Promise<void>;
   respondToAgentApproval(input: AgentApprovalResponseInput): Promise<void>;
   cancelAgentTurn(clientSessionId: string, clientTurnId: string): Promise<void>;
+  compactAgentSession(clientSessionId: string): Promise<AgentCompactionOutcome>;
   closeAgentSession(clientSessionId: string): Promise<void>;
   probeCodex(): Promise<CodexCliProbe>;
   loadCodexContextFile(

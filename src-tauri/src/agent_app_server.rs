@@ -27,6 +27,7 @@ use crate::codex_executable::{
     executable_candidates, CodexExecutable, CodexExecutableMode, CodexExecutablePreference,
 };
 
+mod compaction;
 mod history;
 mod lifecycle;
 mod management;
@@ -37,6 +38,7 @@ mod transport;
 mod turn;
 mod types;
 
+pub use compaction::compact_agent_session;
 pub use lifecycle::{
     list_agent_sessions, read_agent_session_history, resume_agent_session, start_agent_session,
 };
@@ -51,6 +53,7 @@ pub use turn::{
 };
 pub use types::*;
 
+use compaction::*;
 use history::*;
 use lifecycle::*;
 use provider::*;

@@ -407,6 +407,110 @@
   white-space: nowrap;
 }
 
+.agent-context-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 7px;
+  color: var(--reader-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.agent-context-trigger:hover,
+.agent-context-trigger:focus-visible,
+.agent-context-trigger.active {
+  border-color: var(--reader-border);
+  color: var(--reader-heading);
+  background: var(--reader-surface-strong);
+}
+
+.agent-context-trigger.gettingFull {
+  color: #9a5d0b;
+}
+
+.agent-context-trigger.nearlyFull {
+  color: #b13535;
+}
+
+.agent-context-popover {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  width: min(310px, calc(100vw - 16px));
+  gap: 10px;
+  border: 1px solid var(--reader-border);
+  border-radius: 9px;
+  padding: 12px;
+  color: var(--reader-text);
+  background: var(--reader-surface);
+  box-shadow: 0 12px 28px rgb(18 31 36 / 18%);
+}
+
+.agent-context-popover-heading,
+.agent-context-popover dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agent-context-popover-heading > span {
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: #1f675a;
+  background: color-mix(in srgb, #3b8f80 14%, transparent);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.agent-context-popover-heading > span.gettingFull {
+  color: #8c5407;
+  background: color-mix(in srgb, #d9922e 17%, transparent);
+}
+
+.agent-context-popover-heading > span.nearlyFull {
+  color: #a12f2f;
+  background: color-mix(in srgb, #d14b4b 16%, transparent);
+}
+
+.agent-context-popover dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.agent-context-popover dt,
+.agent-context-popover p {
+  margin: 0;
+  color: var(--reader-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.agent-context-popover dd {
+  margin: 0;
+  color: var(--reader-heading);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.agent-context-popover .agent-context-last-compaction {
+  color: var(--reader-text);
+}
+
+.agent-context-popover > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .agent-access-popover {
   position: fixed;
   z-index: 80;
@@ -457,6 +561,13 @@
   gap: 7px;
   min-height: 24px;
   font-size: 11px;
+}
+
+.agent-context-profile-help {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 .agent-access-toggle {

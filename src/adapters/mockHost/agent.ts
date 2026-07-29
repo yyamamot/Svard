@@ -1,5 +1,6 @@
 import type {
   AgentApprovalResponseInput,
+  AgentCompactionOutcome,
   AgentEvent,
   AgentExecutablePreference,
   AgentImageAttachment,
@@ -27,6 +28,14 @@ import type {
   AgentTurnOutcome,
 } from "../../core/types";
 import { codexAppServerCapabilities } from "../../core/types";
+import { compactMockAgentSession, emitMockContextUsage } from "./agentContext";
+import {
+  mockAgentCapabilities,
+  mockAgentRuntimeKey,
+  parseMockAgentSessionCursor,
+  validateMockFocusedContextResume,
+  validateMockFocusedContextStart,
+} from "./agentContextProfile";
 import {
   mockFallbackSessionTitle,
   mockGeneratedSessionTitle,
@@ -40,13 +49,6 @@ import {
   type MockAgentSessionRecord,
 } from "./agentTitle";
 
-function agentRuntimeKey(
-  providerId: AgentProviderId,
-  preference: AgentExecutablePreference,
-) {
-  return `${providerId}:${preference.mode}:${preference.path ?? ""}`;
-}
-
 export class MockAgentFacade {
   private readonly agentSessions = new Map<
     string,
@@ -58,6 +60,7 @@ export class MockAgentFacade {
       images: Map<string, AgentImageAttachment>;
       automaticTitlePending: boolean;
       activeTurnId: string | null;
+      compacting: boolean;
       steeringMessages: string[];
     }
   >();
@@ -85,7 +88,7 @@ export class MockAgentFacade {
   ): AgentProviderRuntimeSnapshot | null {
     return (
       this.agentProviderRuntime.get(
-        agentRuntimeKey(providerId, executablePreference),
+        mockAgentRuntimeKey(providerId, executablePreference),
       ) ?? null
     );
   }
@@ -96,7 +99,7 @@ export class MockAgentFacade {
       executablePreference: { mode: "auto", path: null },
     },
   ): Promise<AgentProviderRuntimeSnapshot> {
-    const key = agentRuntimeKey(providerId, options.executablePreference);
+    const key = mockAgentRuntimeKey(providerId, options.executablePreference);
     const pending = this.agentProviderRuntimeRequests.get(key);
     if (pending) return pending;
     if (!options.refresh) {
@@ -124,7 +127,7 @@ export class MockAgentFacade {
           source:
             options.executablePreference.mode === "custom" ? "custom" : "path",
           version: "codex-app-server mock",
-          capabilities: codexAppServerCapabilities,
+          capabilities: mockAgentCapabilities(),
         },
         installation: invalidCustom
           ? null
@@ -184,6 +187,7 @@ export class MockAgentFacade {
     const runtime = await this.getAgentProviderRuntime(input.providerId, {
       executablePreference: input.executablePreference,
     });
+    const contextProfile = validateMockFocusedContextStart(input, runtime);
     const catalog = runtime.catalog;
     if (
       !catalog &&
@@ -222,19 +226,20 @@ export class MockAgentFacade {
         : codexAppServerCapabilities.imageInput,
     };
     this.agentSessions.set(input.clientSessionId, {
-      input,
+      input: { ...input, contextProfile },
       onEvent,
       cancelledTurns: new Set(),
       pendingApprovals: new Map(),
       images: new Map(),
       automaticTitlePending: true,
       activeTurnId: null,
+      compacting: false,
       steeringMessages: [],
     });
     const previous = this.agentSessionRecords.get(input.clientSessionId);
     const timestamp = this.nextAgentSessionTimestamp();
     this.agentSessionRecords.set(input.clientSessionId, {
-      input: structuredClone(input),
+      input: structuredClone({ ...input, contextProfile }),
       title: previous?.title ?? "New chat",
       createdAt: previous?.createdAt ?? timestamp,
       updatedAt: timestamp,
@@ -251,6 +256,7 @@ export class MockAgentFacade {
       clientSessionId: input.clientSessionId,
       providerId: input.providerId,
       capabilities,
+      contextProfile,
     };
   }
 
@@ -258,7 +264,7 @@ export class MockAgentFacade {
     input: AgentSessionListInput,
   ): Promise<AgentSessionPage> {
     const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
-    const offset = this.parseAgentSessionCursor(input.cursor);
+    const offset = parseMockAgentSessionCursor(input.cursor);
     const archived = input.archived ?? false;
     const sessions = [...this.agentSessionRecords.values()]
       .filter(
@@ -322,6 +328,11 @@ export class MockAgentFacade {
     if (runtime.probe.state !== "ready") {
       throw new Error("The saved agent provider is unavailable.");
     }
+    const contextProfile = validateMockFocusedContextResume(
+      record,
+      input,
+      runtime,
+    );
     const selected = record.input.model
       ? runtime.catalog?.models.find(
           (model) => model.model === record.input.model,
@@ -351,6 +362,7 @@ export class MockAgentFacade {
       images: new Map(),
       automaticTitlePending: false,
       activeTurnId: null,
+      compacting: false,
       steeringMessages: [],
     });
     onEvent({
@@ -358,10 +370,14 @@ export class MockAgentFacade {
       clientSessionId: input.clientSessionId,
       capabilities,
     });
+    if (record.turns.length > 0) {
+      emitMockContextUsage(this.agentSessions.get(input.clientSessionId));
+    }
     return {
       clientSessionId: input.clientSessionId,
       providerId: record.input.providerId,
       capabilities,
+      contextProfile,
     };
   }
 
@@ -374,7 +390,7 @@ export class MockAgentFacade {
       input.cursor == null
         ? record.turns.length
         : Math.min(
-            this.parseAgentSessionCursor(input.cursor),
+            parseMockAgentSessionCursor(input.cursor),
             record.turns.length,
           );
     const start = Math.max(end - limit, 0);
@@ -439,6 +455,13 @@ export class MockAgentFacade {
         status: "failed",
         code: "turn-already-active",
         message: "Wait for the active response to finish.",
+      };
+    }
+    if (session.compacting) {
+      return {
+        status: "failed",
+        code: "compaction-active",
+        message: "Wait for context compaction to finish before sending.",
       };
     }
     emit({ type: "turnStarted", clientTurnId: input.clientTurnId });
@@ -689,6 +712,13 @@ export class MockAgentFacade {
       emit({ type: "finalAnswerDelta", delta: part });
       await new Promise((resolve) => globalThis.setTimeout(resolve, 12));
     }
+    if (/automatic compaction/iu.test(input.question)) {
+      emit({ type: "contextCompactionStarted", source: "automatic" });
+      emit({ type: "contextCompactionCompleted", source: "automatic" });
+      emitMockContextUsage(session, 50_000, 250_000);
+    } else {
+      emitMockContextUsage(session);
+    }
     emit({ type: "turnCompleted", clientTurnId: input.clientTurnId });
     for (const attachmentId of imageAttachmentIds) {
       session.images.delete(attachmentId);
@@ -801,6 +831,12 @@ export class MockAgentFacade {
     return Promise.resolve();
   }
 
+  async compactAgentSession(
+    clientSessionId: string,
+  ): Promise<AgentCompactionOutcome> {
+    return compactMockAgentSession(this.agentSessions.get(clientSessionId));
+  }
+
   closeAgentSession(clientSessionId: string): Promise<void> {
     const session = this.agentSessions.get(clientSessionId);
     for (const resolve of session?.pendingApprovals.values() ?? []) {
@@ -816,14 +852,6 @@ export class MockAgentFacade {
       Math.floor(Date.now() / 1_000),
     );
     return this.agentSessionTimestamp;
-  }
-
-  private parseAgentSessionCursor(cursor?: string | null): number {
-    if (cursor == null) return 0;
-    if (!/^\d+$/u.test(cursor)) {
-      throw new Error("The agent session cursor is invalid.");
-    }
-    return Number(cursor);
   }
 
   private requireAgentSessionRecord(

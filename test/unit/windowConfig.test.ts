@@ -204,6 +204,7 @@ describe("window config merge", () => {
           permissionMode: "agent" as const,
           networkAccess: true,
           webSearch: true,
+          contextProfile: "focused" as const,
         },
       },
     };

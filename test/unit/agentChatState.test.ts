@@ -58,7 +58,31 @@ describe("agent chat state", () => {
     expect(snapshot).toMatchObject({
       model: "codex-balanced",
       modelDisplayName: "Codex Balanced",
+      contextProfile: "focused",
     });
+  });
+
+  it("uses provider defaults when focused context is unsupported", () => {
+    const codex = structuredClone(defaultConfig.agentProviders.codex);
+    const runtime = {
+      providerId: "codex-app-server" as const,
+      probe: {
+        providerId: "codex-app-server" as const,
+        state: "ready" as const,
+        source: "path" as const,
+        capabilities: {
+          ...codexAppServerCapabilities,
+          focusedContext: false,
+        },
+      },
+      installation: null,
+      catalog: null,
+      issue: null,
+    };
+    expect(
+      createAgentSessionSettingsSnapshot(codex, runtime).contextProfile,
+    ).toBe("providerDefaults");
+    expect(codex.contextProfile).toBe("focused");
   });
 
   it("builds a natural streaming turn without provider ids", () => {

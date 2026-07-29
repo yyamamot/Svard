@@ -198,6 +198,60 @@ describe("AgentPanelHost provider defaults", () => {
     ).toBeTruthy();
   });
 
+  it("shows provider context usage and preserves the draft during compaction", async () => {
+    render(true);
+    await vi.waitFor(() =>
+      expect(
+        harness.container.querySelector(
+          '[data-review-id="agent-context-trigger"]',
+        ),
+      ).toBeTruthy(),
+    );
+    const initialTrigger = harness.container.querySelector<HTMLButtonElement>(
+      '[data-review-id="agent-context-trigger"]',
+    );
+    expect(initialTrigger?.getAttribute("aria-label")).toBe(
+      "Context unavailable",
+    );
+
+    await sendQuestion("Start a context-aware chat");
+    await vi.waitFor(() =>
+      expect(
+        harness.container.querySelector(
+          '.agent-turn[data-turn-status="completed"]',
+        ),
+      ).toBeTruthy(),
+    );
+    const trigger = harness.container.querySelector<HTMLButtonElement>(
+      '[data-review-id="agent-context-trigger"]',
+    );
+    await vi.waitFor(() =>
+      expect(trigger?.getAttribute("aria-label")).toBe("25% context remaining"),
+    );
+
+    const textarea =
+      harness.container.querySelector<HTMLTextAreaElement>("textarea");
+    await harness.setTextAreaValue(textarea, "Keep this compacting draft");
+    await harness.click(trigger);
+    const popover = document.querySelector(
+      '[data-review-id="agent-context-popover"]',
+    );
+    expect(popover?.textContent).toContain("187.5K / 250K tokens");
+    expect(popover?.textContent).toContain("Getting full");
+    await harness.click(
+      [...popover!.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("Compact context"),
+      ),
+    );
+
+    expect(textarea?.value).toBe("Keep this compacting draft");
+    await vi.waitFor(() =>
+      expect(trigger?.getAttribute("aria-label")).toBe("80% context remaining"),
+    );
+    expect(popover?.textContent).toContain("Last compacted manually");
+    expect(textarea?.value).toBe("Keep this compacting draft");
+  });
+
   it("sends OpenUI instructions only for Visualize turns", async () => {
     render(true);
     await sendQuestion("Build a dashboard in normal chat.");

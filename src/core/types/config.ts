@@ -1,5 +1,5 @@
 import type { CommandId } from "../commands";
-import type { AgentExecutablePreference } from "./agent";
+import type { AgentContextProfile, AgentExecutablePreference } from "./agent";
 import type { DocumentFormat } from "./document";
 
 export interface AppConfig {
@@ -170,6 +170,7 @@ export interface CodexAgentProviderConfig {
   permissionMode: "observe" | "agent" | "fullAccess";
   networkAccess: boolean;
   webSearch: boolean;
+  contextProfile: AgentContextProfile;
 }
 
 export interface RemoteProvidersConfig {

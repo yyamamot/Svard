@@ -16,6 +16,7 @@ import {
 import { selectionSnapshotText } from "../lib/documentSelection";
 import { fileName } from "../lib/path";
 import { AgentAccessMenu } from "./AgentAccessMenu";
+import { AgentContextMenu } from "./AgentContextMenu";
 import { changeDisplayLabel, selectionDisplayLabel } from "./agentPanelModel";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
 import type { AgentSessionController } from "./useAgentSessionController";
@@ -509,6 +510,12 @@ export function AgentComposer({
             </div>
             <AgentAccessMenu
               onBeforeOpen={() => setAddMenuOpen(false)}
+              placement={placement}
+              probe={probe}
+              session={session}
+              workspaceRoot={workspaceRoot}
+            />
+            <AgentContextMenu
               placement={placement}
               probe={probe}
               session={session}

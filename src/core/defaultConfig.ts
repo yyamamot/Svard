@@ -89,6 +89,7 @@ export const defaultConfig: AppConfig = {
       permissionMode: "observe",
       networkAccess: false,
       webSearch: false,
+      contextProfile: "focused",
     },
   },
   remoteProviders: {

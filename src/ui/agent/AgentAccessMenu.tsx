@@ -58,8 +58,10 @@ export function AgentAccessMenu({
   workspaceRoot: string | null;
 }) {
   const {
+    contextProfile,
     networkAccess,
     permissionMode,
+    selectContextProfile,
     selectNetworkAccess,
     selectPermissionMode,
     selectWebSearch,
@@ -244,9 +246,35 @@ export function AgentAccessMenu({
                   <small>Allow the provider to search the web.</small>
                 </label>
               ) : null}
+              {probe === null || probe.capabilities.focusedContext ? (
+                <fieldset data-review-id="agent-context-profile">
+                  <legend>Context profile</legend>
+                  {(["focused", "providerDefaults"] as const).map((profile) => (
+                    <label key={profile}>
+                      <input
+                        type="radio"
+                        name="agent-context-profile"
+                        checked={contextProfile === profile}
+                        disabled={sessionStarting || probe === null}
+                        onChange={() => void selectContextProfile(profile)}
+                      />
+                      <span>
+                        {profile === "focused"
+                          ? "Focused"
+                          : "Provider extensions"}
+                      </span>
+                    </label>
+                  ))}
+                  <small className="agent-context-profile-help">
+                    Focused excludes provider Memory, Skills catalog, Plugins,
+                    and Apps. Workspace instructions remain; this is not full
+                    MCP or global-instruction isolation.
+                  </small>
+                </fieldset>
+              ) : null}
               <p>
-                Changing access starts a new chat. Your draft and document
-                references stay in the composer.
+                Changing access or context profile starts a new chat. Your draft
+                and document references stay in the composer.
               </p>
             </section>,
             document.querySelector<HTMLElement>(".app-shell") ?? document.body,

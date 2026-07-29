@@ -49,6 +49,9 @@ pub struct AgentCapabilities {
     pub(super) image_input: bool,
     pub(super) ordered_mixed_input: bool,
     pub(super) turn_steering: bool,
+    pub(super) context_usage: bool,
+    pub(super) manual_compaction: bool,
+    pub(super) focused_context: bool,
 }
 
 impl Default for AgentCapabilities {
@@ -66,16 +69,28 @@ impl Default for AgentCapabilities {
             image_input: false,
             ordered_mixed_input: false,
             turn_steering: false,
+            context_usage: false,
+            manual_compaction: false,
+            focused_context: false,
         }
     }
 }
 
 impl AgentCapabilities {
-    pub(super) fn with_protocol_features(image_input: bool, turn_steering: bool) -> Self {
+    pub(super) fn with_protocol_features(
+        image_input: bool,
+        turn_steering: bool,
+        context_usage: bool,
+        manual_compaction: bool,
+        focused_context: bool,
+    ) -> Self {
         Self {
             image_input,
             ordered_mixed_input: image_input,
             turn_steering,
+            context_usage,
+            manual_compaction,
+            focused_context,
             ..Self::default()
         }
     }
@@ -154,6 +169,17 @@ pub enum AgentPermissionMode {
     FullAccess,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum AgentContextProfile {
+    Focused,
+    ProviderDefaults,
+}
+
+fn default_agent_context_profile() -> AgentContextProfile {
+    AgentContextProfile::Focused
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentSessionStartInput {
@@ -164,6 +190,8 @@ pub struct AgentSessionStartInput {
     pub(super) permission_mode: AgentPermissionMode,
     pub(super) network_access: bool,
     pub(super) web_search: bool,
+    #[serde(default = "default_agent_context_profile")]
+    pub(super) context_profile: AgentContextProfile,
     #[serde(default)]
     pub(super) model: Option<String>,
     #[serde(default)]
@@ -178,6 +206,7 @@ pub struct AgentSessionInfo {
     pub(super) client_session_id: String,
     pub(super) provider_id: &'static str,
     pub(super) capabilities: AgentCapabilities,
+    pub(super) context_profile: AgentContextProfile,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -212,6 +241,7 @@ pub struct AgentSessionSettingsSnapshot {
     pub(super) permission_mode: AgentPermissionMode,
     pub(super) network_access: bool,
     pub(super) web_search: bool,
+    pub(super) context_profile: AgentContextProfile,
     pub(super) model: Option<String>,
     pub(super) reasoning_effort: Option<String>,
     pub(super) personality: Option<String>,
@@ -254,6 +284,8 @@ pub struct AgentSessionResumeInput {
     pub(super) client_session_id: String,
     pub(super) workspace_root: String,
     pub(super) executable_preference: CodexExecutablePreference,
+    #[serde(default)]
+    pub(super) context_profile: Option<AgentContextProfile>,
     #[serde(default)]
     pub(super) full_access_confirmed: bool,
 }
@@ -520,6 +552,15 @@ pub enum AgentEvent {
         client_session_id: String,
         title: String,
     },
+    ContextUsageUpdated {
+        usage: AgentContextUsage,
+    },
+    ContextCompactionStarted {
+        source: AgentCompactionSource,
+    },
+    ContextCompactionCompleted {
+        source: AgentCompactionSource,
+    },
     ReasoningSummaryDelta {
         delta: String,
     },
@@ -582,12 +623,41 @@ pub enum AgentEvent {
     },
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentContextUsage {
+    pub(super) used_tokens: u64,
+    pub(super) context_window_tokens: u64,
+    pub(super) remaining_percent: u8,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AgentCompactionSource {
+    Automatic,
+    Manual,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum AgentCompactionOutcome {
+    Completed,
+    Failed { code: String, message: String },
+}
+
 #[derive(Debug)]
 pub(super) struct ActiveTurn {
     pub(super) client_turn_id: String,
     pub(super) provider_turn_id: Option<String>,
     pub(super) response_mode: AgentResponseMode,
     pub(super) completion: mpsc::Sender<AgentTurnOutcome>,
+}
+
+#[derive(Debug)]
+pub(super) struct ManualCompaction {
+    pub(super) item_started: bool,
+    pub(super) item_completed: bool,
+    pub(super) completion: mpsc::Sender<AgentCompactionOutcome>,
 }
 
 #[derive(Debug, Clone)]
@@ -643,10 +713,13 @@ pub(super) struct AgentSession {
     pub(super) item_phases: Mutex<HashMap<String, String>>,
     pub(super) thread_id: Mutex<Option<String>>,
     pub(super) active_turn: Mutex<Option<ActiveTurn>>,
+    pub(super) manual_compaction: Mutex<Option<ManualCompaction>>,
     pub(super) staged_images: Mutex<HashMap<String, StagedAgentImage>>,
     pub(super) image_counter: AtomicU64,
     pub(super) image_input: AtomicBool,
     pub(super) turn_steering: AtomicBool,
+    pub(super) context_usage: AtomicBool,
+    pub(super) manual_compaction_supported: AtomicBool,
     pub(super) automatic_title: Mutex<AutomaticTitleState>,
     pub(super) title_update_lock: Mutex<()>,
     pub(super) closed: AtomicBool,
@@ -735,6 +808,17 @@ impl AgentSession {
                 }
             }
             let _ = active.completion.send(AgentTurnOutcome::Cancelled);
+        }
+        if let Some(compaction) = self
+            .manual_compaction
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
+        {
+            let _ = compaction.completion.send(AgentCompactionOutcome::Failed {
+                code: "session-closed".to_string(),
+                message: "The chat closed before context compaction completed.".to_string(),
+            });
         }
         if let Some(mut child) = self
             .title_child

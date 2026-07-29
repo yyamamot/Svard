@@ -612,6 +612,14 @@ pub async fn send_agent_turn(
     {
         return Err("This chat is already working on a question.".to_string());
     }
+    if session
+        .manual_compaction
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .is_some()
+    {
+        return Err("Wait for context compaction to finish before sending.".to_string());
+    }
     let thread_id = session
         .thread_id
         .lock()

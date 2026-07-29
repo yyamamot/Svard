@@ -302,6 +302,11 @@ function normalizeAgentProvidersConfig(
       ),
       networkAccess: codex?.networkAccess === true,
       webSearch: codex?.webSearch === true,
+      contextProfile: oneOf(
+        codex?.contextProfile,
+        ["focused", "providerDefaults"] as const,
+        "focused",
+      ),
     },
   };
 }

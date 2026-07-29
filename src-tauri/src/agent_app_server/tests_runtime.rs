@@ -6,7 +6,7 @@ fn test_runtime_snapshot(version: &str) -> AgentProviderRuntimeSnapshot {
             state: "ready",
             source: Some("path"),
             version: Some(version.to_string()),
-            capabilities: AgentCapabilities::with_protocol_features(true, true),
+            capabilities: AgentCapabilities::with_protocol_features(true, true, true, true, true),
         },
         installation: Some(AgentInstallationDescriptor {
             source: "path",
@@ -19,6 +19,177 @@ fn test_runtime_snapshot(version: &str) -> AgentProviderRuntimeSnapshot {
         }),
         issue: None,
     }
+}
+
+#[test]
+fn context_usage_normalization_clamps_and_rejects_invalid_values() {
+    let usage = normalize_context_usage(&json!({
+        "tokenUsage": {
+            "last": { "totalTokens": 75 },
+            "modelContextWindow": 100
+        }
+    }))
+    .unwrap();
+    assert_eq!(usage.used_tokens, 75);
+    assert_eq!(usage.context_window_tokens, 100);
+    assert_eq!(usage.remaining_percent, 25);
+
+    let clamped = normalize_context_usage(&json!({
+        "tokenUsage": {
+            "last": { "totalTokens": 150 },
+            "modelContextWindow": 100
+        }
+    }))
+    .unwrap();
+    assert_eq!(clamped.used_tokens, 100);
+    assert_eq!(clamped.remaining_percent, 0);
+
+    for invalid in [
+        json!({"tokenUsage":{"last":{"totalTokens":-1},"modelContextWindow":100}}),
+        json!({"tokenUsage":{"last":{"totalTokens":1},"modelContextWindow":0}}),
+        json!({"tokenUsage":{"last":{"totalTokens":1},"modelContextWindow":null}}),
+    ] {
+        assert!(normalize_context_usage(&invalid).is_none());
+    }
+}
+
+#[test]
+fn context_events_expose_only_provider_neutral_values() {
+    let value = serde_json::to_value(AgentEvent::ContextUsageUpdated {
+        usage: AgentContextUsage {
+            used_tokens: 75,
+            context_window_tokens: 100,
+            remaining_percent: 25,
+        },
+    })
+    .unwrap();
+    assert_eq!(value["type"], "contextUsageUpdated");
+    assert_eq!(value["usage"]["usedTokens"], 75);
+    assert_eq!(value["usage"]["contextWindowTokens"], 100);
+    assert_eq!(value["usage"]["remainingPercent"], 25);
+    assert!(value.get("threadId").is_none());
+    assert!(value.get("turnId").is_none());
+}
+
+#[cfg(unix)]
+#[test]
+fn schema_probe_requires_usage_and_compaction_contracts() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let workspace = tempfile::tempdir().unwrap();
+    let script = workspace.path().join("fake-codex-schema");
+    std::fs::write(
+        &script,
+        r#"#!/bin/sh
+if [ "$1" = "app-server" ] && [ "$2" = "generate-json-schema" ]; then
+  mkdir -p "$5/v2"
+  printf '%s\n' '{"localImage":true,"turn/steer":true,"thread/tokenUsage/updated":true,"modelContextWindow":1,"totalTokens":1,"thread/compact/start":true,"contextCompaction":true,"thread/start":true,"thread/resume":true,"skills/list":true,"SkillsListResponse":true,"config":true}' > "$5/protocol.json"
+  printf '%s\n' '{"config":{}}' > "$5/v2/ThreadStartParams.json"
+  printf '%s\n' '{"config":{}}' > "$5/v2/ThreadResumeParams.json"
+  printf '%s\n' '{"cwds":[]}' > "$5/v2/SkillsListParams.json"
+  printf '%s\n' '{"data":[]}' > "$5/v2/SkillsListResponse.json"
+  exit 0
+fi
+exit 1
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+    assert_eq!(
+        schema_capabilities(&CodexExecutable::custom_for_test(script)),
+        ProtocolCapabilities {
+            image_input: true,
+            turn_steering: true,
+            context_usage: true,
+            manual_compaction: true,
+            focused_context: true,
+        }
+    );
+}
+
+#[test]
+fn focused_config_disables_extensions_and_deduplicates_skill_names() {
+    let names = focused_skill_names(&json!({
+        "data": [
+            {
+                "cwd": "/private/workspace",
+                "errors": [],
+                "skills": [
+                    {"name": "review", "path": "/private/one"},
+                    {"name": "review", "path": "/private/two"},
+                    {"name": "docs", "path": "/private/three"}
+                ]
+            }
+        ]
+    }))
+    .unwrap();
+    assert_eq!(names, vec!["docs".to_string(), "review".to_string()]);
+
+    let config = focused_thread_config(&names, false);
+    assert_eq!(config["features"]["memories"], false);
+    assert_eq!(config["features"]["plugins"], false);
+    assert_eq!(config["features"]["apps"], false);
+    assert_eq!(config["memories"]["use_memories"], false);
+    assert_eq!(config["memories"]["generate_memories"], false);
+    assert_eq!(config["apps"]["_default"]["enabled"], false);
+    assert_eq!(config["include_apps_instructions"], false);
+    assert_eq!(config["web_search"], "disabled");
+    assert_eq!(config["skills"]["config"].as_array().unwrap().len(), 2);
+    let serialized = serde_json::to_string(&config).unwrap();
+    assert!(!serialized.contains("/private/"));
+}
+
+#[test]
+fn focused_skill_list_accepts_empty_and_rejects_errors_or_invalid_names() {
+    assert_eq!(
+        focused_skill_names(&json!({
+            "data": [{"cwd": "/private/workspace", "errors": [], "skills": []}]
+        }))
+        .unwrap(),
+        Vec::<String>::new()
+    );
+    for invalid in [
+        json!({"data": [{"errors": [{}], "skills": []}]}),
+        json!({"data": [{"errors": [], "skills": [{"name": ""}]}]}),
+        json!({"data": [{"errors": [], "skills": [{"name": "bad\nname"}]}]}),
+        json!({"unexpected": []}),
+    ] {
+        assert_eq!(
+            focused_skill_names(&invalid).unwrap_err(),
+            "Focused context is unavailable."
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn focused_runtime_probe_uses_only_transient_protocol_requests() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let workspace = tempfile::tempdir().unwrap();
+    let script = workspace.path().join("fake-focused-codex");
+    std::fs::write(
+        &script,
+        r#"#!/bin/sh
+while [ "$#" -gt 0 ] && [ "$1" != "app-server" ]; do shift; done
+[ "$1" = "app-server" ] || exit 1
+IFS= read -r initialize
+printf '{"id":1,"result":{}}\n'
+IFS= read -r initialized
+IFS= read -r skills
+printf '{"id":2,"result":{"data":[{"cwd":"/private","errors":[],"skills":[{"name":"docs"}]}]}}\n'
+IFS= read -r start
+printf '{"id":3,"result":{"thread":{"id":"ephemeral"}}}\n'
+IFS= read -r resume
+printf '{"id":4,"result":{"thread":{"id":"ephemeral"}}}\n'
+while IFS= read -r line; do :; done
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(probe_focused_context(&CodexExecutable::custom_for_test(
+        script
+    )));
 }
 
 #[test]
@@ -117,15 +288,18 @@ while IFS= read -r line; do :; done
         permission_mode: AgentPermissionMode::Observe,
         network_access: false,
         web_search: false,
+        context_profile: AgentContextProfile::ProviderDefaults,
         model: Some("gpt-5.6-sol".to_string()),
         reasoning_effort: Some("high".to_string()),
         personality: Some("pragmatic".to_string()),
     };
-    let (sender, _receiver) = std::sync::mpsc::channel();
+    let (sender, receiver) = std::sync::mpsc::channel();
     let session = spawn_session_with_executable(
         &input,
         test_channel(sender),
         CodexExecutable::custom_for_test(script),
+        true,
+        true,
         true,
         true,
         AgentSessionLaunch::Start,
@@ -139,6 +313,48 @@ while IFS= read -r line; do :; done
             .as_deref(),
         Some("fake-thread")
     );
+    let (completion, completion_receiver) = std::sync::mpsc::channel();
+    *session
+        .manual_compaction
+        .lock()
+        .unwrap_or_else(|error| error.into_inner()) = Some(ManualCompaction {
+        item_started: false,
+        item_completed: false,
+        completion,
+    });
+    normalize_notification(
+        &session,
+        &json!({
+            "method": "item/started",
+            "params": {"item": {"id": "private-item", "type": "contextCompaction"}}
+        }),
+    );
+    normalize_notification(
+        &session,
+        &json!({
+            "method": "item/completed",
+            "params": {"item": {"id": "private-item", "type": "contextCompaction"}}
+        }),
+    );
+    normalize_notification(
+        &session,
+        &json!({
+            "method": "turn/completed",
+            "params": {"turn": {"id": "private-turn", "status": "completed"}}
+        }),
+    );
+    let started = receiver.recv_timeout(Duration::from_secs(1)).unwrap();
+    assert_eq!(started["type"], "contextCompactionStarted");
+    assert_eq!(started["source"], "manual");
+    let completed = receiver.recv_timeout(Duration::from_secs(1)).unwrap();
+    assert_eq!(completed["type"], "contextCompactionCompleted");
+    assert_eq!(completed["source"], "manual");
+    assert!(matches!(
+        completion_receiver
+            .recv_timeout(Duration::from_secs(1))
+            .unwrap(),
+        AgentCompactionOutcome::Completed
+    ));
     let scratch = session.scratch_directory.clone();
     assert!(scratch.is_dir());
     std::fs::write(scratch.join("staged-image.png"), b"private snapshot").unwrap();
@@ -198,10 +414,13 @@ while IFS= read -r line; do :; done
         item_phases: Mutex::new(HashMap::new()),
         thread_id: Mutex::new(Some("main-thread".to_string())),
         active_turn: Mutex::new(None),
+        manual_compaction: Mutex::new(None),
         staged_images: Mutex::new(HashMap::new()),
         image_counter: AtomicU64::new(0),
         image_input: AtomicBool::new(true),
         turn_steering: AtomicBool::new(true),
+        context_usage: AtomicBool::new(true),
+        manual_compaction_supported: AtomicBool::new(true),
         automatic_title: Mutex::new(AutomaticTitleState::FallbackApplied {
             expected_title: "fallback".to_string(),
         }),
@@ -621,6 +840,13 @@ fn panic_stdin() -> ChildStdin {
     child.stdin.take().unwrap()
 }
 
-fn test_channel(_sender: mpsc::Sender<AgentEvent>) -> Channel<AgentEvent> {
-    Channel::new(|_| Ok(()))
+fn test_channel(sender: mpsc::Sender<Value>) -> Channel<AgentEvent> {
+    Channel::new(move |body| {
+        if let tauri::ipc::InvokeResponseBody::Json(value) = body {
+            if let Ok(event) = serde_json::from_str::<Value>(&value) {
+                let _ = sender.send(event);
+            }
+        }
+        Ok(())
+    })
 }

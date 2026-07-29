@@ -9,6 +9,15 @@ import {
   prepareAgentComposerAccessScenario,
   reopenAgentComposerAccessForCapture,
 } from "./agentChatComposerAccess.mjs";
+import {
+  reopenAgentContextForCapture,
+  runAgentContextPressureScenario,
+} from "./agentChatContextPressure.mjs";
+import {
+  exerciseAgentContextProfilePlacements,
+  prepareAgentContextProfileScenario,
+  reopenAgentContextProfileForCapture,
+} from "./agentChatContextProfile.mjs";
 import { runAgentWorkspaceIsolationScenario } from "./agentChatWorkspaceIsolation.mjs";
 import {
   recordAgentChangeReviewScenario,
@@ -192,6 +201,9 @@ export async function applyAppShellAgentChatScenario(context) {
     if (scenario === "viewer-agent-chat-composer-access") {
       await prepareAgentComposerAccessScenario({ composer, page });
     }
+    if (scenario === "viewer-agent-chat-context-profile") {
+      await prepareAgentContextProfileScenario({ composer, page });
+    }
 
     if (scenario === "viewer-agent-chat-image-input") {
       const internalDragSource = page
@@ -368,8 +380,10 @@ export async function applyAppShellAgentChatScenario(context) {
       await composer.fill("Build an OpenUI dashboard for this workspace.");
     } else if (scenario === "viewer-agent-chat-approval") {
       await composer.fill("Approval is required for this workspace check.");
-    } else if (scenario === "viewer-agent-chat-composer-access") {
-      // The scenario prepared its Japanese draft before opening the access menu.
+    } else if (scenario.endsWith("access") || scenario.endsWith("profile")) {
+      // The scenario prepared its draft before opening the access menu.
+    } else if (scenario === "viewer-agent-chat-context-pressure") {
+      await composer.fill("Trigger automatic compaction for context pressure.");
     } else if (scenario === "viewer-agent-chat-activity") {
       await composer.fill("Show activity failure handling.");
     } else if (scenario === "viewer-agent-chat-output-hygiene") {
@@ -472,6 +486,12 @@ export async function applyAppShellAgentChatScenario(context) {
     }
     if (scenario === "viewer-agent-chat-composer-access") {
       await exerciseAgentComposerAccessPlacements({ page });
+    }
+    if (scenario === "viewer-agent-chat-context-profile") {
+      await exerciseAgentContextProfilePlacements({ page });
+    }
+    if (scenario === "viewer-agent-chat-context-pressure") {
+      await runAgentContextPressureScenario({ composer, page });
     }
     if (scenario === "viewer-agent-chat-change-review") {
       await recordAgentChangeReviewScenario({ page });
@@ -827,6 +847,12 @@ export async function applyAppShellAgentChatScenario(context) {
     }
     if (scenario === "viewer-agent-chat-composer-access") {
       await reopenAgentComposerAccessForCapture({ page });
+    }
+    if (scenario === "viewer-agent-chat-context-pressure") {
+      await reopenAgentContextForCapture({ page });
+    }
+    if (scenario === "viewer-agent-chat-context-profile") {
+      await reopenAgentContextProfileForCapture({ page });
     }
     if (shouldRestoreAgentViewport(scenario)) {
       await page.setViewportSize({ width: 1280, height: 840 });

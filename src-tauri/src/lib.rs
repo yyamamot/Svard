@@ -1010,6 +1010,7 @@ pub fn run() {
             rename_agent_session,
             set_agent_session_archived,
             delete_agent_session,
+            compact_agent_session,
             send_agent_turn,
             stage_agent_image,
             discard_agent_image,

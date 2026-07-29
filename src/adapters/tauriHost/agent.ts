@@ -2,6 +2,7 @@ import { Channel } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
   AgentApprovalResponseInput,
+  AgentCompactionOutcome,
   AgentEvent,
   AgentExecutablePreference,
   AgentImageAttachment,
@@ -228,6 +229,12 @@ export class TauriAgentFacade {
       clientSessionId,
       clientTurnId,
     });
+  }
+
+  compactAgentSession(
+    clientSessionId: string,
+  ): Promise<AgentCompactionOutcome> {
+    return invokeCommand("compact_agent_session", { clientSessionId });
   }
 
   closeAgentSession(clientSessionId: string): Promise<void> {

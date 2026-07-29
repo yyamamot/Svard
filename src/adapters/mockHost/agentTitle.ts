@@ -194,6 +194,7 @@ export function mockAgentSessionSummary(
       permissionMode: record.input.permissionMode,
       networkAccess: record.input.networkAccess,
       webSearch: record.input.webSearch,
+      contextProfile: record.input.contextProfile ?? "providerDefaults",
       model: record.input.model ?? null,
       reasoningEffort: record.input.reasoningEffort ?? null,
       personality: record.input.personality ?? null,

@@ -41,9 +41,115 @@ pub(super) fn schema_directory_contains(path: &Path, needle: &str) -> bool {
     false
 }
 
-pub(super) fn schema_capabilities(executable: &CodexExecutable) -> (bool, bool) {
+pub(super) fn schema_named_file_contains(path: &Path, name: &str, needle: &str) -> bool {
+    let Ok(entries) = fs::read_dir(path) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        if entry_path.is_dir() {
+            if schema_named_file_contains(&entry_path, name, needle) {
+                return true;
+            }
+        } else if entry_path.file_name().and_then(|value| value.to_str()) == Some(name)
+            && fs::read_to_string(&entry_path)
+                .map(|source| source.contains(needle))
+                .unwrap_or(false)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct ProtocolCapabilities {
+    pub(super) image_input: bool,
+    pub(super) turn_steering: bool,
+    pub(super) context_usage: bool,
+    pub(super) manual_compaction: bool,
+    pub(super) focused_context: bool,
+}
+
+pub(super) fn apply_focused_process_overrides(command: &mut Command) {
+    for override_value in [
+        "features.memories=false",
+        "memories.use_memories=false",
+        "memories.generate_memories=false",
+        "features.plugins=false",
+        "features.apps=false",
+        "apps._default.enabled=false",
+        "include_apps_instructions=false",
+    ] {
+        command.args(["-c", override_value]);
+    }
+}
+
+pub(super) fn focused_thread_config(skill_names: &[String], web_search: bool) -> Value {
+    json!({
+        "web_search": if web_search { "live" } else { "disabled" },
+        "features": {
+            "memories": false,
+            "plugins": false,
+            "apps": false,
+        },
+        "memories": {
+            "use_memories": false,
+            "generate_memories": false,
+        },
+        "apps": {
+            "_default": {
+                "enabled": false,
+            },
+        },
+        "include_apps_instructions": false,
+        "skills": {
+            "config": skill_names.iter().map(|name| json!({
+                "name": name,
+                "enabled": false,
+            })).collect::<Vec<_>>(),
+        },
+    })
+}
+
+pub(super) fn focused_skill_names(response: &Value) -> Result<Vec<String>, String> {
+    let entries = response
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "Focused context is unavailable.".to_string())?;
+    let mut names = std::collections::BTreeSet::new();
+    for entry in entries {
+        let errors = entry
+            .get("errors")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "Focused context is unavailable.".to_string())?;
+        if !errors.is_empty() {
+            return Err("Focused context is unavailable.".to_string());
+        }
+        let skills = entry
+            .get("skills")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "Focused context is unavailable.".to_string())?;
+        for skill in skills {
+            let name = skill
+                .get("name")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|name| {
+                    !name.is_empty()
+                        && name.chars().count() <= 128
+                        && !name.chars().any(char::is_control)
+                })
+                .ok_or_else(|| "Focused context is unavailable.".to_string())?;
+            names.insert(name.to_string());
+        }
+    }
+    Ok(names.into_iter().collect())
+}
+
+pub(super) fn schema_capabilities(executable: &CodexExecutable) -> ProtocolCapabilities {
     let Ok(root) = create_scratch_directory() else {
-        return (false, false);
+        return ProtocolCapabilities::default();
     };
     let output_directory = root.join("schema");
     let mut command = executable.command();
@@ -59,15 +165,162 @@ pub(super) fn schema_capabilities(executable: &CodexExecutable) -> (bool, bool) 
         .filter(|output| output.status.success())
         .is_some();
     let capabilities = if generated {
-        (
-            schema_directory_contains(&output_directory, "\"localImage\""),
-            schema_directory_contains(&output_directory, "\"turn/steer\""),
-        )
+        ProtocolCapabilities {
+            image_input: schema_directory_contains(&output_directory, "\"localImage\""),
+            turn_steering: schema_directory_contains(&output_directory, "\"turn/steer\""),
+            context_usage: schema_directory_contains(
+                &output_directory,
+                "\"thread/tokenUsage/updated\"",
+            ) && schema_directory_contains(
+                &output_directory,
+                "\"modelContextWindow\"",
+            ) && schema_directory_contains(&output_directory, "\"totalTokens\""),
+            manual_compaction: schema_directory_contains(
+                &output_directory,
+                "\"thread/compact/start\"",
+            ) && schema_directory_contains(
+                &output_directory,
+                "\"contextCompaction\"",
+            ),
+            focused_context: schema_directory_contains(&output_directory, "\"thread/start\"")
+                && schema_directory_contains(&output_directory, "\"thread/resume\"")
+                && schema_directory_contains(&output_directory, "\"skills/list\"")
+                && schema_named_file_contains(
+                    &output_directory,
+                    "ThreadStartParams.json",
+                    "\"config\"",
+                )
+                && schema_named_file_contains(
+                    &output_directory,
+                    "ThreadResumeParams.json",
+                    "\"config\"",
+                )
+                && schema_named_file_contains(
+                    &output_directory,
+                    "SkillsListParams.json",
+                    "\"cwds\"",
+                )
+                && schema_named_file_contains(
+                    &output_directory,
+                    "SkillsListResponse.json",
+                    "\"data\"",
+                ),
+        }
     } else {
-        (false, false)
+        ProtocolCapabilities::default()
     };
     let _ = fs::remove_dir_all(root);
     capabilities
+}
+
+pub(super) fn probe_focused_context(executable: &CodexExecutable) -> bool {
+    let Ok(scratch_directory) = create_scratch_directory() else {
+        return false;
+    };
+    let mut command = executable.command();
+    apply_focused_process_overrides(&mut command);
+    command
+        .args(["app-server", "--stdio"])
+        .current_dir(&scratch_directory)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    let Ok(mut child) = command.spawn() else {
+        let _ = fs::remove_dir_all(&scratch_directory);
+        return false;
+    };
+    let result = (|| -> Result<(), String> {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| "Focused context is unavailable.".to_string())?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| "Focused context is unavailable.".to_string())?;
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                if sender.send(line).is_err() {
+                    break;
+                }
+            }
+        });
+        transient_management_request(
+            &mut stdin,
+            &receiver,
+            1,
+            "initialize",
+            json!({
+                "clientInfo": {
+                    "name": "svard",
+                    "title": "Svard",
+                    "version": env!("CARGO_PKG_VERSION"),
+                },
+                "capabilities": {
+                    "experimentalApi": true,
+                    "requestAttestation": false,
+                },
+            }),
+        )?;
+        serde_json::to_writer(&mut stdin, &json!({ "method": "initialized" }))
+            .map_err(|_| "Focused context is unavailable.".to_string())?;
+        stdin
+            .write_all(b"\n")
+            .and_then(|_| stdin.flush())
+            .map_err(|_| "Focused context is unavailable.".to_string())?;
+        let skills = transient_management_request(
+            &mut stdin,
+            &receiver,
+            2,
+            "skills/list",
+            json!({
+                "cwds": [scratch_directory.to_string_lossy()],
+                "forceReload": true,
+            }),
+        )?;
+        let skill_names = focused_skill_names(&skills)?;
+        let config = focused_thread_config(&skill_names, false);
+        let started = transient_management_request(
+            &mut stdin,
+            &receiver,
+            3,
+            "thread/start",
+            json!({
+                "cwd": scratch_directory.to_string_lossy(),
+                "runtimeWorkspaceRoots": [scratch_directory.to_string_lossy()],
+                "approvalPolicy": "never",
+                "sandbox": "read-only",
+                "ephemeral": true,
+                "experimentalRawEvents": false,
+                "config": config,
+            }),
+        )?;
+        let thread_id = started
+            .pointer("/thread/id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "Focused context is unavailable.".to_string())?;
+        transient_management_request(
+            &mut stdin,
+            &receiver,
+            4,
+            "thread/resume",
+            json!({
+                "threadId": thread_id,
+                "cwd": scratch_directory.to_string_lossy(),
+                "runtimeWorkspaceRoots": [scratch_directory.to_string_lossy()],
+                "approvalPolicy": "never",
+                "sandbox": "read-only",
+                "excludeTurns": true,
+                "config": focused_thread_config(&skill_names, false),
+            }),
+        )?;
+        Ok(())
+    })();
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = fs::remove_dir_all(&scratch_directory);
+    result.is_ok()
 }
 
 pub(super) fn bounded_string(value: Option<&str>, limit: usize) -> Option<String> {
@@ -245,12 +498,19 @@ pub(super) fn probe_executable(executable: &CodexExecutable) -> AgentProbe {
             text.contains("--stdio") && text.contains("generate-ts")
         })
         .unwrap_or(false);
-    let (image_input, turn_steering) = if supported {
+    let protocol = if supported {
         schema_capabilities(&executable)
     } else {
-        (false, false)
+        ProtocolCapabilities::default()
     };
-    let capabilities = AgentCapabilities::with_protocol_features(image_input, turn_steering);
+    let focused_context = protocol.focused_context && probe_focused_context(&executable);
+    let capabilities = AgentCapabilities::with_protocol_features(
+        protocol.image_input,
+        protocol.turn_steering,
+        protocol.context_usage,
+        protocol.manual_compaction,
+        focused_context,
+    );
     AgentProbe {
         provider_id: "codex-app-server",
         state: if supported {

@@ -64,6 +64,17 @@ pub(super) fn reader_loop(session: Arc<AgentSession>, stdout: impl std::io::Read
                 message: "Codex app-server disconnected.".to_string(),
             });
         }
+        if let Some(compaction) = session
+            .manual_compaction
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
+        {
+            let _ = compaction.completion.send(AgentCompactionOutcome::Failed {
+                code: "provider-disconnected".to_string(),
+                message: "Codex app-server disconnected.".to_string(),
+            });
+        }
     }
 }
 
@@ -301,6 +312,13 @@ pub(super) fn normalize_notification(session: &AgentSession, value: &Value) {
         .unwrap_or_default();
     let params = value.get("params").unwrap_or(&Value::Null);
     match method {
+        "thread/tokenUsage/updated" => {
+            if session.context_usage.load(Ordering::SeqCst) {
+                if let Some(usage) = normalize_context_usage(params) {
+                    session.emit(AgentEvent::ContextUsageUpdated { usage });
+                }
+            }
+        }
         "turn/started" => {
             if let Some(client_turn_id) = current_client_turn(session) {
                 session.emit(AgentEvent::TurnStarted { client_turn_id });
@@ -365,7 +383,21 @@ pub(super) fn normalize_notification(session: &AgentSession, value: &Value) {
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string();
-            if item.get("type").and_then(Value::as_str) == Some("agentMessage") {
+            if item.get("type").and_then(Value::as_str) == Some("contextCompaction") {
+                let source = {
+                    let mut manual = session
+                        .manual_compaction
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner());
+                    if let Some(compaction) = manual.as_mut() {
+                        compaction.item_started = true;
+                        AgentCompactionSource::Manual
+                    } else {
+                        AgentCompactionSource::Automatic
+                    }
+                };
+                session.emit(AgentEvent::ContextCompactionStarted { source });
+            } else if item.get("type").and_then(Value::as_str) == Some("agentMessage") {
                 if let Some(phase) = item.get("phase").and_then(Value::as_str) {
                     session
                         .item_phases
@@ -392,7 +424,25 @@ pub(super) fn normalize_notification(session: &AgentSession, value: &Value) {
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string();
-            if let Some(tool) = item_tool(&session.workspace_root, item) {
+            if item.get("type").and_then(Value::as_str) == Some("contextCompaction") {
+                let manual = {
+                    let mut pending = session
+                        .manual_compaction
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner());
+                    if let Some(compaction) = pending.as_mut() {
+                        compaction.item_completed = true;
+                        true
+                    } else {
+                        false
+                    }
+                };
+                if !manual {
+                    session.emit(AgentEvent::ContextCompactionCompleted {
+                        source: AgentCompactionSource::Automatic,
+                    });
+                }
+            } else if let Some(tool) = item_tool(&session.workspace_root, item) {
                 let status = normalized_tool_status(item.get("status").and_then(Value::as_str));
                 let duration_ms = item.get("durationMs").and_then(Value::as_u64);
                 let summary = completed_tool_summary(&tool, status, item);
@@ -471,6 +521,27 @@ pub(super) fn normalize_notification(session: &AgentSession, value: &Value) {
                     }
                 };
                 let _ = active.completion.send(outcome);
+            } else if let Some(compaction) = session
+                .manual_compaction
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .take()
+            {
+                let outcome = if status == "completed"
+                    && compaction.item_started
+                    && compaction.item_completed
+                {
+                    session.emit(AgentEvent::ContextCompactionCompleted {
+                        source: AgentCompactionSource::Manual,
+                    });
+                    AgentCompactionOutcome::Completed
+                } else {
+                    AgentCompactionOutcome::Failed {
+                        code: "compaction-failed".to_string(),
+                        message: "Codex could not complete context compaction.".to_string(),
+                    }
+                };
+                let _ = compaction.completion.send(outcome);
             }
         }
         "error" => {

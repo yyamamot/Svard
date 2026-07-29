@@ -330,6 +330,8 @@ pub struct CodexAgentProviderConfig {
     pub network_access: bool,
     #[serde(default)]
     pub web_search: bool,
+    #[serde(default = "default_agent_context_profile")]
+    pub context_profile: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -509,6 +511,10 @@ fn default_agent_permission_mode() -> String {
     "observe".to_string()
 }
 
+fn default_agent_context_profile() -> String {
+    "focused".to_string()
+}
+
 fn default_codex_agent_provider_config() -> CodexAgentProviderConfig {
     CodexAgentProviderConfig {
         executable: default_codex_executable_preference(),
@@ -518,6 +524,7 @@ fn default_codex_agent_provider_config() -> CodexAgentProviderConfig {
         permission_mode: default_agent_permission_mode(),
         network_access: false,
         web_search: false,
+        context_profile: default_agent_context_profile(),
     }
 }
 

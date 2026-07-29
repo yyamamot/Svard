@@ -13,6 +13,7 @@ export type AgentProviderState =
   | "unsupportedVersion";
 
 export type AgentPermissionMode = "observe" | "agent" | "fullAccess";
+export type AgentContextProfile = "focused" | "providerDefaults";
 
 export type AgentResponseMode = "auto" | "visualize";
 
@@ -47,7 +48,18 @@ export interface AgentCapabilities {
   imageInput: boolean;
   orderedMixedInput?: boolean;
   turnSteering: boolean;
+  contextUsage: boolean;
+  manualCompaction: boolean;
+  focusedContext: boolean;
 }
+
+export interface AgentContextUsage {
+  usedTokens: number;
+  contextWindowTokens: number;
+  remainingPercent: number;
+}
+
+export type AgentCompactionSource = "automatic" | "manual";
 
 export interface AgentProbe {
   providerId: AgentProviderId;
@@ -110,6 +122,7 @@ export interface AgentSessionStartInput {
   permissionMode: AgentPermissionMode;
   networkAccess: boolean;
   webSearch: boolean;
+  contextProfile?: AgentContextProfile;
   model?: string | null;
   reasoningEffort?: string | null;
   personality?: "friendly" | "pragmatic" | "none" | null;
@@ -119,6 +132,7 @@ export interface AgentSessionInfo {
   clientSessionId: string;
   providerId: AgentProviderId;
   capabilities: AgentCapabilities;
+  contextProfile: AgentContextProfile;
 }
 
 export interface AgentSessionManagementCapabilities {
@@ -137,6 +151,7 @@ export interface AgentSessionSettingsSnapshot {
   permissionMode: AgentPermissionMode;
   networkAccess: boolean;
   webSearch: boolean;
+  contextProfile: AgentContextProfile;
   model: string | null;
   reasoningEffort: string | null;
   personality: "friendly" | "pragmatic" | "none" | null;
@@ -171,6 +186,7 @@ export interface AgentSessionResumeInput {
   clientSessionId: string;
   workspaceRoot: string;
   executablePreference: AgentExecutablePreference;
+  contextProfile?: AgentContextProfile;
   fullAccessConfirmed: boolean;
 }
 
@@ -373,6 +389,9 @@ export type AgentEvent =
       clientSessionId: string;
       title: string;
     }
+  | { type: "contextUsageUpdated"; usage: AgentContextUsage }
+  | { type: "contextCompactionStarted"; source: AgentCompactionSource }
+  | { type: "contextCompactionCompleted"; source: AgentCompactionSource }
   | { type: "reasoningSummaryDelta"; delta: string }
   | { type: "assistantCommentaryDelta"; delta: string }
   | { type: "planUpdated"; steps: AgentPlanStep[] }
@@ -422,6 +441,10 @@ export type AgentTurnOutcome =
   | { status: "cancelled" }
   | { status: "failed"; code: string; message: string };
 
+export type AgentCompactionOutcome =
+  | { status: "completed" }
+  | { status: "failed"; code: string; message: string };
+
 export const codexAppServerCapabilities: AgentCapabilities = {
   reasoningSummary: true,
   plan: true,
@@ -435,4 +458,7 @@ export const codexAppServerCapabilities: AgentCapabilities = {
   imageInput: true,
   orderedMixedInput: true,
   turnSteering: true,
+  contextUsage: true,
+  manualCompaction: true,
+  focusedContext: true,
 };
