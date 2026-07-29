@@ -281,7 +281,7 @@ pub(super) fn probe_focused_context(executable: &CodexExecutable) -> bool {
         )?;
         let skill_names = focused_skill_names(&skills)?;
         let config = focused_thread_config(&skill_names, false);
-        let started = transient_management_request(
+        transient_management_request(
             &mut stdin,
             &receiver,
             3,
@@ -296,25 +296,11 @@ pub(super) fn probe_focused_context(executable: &CodexExecutable) -> bool {
                 "config": config,
             }),
         )?;
-        let thread_id = started
-            .pointer("/thread/id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "Focused context is unavailable.".to_string())?;
-        transient_management_request(
-            &mut stdin,
-            &receiver,
-            4,
-            "thread/resume",
-            json!({
-                "threadId": thread_id,
-                "cwd": scratch_directory.to_string_lossy(),
-                "runtimeWorkspaceRoots": [scratch_directory.to_string_lossy()],
-                "approvalPolicy": "never",
-                "sandbox": "read-only",
-                "excludeTurns": true,
-                "config": focused_thread_config(&skill_names, false),
-            }),
-        )?;
+        // Codex does not create a resumable rollout until the first model turn.
+        // Requiring thread/resume here would therefore disable Focused for every
+        // fresh installation unless this capability probe executed a model turn.
+        // Resume config support is checked separately in the generated schema,
+        // and the session lifecycle reapplies the same config when resuming.
         Ok(())
     })();
     let _ = child.kill();

@@ -163,7 +163,7 @@ fn focused_skill_list_accepts_empty_and_rejects_errors_or_invalid_names() {
 
 #[cfg(unix)]
 #[test]
-fn focused_runtime_probe_uses_only_transient_protocol_requests() {
+fn focused_runtime_probe_stops_before_resume_requires_a_rollout() {
     use std::os::unix::fs::PermissionsExt;
 
     let workspace = tempfile::tempdir().unwrap();
@@ -180,9 +180,7 @@ IFS= read -r skills
 printf '{"id":2,"result":{"data":[{"cwd":"/private","errors":[],"skills":[{"name":"docs"}]}]}}\n'
 IFS= read -r start
 printf '{"id":3,"result":{"thread":{"id":"ephemeral"}}}\n'
-IFS= read -r resume
-printf '{"id":4,"result":{"thread":{"id":"ephemeral"}}}\n'
-while IFS= read -r line; do :; done
+exit 0
 "#,
     )
     .unwrap();
