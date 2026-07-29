@@ -9,7 +9,10 @@ import {
   MAX_TABLE_COLUMNS,
   MAX_TABLE_ROWS,
 } from "./openUiLimits";
-import { svardOpenUiLibrary } from "./openUiRegistry";
+import {
+  svardOpenUiLibraries,
+  type SvardOpenUiProfile,
+} from "./openUiRegistry";
 
 function openUiCandidate(content: string): string | null {
   const fenced = content.match(/```(?:openui|openui-lang)?\s*([\s\S]*?)```/i);
@@ -200,7 +203,10 @@ function inspectElementTree(root: unknown): OpenUiTreeInspection {
   return reason ? { valid: false, reason, limitDiagnostic } : { valid: true };
 }
 
-export function validateOpenUiResponse(content: string): {
+export function validateOpenUiResponse(
+  content: string,
+  profile: SvardOpenUiProfile = "full",
+): {
   candidate: string | null;
   valid: boolean;
   incomplete: boolean;
@@ -255,10 +261,10 @@ export function validateOpenUiResponse(content: string): {
       meta: null,
     };
   }
-  const result = createParser(
-    svardOpenUiLibrary.toJSONSchema(),
-    svardOpenUiLibrary.root,
-  ).parse(candidate);
+  const library = svardOpenUiLibraries[profile];
+  const result = createParser(library.toJSONSchema(), library.root).parse(
+    candidate,
+  );
   const tree = result.root ? inspectElementTree(result.root) : null;
   const reason: OpenUiFailureReason | null = result.meta.incomplete
     ? "incomplete"

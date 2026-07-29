@@ -594,40 +594,107 @@ const customComponents = [
   AgentActionButton,
   OpenFileButton,
 ];
-const contentRefs = [...standardComponents, ...customComponents].map(
-  (component) => component.ref,
-) as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]];
+const allContentComponents = [...standardComponents, ...customComponents];
+type SvardContentComponent = (typeof allContentComponents)[number];
 
-const SvardExperience = defineComponent({
-  name: "SvardExperience",
-  description:
-    "Root container for a structured Agent answer. Compose only components that materially improve understanding.",
-  props: z
-    .object({
-      title: z.string().optional(),
-      summary: z.string().optional(),
-      content: z.array(z.union(contentRefs)).max(MAX_OPENUI_NODES),
-    })
-    .strict(),
-  component: ({ props, renderNode }) => (
-    <article
-      className="codex-openui-answer codex-openui-experience"
-      data-review-id="agent-openui-experience"
-    >
-      {props.title ? <h2>{props.title}</h2> : null}
-      {props.summary ? (
-        <p className="codex-openui-summary">{props.summary}</p>
-      ) : null}
-      {renderNode(props.content)}
-    </article>
-  ),
-});
+const componentCatalog = new Map(
+  allContentComponents.map((component) => [component.name, component]),
+);
 
-export const svardOpenUiLibrary = createLibrary({
-  id: "svard-openui-exploration",
-  root: "SvardExperience",
-  components: [SvardExperience, ...standardComponents, ...customComponents],
-});
+export const SVARD_OPENUI_BALANCED_COMPONENTS = [
+  "Heading",
+  "TextContent",
+  "Callout",
+  "Grid",
+  "KeyValue",
+  "Table",
+  "Col",
+  "Checklist",
+  "Timeline",
+  "CodeBlock",
+  "CodeDiff",
+  "FileList",
+  "Image",
+  "FollowUpButton",
+] as const;
+
+export const SVARD_OPENUI_LEAN_COMPONENTS = [
+  "Heading",
+  "TextContent",
+  "Callout",
+  "KeyValue",
+  "Table",
+  "Col",
+  "Checklist",
+  "CodeDiff",
+  "FileList",
+  "FollowUpButton",
+] as const;
+
+function selectComponents(names: readonly string[]) {
+  return names.map((name) => {
+    const component = componentCatalog.get(name);
+    if (!component) {
+      throw new Error(`Unknown Svard OpenUI component: ${name}`);
+    }
+    return component;
+  });
+}
+
+function createSvardExperience(components: readonly SvardContentComponent[]) {
+  const contentRefs = components.map((component) => component.ref) as [
+    z.ZodTypeAny,
+    z.ZodTypeAny,
+    ...z.ZodTypeAny[],
+  ];
+  return defineComponent({
+    name: "SvardExperience",
+    description:
+      "Root container for a structured Agent answer. Compose only components that materially improve understanding.",
+    props: z
+      .object({
+        title: z.string().optional(),
+        summary: z.string().optional(),
+        content: z.array(z.union(contentRefs)).max(MAX_OPENUI_NODES),
+      })
+      .strict(),
+    component: ({ props, renderNode }) => (
+      <article
+        className="codex-openui-answer codex-openui-experience"
+        data-review-id="agent-openui-experience"
+      >
+        {props.title ? <h2>{props.title}</h2> : null}
+        {props.summary ? (
+          <p className="codex-openui-summary">{props.summary}</p>
+        ) : null}
+        {renderNode(props.content)}
+      </article>
+    ),
+  });
+}
+
+function createSvardLibrary(id: string, components: SvardContentComponent[]) {
+  return createLibrary({
+    id,
+    root: "SvardExperience",
+    components: [createSvardExperience(components), ...components],
+  });
+}
+
+export const svardOpenUiLibrary = createSvardLibrary(
+  "svard-openui-exploration",
+  allContentComponents,
+);
+
+export const svardOpenUiBalancedLibrary = createSvardLibrary(
+  "svard-openui-basic-balanced",
+  selectComponents(SVARD_OPENUI_BALANCED_COMPONENTS),
+);
+
+export const svardOpenUiLeanLibrary = createSvardLibrary(
+  "svard-openui-basic-lean",
+  selectComponents(SVARD_OPENUI_LEAN_COMPONENTS),
+);
 
 export const svardOpenUiPrompt = svardOpenUiLibrary.prompt({
   preamble:
@@ -649,6 +716,52 @@ export const svardOpenUiPrompt = svardOpenUiLibrary.prompt({
     'root = SvardExperience("Workspace overview", "A compact view of the main responsibilities.", [stats, files])\nstats = Grid([{title:"Documents",value:"12",detail:"Markdown and AsciiDoc"},{title:"Code",value:"8",detail:"TypeScript and Rust"}], 2)\nfiles = FileList("Key files", [{path:"src/ui/App.tsx",role:"UI shell"},{path:"src-tauri/src/lib.rs",role:"Tauri backend"}])',
   ],
 });
+
+const basicPromptRules = [
+  "This OpenUI contract is the only visualization mechanism for this response. Do not invoke or follow a visualize or visualization skill, and do not create Mermaid, HTML, a website, or a visualization file.",
+  "Start structured answers with root = SvardExperience(...).",
+  "Return OpenUI Lang source only. Do not add prose before or after it and do not use a non-OpenUI fenced block.",
+  "Never emit HTML, scripts, remote URLs, absolute paths, data URLs, Query, Mutation, or tool calls.",
+  "Use FollowUpButton to request another Agent turn. The current sandbox and approval policy still apply.",
+  "Use FileList only with workspace-relative document paths.",
+  "Prefer plain text when a generated interface would not improve comprehension.",
+];
+
+const basicPromptOptions = {
+  preamble:
+    "You may answer with plain text or build a structured, accessible UI when it materially improves a workspace answer. In Visualize mode, return only the Svard OpenUI Lang interface described here.",
+  inlineMode: false,
+  toolCalls: false,
+  bindings: true,
+};
+
+export const svardOpenUiBalancedPrompt = svardOpenUiBalancedLibrary.prompt({
+  ...basicPromptOptions,
+  additionalRules: [
+    ...basicPromptRules.slice(0, 4),
+    "Use Image only with kind attached and an attachment display name, or kind workspace and a workspace-relative path.",
+    ...basicPromptRules.slice(4),
+  ],
+  examples: [
+    'root = SvardExperience("Workspace review", "A compact evidence summary.", [summary, files])\nsummary = Grid([{title:"Findings",value:"3",detail:"Two verified"}], 1)\nfiles = FileList("Evidence", [{path:"docs/01-specification.md",role:"Contract"}])',
+  ],
+});
+
+export const svardOpenUiLeanPrompt = svardOpenUiLeanLibrary.prompt({
+  ...basicPromptOptions,
+  additionalRules: basicPromptRules,
+  examples: [
+    'root = SvardExperience("Workspace review", "A compact evidence summary.", [summary, files])\nsummary = KeyValue([{label:"Findings",value:"3"},{label:"Verified",value:"2"}])\nfiles = FileList("Evidence", [{path:"docs/01-specification.md",role:"Contract"}])',
+  ],
+});
+
+export type SvardOpenUiProfile = "full" | "balanced" | "lean";
+
+export const svardOpenUiLibraries = {
+  full: svardOpenUiLibrary,
+  balanced: svardOpenUiBalancedLibrary,
+  lean: svardOpenUiLeanLibrary,
+} as const;
 
 export function workspaceImageDataUrl(
   result: {

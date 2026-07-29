@@ -367,6 +367,36 @@ export async function applyAppShellAgentChatScenario(context) {
             ?.getAttribute("aria-pressed") === "true",
       );
       await composer.fill("Build an OpenUI dashboard for this workspace.");
+    } else if (
+      scenario === "viewer-agent-chat-openui-basic-review" ||
+      scenario === "viewer-agent-chat-openui-basic-gallery" ||
+      scenario === "viewer-agent-chat-openui-basic-balanced" ||
+      scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-component-challengers"
+    ) {
+      const responseMode = page.locator(
+        '[data-review-id="agent-response-mode"]',
+      );
+      await responseMode.click();
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector('[data-review-id="agent-response-mode"]')
+            ?.getAttribute("aria-pressed") === "true",
+      );
+      const prompts = {
+        "viewer-agent-chat-openui-basic-review":
+          "Show the OpenUI basic profile review.",
+        "viewer-agent-chat-openui-basic-gallery":
+          "Show the OpenUI basic profile gallery.",
+        "viewer-agent-chat-openui-basic-balanced":
+          "Show the OpenUI balanced profile comparison.",
+        "viewer-agent-chat-openui-basic-lean":
+          "Show the OpenUI lean profile comparison.",
+        "viewer-agent-chat-openui-component-challengers":
+          "Show the OpenUI component challengers.",
+      };
+      await composer.fill(prompts[scenario]);
     } else if (scenario === "viewer-agent-chat-approval") {
       await composer.fill("Approval is required for this workspace check.");
     } else if (scenario.endsWith("access") || scenario.endsWith("profile")) {
@@ -453,6 +483,11 @@ export async function applyAppShellAgentChatScenario(context) {
     if (
       scenario === "viewer-agent-chat-openui" ||
       scenario === "viewer-agent-chat-openui-exploration" ||
+      scenario === "viewer-agent-chat-openui-basic-review" ||
+      scenario === "viewer-agent-chat-openui-basic-gallery" ||
+      scenario === "viewer-agent-chat-openui-basic-balanced" ||
+      scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-component-challengers" ||
       scenario === "viewer-agent-chat-output-hygiene" ||
       scenario === "viewer-agent-chat-session-management"
     ) {
@@ -473,6 +508,33 @@ export async function applyAppShellAgentChatScenario(context) {
           "completed"
         );
       });
+    }
+    let openUiEvaluationWideLayout = true;
+    if (
+      scenario === "viewer-agent-chat-openui-basic-review" ||
+      scenario === "viewer-agent-chat-openui-basic-gallery" ||
+      scenario === "viewer-agent-chat-openui-basic-balanced" ||
+      scenario === "viewer-agent-chat-openui-basic-lean"
+    ) {
+      await page
+        .getByRole("button", { name: "Move AI Chat to bottom" })
+        .click();
+      const split = page.locator(
+        '[data-review-id="codex-main-split"][data-agent-placement="bottom"]',
+      );
+      await split.waitFor();
+      const resizer = page.locator(".codex-main-resizer");
+      for (let step = 0; step < 16; step += 1) {
+        await resizer.press("ArrowUp");
+      }
+      await page.evaluate(async () => {
+        await window.__SVARD_COMMANDS__?.dispatch("sidebar.toggleLeft");
+      });
+      await page
+        .locator('[data-review-id="left-sidebar"]')
+        .waitFor({ state: "detached" });
+      openUiEvaluationWideLayout =
+        (await split.getAttribute("data-agent-placement")) === "bottom";
     }
     if (scenario === "viewer-agent-chat-composer-access") {
       await exerciseAgentComposerAccessPlacements({ page });
@@ -743,10 +805,72 @@ export async function applyAppShellAgentChatScenario(context) {
     const openUiVisible =
       (scenario !== "viewer-agent-chat-openui" &&
         scenario !== "viewer-agent-chat-openui-exploration" &&
+        scenario !== "viewer-agent-chat-openui-basic-review" &&
+        scenario !== "viewer-agent-chat-openui-basic-gallery" &&
+        scenario !== "viewer-agent-chat-openui-basic-balanced" &&
+        scenario !== "viewer-agent-chat-openui-basic-lean" &&
+        scenario !== "viewer-agent-chat-openui-component-challengers" &&
         scenario !== "viewer-agent-chat-output-hygiene") ||
       (await page
         .locator('[data-review-id="agent-openui-response"]')
         .count()) >= 1;
+    let openUiEvaluationVisible = true;
+    if (
+      scenario === "viewer-agent-chat-openui-basic-review" ||
+      scenario === "viewer-agent-chat-openui-basic-gallery" ||
+      scenario === "viewer-agent-chat-openui-basic-balanced" ||
+      scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-component-challengers"
+    ) {
+      const answer = page
+        .locator('[data-review-id="agent-openui-response"]')
+        .last();
+      const answerText = await answer.innerText();
+      const expectedText = {
+        "viewer-agent-chat-openui-basic-review": [
+          "Document review brief",
+          "Review scope",
+          "Review targets",
+          "Compare omitted components",
+        ],
+        "viewer-agent-chat-openui-basic-gallery": [
+          "Basic profile gallery",
+          "Review-oriented building blocks",
+          "Review coverage",
+          "Check profile coverage",
+        ],
+        "viewer-agent-chat-openui-basic-balanced": [
+          "Balanced profile",
+          "Document review result",
+          "Selected schema only",
+          "Prepare real Codex evaluation",
+        ],
+        "viewer-agent-chat-openui-basic-lean": [
+          "Lean profile",
+          "Document review result",
+          "Selected schema only",
+          "Review the lean replacements",
+        ],
+        "viewer-agent-chat-openui-component-challengers": [
+          "Component challengers",
+          "Apply filter",
+          "Document relationships",
+          "Gallery layout",
+        ],
+      };
+      const profileComparison =
+        scenario === "viewer-agent-chat-openui-basic-balanced" ||
+        scenario === "viewer-agent-chat-openui-basic-lean";
+      openUiEvaluationVisible =
+        expectedText[scenario].every((text) => answerText.includes(text)) &&
+        (await page
+          .locator('[data-review-id="agent-openui-fallback"]')
+          .count()) === 0 &&
+        (!profileComparison ||
+          (await page
+            .getByRole("button", { name: "Context unavailable" })
+            .count()) === 1);
+    }
     let explorationInteraction = true;
     if (scenario === "viewer-agent-chat-openui-exploration") {
       await page.locator('[data-review-id="agent-openui-grid"]').waitFor();
@@ -858,6 +982,25 @@ export async function applyAppShellAgentChatScenario(context) {
       await page.setViewportSize({ width: 1280, height: 840 });
       await page.locator('[data-review-id="left-sidebar"]').waitFor();
     }
+    if (
+      scenario === "viewer-agent-chat-openui-basic-review" ||
+      scenario === "viewer-agent-chat-openui-basic-gallery" ||
+      scenario === "viewer-agent-chat-openui-basic-balanced" ||
+      scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-component-challengers"
+    ) {
+      await page
+        .locator('[data-review-id="agent-openui-response"]')
+        .last()
+        .evaluate((answer) => {
+          const conversation = answer.closest(".agent-conversation");
+          if (!(conversation instanceof HTMLElement)) return;
+          const answerBox = answer.getBoundingClientRect();
+          const conversationBox = conversation.getBoundingClientRect();
+          conversation.scrollLeft = 0;
+          conversation.scrollTop += answerBox.top - conversationBox.top - 8;
+        });
+    }
     await page.evaluate(
       (result) => {
         window.__SVARD_AGENT_STAGE5_CHECK__ = result;
@@ -876,6 +1019,8 @@ export async function applyAppShellAgentChatScenario(context) {
         markdownAnswerVisible,
         externalLinkConfirmationVisible,
         openUiVisible,
+        openUiEvaluationVisible,
+        openUiEvaluationWideLayout,
         reasoningVisible,
         rightSidebarRestored,
         toolVisible,

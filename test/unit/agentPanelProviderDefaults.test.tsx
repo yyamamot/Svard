@@ -11,6 +11,7 @@ import type {
   AppConfig,
 } from "../../src/core/types";
 import { AgentPanelHost } from "../../src/ui/agent/AgentPanelHost";
+import { svardOpenUiBalancedPrompt } from "../../src/ui/codex/openUiLibrary";
 import { codexContextPointerDragStartEvent } from "../../src/ui/lib/fileCompareDrag";
 import {
   createReactRootHarness,
@@ -267,8 +268,8 @@ describe("AgentPanelHost provider defaults", () => {
     await sendQuestion("Visualize the dashboard.");
     await vi.waitFor(() => expect(host.turnInputs).toHaveLength(2));
     expect(host.turnInputs[1]).toMatchObject({ responseMode: "visualize" });
-    expect(host.turnInputs[1]?.visualizationInstructions).toContain(
-      "SvardExperience",
+    expect(host.turnInputs[1]?.visualizationInstructions).toBe(
+      svardOpenUiBalancedPrompt,
     );
 
     await harness.click(

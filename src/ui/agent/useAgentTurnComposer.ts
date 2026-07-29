@@ -20,7 +20,7 @@ import {
   maximumTurnSelections,
 } from "../../core/types/selection";
 import {
-  svardOpenUiPrompt,
+  svardOpenUiBalancedPrompt,
   workspaceImageDataUrl,
 } from "../codex/openUiLibrary";
 import {
@@ -338,7 +338,9 @@ export function useAgentTurnComposer(
         ],
         contentParts,
         visualizationInstructions:
-          responseMode === "visualize" ? svardOpenUiPrompt : undefined,
+          responseMode === "visualize"
+            ? svardOpenUiBalancedPrompt
+            : undefined,
       },
     };
     if (activeTurnId) {

@@ -309,6 +309,7 @@ function ConversationTurn({
             onOpenExternalLink={turn.restored ? undefined : onOpenExternalLink}
             onOpenFile={turn.restored ? undefined : onOpenFile}
             preferUi={turn.responseMode === "visualize"}
+            profile={turn.restored ? "full" : "balanced"}
             readOnly={Boolean(turn.restored)}
             resolveWorkspaceImage={
               turn.restored ? undefined : resolveWorkspaceImage

@@ -8,7 +8,10 @@ import {
   type ReactNode,
 } from "react";
 import { AgentMarkdownAnswer } from "./openUiMarkdown";
-import { svardOpenUiLibrary } from "./openUiRegistry";
+import {
+  svardOpenUiLibraries,
+  type SvardOpenUiProfile,
+} from "./openUiRegistry";
 import {
   SvardOpenUiRuntimeContext,
   type SvardOpenUiRuntime,
@@ -49,6 +52,7 @@ export interface SvardOpenUiAnswerProps extends SvardOpenUiRuntime {
   allowStructured?: boolean;
   content: string;
   isStreaming?: boolean;
+  profile?: SvardOpenUiProfile;
   preferUi?: boolean;
 }
 
@@ -131,15 +135,17 @@ export function SvardOpenUiAnswer({
   onAgentAction,
   onOpenExternalLink,
   onOpenFile,
+  profile = "full",
   preferUi = false,
   readOnly = false,
   resolveWorkspaceImage,
 }: SvardOpenUiAnswerProps) {
   const [rendererFailed, setRendererFailed] = useState(false);
-  const parsed = validateOpenUiResponse(content);
+  const library = svardOpenUiLibraries[profile];
+  const parsed = validateOpenUiResponse(content, profile);
   useEffect(() => {
     setRendererFailed(false);
-  }, [content]);
+  }, [content, profile]);
   if (!parsed.candidate) {
     if (isStreaming && (preferUi || parsed.incomplete)) {
       return (
@@ -219,7 +225,7 @@ export function SvardOpenUiAnswer({
         <SvardOpenUiRuntimeContext.Provider value={runtime}>
           <Renderer
             response={parsed.candidate}
-            library={svardOpenUiLibrary}
+            library={library}
             isStreaming={isStreaming}
             onAction={(event) => {
               if (readOnly) return;

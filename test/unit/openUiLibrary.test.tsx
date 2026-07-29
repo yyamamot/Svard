@@ -106,4 +106,26 @@ describe("Svard OpenUI library", () => {
     expect(html).toContain("Open guide");
     expect(html).not.toContain("root = SvardExperience");
   });
+
+  it("renders a scoped profile while rejecting components outside it", () => {
+    const source = [
+      'root = SvardExperience("Review", "Scoped profile", [summary])',
+      'summary = KeyValue([{label:"Status",value:"Ready"}])',
+    ].join("\n");
+    const rejected = [
+      'root = SvardExperience("Review", "Scoped profile", [stat])',
+      'stat = StatCard("Coverage", "75%")',
+    ].join("\n");
+
+    const html = renderToStaticMarkup(
+      <SvardOpenUiAnswer content={source} profile="balanced" />,
+    );
+    const fallback = renderToStaticMarkup(
+      <SvardOpenUiAnswer content={rejected} profile="balanced" />,
+    );
+
+    expect(html).toContain('data-review-id="agent-openui-response"');
+    expect(html).toContain("Status");
+    expect(fallback).toContain('data-openui-failure="unsupportedComponent"');
+  });
 });

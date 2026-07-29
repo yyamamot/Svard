@@ -162,6 +162,10 @@ export async function buildCoreAssertions(context) {
       scenario === "viewer-agent-chat-diff-context-reliability" ||
       scenario === "viewer-agent-chat-change-review" ||
       scenario === "viewer-agent-chat-attach-current-change" ||
+      scenario === "viewer-agent-chat-openui-basic-review" ||
+      scenario === "viewer-agent-chat-openui-basic-gallery" ||
+      scenario === "viewer-agent-chat-openui-basic-balanced" ||
+      scenario === "viewer-agent-chat-openui-basic-lean" ||
       scenario === "viewer-git-diff-too-complex-source-fallback" ||
       scenario === "viewer-topbar-direct-layout-controls" ||
       scenario.startsWith("viewer-git-timeline-") ||

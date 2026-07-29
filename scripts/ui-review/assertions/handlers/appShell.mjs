@@ -188,6 +188,11 @@ export async function buildAppShellAssertions(context) {
       scenario === "viewer-agent-chat-approval" ||
       scenario === "viewer-agent-chat-openui" ||
       scenario === "viewer-agent-chat-openui-exploration" ||
+      scenario === "viewer-agent-chat-openui-basic-review" ||
+      scenario === "viewer-agent-chat-openui-basic-gallery" ||
+      scenario === "viewer-agent-chat-openui-basic-balanced" ||
+      scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-component-challengers" ||
       scenario === "viewer-agent-chat-image-input" ||
       scenario === "viewer-agent-chat-activity" ||
       scenario === "viewer-agent-chat-output-hygiene" ||
@@ -220,11 +225,26 @@ export async function buildAppShellAssertions(context) {
               result?.activityFailureVisible === true &&
               result?.emptyActivityHidden === true &&
               result?.openUiVisible === true &&
+              result?.openUiEvaluationVisible === true &&
               result?.explorationInteraction === true &&
               result?.groupedReadActivity === true &&
               result?.rightSidebarRestored === true
             );
           })
+        : true,
+    hasOpenUiBasicProfileEvaluation:
+      scenario === "viewer-agent-chat-openui-basic-review" ||
+      scenario === "viewer-agent-chat-openui-basic-gallery" ||
+      scenario === "viewer-agent-chat-openui-basic-balanced" ||
+      scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-component-challengers"
+        ? await page.evaluate(
+            () =>
+              window.__SVARD_AGENT_STAGE5_CHECK__?.openUiEvaluationVisible ===
+                true &&
+              window.__SVARD_AGENT_STAGE5_CHECK__
+                ?.openUiEvaluationWideLayout === true,
+          )
         : true,
     hasSelectionExtraction:
       scenario === "viewer-selection-extraction"

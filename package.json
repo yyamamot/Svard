@@ -61,6 +61,7 @@
     "benchmark:workspace": "node scripts/workspace-performance-benchmark.mjs",
     "check:ui-scenarios": "node scripts/check-ui-scenarios.mjs",
     "check:codex-app-server-protocol": "node scripts/check-codex-app-server-protocol.mjs",
+    "eval:openui-basic:live": "vitest run scripts/evaluate-openui-basic-live.test.ts",
     "version:set": "node scripts/set-release-version.mjs",
     "version:check": "node scripts/check-release-version.mjs",
     "mirror:commit-last": "node scripts/mirror-commit-last.mjs",
