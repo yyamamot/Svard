@@ -7,6 +7,7 @@ import {
   OPENUI_BASIC_KEEP_COMPONENTS,
   OPENUI_BASIC_LEAN_COMPONENTS,
   OPENUI_BASIC_LEAN_FIXTURE,
+  OPENUI_BASIC_LIMIT_DIAGNOSTIC_FIXTURE,
   OPENUI_BASIC_PROFILE_COMPONENTS,
   OPENUI_BASIC_PROFILE_STRUCTURAL_COMPONENTS,
   OPENUI_BASIC_REVIEW_FIXTURE,
@@ -216,6 +217,20 @@ describe("OpenUI basic profile evaluation fixtures", () => {
     expect(
       mockOpenUiEvaluationAnswer("Show the OpenUI lean profile comparison."),
     ).toBe(OPENUI_BASIC_LEAN_FIXTURE);
+    expect(
+      mockOpenUiEvaluationAnswer("Show the OpenUI balanced limit diagnostic."),
+    ).toBe(OPENUI_BASIC_LIMIT_DIAGNOSTIC_FIXTURE);
+    expect(
+      validateOpenUiResponse(OPENUI_BASIC_LIMIT_DIAGNOSTIC_FIXTURE, "balanced"),
+    ).toMatchObject({
+      valid: false,
+      reason: "complexityLimit",
+      limitDiagnostic: {
+        metric: "tableRows",
+        actual: 101,
+        limit: 100,
+      },
+    });
     expect(
       isOpenUiProfileComparisonQuestion(
         "Show the OpenUI balanced profile comparison.",

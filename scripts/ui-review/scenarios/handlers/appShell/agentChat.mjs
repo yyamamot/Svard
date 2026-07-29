@@ -372,6 +372,7 @@ export async function applyAppShellAgentChatScenario(context) {
       scenario === "viewer-agent-chat-openui-basic-gallery" ||
       scenario === "viewer-agent-chat-openui-basic-balanced" ||
       scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-limit-diagnostics" ||
       scenario === "viewer-agent-chat-openui-component-challengers"
     ) {
       const responseMode = page.locator(
@@ -393,6 +394,8 @@ export async function applyAppShellAgentChatScenario(context) {
           "Show the OpenUI balanced profile comparison.",
         "viewer-agent-chat-openui-basic-lean":
           "Show the OpenUI lean profile comparison.",
+        "viewer-agent-chat-openui-limit-diagnostics":
+          "Show the OpenUI balanced limit diagnostic.",
         "viewer-agent-chat-openui-component-challengers":
           "Show the OpenUI component challengers.",
       };
@@ -487,6 +490,7 @@ export async function applyAppShellAgentChatScenario(context) {
       scenario === "viewer-agent-chat-openui-basic-gallery" ||
       scenario === "viewer-agent-chat-openui-basic-balanced" ||
       scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-limit-diagnostics" ||
       scenario === "viewer-agent-chat-openui-component-challengers" ||
       scenario === "viewer-agent-chat-output-hygiene" ||
       scenario === "viewer-agent-chat-session-management"
@@ -802,18 +806,40 @@ export async function applyAppShellAgentChatScenario(context) {
     const approvalResolved =
       scenario !== "viewer-agent-chat-approval" ||
       (await page.getByRole("button", { name: "Allow once" }).count()) === 0;
-    const openUiVisible =
-      (scenario !== "viewer-agent-chat-openui" &&
-        scenario !== "viewer-agent-chat-openui-exploration" &&
-        scenario !== "viewer-agent-chat-openui-basic-review" &&
-        scenario !== "viewer-agent-chat-openui-basic-gallery" &&
-        scenario !== "viewer-agent-chat-openui-basic-balanced" &&
-        scenario !== "viewer-agent-chat-openui-basic-lean" &&
-        scenario !== "viewer-agent-chat-openui-component-challengers" &&
-        scenario !== "viewer-agent-chat-output-hygiene") ||
-      (await page
-        .locator('[data-review-id="agent-openui-response"]')
-        .count()) >= 1;
+    const limitDiagnosticScenario =
+      scenario === "viewer-agent-chat-openui-limit-diagnostics";
+    const openUiVisible = limitDiagnosticScenario
+      ? (await page
+          .locator('[data-review-id="agent-openui-fallback"]')
+          .count()) >= 1
+      : (scenario !== "viewer-agent-chat-openui" &&
+          scenario !== "viewer-agent-chat-openui-exploration" &&
+          scenario !== "viewer-agent-chat-openui-basic-review" &&
+          scenario !== "viewer-agent-chat-openui-basic-gallery" &&
+          scenario !== "viewer-agent-chat-openui-basic-balanced" &&
+          scenario !== "viewer-agent-chat-openui-basic-lean" &&
+          scenario !== "viewer-agent-chat-openui-component-challengers" &&
+          scenario !== "viewer-agent-chat-output-hygiene") ||
+        (await page
+          .locator('[data-review-id="agent-openui-response"]')
+          .count()) >= 1;
+    let openUiLimitDiagnosticsVisible = true;
+    if (limitDiagnosticScenario) {
+      const fallback = page
+        .locator('[data-review-id="agent-openui-fallback"]')
+        .last();
+      await fallback.locator("summary").click();
+      const fallbackText = await fallback.innerText();
+      openUiLimitDiagnosticsVisible =
+        (await fallback
+          .locator('[data-openui-failure="complexityLimit"]')
+          .count()) === 1 &&
+        ["Limit", "Generated", "Allowed", "Table rows", "101", "100"].every(
+          (text) => fallbackText.includes(text),
+        ) &&
+        !fallbackText.includes("root = SvardExperience") &&
+        !fallbackText.toLowerCase().includes("parser");
+    }
     let openUiEvaluationVisible = true;
     if (
       scenario === "viewer-agent-chat-openui-basic-review" ||
@@ -1021,6 +1047,7 @@ export async function applyAppShellAgentChatScenario(context) {
         openUiVisible,
         openUiEvaluationVisible,
         openUiEvaluationWideLayout,
+        openUiLimitDiagnosticsVisible,
         reasoningVisible,
         rightSidebarRestored,
         toolVisible,

@@ -157,7 +157,10 @@ function inspectElementTree(root: unknown): OpenUiTreeInspection {
         const tableRows = Math.max(
           0,
           ...props.columns.map((column) => {
-            const data = (column as Record<string, unknown>).data;
+            const columnProps = (column as Record<string, unknown>).props as
+              | Record<string, unknown>
+              | undefined;
+            const data = columnProps?.data;
             return Array.isArray(data) ? data.length : 0;
           }),
         );

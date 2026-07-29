@@ -97,6 +97,7 @@ export function isAgentChatScenario(scenario) {
     "viewer-agent-chat-openui-basic-gallery",
     "viewer-agent-chat-openui-basic-balanced",
     "viewer-agent-chat-openui-basic-lean",
+    "viewer-agent-chat-openui-limit-diagnostics",
     "viewer-agent-chat-openui-component-challengers",
     "viewer-agent-chat-image-input",
     "viewer-agent-chat-activity",

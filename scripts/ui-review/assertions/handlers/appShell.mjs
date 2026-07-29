@@ -192,6 +192,7 @@ export async function buildAppShellAssertions(context) {
       scenario === "viewer-agent-chat-openui-basic-gallery" ||
       scenario === "viewer-agent-chat-openui-basic-balanced" ||
       scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-agent-chat-openui-limit-diagnostics" ||
       scenario === "viewer-agent-chat-openui-component-challengers" ||
       scenario === "viewer-agent-chat-image-input" ||
       scenario === "viewer-agent-chat-activity" ||
@@ -231,6 +232,14 @@ export async function buildAppShellAssertions(context) {
               result?.rightSidebarRestored === true
             );
           })
+        : true,
+    hasOpenUiLimitDiagnostics:
+      scenario === "viewer-agent-chat-openui-limit-diagnostics"
+        ? await page.evaluate(
+            () =>
+              window.__SVARD_AGENT_STAGE5_CHECK__
+                ?.openUiLimitDiagnosticsVisible === true,
+          )
         : true,
     hasOpenUiBasicProfileEvaluation:
       scenario === "viewer-agent-chat-openui-basic-review" ||

@@ -134,11 +134,22 @@ export const OPENUI_BASIC_LEAN_FIXTURE = [
   'followup = FollowUpButton("Review the lean replacements", "Decide whether the simpler Grid, Timeline, CodeBlock, and Image replacements are sufficient.")',
 ].join("\n");
 
+const openUiLimitRows = Array.from(
+  { length: 101 },
+  (_, index) => `Review item ${index + 1}`,
+);
+
+export const OPENUI_BASIC_LIMIT_DIAGNOSTIC_FIXTURE = [
+  'root = SvardExperience("Balanced limit diagnostic", "A deterministic Table response that exceeds the live profile row limit.", [table])',
+  `table = Table([Col("Review item", ${JSON.stringify(openUiLimitRows)})])`,
+].join("\n");
+
 export function isOpenUiProfileComparisonQuestion(question: string) {
   const normalized = question.toLowerCase();
   return (
     normalized.includes("openui balanced profile comparison") ||
-    normalized.includes("openui lean profile comparison")
+    normalized.includes("openui lean profile comparison") ||
+    normalized.includes("openui balanced limit diagnostic")
   );
 }
 
@@ -158,6 +169,9 @@ export function mockOpenUiEvaluationAnswer(question: string) {
   }
   if (normalized.includes("openui lean profile comparison")) {
     return OPENUI_BASIC_LEAN_FIXTURE;
+  }
+  if (normalized.includes("openui balanced limit diagnostic")) {
+    return OPENUI_BASIC_LIMIT_DIAGNOSTIC_FIXTURE;
   }
   return null;
 }
