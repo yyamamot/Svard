@@ -259,6 +259,20 @@ describe("MockHostAdapter agent provider", () => {
             remainingPercent: 80,
           },
         }),
+        expect.objectContaining({
+          type: "tokenUsageDiagnosticsUpdated",
+          diagnostics: expect.objectContaining({
+            latestRequest: expect.objectContaining({
+              provenance: "providerReported",
+            }),
+            turn: expect.objectContaining({
+              provenance: "aggregatedProviderReports",
+            }),
+            conversation: expect.objectContaining({
+              provenance: "providerReported",
+            }),
+          }),
+        }),
       ]),
     );
 
@@ -276,6 +290,62 @@ describe("MockHostAdapter agent provider", () => {
         }),
       ]),
     );
+  });
+
+  it("omits invalid token diagnostics and does not restore them on resume", async () => {
+    const globals = globalThis as typeof globalThis & {
+      __SVARD_AGENT_TOKEN_USAGE_DIAGNOSTICS__?: "invalid";
+    };
+    globals.__SVARD_AGENT_TOKEN_USAGE_DIAGNOSTICS__ = "invalid";
+    try {
+      const host = new MockHostAdapter();
+      const events: AgentEvent[] = [];
+      await host.startAgentSession(
+        {
+          providerId: "codex-app-server",
+          executablePreference: { mode: "auto", path: null },
+          clientSessionId: "diagnostics-session",
+          workspaceRoot: "/workspace",
+          permissionMode: "observe",
+          networkAccess: false,
+          webSearch: false,
+        },
+        (event) => events.push(event),
+      );
+      await host.sendAgentTurn({
+        clientSessionId: "diagnostics-session",
+        clientTurnId: "diagnostics-turn",
+        question: "Report context only.",
+        responseMode: "auto",
+        focusFiles: [],
+      });
+      expect(events.some((event) => event.type === "contextUsageUpdated")).toBe(
+        true,
+      );
+      expect(
+        events.some((event) => event.type === "tokenUsageDiagnosticsUpdated"),
+      ).toBe(false);
+      await host.closeAgentSession("diagnostics-session");
+
+      delete globals.__SVARD_AGENT_TOKEN_USAGE_DIAGNOSTICS__;
+      const resumedEvents: AgentEvent[] = [];
+      await host.resumeAgentSession(
+        {
+          clientSessionId: "diagnostics-session",
+          workspaceRoot: "/workspace",
+          executablePreference: { mode: "auto", path: null },
+          fullAccessConfirmed: false,
+        },
+        (event) => resumedEvents.push(event),
+      );
+      expect(
+        resumedEvents.some(
+          (event) => event.type === "tokenUsageDiagnosticsUpdated",
+        ),
+      ).toBe(false);
+    } finally {
+      delete globals.__SVARD_AGENT_TOKEN_USAGE_DIAGNOSTICS__;
+    }
   });
 
   it("updates a new chat from fallback to a generated title once", async () => {

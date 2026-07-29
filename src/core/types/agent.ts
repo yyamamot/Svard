@@ -49,6 +49,7 @@ export interface AgentCapabilities {
   orderedMixedInput?: boolean;
   turnSteering: boolean;
   contextUsage: boolean;
+  tokenUsageDiagnostics: boolean;
   manualCompaction: boolean;
   focusedContext: boolean;
 }
@@ -57,6 +58,29 @@ export interface AgentContextUsage {
   usedTokens: number;
   contextWindowTokens: number;
   remainingPercent: number;
+}
+
+export interface AgentTokenUsageBreakdown {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningOutputTokens: number;
+  totalTokens: number;
+}
+
+export type AgentTokenUsageProvenance =
+  | "providerReported"
+  | "aggregatedProviderReports";
+
+export interface AgentTokenUsageSeries {
+  provenance: AgentTokenUsageProvenance;
+  usage: AgentTokenUsageBreakdown;
+}
+
+export interface AgentTokenUsageDiagnostics {
+  latestRequest: AgentTokenUsageSeries;
+  turn: AgentTokenUsageSeries | null;
+  conversation: AgentTokenUsageSeries;
 }
 
 export type AgentCompactionSource = "automatic" | "manual";
@@ -390,6 +414,10 @@ export type AgentEvent =
       title: string;
     }
   | { type: "contextUsageUpdated"; usage: AgentContextUsage }
+  | {
+      type: "tokenUsageDiagnosticsUpdated";
+      diagnostics: AgentTokenUsageDiagnostics;
+    }
   | { type: "contextCompactionStarted"; source: AgentCompactionSource }
   | { type: "contextCompactionCompleted"; source: AgentCompactionSource }
   | { type: "reasoningSummaryDelta"; delta: string }
@@ -459,6 +487,7 @@ export const codexAppServerCapabilities: AgentCapabilities = {
   orderedMixedInput: true,
   turnSteering: true,
   contextUsage: true,
+  tokenUsageDiagnostics: true,
   manualCompaction: true,
   focusedContext: true,
 };

@@ -46,6 +46,7 @@ pub(super) fn spawn_session_with_executable(
     image_input: bool,
     turn_steering: bool,
     context_usage: bool,
+    token_usage_diagnostics: bool,
     manual_compaction: bool,
     launch: AgentSessionLaunch,
 ) -> Result<Arc<AgentSession>, String> {
@@ -133,6 +134,8 @@ pub(super) fn spawn_session_with_executable(
         image_input: AtomicBool::new(image_input),
         turn_steering: AtomicBool::new(turn_steering),
         context_usage: AtomicBool::new(context_usage),
+        token_usage_diagnostics: AtomicBool::new(token_usage_diagnostics),
+        token_usage_tracking: Mutex::new(AgentTokenUsageTracking::default()),
         manual_compaction_supported: AtomicBool::new(manual_compaction),
         automatic_title: Mutex::new(automatic_title),
         title_update_lock: Mutex::new(()),
@@ -401,6 +404,7 @@ pub fn start_agent_session(
     let image_input = validate_session_runtime(&input, &runtime.snapshot)?;
     let turn_steering = runtime.snapshot.probe.capabilities.turn_steering;
     let context_usage = runtime.snapshot.probe.capabilities.context_usage;
+    let token_usage_diagnostics = runtime.snapshot.probe.capabilities.token_usage_diagnostics;
     let manual_compaction = runtime.snapshot.probe.capabilities.manual_compaction;
     let focused_context = runtime.snapshot.probe.capabilities.focused_context;
     let executable = runtime.executable.ok_or_else(|| {
@@ -414,6 +418,7 @@ pub fn start_agent_session(
         image_input,
         turn_steering,
         context_usage,
+        token_usage_diagnostics,
         manual_compaction,
         AgentSessionLaunch::Start,
     ) {
@@ -429,6 +434,7 @@ pub fn start_agent_session(
         session.image_input.load(Ordering::SeqCst),
         session.turn_steering.load(Ordering::SeqCst),
         session.context_usage.load(Ordering::SeqCst),
+        session.token_usage_diagnostics.load(Ordering::SeqCst),
         session.manual_compaction_supported.load(Ordering::SeqCst),
         focused_context,
     );
@@ -658,6 +664,7 @@ pub fn resume_agent_session(
     let image_input = validate_session_runtime(&start_input, &runtime.snapshot)?;
     let turn_steering = runtime.snapshot.probe.capabilities.turn_steering;
     let context_usage = runtime.snapshot.probe.capabilities.context_usage;
+    let token_usage_diagnostics = runtime.snapshot.probe.capabilities.token_usage_diagnostics;
     let manual_compaction = runtime.snapshot.probe.capabilities.manual_compaction;
     let focused_context = runtime.snapshot.probe.capabilities.focused_context;
     let executable = runtime.executable.ok_or_else(|| {
@@ -671,6 +678,7 @@ pub fn resume_agent_session(
         image_input,
         turn_steering,
         context_usage,
+        token_usage_diagnostics,
         manual_compaction,
         AgentSessionLaunch::Resume {
             provider_thread_id: record.provider_thread_id.clone(),
@@ -694,6 +702,7 @@ pub fn resume_agent_session(
         session.image_input.load(Ordering::SeqCst),
         session.turn_steering.load(Ordering::SeqCst),
         session.context_usage.load(Ordering::SeqCst),
+        session.token_usage_diagnostics.load(Ordering::SeqCst),
         session.manual_compaction_supported.load(Ordering::SeqCst),
         focused_context,
     );

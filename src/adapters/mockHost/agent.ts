@@ -371,7 +371,12 @@ export class MockAgentFacade {
       capabilities,
     });
     if (record.turns.length > 0) {
-      emitMockContextUsage(this.agentSessions.get(input.clientSessionId));
+      emitMockContextUsage(
+        this.agentSessions.get(input.clientSessionId),
+        undefined,
+        undefined,
+        { diagnostics: false },
+      );
     }
     return {
       clientSessionId: input.clientSessionId,

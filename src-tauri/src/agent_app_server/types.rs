@@ -1,5 +1,4 @@
 use super::*;
-
 pub(super) const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 pub(super) const TURN_TIMEOUT: Duration = Duration::from_secs(120);
 pub(super) const QUESTION_LIMIT: usize = 8 * 1024;
@@ -50,6 +49,7 @@ pub struct AgentCapabilities {
     pub(super) ordered_mixed_input: bool,
     pub(super) turn_steering: bool,
     pub(super) context_usage: bool,
+    pub(super) token_usage_diagnostics: bool,
     pub(super) manual_compaction: bool,
     pub(super) focused_context: bool,
 }
@@ -70,6 +70,7 @@ impl Default for AgentCapabilities {
             ordered_mixed_input: false,
             turn_steering: false,
             context_usage: false,
+            token_usage_diagnostics: false,
             manual_compaction: false,
             focused_context: false,
         }
@@ -81,6 +82,7 @@ impl AgentCapabilities {
         image_input: bool,
         turn_steering: bool,
         context_usage: bool,
+        token_usage_diagnostics: bool,
         manual_compaction: bool,
         focused_context: bool,
     ) -> Self {
@@ -89,6 +91,7 @@ impl AgentCapabilities {
             ordered_mixed_input: image_input,
             turn_steering,
             context_usage,
+            token_usage_diagnostics,
             manual_compaction,
             focused_context,
             ..Self::default()
@@ -555,6 +558,9 @@ pub enum AgentEvent {
     ContextUsageUpdated {
         usage: AgentContextUsage,
     },
+    TokenUsageDiagnosticsUpdated {
+        diagnostics: AgentTokenUsageDiagnostics,
+    },
     ContextCompactionStarted {
         source: AgentCompactionSource,
     },
@@ -621,14 +627,6 @@ pub enum AgentEvent {
     TurnCancelled {
         client_turn_id: String,
     },
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentContextUsage {
-    pub(super) used_tokens: u64,
-    pub(super) context_window_tokens: u64,
-    pub(super) remaining_percent: u8,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -719,6 +717,8 @@ pub(super) struct AgentSession {
     pub(super) image_input: AtomicBool,
     pub(super) turn_steering: AtomicBool,
     pub(super) context_usage: AtomicBool,
+    pub(super) token_usage_diagnostics: AtomicBool,
+    pub(super) token_usage_tracking: Mutex<AgentTokenUsageTracking>,
     pub(super) manual_compaction_supported: AtomicBool,
     pub(super) automatic_title: Mutex<AutomaticTitleState>,
     pub(super) title_update_lock: Mutex<()>,

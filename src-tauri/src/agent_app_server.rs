@@ -34,6 +34,7 @@ mod management;
 mod provider;
 mod steer;
 mod title;
+mod token_usage;
 mod transport;
 mod turn;
 mod types;
@@ -47,6 +48,7 @@ pub use management::{
 };
 pub use provider::get_agent_provider_runtime;
 pub use steer::steer_agent_turn;
+pub use token_usage::*;
 pub use turn::{
     cancel_agent_turn, discard_agent_image, respond_to_agent_approval, send_agent_turn,
     stage_agent_image,

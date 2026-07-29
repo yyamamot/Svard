@@ -3,6 +3,7 @@ import type {
   AgentContextUsage,
   AgentEvent,
   HostAdapter,
+  AgentTokenUsageDiagnostics,
 } from "../../core/types";
 
 export type AgentContextCompactionStatus = "idle" | "running" | "updating";
@@ -10,6 +11,7 @@ type LastCompaction = "automatic" | "manual" | null;
 
 interface ContextPressureSnapshot {
   usage: AgentContextUsage | null;
+  tokenUsageDiagnostics: AgentTokenUsageDiagnostics | null;
   status: AgentContextCompactionStatus;
   lastCompaction: LastCompaction;
 }
@@ -36,17 +38,24 @@ export function useAgentContextPressure({
   const [contextUsage, setContextUsage] = useState<AgentContextUsage | null>(
     null,
   );
+  const [tokenUsageDiagnostics, setTokenUsageDiagnostics] =
+    useState<AgentTokenUsageDiagnostics | null>(null);
   const [contextCompactionStatus, setContextCompactionStatus] =
     useState<AgentContextCompactionStatus>("idle");
   const [lastCompaction, setLastCompaction] = useState<LastCompaction>(null);
   const contextUsageRef = useRef<AgentContextUsage | null>(null);
+  const tokenUsageDiagnosticsRef = useRef<AgentTokenUsageDiagnostics | null>(
+    null,
+  );
   const contextCompactionStatusRef =
     useRef<AgentContextCompactionStatus>("idle");
 
   const resetContextPressure = useCallback(() => {
     contextUsageRef.current = null;
+    tokenUsageDiagnosticsRef.current = null;
     contextCompactionStatusRef.current = "idle";
     setContextUsage(null);
+    setTokenUsageDiagnostics(null);
     setContextCompactionStatus("idle");
     setLastCompaction(null);
   }, []);
@@ -60,6 +69,9 @@ export function useAgentContextPressure({
           contextCompactionStatusRef.current = "idle";
           setContextCompactionStatus("idle");
         }
+      } else if (event.type === "tokenUsageDiagnosticsUpdated") {
+        tokenUsageDiagnosticsRef.current = event.diagnostics;
+        setTokenUsageDiagnostics(event.diagnostics);
       } else if (event.type === "contextCompactionStarted") {
         contextUsageRef.current = null;
         setContextUsage(null);
@@ -81,6 +93,7 @@ export function useAgentContextPressure({
   const captureContextPressure = useCallback(
     (): ContextPressureSnapshot => ({
       usage: contextUsageRef.current,
+      tokenUsageDiagnostics: tokenUsageDiagnosticsRef.current,
       status: contextCompactionStatusRef.current,
       lastCompaction,
     }),
@@ -90,8 +103,10 @@ export function useAgentContextPressure({
   const restoreContextPressure = useCallback(
     (snapshot: ContextPressureSnapshot) => {
       contextUsageRef.current = snapshot.usage;
+      tokenUsageDiagnosticsRef.current = snapshot.tokenUsageDiagnostics;
       contextCompactionStatusRef.current = snapshot.status;
       setContextUsage(snapshot.usage);
+      setTokenUsageDiagnostics(snapshot.tokenUsageDiagnostics);
       setContextCompactionStatus(snapshot.status);
       setLastCompaction(snapshot.lastCompaction);
     },
@@ -144,5 +159,6 @@ export function useAgentContextPressure({
     lastCompaction,
     resetContextPressure,
     restoreContextPressure,
+    tokenUsageDiagnostics,
   };
 }

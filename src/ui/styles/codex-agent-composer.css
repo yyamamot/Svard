@@ -440,7 +440,7 @@
 
 .agent-context-popover {
   position: fixed;
-  z-index: 80;
+  z-index: 84;
   display: grid;
   width: min(310px, calc(100vw - 16px));
   gap: 10px;
@@ -450,6 +450,12 @@
   color: var(--reader-text);
   background: var(--reader-surface);
   box-shadow: 0 12px 28px rgb(18 31 36 / 18%);
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+}
+
+.agent-context-popover.token-details-open {
+  width: min(520px, calc(100vw - 16px));
 }
 
 .agent-context-popover-heading,
@@ -502,6 +508,91 @@
 
 .agent-context-popover .agent-context-last-compaction {
   color: var(--reader-text);
+}
+
+.agent-token-details {
+  min-width: 0;
+  border-block: 1px solid var(--reader-border);
+  padding-block: 8px;
+}
+
+.agent-token-details summary {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--reader-heading);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.agent-token-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-token-details summary svg {
+  transition: transform 120ms ease;
+}
+
+.agent-token-details[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.agent-token-details-content {
+  min-width: 0;
+  overflow-x: auto;
+  padding-top: 8px;
+}
+
+.agent-token-details-content table {
+  width: 100%;
+  min-width: 460px;
+  border-collapse: collapse;
+  color: var(--reader-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-token-details-content th,
+.agent-token-details-content td {
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--reader-border) 70%, transparent);
+  padding: 5px 6px;
+  text-align: right;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.agent-token-details-content thead th {
+  color: var(--reader-heading);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.agent-token-details-content th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-left: 0;
+  text-align: left;
+  background: var(--reader-surface);
+}
+
+.agent-token-details-content tbody th,
+.agent-token-details-content tbody td {
+  font-size: 10px;
+}
+
+.agent-token-details-content thead small {
+  display: block;
+  margin-top: 2px;
+  color: var(--reader-muted);
+  font-size: 8px;
+  font-weight: 450;
+}
+
+.agent-token-details-content > p {
+  margin-top: 8px;
 }
 
 .agent-context-popover > button {

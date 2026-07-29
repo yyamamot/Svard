@@ -6,7 +6,9 @@ fn test_runtime_snapshot(version: &str) -> AgentProviderRuntimeSnapshot {
             state: "ready",
             source: Some("path"),
             version: Some(version.to_string()),
-            capabilities: AgentCapabilities::with_protocol_features(true, true, true, true, true),
+            capabilities: AgentCapabilities::with_protocol_features(
+                true, true, true, true, true, true,
+            ),
         },
         installation: Some(AgentInstallationDescriptor {
             source: "path",
@@ -86,6 +88,7 @@ if [ "$1" = "app-server" ] && [ "$2" = "generate-json-schema" ]; then
   printf '%s\n' '{"localImage":true,"turn/steer":true,"thread/tokenUsage/updated":true,"modelContextWindow":1,"totalTokens":1,"thread/compact/start":true,"contextCompaction":true,"thread/start":true,"thread/resume":true,"skills/list":true,"SkillsListResponse":true,"config":true}' > "$5/protocol.json"
   printf '%s\n' '{"config":{}}' > "$5/v2/ThreadStartParams.json"
   printf '%s\n' '{"config":{}}' > "$5/v2/ThreadResumeParams.json"
+  printf '%s\n' '{"last":{"inputTokens":1,"cachedInputTokens":1,"outputTokens":1,"reasoningOutputTokens":1,"totalTokens":1},"total":{"inputTokens":1,"cachedInputTokens":1,"outputTokens":1,"reasoningOutputTokens":1,"totalTokens":1}}' > "$5/v2/ThreadTokenUsageUpdatedNotification.json"
   printf '%s\n' '{"cwds":[]}' > "$5/v2/SkillsListParams.json"
   printf '%s\n' '{"data":[]}' > "$5/v2/SkillsListResponse.json"
   exit 0
@@ -101,6 +104,7 @@ exit 1
             image_input: true,
             turn_steering: true,
             context_usage: true,
+            token_usage_diagnostics: true,
             manual_compaction: true,
             focused_context: true,
         }
@@ -300,6 +304,7 @@ while IFS= read -r line; do :; done
         true,
         true,
         true,
+        true,
         AgentSessionLaunch::Start,
     )
     .unwrap();
@@ -418,6 +423,8 @@ while IFS= read -r line; do :; done
         image_input: AtomicBool::new(true),
         turn_steering: AtomicBool::new(true),
         context_usage: AtomicBool::new(true),
+        token_usage_diagnostics: AtomicBool::new(true),
+        token_usage_tracking: Mutex::new(AgentTokenUsageTracking::default()),
         manual_compaction_supported: AtomicBool::new(true),
         automatic_title: Mutex::new(AutomaticTitleState::FallbackApplied {
             expected_title: "fallback".to_string(),

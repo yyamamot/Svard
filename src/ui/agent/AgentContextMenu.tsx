@@ -1,4 +1,4 @@
-import { Gauge, RefreshCw } from "lucide-react";
+import { ChevronDown, Gauge, RefreshCw } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -7,7 +7,11 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import type { AgentProbe } from "../../core/types";
+import type {
+  AgentProbe,
+  AgentTokenUsageBreakdown,
+  AgentTokenUsageDiagnostics,
+} from "../../core/types";
 import { calculateAgentAccessPopoverPosition } from "./AgentAccessMenu";
 import type { AgentSessionController } from "./useAgentSessionController";
 
@@ -41,6 +45,85 @@ export function formatAgentContextTokens(value: number): string {
   }).format(value);
 }
 
+export function formatAgentTokenCount(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+    useGrouping: true,
+  }).format(value);
+}
+
+export function nonCachedAgentInput(usage: AgentTokenUsageBreakdown): number {
+  return usage.inputTokens - usage.cachedInputTokens;
+}
+
+const tokenMetrics: Array<{
+  label: string;
+  value: (usage: AgentTokenUsageBreakdown) => number;
+}> = [
+  { label: "Total", value: (usage) => usage.totalTokens },
+  { label: "Input", value: (usage) => usage.inputTokens },
+  { label: "Non-cached input", value: nonCachedAgentInput },
+  { label: "Cached input", value: (usage) => usage.cachedInputTokens },
+  { label: "Output", value: (usage) => usage.outputTokens },
+  { label: "Reasoning output", value: (usage) => usage.reasoningOutputTokens },
+];
+
+function TokenUsageDetails({
+  activeTurn,
+  diagnostics,
+}: {
+  activeTurn: boolean;
+  diagnostics: AgentTokenUsageDiagnostics;
+}) {
+  const columns = [
+    diagnostics.latestRequest.usage,
+    diagnostics.turn?.usage ?? null,
+    diagnostics.conversation.usage,
+  ];
+  return (
+    <div
+      className="agent-token-details-content"
+      data-review-id="agent-token-details-content"
+    >
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            <th scope="col">
+              <span>Latest request</span>
+              <small>Provider reported</small>
+            </th>
+            <th scope="col">
+              <span>{activeTurn ? "Current turn" : "Latest turn"}</span>
+              <small>Aggregated provider reports</small>
+            </th>
+            <th scope="col">
+              <span>Conversation</span>
+              <small>Provider reported</small>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {tokenMetrics.map((metric) => (
+            <tr key={metric.label}>
+              <th scope="row">{metric.label}</th>
+              {columns.map((usage, index) => (
+                <td key={index}>
+                  {usage ? formatAgentTokenCount(metric.value(usage)) : "—"}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p>
+        Cached input is included in Input. Reasoning output is included in
+        Output; neither is added again to Total.
+      </p>
+    </div>
+  );
+}
+
 export function AgentContextMenu({
   placement,
   probe,
@@ -53,6 +136,7 @@ export function AgentContextMenu({
   workspaceRoot: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [tokenDetailsOpen, setTokenDetailsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLElement | null>(null);
   const [position, setPosition] = useState({
@@ -71,15 +155,19 @@ export function AgentContextMenu({
     setHistoryOpen,
     setSettingsOpen,
     state,
+    tokenUsageDiagnostics,
   } = session;
   const supported = Boolean(
-    probe?.capabilities.contextUsage || probe?.capabilities.manualCompaction,
+    probe?.capabilities.contextUsage ||
+    probe?.capabilities.manualCompaction ||
+    probe?.capabilities.tokenUsageDiagnostics,
   );
   const pressure = contextUsage
     ? agentContextPressure(contextUsage.remainingPercent)
     : "normal";
   const closeAndRestoreFocus = useCallback(() => {
     setOpen(false);
+    setTokenDetailsOpen(false);
     requestAnimationFrame(() => triggerRef.current?.focus());
   }, []);
   const updatePosition = useCallback(() => {
@@ -95,7 +183,7 @@ export function AgentContextMenu({
 
   useLayoutEffect(() => {
     if (open) updatePosition();
-  }, [open, updatePosition]);
+  }, [open, tokenDetailsOpen, updatePosition]);
 
   useEffect(() => {
     if (!open) return;
@@ -130,6 +218,7 @@ export function AgentContextMenu({
 
   useEffect(() => {
     setOpen(false);
+    setTokenDetailsOpen(false);
   }, [placement, workspaceRoot]);
 
   if (!supported) return null;
@@ -184,7 +273,9 @@ export function AgentContextMenu({
               id="agent-context-popover"
               role="dialog"
               aria-label="Context usage"
-              className="agent-context-popover"
+              className={`agent-context-popover ${
+                tokenDetailsOpen ? "token-details-open" : ""
+              }`}
               data-review-id="agent-context-popover"
               style={{
                 left: position.left,
@@ -236,6 +327,28 @@ export function AgentContextMenu({
                 Values describe the active model context reported by Codex, not
                 cumulative account usage or a compaction prediction.
               </p>
+              {probe?.capabilities.tokenUsageDiagnostics &&
+              tokenUsageDiagnostics ? (
+                <details
+                  className="agent-token-details"
+                  data-review-id="agent-token-details"
+                  open={tokenDetailsOpen}
+                  onToggle={(event) => {
+                    const nextOpen = event.currentTarget.open;
+                    setTokenDetailsOpen(nextOpen);
+                    requestAnimationFrame(updatePosition);
+                  }}
+                >
+                  <summary>
+                    <span>Token details</span>
+                    <ChevronDown size={14} />
+                  </summary>
+                  <TokenUsageDetails
+                    activeTurn={Boolean(activeTurnId)}
+                    diagnostics={tokenUsageDiagnostics}
+                  />
+                </details>
+              ) : null}
               {probe?.capabilities.manualCompaction ? (
                 <button
                   type="button"

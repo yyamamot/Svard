@@ -9,15 +9,7 @@ import {
   prepareAgentComposerAccessScenario,
   reopenAgentComposerAccessForCapture,
 } from "./agentChatComposerAccess.mjs";
-import {
-  reopenAgentContextForCapture,
-  runAgentContextPressureScenario,
-} from "./agentChatContextPressure.mjs";
-import {
-  exerciseAgentContextProfilePlacements,
-  prepareAgentContextProfileScenario,
-  reopenAgentContextProfileForCapture,
-} from "./agentChatContextProfile.mjs";
+import { agentChatContextScenarios } from "./agentChatContextScenarios.mjs";
 import { runAgentWorkspaceIsolationScenario } from "./agentChatWorkspaceIsolation.mjs";
 import {
   recordAgentChangeReviewScenario,
@@ -202,7 +194,7 @@ export async function applyAppShellAgentChatScenario(context) {
       await prepareAgentComposerAccessScenario({ composer, page });
     }
     if (scenario === "viewer-agent-chat-context-profile") {
-      await prepareAgentContextProfileScenario({ composer, page });
+      await agentChatContextScenarios.profile.prepare({ composer, page });
     }
 
     if (scenario === "viewer-agent-chat-image-input") {
@@ -384,6 +376,8 @@ export async function applyAppShellAgentChatScenario(context) {
       // The scenario prepared its draft before opening the access menu.
     } else if (scenario === "viewer-agent-chat-context-pressure") {
       await composer.fill("Trigger automatic compaction for context pressure.");
+    } else if (scenario === "viewer-agent-chat-token-diagnostics") {
+      await composer.fill("Report token usage diagnostics.");
     } else if (scenario === "viewer-agent-chat-activity") {
       await composer.fill("Show activity failure handling.");
     } else if (scenario === "viewer-agent-chat-output-hygiene") {
@@ -488,11 +482,13 @@ export async function applyAppShellAgentChatScenario(context) {
       await exerciseAgentComposerAccessPlacements({ page });
     }
     if (scenario === "viewer-agent-chat-context-profile") {
-      await exerciseAgentContextProfilePlacements({ page });
+      await agentChatContextScenarios.profile.run({ page });
     }
     if (scenario === "viewer-agent-chat-context-pressure") {
-      await runAgentContextPressureScenario({ composer, page });
+      await agentChatContextScenarios.pressure.run({ composer, page });
     }
+    if (scenario === "viewer-agent-chat-token-diagnostics")
+      await agentChatContextScenarios.tokenDiagnostics.run({ page });
     if (scenario === "viewer-agent-chat-change-review") {
       await recordAgentChangeReviewScenario({ page });
     }
@@ -849,10 +845,12 @@ export async function applyAppShellAgentChatScenario(context) {
       await reopenAgentComposerAccessForCapture({ page });
     }
     if (scenario === "viewer-agent-chat-context-pressure") {
-      await reopenAgentContextForCapture({ page });
+      await agentChatContextScenarios.pressure.reopen({ page });
     }
+    if (scenario === "viewer-agent-chat-token-diagnostics")
+      await agentChatContextScenarios.tokenDiagnostics.reopen({ page });
     if (scenario === "viewer-agent-chat-context-profile") {
-      await reopenAgentContextProfileForCapture({ page });
+      await agentChatContextScenarios.profile.reopen({ page });
     }
     if (shouldRestoreAgentViewport(scenario)) {
       await page.setViewportSize({ width: 1280, height: 840 });

@@ -134,13 +134,14 @@ export function useAgentSessionController({
   const activeTurnId = state.activeTurnId;
   const {
     captureContextPressure,
-    compactContext: compactContextOperation,
+    compactContext,
     contextCompactionStatus,
     contextUsage,
     handleContextEvent,
     lastCompaction,
     resetContextPressure,
     restoreContextPressure,
+    tokenUsageDiagnostics,
   } = useAgentContextPressure({
     activeTurnId,
     hasHistory: state.turns.length > 0,
@@ -829,12 +830,6 @@ export function useAgentSessionController({
     clearSessionLocalContext();
   }
 
-  async function compactContext() {
-    setSettingsOpen(false);
-    setAddMenuOpen(false);
-    await compactContextOperation();
-  }
-
   return {
     ...{ runtime, probeError, sessionReady, sessionStarting, sessionSettings },
     ...{ codexDefaults, permissionMode, setPermissionMode },
@@ -863,6 +858,7 @@ export function useAgentSessionController({
     ...{ setPendingFullAccessResume, confirmClosedFullAccessResume },
     ...{ setConfirmClosedFullAccessResume, addMenuOpen, setAddMenuOpen },
     ...{ dropActive, setDropActive, contextUsage, contextCompactionStatus },
+    tokenUsageDiagnostics,
     ...{ lastCompaction, state, dispatch, sessionIdRef, sessionReadyRef },
     ...{ resumeClosedSessionRef, scrollRef, newActivityAvailable },
     ...{ followLatestConversation, handleConversationScroll },

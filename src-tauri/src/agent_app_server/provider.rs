@@ -67,8 +67,29 @@ pub(super) struct ProtocolCapabilities {
     pub(super) image_input: bool,
     pub(super) turn_steering: bool,
     pub(super) context_usage: bool,
+    pub(super) token_usage_diagnostics: bool,
     pub(super) manual_compaction: bool,
     pub(super) focused_context: bool,
+}
+
+pub(super) fn schema_supports_token_usage_diagnostics(output_directory: &Path) -> bool {
+    [
+        "\"last\"",
+        "\"total\"",
+        "\"inputTokens\"",
+        "\"cachedInputTokens\"",
+        "\"outputTokens\"",
+        "\"reasoningOutputTokens\"",
+        "\"totalTokens\"",
+    ]
+    .iter()
+    .all(|needle| {
+        schema_named_file_contains(
+            output_directory,
+            "ThreadTokenUsageUpdatedNotification.json",
+            needle,
+        )
+    })
 }
 
 pub(super) fn apply_focused_process_overrides(command: &mut Command) {
@@ -175,6 +196,7 @@ pub(super) fn schema_capabilities(executable: &CodexExecutable) -> ProtocolCapab
                 &output_directory,
                 "\"modelContextWindow\"",
             ) && schema_directory_contains(&output_directory, "\"totalTokens\""),
+            token_usage_diagnostics: schema_supports_token_usage_diagnostics(&output_directory),
             manual_compaction: schema_directory_contains(
                 &output_directory,
                 "\"thread/compact/start\"",
@@ -494,6 +516,7 @@ pub(super) fn probe_executable(executable: &CodexExecutable) -> AgentProbe {
         protocol.image_input,
         protocol.turn_steering,
         protocol.context_usage,
+        protocol.token_usage_diagnostics,
         protocol.manual_compaction,
         focused_context,
     );

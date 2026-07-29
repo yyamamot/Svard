@@ -575,6 +575,8 @@ sleep 10
             image_input: AtomicBool::new(true),
             turn_steering: AtomicBool::new(true),
             context_usage: AtomicBool::new(true),
+            token_usage_diagnostics: AtomicBool::new(true),
+            token_usage_tracking: Mutex::new(AgentTokenUsageTracking::default()),
             manual_compaction_supported: AtomicBool::new(true),
             automatic_title: Mutex::new(AutomaticTitleState::Finished),
             title_update_lock: Mutex::new(()),

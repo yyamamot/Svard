@@ -59,6 +59,11 @@ pub(super) fn reader_loop(session: Arc<AgentSession>, stdout: impl std::io::Read
             .unwrap_or_else(|error| error.into_inner())
             .take()
         {
+            if session.token_usage_diagnostics.load(Ordering::SeqCst) {
+                if let Some(diagnostics) = finalize_token_usage_turn(&session) {
+                    session.emit(AgentEvent::TokenUsageDiagnosticsUpdated { diagnostics });
+                }
+            }
             let _ = active.completion.send(AgentTurnOutcome::Failed {
                 code: "provider-disconnected".to_string(),
                 message: "Codex app-server disconnected.".to_string(),
@@ -313,13 +318,33 @@ pub(super) fn normalize_notification(session: &AgentSession, value: &Value) {
     let params = value.get("params").unwrap_or(&Value::Null);
     match method {
         "thread/tokenUsage/updated" => {
+            if !notification_matches_session_thread(session, params) {
+                return;
+            }
             if session.context_usage.load(Ordering::SeqCst) {
                 if let Some(usage) = normalize_context_usage(params) {
                     session.emit(AgentEvent::ContextUsageUpdated { usage });
                 }
             }
+            if session.token_usage_diagnostics.load(Ordering::SeqCst) {
+                if let Some(diagnostics) = normalize_token_usage_diagnostics(session, params) {
+                    session.emit(AgentEvent::TokenUsageDiagnosticsUpdated { diagnostics });
+                }
+            }
         }
         "turn/started" => {
+            if let Some(provider_turn_id) = params.pointer("/turn/id").and_then(Value::as_str) {
+                if let Some(active) = session
+                    .active_turn
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .as_mut()
+                {
+                    if active.provider_turn_id.is_none() {
+                        active.provider_turn_id = Some(provider_turn_id.to_string());
+                    }
+                }
+            }
             if let Some(client_turn_id) = current_client_turn(session) {
                 session.emit(AgentEvent::TurnStarted { client_turn_id });
             }
@@ -480,6 +505,22 @@ pub(super) fn normalize_notification(session: &AgentSession, value: &Value) {
             }
         }
         "turn/completed" => {
+            let terminal_turn_id = params.pointer("/turn/id").and_then(Value::as_str);
+            let active_matches_terminal = session
+                .active_turn
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .as_ref()
+                .is_some_and(|active| active.provider_turn_id.as_deref() == terminal_turn_id);
+            if session
+                .active_turn
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .is_some()
+                && !active_matches_terminal
+            {
+                return;
+            }
             let status = params
                 .pointer("/turn/status")
                 .and_then(Value::as_str)
@@ -490,6 +531,11 @@ pub(super) fn normalize_notification(session: &AgentSession, value: &Value) {
                 .unwrap_or_else(|error| error.into_inner())
                 .take();
             if let Some(active) = active {
+                if session.token_usage_diagnostics.load(Ordering::SeqCst) {
+                    if let Some(diagnostics) = finalize_token_usage_turn(session) {
+                        session.emit(AgentEvent::TokenUsageDiagnosticsUpdated { diagnostics });
+                    }
+                }
                 let outcome = match status {
                     "completed" => {
                         session.emit(AgentEvent::TurnCompleted {

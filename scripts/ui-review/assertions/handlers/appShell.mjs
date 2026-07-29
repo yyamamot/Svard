@@ -204,6 +204,7 @@ export async function buildAppShellAssertions(context) {
       scenario === "viewer-agent-chat-dark-theme" ||
       scenario === "viewer-agent-chat-composer-access" ||
       scenario === "viewer-agent-chat-context-pressure" ||
+      scenario === "viewer-agent-chat-token-diagnostics" ||
       scenario === "viewer-agent-chat-context-profile"
         ? await page.evaluate(() => {
             const result = window.__SVARD_AGENT_STAGE5_CHECK__;
@@ -419,6 +420,22 @@ export async function buildAppShellAssertions(context) {
               result?.normalVisible === true &&
               result?.rightMaintained === true &&
               result?.sendSuppressed === true
+            );
+          })
+        : true,
+    hasAgentTokenDiagnostics:
+      scenario === "viewer-agent-chat-token-diagnostics"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_TOKEN_DIAGNOSTICS_CHECK__;
+            return (
+              result?.bottomMaintained === true &&
+              result?.compactReachable === true &&
+              result?.comparisonVisible === true &&
+              result?.darkThemeMaintained === true &&
+              result?.diffMaintained === true &&
+              result?.exactValuesVisible === true &&
+              result?.insideCompactViewport === true &&
+              result?.provenanceVisible === true
             );
           })
         : true,

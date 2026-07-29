@@ -1,4 +1,8 @@
-import type { AgentCompactionOutcome, AgentEvent } from "../../core/types";
+import type {
+  AgentCompactionOutcome,
+  AgentEvent,
+  AgentTokenUsageDiagnostics,
+} from "../../core/types";
 
 export interface MockAgentContextSession {
   activeTurnId: string | null;
@@ -10,6 +14,7 @@ export function emitMockContextUsage(
   session: MockAgentContextSession | undefined,
   fallbackUsedTokens = 187_500,
   fallbackContextWindowTokens = 250_000,
+  options: { diagnostics?: boolean } = {},
 ): void {
   if (!session) return;
   const override = (
@@ -42,6 +47,50 @@ export function emitMockContextUsage(
           ),
         ),
       ),
+    },
+  });
+  if (options.diagnostics === false) return;
+  const diagnosticsOverride = (
+    globalThis as typeof globalThis & {
+      __SVARD_AGENT_TOKEN_USAGE_DIAGNOSTICS__?:
+        | AgentTokenUsageDiagnostics
+        | "invalid";
+    }
+  ).__SVARD_AGENT_TOKEN_USAGE_DIAGNOSTICS__;
+  if (diagnosticsOverride === "invalid") return;
+  session.onEvent({
+    type: "tokenUsageDiagnosticsUpdated",
+    diagnostics: diagnosticsOverride ?? {
+      latestRequest: {
+        provenance: "providerReported",
+        usage: {
+          inputTokens: 187_000,
+          cachedInputTokens: 180_000,
+          outputTokens: 500,
+          reasoningOutputTokens: 300,
+          totalTokens: 187_500,
+        },
+      },
+      turn: {
+        provenance: "aggregatedProviderReports",
+        usage: {
+          inputTokens: 199_000,
+          cachedInputTokens: 190_000,
+          outputTokens: 900,
+          reasoningOutputTokens: 500,
+          totalTokens: 199_900,
+        },
+      },
+      conversation: {
+        provenance: "providerReported",
+        usage: {
+          inputTokens: 487_000,
+          cachedInputTokens: 450_000,
+          outputTokens: 4_500,
+          reasoningOutputTokens: 2_100,
+          totalTokens: 491_500,
+        },
+      },
     },
   });
 }

@@ -666,6 +666,7 @@ pub async fn send_agent_turn(
     if turn_input.is_empty() {
         return Err("Enter a question or attach an image.".to_string());
     }
+    begin_token_usage_turn(&session);
     let (completion_sender, completion_receiver) = mpsc::channel();
     *session
         .active_turn
