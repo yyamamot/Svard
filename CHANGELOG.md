@@ -11,6 +11,9 @@
 - Added changed-file summaries with a direct path to Source Control > Changes for reviewing the current working tree.
 - Added a resizable AI Chat drawer to Diff Preview and All diffs while preserving the current conversation, draft, and running response.
 - Added right-click attachment of the current rendered change as an exact Before/After reference for free-form AI Chat questions.
+- Improved AI Chat workspace isolation so conversations and pending input do not carry across workspace changes.
+- Added a Focused context profile plus context-use and token diagnostics, with manual compaction when the provider supports it.
+- Improved Visualize output with a smaller balanced OpenUI profile and safe fallbacks for unsupported or over-limit responses.
 
 ## 1.0.5
 
