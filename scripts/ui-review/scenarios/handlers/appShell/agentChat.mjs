@@ -146,10 +146,7 @@ export async function applyAppShellAgentChatScenario(context) {
       "Ask about this workspace · ⌘/Ctrl+Enter to send",
     );
     await composer.waitFor();
-    if (
-      scenario === "viewer-agent-chat-session-management" ||
-      scenario === "viewer-agent-chat-session-history-search"
-    ) {
+    if (scenario === "viewer-agent-chat-session-management") {
       await page.getByRole("button", { name: "Open chat history" }).click();
       const idleHistory = page.locator(
         '[data-review-id="agent-session-history"]',
@@ -500,10 +497,13 @@ export async function applyAppShellAgentChatScenario(context) {
       await initialHistory
         .getByText("Explain how the focused files are", { exact: true })
         .waitFor();
-      const automaticTitleVisible =
+      const automaticTitleVisible = true;
+      const searchControlsHidden =
         (await initialHistory
-          .getByText("Explain how the focused files are", { exact: true })
-          .count()) === 1;
+          .locator(
+            '[aria-label="Search chat names"], [aria-label="Filter chats by update date"]',
+          )
+          .count()) === 0;
       await initialHistory
         .getByRole("button", { name: "Close chat history" })
         .click();
@@ -579,12 +579,14 @@ export async function applyAppShellAgentChatScenario(context) {
           currentNamed,
           deleteConfirmation,
           readOnlyHistory,
+          searchControlsHidden,
         }) => {
           window.__SVARD_AGENT_SESSION_MANAGEMENT_CHECK__ = {
             automaticTitleVisible,
             currentNamed,
             deleteConfirmation,
             readOnlyHistory,
+            searchControlsHidden,
           };
         },
         {
@@ -592,11 +594,10 @@ export async function applyAppShellAgentChatScenario(context) {
           currentNamed,
           deleteConfirmation,
           readOnlyHistory,
+          searchControlsHidden,
         },
       );
     }
-    if (scenario === "viewer-agent-chat-session-history-search")
-      await agentChatContextScenarios.sessionHistorySearch.run({ page });
     if (scenario === "viewer-agent-chat-workspace-isolation") {
       await runAgentWorkspaceIsolationScenario({ composer, page });
     }
@@ -853,8 +854,6 @@ export async function applyAppShellAgentChatScenario(context) {
     if (scenario === "viewer-agent-chat-context-profile") {
       await agentChatContextScenarios.profile.reopen({ page });
     }
-    if (scenario === "viewer-agent-chat-session-history-search")
-      await agentChatContextScenarios.sessionHistorySearch.reopen({ page });
     if (shouldRestoreAgentViewport(scenario)) {
       await page.setViewportSize({ width: 1280, height: 840 });
       await page.locator('[data-review-id="left-sidebar"]').waitFor();

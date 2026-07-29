@@ -4,7 +4,6 @@ import {
   Check,
   LoaderCircle,
   Pencil,
-  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -13,7 +12,6 @@ import type {
   AgentSessionManagementCapabilities,
   AgentSessionSummary,
 } from "../../core/types";
-import type { AgentSessionHistoryDateRange } from "./agentSessionHistorySearch";
 
 interface AgentSessionHistoryMenuProps {
   activeSessionId: string;
@@ -22,13 +20,9 @@ interface AgentSessionHistoryMenuProps {
   error: string | null;
   loading: boolean;
   nextCursor: string | null;
-  query: string;
-  dateRange: AgentSessionHistoryDateRange;
   onClose: () => void;
   onDelete: (session: AgentSessionSummary) => Promise<void>;
   onLoadMore: () => Promise<void>;
-  onQueryChange: (query: string) => void;
-  onDateRangeChange: (range: AgentSessionHistoryDateRange) => void;
   onRename: (session: AgentSessionSummary, title: string) => Promise<void>;
   onResume: (session: AgentSessionSummary) => Promise<void>;
   onSetArchived: (
@@ -56,13 +50,9 @@ export function AgentSessionHistoryMenu({
   error,
   loading,
   nextCursor,
-  query,
-  dateRange,
   onClose,
   onDelete,
   onLoadMore,
-  onQueryChange,
-  onDateRangeChange,
   onRename,
   onResume,
   onSetArchived,
@@ -78,10 +68,7 @@ export function AgentSessionHistoryMenu({
   useEffect(() => {
     setEditingId(null);
     setDeleting(null);
-  }, [dateRange, query, showArchived]);
-
-  const searchSupported = capabilities?.search === true;
-  const filtered = Boolean(query.trim()) || dateRange !== "any";
+  }, [showArchived]);
 
   async function run(
     session: AgentSessionSummary,
@@ -132,45 +119,6 @@ export function AgentSessionHistoryMenu({
           Archived
         </button>
       </div>
-      {searchSupported ? (
-        <div className="agent-session-history-search">
-          <label>
-            <Search size={13} aria-hidden="true" />
-            <input
-              aria-label="Search chat names"
-              maxLength={120}
-              placeholder="Search chat names"
-              type="search"
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-            />
-            {query ? (
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Clear chat search"
-                onClick={() => onQueryChange("")}
-              >
-                <X size={12} />
-              </button>
-            ) : null}
-          </label>
-          <select
-            aria-label="Filter chats by update date"
-            value={dateRange}
-            onChange={(event) =>
-              onDateRangeChange(
-                event.target.value as AgentSessionHistoryDateRange,
-              )
-            }
-          >
-            <option value="any">Any time</option>
-            <option value="today">Today</option>
-            <option value="last7Days">Last 7 days</option>
-            <option value="last30Days">Last 30 days</option>
-          </select>
-        </div>
-      ) : null}
       {activeTurn ? (
         <p className="agent-session-history-notice">
           Finish or cancel the current response before switching chats.
@@ -304,11 +252,7 @@ export function AgentSessionHistoryMenu({
         })}
         {!loading && sessions.length === 0 ? (
           <p className="agent-session-history-empty">
-            {filtered
-              ? "No chats match your search."
-              : showArchived
-                ? "No archived chats."
-                : "No previous chats yet."}
+            {showArchived ? "No archived chats." : "No previous chats yet."}
           </p>
         ) : null}
         {loading ? (

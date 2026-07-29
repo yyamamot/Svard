@@ -6,7 +6,7 @@
   display: grid;
   width: min(390px, calc(100% - 16px));
   max-height: min(620px, calc(100% - 62px));
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   border: 1px solid var(--reader-border);
   border-radius: 10px;
   color: var(--reader-text);
@@ -41,59 +41,6 @@
 .agent-session-history-tabs button[aria-selected="true"] {
   color: var(--reader-heading);
   background: var(--reader-surface-strong);
-}
-
-.agent-session-history-search {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-  border-bottom: 1px solid var(--reader-border);
-  padding: 8px 10px;
-}
-
-.agent-session-history-search label {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--reader-border);
-  border-radius: 6px;
-  padding: 0 5px;
-  color: var(--reader-muted);
-  background: var(--reader-bg);
-}
-
-.agent-session-history-search input,
-.agent-session-history-search select {
-  min-width: 0;
-  border: 0;
-  color: var(--reader-text);
-  background: transparent;
-  font: inherit;
-  font-size: 11px;
-}
-
-.agent-session-history-search input {
-  width: 100%;
-  padding: 6px 0;
-  outline: none;
-}
-
-.agent-session-history-search input::-webkit-search-cancel-button {
-  display: none;
-}
-
-.agent-session-history-search select {
-  max-width: 96px;
-  border: 1px solid var(--reader-border);
-  border-radius: 6px;
-  padding: 6px;
-  background: var(--reader-bg);
-}
-
-.agent-session-history-search .icon-button {
-  width: 22px;
-  min-height: 22px;
 }
 
 .agent-session-list {

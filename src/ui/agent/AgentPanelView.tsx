@@ -42,9 +42,7 @@ export function AgentPanelView({
     confirmFullAccess,
     deleteSession,
     historyArchived,
-    historyDateRange,
     historyOpen,
-    historyQuery,
     loadSessionPage,
     networkAccess,
     openSessionHistory,
@@ -62,9 +60,7 @@ export function AgentPanelView({
     sessionStarting,
     sessionSettings,
     setHistoryArchived,
-    setHistoryDateRange,
     setHistoryOpen,
-    setHistoryQuery,
     setPendingFullAccessResume,
     setResponseMode,
     setSessionArchived,
@@ -185,13 +181,9 @@ export function AgentPanelView({
           error={sessionListError}
           loading={sessionListLoading}
           nextCursor={sessionPage?.nextCursor ?? null}
-          query={historyQuery}
-          dateRange={historyDateRange}
           onClose={() => setHistoryOpen(false)}
           onDelete={deleteSession}
           onLoadMore={() => loadSessionPage(false, historyArchived)}
-          onQueryChange={setHistoryQuery}
-          onDateRangeChange={setHistoryDateRange}
           onRename={renameSession}
           onResume={resumeSessionTransaction}
           onSetArchived={setSessionArchived}
