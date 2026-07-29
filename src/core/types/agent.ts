@@ -161,6 +161,7 @@ export interface AgentSessionInfo {
 
 export interface AgentSessionManagementCapabilities {
   list: boolean;
+  search: boolean;
   resume: boolean;
   rename: boolean;
   archive: boolean;
@@ -196,6 +197,9 @@ export interface AgentSessionListInput {
   providerId: AgentProviderId;
   workspaceRoot: string;
   archived?: boolean;
+  query?: string | null;
+  updatedAtFrom?: number | null;
+  updatedAtBefore?: number | null;
   cursor?: string | null;
   limit?: number;
 }

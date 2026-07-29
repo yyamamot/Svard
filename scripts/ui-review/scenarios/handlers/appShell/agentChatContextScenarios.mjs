@@ -11,6 +11,10 @@ import {
   reopenAgentTokenDiagnosticsForCapture,
   runAgentTokenDiagnosticsScenario,
 } from "./agentChatTokenDiagnostics.mjs";
+import {
+  reopenAgentSessionHistorySearchForCapture,
+  runAgentSessionHistorySearchScenario,
+} from "./agentChatSessionHistorySearch.mjs";
 
 export const agentChatContextScenarios = {
   pressure: {
@@ -25,5 +29,9 @@ export const agentChatContextScenarios = {
   tokenDiagnostics: {
     reopen: reopenAgentTokenDiagnosticsForCapture,
     run: runAgentTokenDiagnosticsScenario,
+  },
+  sessionHistorySearch: {
+    reopen: reopenAgentSessionHistorySearchForCapture,
+    run: runAgentSessionHistorySearchScenario,
   },
 };

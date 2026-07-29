@@ -550,11 +550,16 @@ pub fn list_agent_sessions(
     let registry_path = AgentSessionRegistry::path(&app)?;
     let page = state.session_registry.list(
         &registry_path,
-        &input.provider_id,
-        &workspace_root,
-        input.archived,
-        input.cursor.as_deref(),
-        input.limit.unwrap_or(50),
+        AgentSessionListQuery {
+            provider_id: &input.provider_id,
+            workspace_root: &workspace_root,
+            archived: input.archived,
+            query: input.query.as_deref(),
+            updated_at_from: input.updated_at_from,
+            updated_at_before: input.updated_at_before,
+            cursor: input.cursor.as_deref(),
+            limit: input.limit.unwrap_or(50),
+        },
     )?;
     let active_ids = state
         .sessions

@@ -21,7 +21,8 @@ use std::{
 use tauri::{ipc::Channel, Manager, State};
 
 use crate::agent_session_registry::{
-    now_seconds, AgentSessionRecord, AgentSessionRegistry, AgentSessionSnapshot,
+    now_seconds, AgentSessionListQuery, AgentSessionRecord, AgentSessionRegistry,
+    AgentSessionSnapshot,
 };
 use crate::codex_executable::{
     executable_candidates, CodexExecutable, CodexExecutableMode, CodexExecutablePreference,
@@ -31,6 +32,7 @@ mod compaction;
 mod history;
 mod lifecycle;
 mod management;
+mod management_types;
 mod provider;
 mod steer;
 mod title;
@@ -38,6 +40,7 @@ mod token_usage;
 mod transport;
 mod turn;
 mod types;
+use management_types::*;
 
 pub use compaction::compact_agent_session;
 pub use lifecycle::{

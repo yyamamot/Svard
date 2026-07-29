@@ -596,9 +596,10 @@ describe("MockHostAdapter agent provider", () => {
         archived: false,
       },
     ]);
-    expect(firstPage.nextCursor).toBe("1");
+    expect(firstPage.nextCursor).toMatch(/^mock-search:[0-9a-f]{8}:1$/u);
     expect(firstPage.managementCapabilities).toMatchObject({
       list: true,
+      search: true,
       resume: true,
       archive: true,
       delete: true,
@@ -615,6 +616,29 @@ describe("MockHostAdapter agent provider", () => {
       secondPage.sessions.map((session) => session.clientSessionId),
     ).toEqual(["older-session"]);
     expect(secondPage.nextCursor).toBeNull();
+
+    await host.renameAgentSession({
+      clientSessionId: "older-session",
+      title: "設計 Review Notes",
+      executablePreference: { mode: "auto", path: null },
+    });
+    const searched = await host.listAgentSessions({
+      providerId: "codex-app-server",
+      workspaceRoot: "/workspace",
+      query: "  設計 review ",
+      updatedAtFrom: 0,
+    });
+    expect(searched.sessions.map((session) => session.clientSessionId)).toEqual(
+      ["older-session"],
+    );
+    await expect(
+      host.listAgentSessions({
+        providerId: "codex-app-server",
+        workspaceRoot: "/workspace",
+        query: "different",
+        cursor: firstPage.nextCursor,
+      }),
+    ).rejects.toThrow("cursor");
 
     const renamed = await host.renameAgentSession({
       clientSessionId: "active-session",

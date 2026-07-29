@@ -7,11 +7,17 @@ import type {
 import type { AgentSessionPage, HostAdapter } from "../../core/types";
 import type { AgentChatAction, AgentChatState } from "./agentChatState";
 import { restoredConversationTurn } from "./agentPanelModel";
+import {
+  agentSessionHistoryDateBounds,
+  type AgentSessionHistoryDateRange,
+} from "./agentSessionHistorySearch";
 import type { useAgentWorkspaceIsolation } from "./useAgentWorkspaceIsolation";
 
 export function createAgentSessionHistoryLoaders({
   dispatch,
   historyArchived,
+  historyDateRange,
+  historyQuery,
   historyPrependScrollRef,
   host,
   olderHistoryCursor,
@@ -20,6 +26,7 @@ export function createAgentSessionHistoryLoaders({
   scrollRef,
   sessionIdRef,
   sessionPage,
+  sessionListRequestSequenceRef,
   sessionTitleEventSequenceRef,
   sessionTitleEventsRef,
   setActionNotice,
@@ -36,6 +43,8 @@ export function createAgentSessionHistoryLoaders({
 }: {
   dispatch: Dispatch<AgentChatAction>;
   historyArchived: boolean;
+  historyDateRange: AgentSessionHistoryDateRange;
+  historyQuery: string;
   historyPrependScrollRef: MutableRefObject<{
     height: number;
     top: number;
@@ -47,6 +56,7 @@ export function createAgentSessionHistoryLoaders({
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionIdRef: MutableRefObject<string>;
   sessionPage: AgentSessionPage | null;
+  sessionListRequestSequenceRef: MutableRefObject<number>;
   sessionTitleEventSequenceRef: MutableRefObject<number>;
   sessionTitleEventsRef: MutableRefObject<
     Map<string, { sequence: number; title: string }>
@@ -72,6 +82,8 @@ export function createAgentSessionHistoryLoaders({
       workspaceRoot,
     );
     const titleSequenceBeforeRequest = sessionTitleEventSequenceRef.current;
+    const requestSequence = ++sessionListRequestSequenceRef.current;
+    const dateBounds = agentSessionHistoryDateBounds(historyDateRange);
     setSessionListLoading(true);
     setSessionListError(null);
     try {
@@ -79,10 +91,17 @@ export function createAgentSessionHistoryLoaders({
         providerId: "codex-app-server",
         workspaceRoot,
         archived,
+        query: historyQuery.trim() || null,
+        ...dateBounds,
         cursor: reset ? null : sessionPage?.nextCursor,
         limit: 30,
       });
-      if (!workspaceIsolation.isOperationCurrent(operation)) return;
+      if (
+        !workspaceIsolation.isOperationCurrent(operation) ||
+        requestSequence !== sessionListRequestSequenceRef.current
+      ) {
+        return;
+      }
       const sessions = page.sessions.map((session) => {
         const titleEvent = sessionTitleEventsRef.current.get(
           session.clientSessionId,
@@ -108,14 +127,22 @@ export function createAgentSessionHistoryLoaders({
         };
       });
     } catch (error) {
-      if (!workspaceIsolation.isOperationCurrent(operation)) return;
+      if (
+        !workspaceIsolation.isOperationCurrent(operation) ||
+        requestSequence !== sessionListRequestSequenceRef.current
+      ) {
+        return;
+      }
       setSessionListError(
         error instanceof Error
           ? error.message
           : "Chat history could not be loaded.",
       );
     } finally {
-      if (workspaceIsolation.isOperationCurrent(operation)) {
+      if (
+        workspaceIsolation.isOperationCurrent(operation) &&
+        requestSequence === sessionListRequestSequenceRef.current
+      ) {
         setSessionListLoading(false);
       }
     }

@@ -32,7 +32,6 @@ Use normal Markdown for ordinary turns. Only return Svard OpenUI Lang when the \
 user turn explicitly includes the Svard OpenUI contract. In that case, follow \
 the contract instead of invoking a visualization skill or producing Mermaid, \
 HTML, a website, or a visualization file.";
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentCapabilities {
@@ -53,7 +52,6 @@ pub struct AgentCapabilities {
     pub(super) manual_compaction: bool,
     pub(super) focused_context: bool,
 }
-
 impl Default for AgentCapabilities {
     fn default() -> Self {
         Self {
@@ -76,7 +74,6 @@ impl Default for AgentCapabilities {
         }
     }
 }
-
 impl AgentCapabilities {
     pub(super) fn with_protocol_features(
         image_input: bool,
@@ -98,7 +95,6 @@ impl AgentCapabilities {
         }
     }
 }
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentProbe {
@@ -109,7 +105,6 @@ pub struct AgentProbe {
     pub(super) version: Option<String>,
     pub(super) capabilities: AgentCapabilities,
 }
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentReasoningEffortDescriptor {
@@ -214,32 +209,6 @@ pub struct AgentSessionInfo {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AgentSessionManagementCapabilities {
-    pub(super) list: bool,
-    pub(super) resume: bool,
-    pub(super) rename: bool,
-    pub(super) archive: bool,
-    pub(super) restore: bool,
-    pub(super) delete: bool,
-    pub(super) fork: bool,
-}
-
-impl Default for AgentSessionManagementCapabilities {
-    fn default() -> Self {
-        Self {
-            list: true,
-            resume: true,
-            rename: true,
-            archive: true,
-            restore: true,
-            delete: true,
-            fork: false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct AgentSessionSettingsSnapshot {
     pub(super) permission_mode: AgentPermissionMode,
     pub(super) network_access: bool,
@@ -277,6 +246,9 @@ pub struct AgentSessionListInput {
     pub(super) provider_id: String,
     pub(super) workspace_root: String,
     pub(super) archived: bool,
+    pub(super) query: Option<String>,
+    pub(super) updated_at_from: Option<u64>,
+    pub(super) updated_at_before: Option<u64>,
     pub(super) cursor: Option<String>,
     pub(super) limit: Option<usize>,
 }

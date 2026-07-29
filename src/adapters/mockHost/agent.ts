@@ -48,6 +48,7 @@ import {
   validateMockAgentExecutablePreference,
   type MockAgentSessionRecord,
 } from "./agentTitle";
+import { searchMockAgentSessions } from "./agentSessionSearch";
 
 export class MockAgentFacade {
   private readonly agentSessions = new Map<
@@ -263,29 +264,17 @@ export class MockAgentFacade {
   async listAgentSessions(
     input: AgentSessionListInput,
   ): Promise<AgentSessionPage> {
-    const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
-    const offset = parseMockAgentSessionCursor(input.cursor);
-    const archived = input.archived ?? false;
-    const sessions = [...this.agentSessionRecords.values()]
-      .filter(
-        (record) =>
-          record.input.providerId === input.providerId &&
-          record.input.workspaceRoot === input.workspaceRoot &&
-          record.archived === archived,
-      )
-      .sort(
-        (left, right) =>
-          right.updatedAt - left.updatedAt ||
-          left.input.clientSessionId.localeCompare(right.input.clientSessionId),
-      );
-    const page = sessions.slice(offset, offset + limit);
+    const { nextCursor, page, searchSupported } = searchMockAgentSessions(
+      [...this.agentSessionRecords.values()],
+      input,
+    );
     return {
       sessions: page.map((record) => this.agentSessionSummary(record)),
-      nextCursor:
-        offset + page.length < sessions.length
-          ? String(offset + page.length)
-          : null,
-      managementCapabilities: mockAgentSessionManagementCapabilities,
+      nextCursor,
+      managementCapabilities: {
+        ...mockAgentSessionManagementCapabilities,
+        search: searchSupported,
+      },
     };
   }
 

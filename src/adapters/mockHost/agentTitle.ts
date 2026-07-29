@@ -51,6 +51,7 @@ export function mockAgentModelCatalog(
 export const mockAgentSessionManagementCapabilities: AgentSessionManagementCapabilities =
   {
     list: true,
+    search: true,
     resume: true,
     rename: true,
     archive: true,

@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 import { MockHostAdapter } from "../../src/adapters/mockHostAdapter";
 import { defaultConfig } from "../../src/core/defaultConfig";
 import type {
   AgentEvent,
   AgentSessionInfo,
+  AgentSessionListInput,
+  AgentSessionPage,
   AgentSessionResumeInput,
   AgentSessionStartInput,
 } from "../../src/core/types";
 import { AgentPanelHost } from "../../src/ui/agent/AgentPanelHost";
+import { agentSessionHistoryDateBounds } from "../../src/ui/agent/agentSessionHistorySearch";
 import {
   createReactRootHarness,
   type ReactRootHarness,
@@ -40,6 +44,23 @@ class SessionRecordingHost extends MockHostAdapter {
   }
 }
 
+class DelayedSessionSearchHost extends SessionRecordingHost {
+  releaseFirstSearch: (() => void) | null = null;
+
+  override async listAgentSessions(
+    input: AgentSessionListInput,
+  ): Promise<AgentSessionPage> {
+    if (input.query === "first") {
+      return new Promise((resolve, reject) => {
+        this.releaseFirstSearch = () => {
+          super.listAgentSessions(input).then(resolve, reject);
+        };
+      });
+    }
+    return super.listAgentSessions(input);
+  }
+}
+
 describe("AgentPanelHost session history", () => {
   let harness: ReactRootHarness;
   let host: SessionRecordingHost;
@@ -55,6 +76,11 @@ describe("AgentPanelHost session history", () => {
         __SVARD_AGENT_SESSION_RESUME_FAILURE__?: true | string;
       }
     ).__SVARD_AGENT_SESSION_RESUME_FAILURE__;
+    delete (
+      globalThis as typeof globalThis & {
+        __SVARD_AGENT_SESSION_SEARCH_UNSUPPORTED__?: boolean;
+      }
+    ).__SVARD_AGENT_SESSION_SEARCH_UNSUPPORTED__;
     harness.cleanup();
   });
 
@@ -291,5 +317,120 @@ describe("AgentPanelHost session history", () => {
     expect(
       harness.container.querySelector<HTMLTextAreaElement>("textarea")?.value,
     ).toBe("");
+  });
+
+  it("searches chat titles, clears the query, and keeps filters across tabs", async () => {
+    await createPreviousChat();
+    await openHistory();
+
+    const search = harness.container.querySelector<HTMLInputElement>(
+      '[aria-label="Search chat names"]',
+    );
+    expect(search).toBeTruthy();
+    await harness.setInputValue(search, "first");
+    await vi.waitFor(
+      () =>
+        expect(
+          harness.container.querySelectorAll(".agent-session-item"),
+        ).toHaveLength(1),
+      { timeout: 1_000 },
+    );
+    expect(harness.container.textContent).toContain("Create the first chat");
+
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[aria-label="Clear chat search"]',
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(
+        harness.container.querySelectorAll(".agent-session-item"),
+      ).toHaveLength(2),
+    );
+
+    const dateFilter = harness.container.querySelector<HTMLSelectElement>(
+      '[aria-label="Filter chats by update date"]',
+    );
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLSelectElement.prototype,
+        "value",
+      )?.set;
+      valueSetter?.call(dateFilter, "last7Days");
+      dateFilter?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await harness.click(harness.buttonByText("Archived"));
+    expect(
+      harness.container.querySelector<HTMLSelectElement>(
+        '[aria-label="Filter chats by update date"]',
+      )?.value,
+    ).toBe("last7Days");
+  });
+
+  it("hides search controls when the host does not support registry search", async () => {
+    (
+      globalThis as typeof globalThis & {
+        __SVARD_AGENT_SESSION_SEARCH_UNSUPPORTED__?: boolean;
+      }
+    ).__SVARD_AGENT_SESSION_SEARCH_UNSUPPORTED__ = true;
+    render();
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[aria-label="Open chat history"]',
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(
+        harness.container.querySelector(".agent-session-history-loading"),
+      ).toBeFalsy(),
+    );
+    expect(
+      harness.container.querySelector('[aria-label="Search chat names"]'),
+    ).toBeNull();
+  });
+
+  it("uses local calendar-day boundaries for history date filters", () => {
+    const bounds = agentSessionHistoryDateBounds(
+      "last7Days",
+      new Date(2026, 6, 29, 18, 30),
+    );
+    expect(new Date(bounds.updatedAtFrom! * 1_000)).toEqual(
+      new Date(2026, 6, 23),
+    );
+    expect(new Date(bounds.updatedAtBefore! * 1_000)).toEqual(
+      new Date(2026, 6, 30),
+    );
+  });
+
+  it("ignores a delayed result from an older search query", async () => {
+    host = new DelayedSessionSearchHost();
+    await createPreviousChat();
+    await openHistory();
+    const search = harness.container.querySelector<HTMLInputElement>(
+      '[aria-label="Search chat names"]',
+    );
+    await harness.setInputValue(search, "first");
+    await vi.waitFor(
+      () =>
+        expect(
+          (host as DelayedSessionSearchHost).releaseFirstSearch,
+        ).toBeTypeOf("function"),
+      { timeout: 1_000 },
+    );
+    await harness.setInputValue(search, "missing");
+    await vi.waitFor(
+      () =>
+        expect(harness.container.textContent).toContain(
+          "No chats match your search.",
+        ),
+      { timeout: 1_000 },
+    );
+    await act(async () => {
+      (host as DelayedSessionSearchHost).releaseFirstSearch?.();
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 20));
+    expect(harness.container.textContent).toContain(
+      "No chats match your search.",
+    );
   });
 });

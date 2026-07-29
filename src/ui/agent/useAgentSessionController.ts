@@ -39,6 +39,10 @@ import {
   workspaceChangedAgentNotice,
 } from "./useAgentActionNotice";
 import { useAgentSessionContextCleanup } from "./useAgentSessionContextCleanup";
+import {
+  useAgentSessionHistorySearchReload,
+  useAgentSessionHistorySearchState,
+} from "./useAgentSessionHistorySearchState";
 import { useAgentWorkspaceIsolation } from "./useAgentWorkspaceIsolation";
 
 type AgentSessionLifecycle = "idle" | "starting" | "ready" | "closed";
@@ -94,6 +98,7 @@ export function useAgentSessionController({
   const [actionNotice, setActionNotice] = useAgentActionNotice();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyArchived, setHistoryArchived] = useState(false);
+  const historySearch = useAgentSessionHistorySearchState();
   const [sessionPage, setSessionPage] = useState<AgentSessionPage | null>(null);
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [sessionListError, setSessionListError] = useState<string | null>(null);
@@ -185,6 +190,7 @@ export function useAgentSessionController({
       setQuestion("");
       setActionNotice(workspaceRoot ? workspaceChangedAgentNotice : null);
       setHistoryOpen(false);
+      historySearch.resetHistorySearch();
       setSessionPage(null);
       setSessionListLoading(false);
       setSessionListError(null);
@@ -304,6 +310,7 @@ export function useAgentSessionController({
           sessionTitleEventsRef,
           setSessionPage,
         );
+        historySearch.reloadRef.current();
       }
       handleContextEvent(event);
       dispatch({ type: "event", event });
@@ -328,7 +335,6 @@ export function useAgentSessionController({
     submittedSelectionIdsRef.current = [];
     acceptedTurnIdsRef.current.clear();
   }, [host, sessionReady, terminateSession]);
-
   async function startIdleSession(
     fullAccessConfirmed = false,
   ): Promise<boolean> {
@@ -584,31 +590,25 @@ export function useAgentSessionController({
     });
   const { loadOlderSessionHistory, loadSessionPage, openSessionHistory } =
     createAgentSessionHistoryLoaders({
-      dispatch,
-      historyArchived,
-      historyPrependScrollRef,
-      historyOpen,
-      host,
-      olderHistoryCursor,
-      olderHistoryLoading,
-      scrollRef,
-      sessionIdRef,
-      sessionPage,
-      sessionTitleEventSequenceRef,
-      sessionTitleEventsRef,
-      setActionNotice,
-      setOlderHistoryCursor,
-      setOlderHistoryLoading,
-      setHistoryOpen,
-      setSessionListError,
-      setSessionListLoading,
-      setSessionPage,
-      setSettingsOpen,
-      state,
-      workspaceIsolation,
-      workspaceRoot,
+      ...{ dispatch, historyArchived, historyPrependScrollRef, historyOpen },
+      historyDateRange: historySearch.historyDateRange,
+      historyQuery: historySearch.debouncedHistoryQuery,
+      ...{ host, olderHistoryCursor, olderHistoryLoading, scrollRef },
+      ...{ sessionIdRef, sessionPage },
+      sessionListRequestSequenceRef: historySearch.requestSequenceRef,
+      ...{ sessionTitleEventSequenceRef, sessionTitleEventsRef },
+      ...{ setActionNotice, setOlderHistoryCursor, setOlderHistoryLoading },
+      ...{ setHistoryOpen, setSessionListError, setSessionListLoading },
+      ...{ setSessionPage, setSettingsOpen, state },
+      ...{ workspaceIsolation, workspaceRoot },
     });
-
+  useAgentSessionHistorySearchReload({
+    historyArchived,
+    historyOpen,
+    loadSessionPage,
+    search: historySearch,
+    sessionPage,
+  });
   async function resumeClosedSessionTransaction(fullAccessConfirmed: boolean) {
     await workspaceIsolation.ensureWorkspaceBoundary();
     if (
@@ -681,7 +681,6 @@ export function useAgentSessionController({
       }
     }
   }
-
   const { cancelFullAccessStart, confirmFullAccessStart } =
     createAgentFullAccessActions({
       pendingFullAccessTransactionRef,
@@ -852,7 +851,12 @@ export function useAgentSessionController({
     ...{ images, setImages, restoredQuotedContexts, setRestoredQuotedContexts },
     ...{ imageErrors, setImageErrors, mediaModes, setMediaModes },
     ...{ actionNotice, setActionNotice, historyOpen, setHistoryOpen },
-    ...{ historyArchived, setHistoryArchived, sessionPage },
+    ...{
+      historyArchived,
+      setHistoryArchived,
+      sessionPage,
+    },
+    ...historySearch.controller,
     ...{ sessionListLoading, sessionListError, olderHistoryCursor },
     ...{ olderHistoryLoading, pendingFullAccessResume },
     ...{ setPendingFullAccessResume, confirmClosedFullAccessResume },
@@ -888,7 +892,6 @@ export function useAgentSessionController({
     compactContext,
   };
 }
-
 export type AgentSessionController = ReturnType<
   typeof useAgentSessionController
 >;

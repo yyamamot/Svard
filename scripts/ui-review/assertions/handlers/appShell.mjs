@@ -205,7 +205,8 @@ export async function buildAppShellAssertions(context) {
       scenario === "viewer-agent-chat-composer-access" ||
       scenario === "viewer-agent-chat-context-pressure" ||
       scenario === "viewer-agent-chat-token-diagnostics" ||
-      scenario === "viewer-agent-chat-context-profile"
+      scenario === "viewer-agent-chat-context-profile" ||
+      scenario === "viewer-agent-chat-session-history-search"
         ? await page.evaluate(() => {
             const result = window.__SVARD_AGENT_STAGE5_CHECK__;
             return (
@@ -348,6 +349,21 @@ export async function buildAppShellAssertions(context) {
               result?.currentNamed === true &&
               result?.deleteConfirmation === true &&
               result?.readOnlyHistory === true
+            );
+          })
+        : true,
+    hasAgentSessionHistorySearch:
+      scenario === "viewer-agent-chat-session-history-search"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_SESSION_HISTORY_SEARCH_CHECK__;
+            return (
+              result?.bottomMaintained === true &&
+              result?.clearRestored === true &&
+              result?.darkThemeMaintained === true &&
+              result?.diffMaintained === true &&
+              result?.emptyVisible === true &&
+              result?.insideCompactViewport === true &&
+              result?.rightMaintained === true
             );
           })
         : true,
