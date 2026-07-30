@@ -23,6 +23,11 @@ export type PreferencesSectionId =
   | "mouseGestures"
   | "keybindings";
 
+export interface PreferencesSectionRequest {
+  id: number;
+  section: PreferencesSectionId;
+}
+
 export interface KrokiTestState {
   status: "idle" | "running" | "success" | "error";
   result?: KrokiResult;

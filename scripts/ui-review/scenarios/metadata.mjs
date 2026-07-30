@@ -255,7 +255,7 @@ export function preferenceScenarioFor(scenario) {
 }
 
 export function isPreferencesPageScenario(scenario) {
-  return preferenceScenarioFor(scenario)?.usesPreferencesPageShell === true;
+  return scenarioContractFor(scenario)?.usesPreferencesPageShell === true;
 }
 
 export function isPreferencesLayoutScenario(scenario) {

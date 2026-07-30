@@ -221,7 +221,29 @@
 }
 
 .topbar .agent-display-menu > button {
+  position: relative;
   min-width: 40px;
+}
+
+.agent-chat-entry-warning {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  width: 24px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.agent-chat-entry-warning::after {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--reader-surface);
+  border-radius: 999px;
+  background: #c47a14;
+  content: "";
 }
 
 .agent-display-menu-popover {

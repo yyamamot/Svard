@@ -41,6 +41,7 @@ import { ZenModeSection } from "./preferences/ZenModeSection";
 import type {
   ExternalPlantUmlTestState,
   KrokiTestState,
+  PreferencesSectionRequest,
   PreferencesSectionId,
 } from "./preferences/types";
 
@@ -67,6 +68,7 @@ export function PreferencesPanel({
   onTestKroki,
   host,
   onClose,
+  sectionRequest,
   mode = "modal",
 }: {
   config: AppConfig;
@@ -76,6 +78,7 @@ export function PreferencesPanel({
   onTestKroki: (config: AppConfig) => Promise<KrokiResult>;
   host: HostAdapter;
   onClose: () => void;
+  sectionRequest?: PreferencesSectionRequest | null;
   mode?: "modal" | "page";
 }) {
   const [activeSection, setActiveSection] =
@@ -101,6 +104,15 @@ export function PreferencesPanel({
       status: "idle",
     });
   const recordingPointsRef = useRef<Array<{ x: number; y: number }>>([]);
+
+  useEffect(() => {
+    if (!sectionRequest) return;
+    setRecordingKeybindingIndex(null);
+    setRecordingGestureIndex(null);
+    setRecordingPattern("");
+    recordingPointsRef.current = [];
+    setActiveSection(sectionRequest.section);
+  }, [sectionRequest]);
 
   const activeSectionTitle =
     preferenceSections.find((section) => section.id === activeSection)?.title ??

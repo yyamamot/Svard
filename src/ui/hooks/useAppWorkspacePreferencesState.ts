@@ -1,5 +1,9 @@
 import { useCallback, useState } from "react";
 import type { DocumentPayload } from "../../core/types";
+import type {
+  PreferencesSectionId,
+  PreferencesSectionRequest,
+} from "../components/preferences/types";
 
 export function useAppWorkspacePreferencesState(
   documentPayload: DocumentPayload | null,
@@ -9,10 +13,18 @@ export function useAppWorkspacePreferencesState(
   const [activeWorkspaceTabKind, setActiveWorkspaceTabKind] = useState<
     "document" | "preferences"
   >("document");
+  const [preferencesSectionRequest, setPreferencesSectionRequest] =
+    useState<PreferencesSectionRequest | null>(null);
   const preferencesOpen =
     preferencesTabOpen && activeWorkspaceTabKind === "preferences";
   const activeDocumentPayload = preferencesOpen ? null : documentPayload;
-  const openPreferencesTab = useCallback(() => {
+  const openPreferencesTab = useCallback((section?: PreferencesSectionId) => {
+    if (section) {
+      setPreferencesSectionRequest((current) => ({
+        id: (current?.id ?? 0) + 1,
+        section,
+      }));
+    }
     setPreferencesTabOpen(true);
     setActiveWorkspaceTabKind("preferences");
     setTabMoreOpen(false);
@@ -22,6 +34,7 @@ export function useAppWorkspacePreferencesState(
     activeDocumentPayload,
     openPreferencesTab,
     preferencesOpen,
+    preferencesSectionRequest,
     preferencesTabOpen,
     setActiveWorkspaceTabKind,
     setPreferencesTabOpen,

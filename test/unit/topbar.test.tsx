@@ -7,6 +7,7 @@ import type {
   AgentChatDisplayAction,
   AgentChatDisplayMenuItem,
 } from "../../src/ui/agent/agentChatDisplay";
+import type { AgentChatEntryState } from "../../src/ui/agent/agentChatEntry";
 import type { WorkspaceTab } from "../../src/ui/types";
 import { createReactRootHarness } from "./helpers/reactHarness";
 
@@ -32,7 +33,9 @@ function renderTopbar({
   rightSidebarAvailable = true,
   zenModeActive = false,
   codexSpikeAvailable = false,
+  agentChatEntryState = "unknown",
   agentChatDisplayItems = [],
+  onBeforeOpenAgentChat,
   onSelectAgentChatDisplay = vi.fn<(action: AgentChatDisplayAction) => void>(),
   onDispatchCommand = vi.fn<(commandId: CommandId) => void>(),
 }: Partial<{
@@ -42,7 +45,9 @@ function renderTopbar({
   rightSidebarAvailable: boolean;
   zenModeActive: boolean;
   codexSpikeAvailable: boolean;
+  agentChatEntryState: AgentChatEntryState;
   agentChatDisplayItems: AgentChatDisplayMenuItem[];
+  onBeforeOpenAgentChat: () => boolean | Promise<boolean>;
   onSelectAgentChatDisplay: (action: AgentChatDisplayAction) => void;
   onDispatchCommand: (commandId: CommandId) => void;
 }> = {}) {
@@ -61,7 +66,9 @@ function renderTopbar({
       tabMoreOpen={false}
       splitEnabled={splitEnabled}
       codexSpikeAvailable={codexSpikeAvailable}
+      agentChatEntryState={agentChatEntryState}
       agentChatDisplayItems={agentChatDisplayItems}
+      onBeforeOpenAgentChat={onBeforeOpenAgentChat}
       onActivateTab={() => undefined}
       onCloseTab={() => undefined}
       onToggleTabMore={() => undefined}
@@ -147,6 +154,55 @@ describe("Topbar direct layout controls", () => {
     );
     expect(onSelectAgentChatDisplay).toHaveBeenCalledWith("showRight");
 
+    harness.cleanup();
+  });
+
+  it("shows setup and checking states without opening the display menu", async () => {
+    const onBeforeOpenAgentChat = vi.fn(() => false);
+    const { harness } = renderTopbar({
+      codexSpikeAvailable: true,
+      agentChatEntryState: "setupRequired",
+      agentChatDisplayItems: [
+        { action: "showRight", checked: false, label: "Right side" },
+      ],
+      onBeforeOpenAgentChat,
+    });
+
+    const trigger = harness.byReviewId("codex-spike-toggle");
+    expect(trigger.getAttribute("aria-label")).toBe("Set up AI Chat");
+    expect(harness.byReviewId("agent-chat-entry-warning")).toBeTruthy();
+    await harness.click(trigger);
+    expect(onBeforeOpenAgentChat).toHaveBeenCalledTimes(1);
+    expect(
+      harness.container.querySelector('[data-review-id="agent-display-menu"]'),
+    ).toBeNull();
+
+    harness.render(
+      <Topbar
+        sidebarVisible
+        rightSidebarVisible
+        zenModeActive={false}
+        activeTitle="01-specification.md"
+        activeTabId={documentTab.id}
+        tabs={[documentTab]}
+        visibleTabs={[documentTab]}
+        overflowTabs={[]}
+        tabMoreOpen={false}
+        splitEnabled={false}
+        codexSpikeAvailable
+        agentChatEntryState="checking"
+        agentChatDisplayItems={[]}
+        onActivateTab={() => undefined}
+        onCloseTab={() => undefined}
+        onToggleTabMore={() => undefined}
+        onDispatchCommand={() => undefined}
+      />,
+    );
+    const checking =
+      harness.byReviewId<HTMLButtonElement>("codex-spike-toggle");
+    expect(checking.disabled).toBe(true);
+    expect(checking.getAttribute("aria-busy")).toBe("true");
+    expect(checking.getAttribute("aria-label")).toBe("Checking AI provider…");
     harness.cleanup();
   });
 

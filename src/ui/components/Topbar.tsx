@@ -22,6 +22,7 @@ import type {
   AgentChatDisplayAction,
   AgentChatDisplayMenuItem,
 } from "../agent/agentChatDisplay";
+import type { AgentChatEntryState } from "../agent/agentChatEntry";
 
 interface TopbarProps {
   sidebarVisible: boolean;
@@ -41,6 +42,8 @@ interface TopbarProps {
   codexSpikeActive?: boolean;
   codexSpikeDetached?: boolean;
   agentChatDisplayItems?: AgentChatDisplayMenuItem[];
+  agentChatEntryState?: AgentChatEntryState;
+  onBeforeOpenAgentChat?: () => boolean | Promise<boolean>;
   onSelectAgentChatDisplay?: (
     action: AgentChatDisplayAction,
   ) => void | Promise<void>;
@@ -69,6 +72,8 @@ export function Topbar({
   codexSpikeActive = false,
   codexSpikeDetached = false,
   agentChatDisplayItems = [],
+  agentChatEntryState = "unknown",
+  onBeforeOpenAgentChat,
   onSelectAgentChatDisplay,
   onActivateTab,
   onCloseTab,
@@ -232,11 +237,31 @@ export function Topbar({
         {codexSpikeAvailable ? (
           <AgentChatDisplayMenu
             active={codexSpikeActive || codexSpikeDetached}
+            busy={agentChatEntryState === "checking"}
             items={agentChatDisplayItems}
+            onBeforeOpen={onBeforeOpenAgentChat}
             onSelect={(action) => onSelectAgentChatDisplay?.(action)}
             reviewId="codex-spike-toggle"
             triggerClassName="icon-button topbar-mode-toggle"
-            triggerIcon={<Bot size={22} />}
+            triggerIcon={
+              <>
+                <Bot size={22} />
+                {agentChatEntryState === "setupRequired" ? (
+                  <span
+                    className="agent-chat-entry-warning"
+                    data-review-id="agent-chat-entry-warning"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </>
+            }
+            triggerLabel={
+              agentChatEntryState === "checking"
+                ? "Checking AI provider…"
+                : agentChatEntryState === "setupRequired"
+                  ? "Set up AI Chat"
+                  : "AI Chat display options"
+            }
           />
         ) : null}
         {documentOrderNavigation ? (

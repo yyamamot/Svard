@@ -443,6 +443,23 @@ export async function buildAppShellAssertions(context) {
             );
           })
         : true,
+    hasAgentProviderSetup:
+      scenario === "viewer-agent-chat-provider-setup"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_PROVIDER_SETUP_CHECK__;
+            return (
+              result?.compactLayoutValid === true &&
+              result?.firstProbeCount === 1 &&
+              result?.noChatCreated === true &&
+              JSON.stringify(result?.readyMenuLabels) ===
+                JSON.stringify(["Right side", "Bottom", "Separate window"]) &&
+              result?.repeatedSetupRequest === true &&
+              result?.setupLabel === true &&
+              result?.visibleWithoutProvider === true &&
+              result?.warningVisible === true
+            );
+          })
+        : true,
     hasAgentComposerAccess:
       scenario === "viewer-agent-chat-composer-access"
         ? await page.evaluate(() => {

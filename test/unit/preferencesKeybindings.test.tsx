@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 
 import { defaultConfig } from "../../src/core/defaultConfig";
 import { defaultMouseGestureConfig } from "../../src/core/mouseGestures";
 import type { AppConfig } from "../../src/core/types";
 import { MockHostAdapter } from "../../src/adapters/mockHostAdapter";
 import { PreferencesPanel } from "../../src/ui/components/PreferencesPanel";
+import type { PreferencesSectionRequest } from "../../src/ui/components/preferences/types";
 import {
   createReactRootHarness,
   type ReactRootHarness,
@@ -15,12 +17,14 @@ describe("PreferencesPanel settings and recording", () => {
   let config: AppConfig;
   let closeSpy: () => void;
   let host: MockHostAdapter;
+  let sectionRequest: PreferencesSectionRequest | null;
 
   beforeEach(() => {
     harness = createReactRootHarness();
     config = structuredClone(defaultConfig);
     closeSpy = vi.fn<() => void>();
     host = new MockHostAdapter();
+    sectionRequest = null;
   });
 
   afterEach(() => {
@@ -40,6 +44,7 @@ describe("PreferencesPanel settings and recording", () => {
         onTestKroki={async () => ({ status: "rendered" })}
         host={host}
         onClose={closeSpy}
+        sectionRequest={sectionRequest}
       />,
     );
   }
@@ -48,6 +53,25 @@ describe("PreferencesPanel settings and recording", () => {
     render();
     await harness.click(harness.buttonByText("Keybindings"));
   }
+
+  it("applies repeated section requests to AI Providers", async () => {
+    sectionRequest = { id: 1, section: "agentProviders" };
+    render();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.byReviewId("preferences-tab-agent-providers")).toBeTruthy();
+
+    await harness.click(harness.buttonByText("General"));
+    expect(harness.byReviewId("preferences-tab-general")).toBeTruthy();
+
+    sectionRequest = { id: 2, section: "agentProviders" };
+    render();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.byReviewId("preferences-tab-agent-providers")).toBeTruthy();
+  });
 
   it("shows AsciiDoc theme selector with Antora selected by default", async () => {
     render();

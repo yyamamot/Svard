@@ -13,8 +13,10 @@ import type {
 
 export function AgentChatDisplayMenu({
   active = false,
+  busy = false,
   disabled = false,
   items,
+  onBeforeOpen,
   onSelect,
   reviewId,
   triggerClassName = "icon-button",
@@ -22,8 +24,10 @@ export function AgentChatDisplayMenu({
   triggerLabel = "AI Chat display options",
 }: {
   active?: boolean;
+  busy?: boolean;
   disabled?: boolean;
   items: AgentChatDisplayMenuItem[];
+  onBeforeOpen?: () => boolean | Promise<boolean>;
   onSelect: (action: AgentChatDisplayAction) => void | Promise<void>;
   reviewId?: string;
   triggerClassName?: string;
@@ -34,6 +38,7 @@ export function AgentChatDisplayMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const guardPendingRef = useRef(false);
 
   function close({ restoreFocus = false } = {}) {
     setOpen(false);
@@ -51,6 +56,22 @@ export function AgentChatDisplayMenu({
         itemRefs.current[next]?.focus();
         return;
       }
+    }
+  }
+
+  async function requestOpen() {
+    if (open) {
+      close();
+      return;
+    }
+    if (disabled || busy) return;
+    if (guardPendingRef.current) return;
+    guardPendingRef.current = true;
+    try {
+      if (onBeforeOpen && !(await onBeforeOpen())) return;
+      setOpen(true);
+    } finally {
+      guardPendingRef.current = false;
     }
   }
 
@@ -108,14 +129,15 @@ export function AgentChatDisplayMenu({
         data-review-id={reviewId}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-busy={busy || undefined}
         aria-label={triggerLabel}
         title={triggerLabel}
-        disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        disabled={disabled || busy}
+        onClick={() => void requestOpen()}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault();
-            setOpen(true);
+            void requestOpen();
           } else if (event.key === "Escape" && open) {
             event.preventDefault();
             close({ restoreFocus: true });

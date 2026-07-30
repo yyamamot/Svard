@@ -13,6 +13,7 @@ import { agentChatContextScenarios } from "./agentChatContextScenarios.mjs";
 import { runAgentWorkspaceIsolationScenario } from "./agentChatWorkspaceIsolation.mjs";
 import { runAgentDetachedWindowScenario } from "./agentChatDetachedWindow.mjs";
 import { selectAgentChatDisplay } from "./agentChatDisplayMenu.mjs";
+import { runAgentChatProviderSetupScenario } from "./agentChatProviderSetup.mjs";
 import {
   recordAgentChangeReviewScenario,
   isAgentChatScenario,
@@ -26,6 +27,10 @@ export async function applyAppShellAgentChatScenario(context) {
   if (isAgentChatScenario(scenario)) {
     if (usesResponsiveAgentViewport(scenario)) {
       await page.setViewportSize({ width: 1280, height: 840 });
+    }
+    if (scenario === "viewer-agent-chat-provider-setup") {
+      await runAgentChatProviderSetupScenario({ page });
+      return true;
     }
     if (scenario === "viewer-agent-chat-dark-theme") {
       await page.evaluate(async () => {

@@ -166,4 +166,39 @@ describe("AgentChatDisplayMenu", () => {
     ).toBeNull();
     harness.cleanup();
   });
+
+  it("waits for the open guard and suppresses duplicate trigger requests", async () => {
+    const harness = createReactRootHarness();
+    let resolveGuard: ((value: boolean) => void) | null = null;
+    const onBeforeOpen = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveGuard = resolve;
+        }),
+    );
+    harness.render(
+      <AgentChatDisplayMenu
+        items={items}
+        onBeforeOpen={onBeforeOpen}
+        onSelect={() => undefined}
+        reviewId="display-trigger"
+        triggerIcon={<Bot size={16} />}
+      />,
+    );
+
+    const trigger = harness.byReviewId("display-trigger");
+    trigger.click();
+    trigger.click();
+    expect(onBeforeOpen).toHaveBeenCalledTimes(1);
+    expect(
+      harness.container.querySelector('[data-review-id="agent-display-menu"]'),
+    ).toBeNull();
+
+    await act(async () => {
+      resolveGuard?.(true);
+      await Promise.resolve();
+    });
+    expect(harness.byReviewId("agent-display-menu")).toBeTruthy();
+    harness.cleanup();
+  });
 });

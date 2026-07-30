@@ -8,6 +8,7 @@ import type {
   AgentImageStageInput,
   AgentModelCatalog,
   AgentProviderId,
+  AgentProviderState,
   AgentProviderRuntimeOptions,
   AgentProviderRuntimeSnapshot,
   AgentSessionArchiveInput,
@@ -145,6 +146,7 @@ export class MockAgentFacade {
     const overrides = globalThis as typeof globalThis & {
       __SVARD_AGENT_MODEL_CATALOG__?: AgentModelCatalog;
       __SVARD_AGENT_MODEL_CATALOG_ERROR__?: string;
+      __SVARD_AGENT_PROVIDER_STATE__?: AgentProviderState;
       __SVARD_AGENT_RUNTIME_LOAD_COUNT__?: number;
     };
     overrides.__SVARD_AGENT_RUNTIME_LOAD_COUNT__ =
@@ -155,17 +157,25 @@ export class MockAgentFacade {
         options.executablePreference.mode === "custom" &&
         (!options.executablePreference.path ||
           options.executablePreference.path.includes("missing"));
+      const providerState =
+        overrides.__SVARD_AGENT_PROVIDER_STATE__ ??
+        (invalidCustom ? "broken" : "ready");
+      const providerReady = providerState === "ready";
       const runtime: AgentProviderRuntimeSnapshot = {
         providerId,
         probe: {
           providerId,
-          state: invalidCustom ? "broken" : "ready",
+          state: providerState,
           source:
-            options.executablePreference.mode === "custom" ? "custom" : "path",
+            providerState === "notFound"
+              ? null
+              : options.executablePreference.mode === "custom"
+                ? "custom"
+                : "path",
           version: "codex-app-server mock",
           capabilities: mockAgentCapabilities(),
         },
-        installation: invalidCustom
+        installation: !providerReady
           ? null
           : {
               source:
@@ -179,15 +189,17 @@ export class MockAgentFacade {
               version: "codex-app-server mock",
             },
         catalog:
-          catalogError || invalidCustom
+          catalogError || !providerReady
             ? null
             : (overrides.__SVARD_AGENT_MODEL_CATALOG__ ??
               mockAgentModelCatalog(providerId)),
-        issue: invalidCustom
+        issue: !providerReady
           ? {
               code: "providerUnavailable",
               message:
-                "The selected Codex executable is unavailable. Choose another executable or reset to Automatic.",
+                providerState === "notFound"
+                  ? "Codex was not found. Install it or choose a custom executable."
+                  : "The selected Codex provider is unavailable. Review AI Providers settings.",
             }
           : catalogError
             ? { code: "catalogUnavailable", message: catalogError }

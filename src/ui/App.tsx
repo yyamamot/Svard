@@ -66,6 +66,11 @@ import {
   buildAgentChatDisplayMenu,
   type AgentChatDisplayAction,
 } from "./agent/agentChatDisplay";
+import {
+  agentChatEntryStateFromRuntime,
+  resolveAgentChatEntry,
+  type AgentChatEntryState,
+} from "./agent/agentChatEntry";
 export function App() {
   const local = useAppLocalState();
   // prettier-ignore
@@ -128,6 +133,7 @@ export function App() {
     activeDocumentPayload,
     openPreferencesTab,
     preferencesOpen,
+    preferencesSectionRequest,
     preferencesTabOpen,
     setActiveWorkspaceTabKind,
     setPreferencesTabOpen,
@@ -275,6 +281,30 @@ export function App() {
     },
   });
   const agentChatAvailable = Boolean(rootDirectory);
+  const agentExecutablePreference = (
+    config?.agentProviders ?? defaultConfig.agentProviders
+  ).codex.executable;
+  const [agentChatEntryState, setAgentChatEntryState] =
+    useState<AgentChatEntryState>("unknown");
+  const agentChatEntryProbeRef = useRef(false);
+  useEffect(() => {
+    if (!rootDirectory) {
+      setAgentChatEntryState("unknown");
+      return;
+    }
+    setAgentChatEntryState(
+      agentChatEntryStateFromRuntime(
+        host.peekAgentProviderRuntime(
+          "codex-app-server",
+          agentExecutablePreference,
+        ),
+      ),
+    );
+  }, [
+    agentExecutablePreference.mode,
+    agentExecutablePreference.path,
+    rootDirectory,
+  ]);
   const {
     acceptQuotedContexts,
     addQuotedContext: addAgentQuotedContext,
@@ -1131,6 +1161,42 @@ export function App() {
       setCodexPanelOpen(false);
     }
   }
+  async function prepareAgentChatDisplayMenu() {
+    if (
+      codexPanelOpen ||
+      detachedAgentChat.detached ||
+      detachedAgentChat.moving
+    ) {
+      setAgentChatEntryState("ready");
+      return true;
+    }
+    const cached = host.peekAgentProviderRuntime(
+      "codex-app-server",
+      agentExecutablePreference,
+    );
+    if (cached) {
+      const nextState = agentChatEntryStateFromRuntime(cached);
+      setAgentChatEntryState(nextState);
+      if (nextState === "ready") return true;
+      openPreferencesTab("agentProviders");
+      return false;
+    }
+    if (agentChatEntryProbeRef.current) return false;
+    agentChatEntryProbeRef.current = true;
+    setAgentChatEntryState("checking");
+    try {
+      const nextState = await resolveAgentChatEntry(
+        host,
+        agentExecutablePreference,
+      );
+      setAgentChatEntryState(nextState);
+      if (nextState === "ready") return true;
+      openPreferencesTab("agentProviders");
+      return false;
+    } finally {
+      agentChatEntryProbeRef.current = false;
+    }
+  }
   // prettier-ignore
   const topbarProps = createAppTopbarProps({
     activateDocumentTab: workspaceTabActions.activateDocumentWorkspaceTab,
@@ -1146,6 +1212,11 @@ export function App() {
       codexSpikeAvailable: agentChatAvailable, codexSpikeActive: codexPanelOpen,
       codexSpikeDetached: detachedAgentChat.detached || detachedAgentChat.moving,
       agentChatDisplayItems,
+      agentChatEntryState:
+        codexPanelOpen || detachedAgentChat.detached || detachedAgentChat.moving
+          ? "ready"
+          : agentChatEntryState,
+      onBeforeOpenAgentChat: prepareAgentChatDisplayMenu,
       onSelectAgentChatDisplay: selectAgentChatDisplay,
     },
     closeWorkspaceTab: workspaceTabActions.closeWorkspaceTab,
@@ -1257,6 +1328,7 @@ export function App() {
               onTestKroki: testKrokiPlantUml,
               host,
               onClose: workspaceTabActions.closePreferencesTab,
+              sectionRequest: preferencesSectionRequest,
             }
           : null
       }

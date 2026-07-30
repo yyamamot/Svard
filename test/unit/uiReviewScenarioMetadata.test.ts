@@ -26,6 +26,9 @@ describe("UI review scenario metadata", () => {
       ]),
     );
     expect(isPreferencesPageScenario("viewer-preferences-tab")).toBe(true);
+    expect(isPreferencesPageScenario("viewer-agent-chat-provider-setup")).toBe(
+      true,
+    );
     expect(isPreferencesPageScenario("viewer-basic")).toBe(false);
     expect(isPreferencesLayoutScenario("viewer-preferences")).toBe(true);
   });

@@ -60,6 +60,7 @@ export function shouldRestoreAgentViewport(scenario) {
     "viewer-agent-chat-context-pressure",
     "viewer-agent-chat-token-diagnostics",
     "viewer-agent-chat-context-profile",
+    "viewer-agent-chat-provider-setup",
   ].includes(scenario);
 }
 
@@ -86,6 +87,7 @@ export function usesResponsiveAgentViewport(scenario) {
     "viewer-agent-chat-context-pressure",
     "viewer-agent-chat-token-diagnostics",
     "viewer-agent-chat-context-profile",
+    "viewer-agent-chat-provider-setup",
   ].includes(scenario);
 }
 
@@ -121,5 +123,6 @@ export function isAgentChatScenario(scenario) {
     "viewer-agent-chat-context-pressure",
     "viewer-agent-chat-token-diagnostics",
     "viewer-agent-chat-context-profile",
+    "viewer-agent-chat-provider-setup",
   ].includes(scenario);
 }
