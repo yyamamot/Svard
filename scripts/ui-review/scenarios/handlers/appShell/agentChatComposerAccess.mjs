@@ -1,3 +1,5 @@
+import { selectAgentChatDisplay } from "./agentChatDisplayMenu.mjs";
+
 export async function prepareAgentComposerAccessScenario({ composer, page }) {
   await composer.fill("この変更の権限境界を説明してください。");
   const trigger = page.locator('[data-review-id="agent-access-trigger"]');
@@ -99,7 +101,7 @@ export async function reopenAgentComposerAccessForCapture({ page }) {
 }
 
 export async function exerciseAgentComposerAccessPlacements({ page }) {
-  await page.getByRole("button", { name: "Move AI Chat to bottom" }).click();
+  await selectAgentChatDisplay(page, "Bottom");
   await page
     .locator(
       '[data-review-id="codex-main-split"][data-agent-placement="bottom"]',
@@ -127,7 +129,7 @@ export async function exerciseAgentComposerAccessPlacements({ page }) {
   await page
     .locator('[data-review-id="git-diff-preview-panel"]')
     .waitFor({ state: "detached" });
-  await page.getByRole("button", { name: "Move AI Chat to right" }).click();
+  await selectAgentChatDisplay(page, "Right side");
   await page
     .locator(
       '[data-review-id="codex-main-split"][data-agent-placement="right"]',

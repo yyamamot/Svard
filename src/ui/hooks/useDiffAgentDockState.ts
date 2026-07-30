@@ -61,5 +61,6 @@ export function useDiffAgentDockState({
     focusRequest,
     mainPanelOpen: chatOpen && mountTarget === null,
     mountTarget,
+    requestComposerFocus,
   };
 }

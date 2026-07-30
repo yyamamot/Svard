@@ -1,10 +1,12 @@
+import { selectAgentChatDisplay } from "./agentChatDisplayMenu.mjs";
+
 export async function recordAgentMainBottomStreamingMove({ composer, page }) {
   await page
     .locator('.agent-turn[data-turn-status="running"]')
     .last()
     .waitFor();
   await composer.fill("配置変更後も保持する日本語の下書き");
-  await page.getByRole("button", { name: "Move AI Chat to bottom" }).click();
+  await selectAgentChatDisplay(page, "Bottom");
   await page
     .locator(
       '[data-review-id="codex-main-split"][data-agent-placement="bottom"]',
@@ -63,11 +65,11 @@ export async function runAgentMainBottomDockScenario({ composer, page }) {
         "配置変更後も保持する日本語の下書き",
     );
   });
-  await page.locator('[data-review-id="codex-spike-toggle"]').click();
+  await selectAgentChatDisplay(page, "Hide AI Chat", { source: "topbar" });
   await page
     .locator('[data-review-id="agent-panel"]')
     .waitFor({ state: "hidden" });
-  await page.locator('[data-review-id="codex-spike-toggle"]').click();
+  await selectAgentChatDisplay(page, "Bottom", { source: "topbar" });
   await page.locator('[data-review-id="agent-panel"]').waitFor();
   const splitReopenMaintained =
     (await composer.inputValue()) === "配置変更後も保持する日本語の下書き" &&
@@ -93,11 +95,8 @@ export async function runAgentMainBottomDockScenario({ composer, page }) {
   const diffDrawerMaintained =
     (await composer.inputValue()) === "配置変更後も保持する日本語の下書き" &&
     (await page
-      .getByRole("button", { name: "Move AI Chat to bottom" })
-      .count()) === 0 &&
-    (await page
-      .getByRole("button", { name: "Move AI Chat to right" })
-      .count()) === 0;
+      .locator('[data-review-id="agent-display-menu-trigger"]')
+      .count()) === 1;
   await page.getByRole("button", { name: "Close Git diff preview" }).click();
   await page
     .locator('[data-review-id="git-diff-preview-panel"]')
@@ -110,7 +109,7 @@ export async function runAgentMainBottomDockScenario({ composer, page }) {
   const bottomRestored =
     (await composer.inputValue()) === "配置変更後も保持する日本語の下書き";
 
-  await page.getByRole("button", { name: "Move AI Chat to right" }).click();
+  await selectAgentChatDisplay(page, "Right side");
   await page
     .locator(
       '[data-review-id="codex-main-split"][data-agent-placement="right"]',
@@ -118,7 +117,7 @@ export async function runAgentMainBottomDockScenario({ composer, page }) {
     .waitFor();
   const rightPlacementMaintained =
     (await composer.inputValue()) === "配置変更後も保持する日本語の下書き";
-  await page.getByRole("button", { name: "Move AI Chat to bottom" }).click();
+  await selectAgentChatDisplay(page, "Bottom");
 
   await page.evaluate(async () => {
     await window.__SVARD_COMMANDS__?.dispatch("theme.toggle");

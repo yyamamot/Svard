@@ -47,12 +47,14 @@ describe("detached Agent Chat host contract", () => {
     const sync = vi.fn();
     const action = vi.fn();
     const reattach = vi.fn();
+    const reattachRequest = vi.fn();
     const reattachReady = vi.fn();
     const handles = await Promise.all([
       host.watchAgentChatReady(ready),
       host.watchAgentChatOwnerSync(sync),
       host.watchAgentChatOriginAction(action),
       host.watchAgentChatReattach(reattach),
+      host.watchAgentChatReattachRequest(reattachRequest),
       host.watchAgentChatReattachReady(reattachReady),
     ]);
     const ownerSync: AgentChatOwnerSync = {
@@ -66,12 +68,14 @@ describe("detached Agent Chat host contract", () => {
     await host.routeAgentChatOwnerSync(ownerSync);
     await host.routeAgentChatOriginAction({ type: "reviewChanges" });
     await host.emitAgentChatReattach("main", snapshot);
+    await host.requestAgentChatReattach();
     await host.acknowledgeAgentChatReattach();
 
     expect(ready).toHaveBeenCalledWith("opaque");
     expect(sync).toHaveBeenCalledWith(ownerSync);
     expect(action).toHaveBeenCalledWith({ type: "reviewChanges" });
     expect(reattach).toHaveBeenCalledWith(snapshot);
+    expect(reattachRequest).toHaveBeenCalledOnce();
     expect(reattachReady).toHaveBeenCalledOnce();
     handles.forEach((handle) => handle.dispose());
   });

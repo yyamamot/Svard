@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { Topbar } from "../../src/ui/components/Topbar";
 import type { CommandId } from "../../src/core/commands";
 import type { DocumentPayload } from "../../src/core/types";
+import type {
+  AgentChatDisplayAction,
+  AgentChatDisplayMenuItem,
+} from "../../src/ui/agent/agentChatDisplay";
 import type { WorkspaceTab } from "../../src/ui/types";
 import { createReactRootHarness } from "./helpers/reactHarness";
 
@@ -27,6 +31,9 @@ function renderTopbar({
   rightSidebarVisible = true,
   rightSidebarAvailable = true,
   zenModeActive = false,
+  codexSpikeAvailable = false,
+  agentChatDisplayItems = [],
+  onSelectAgentChatDisplay = vi.fn<(action: AgentChatDisplayAction) => void>(),
   onDispatchCommand = vi.fn<(commandId: CommandId) => void>(),
 }: Partial<{
   splitEnabled: boolean;
@@ -34,6 +41,9 @@ function renderTopbar({
   rightSidebarVisible: boolean;
   rightSidebarAvailable: boolean;
   zenModeActive: boolean;
+  codexSpikeAvailable: boolean;
+  agentChatDisplayItems: AgentChatDisplayMenuItem[];
+  onSelectAgentChatDisplay: (action: AgentChatDisplayAction) => void;
   onDispatchCommand: (commandId: CommandId) => void;
 }> = {}) {
   const harness = createReactRootHarness();
@@ -50,9 +60,12 @@ function renderTopbar({
       overflowTabs={[]}
       tabMoreOpen={false}
       splitEnabled={splitEnabled}
+      codexSpikeAvailable={codexSpikeAvailable}
+      agentChatDisplayItems={agentChatDisplayItems}
       onActivateTab={() => undefined}
       onCloseTab={() => undefined}
       onToggleTabMore={() => undefined}
+      onSelectAgentChatDisplay={onSelectAgentChatDisplay}
       onDispatchCommand={onDispatchCommand}
     />,
   );
@@ -108,6 +121,31 @@ describe("Topbar direct layout controls", () => {
 
     expect(onDispatchCommand).toHaveBeenCalledWith("view.toggleZenMode");
     expect(onDispatchCommand).toHaveBeenCalledWith("view.splitRight");
+
+    harness.cleanup();
+  });
+
+  it("opens the AI Chat display menu with a readable robot icon", async () => {
+    const onSelectAgentChatDisplay =
+      vi.fn<(action: AgentChatDisplayAction) => void>();
+    const { harness } = renderTopbar({
+      codexSpikeAvailable: true,
+      agentChatDisplayItems: [
+        { action: "showRight", checked: false, label: "Right side" },
+      ],
+      onSelectAgentChatDisplay,
+    });
+
+    const trigger = harness.byReviewId("codex-spike-toggle");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    expect(trigger.querySelector("svg")?.getAttribute("width")).toBe("22");
+    await harness.click(trigger);
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[role="menuitemradio"]',
+      ),
+    );
+    expect(onSelectAgentChatDisplay).toHaveBeenCalledWith("showRight");
 
     harness.cleanup();
   });

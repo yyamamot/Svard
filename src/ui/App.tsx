@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { defaultConfig } from "../core/defaultConfig";
 import { AppMainShell } from "./components/AppMainShell";
 import { AppAgentPanel } from "./components/AppAgentPanel";
@@ -60,8 +60,12 @@ import { useZenModeActions } from "./hooks/useZenModeActions";
 import { createAppTopbarProps } from "./lib/appTopbarProps";
 import type { CaptureAreaVariant } from "./lib/captureArea";
 import { appHost as host } from "./appHost";
-import type { AppConfig } from "../core/types";
+import type { AgentChatHandoffSnapshot, AppConfig } from "../core/types";
 import { panelPlacement } from "./agent/agentPanelTypes";
+import {
+  buildAgentChatDisplayMenu,
+  type AgentChatDisplayAction,
+} from "./agent/agentChatDisplay";
 export function App() {
   const local = useAppLocalState();
   // prettier-ignore
@@ -157,6 +161,10 @@ export function App() {
     onError: showLightweightActionFeedback,
     onOpenChange: setCodexPanelOpen,
   });
+  const latestMainAgentSnapshotRef = useRef<AgentChatHandoffSnapshot | null>(
+    null,
+  );
+  const [mainAgentSnapshotReady, setMainAgentSnapshotReady] = useState(false);
   const { contextMenu, closeContextMenu, openContextMenu } =
     useContextMenuState();
   const beginViewerCaptureArea = (variant: CaptureAreaVariant = "plain") =>
@@ -505,7 +513,7 @@ export function App() {
   // prettier-ignore
   const { addQuotedContext: addAgentDiffQuotedContext, agentDock: diffAgentDock,
     focusRequest: diffAgentFocusRequest, mainPanelOpen: baseMainAgentPanelOpen,
-    mountTarget: diffAgentMountTarget } = useDiffAgentDockState({
+    mountTarget: diffAgentMountTarget, requestComposerFocus: requestAgentComposerFocus } = useDiffAgentDockState({
       available: agentChatAvailable, chatOpen: codexPanelOpen,
       diffOpen: Boolean(documentDiffPreview || documentDiffStreamPreview), onChatOpenChange: setCodexPanelOpen, registerQuotedContext: registerAgentQuotedContext,
     });
@@ -1068,6 +1076,61 @@ export function App() {
   ]);
   const { clearRecentDocuments, clearRecentDirectories } =
     useRecentWorkspaceActions(persistWorkspace);
+  const diffAgentSurfaceOpen = Boolean(
+    documentDiffPreview || documentDiffStreamPreview,
+  );
+  const agentChatDisplayItems = buildAgentChatDisplayMenu({
+    detached: detachedAgentChat.detached,
+    diffOpen: diffAgentSurfaceOpen,
+    mainOpen: codexPanelOpen && !detachedAgentChat.detached,
+    mainPlacement: agentPanelPlacement,
+    moving: detachedAgentChat.moving,
+    snapshotAvailable: mainAgentSnapshotReady,
+  });
+  async function selectAgentChatDisplay(action: AgentChatDisplayAction) {
+    if (action === "showRight" || action === "showBottom") {
+      setAgentPanelPlacement(action === "showRight" ? "right" : "bottom");
+      setCodexPanelOpen(true);
+      requestAgentComposerFocus();
+      return;
+    }
+    if (action === "showDiff") {
+      setCodexPanelOpen(true);
+      requestAgentComposerFocus();
+      return;
+    }
+    if (action === "openDetached") {
+      const snapshot = latestMainAgentSnapshotRef.current;
+      if (!snapshot) {
+        showLightweightActionFeedback("AI Chat is still preparing.");
+        return;
+      }
+      const moved = await detachedAgentChat.detach(snapshot);
+      if (moved && diffAgentSurfaceOpen) {
+        setCodexPanelOpen(false);
+      }
+      return;
+    }
+    if (action === "focusDetached") {
+      await detachedAgentChat.focus();
+      return;
+    }
+    if (action === "attachMain") {
+      try {
+        await host.requestAgentChatReattach();
+      } catch (reason) {
+        showLightweightActionFeedback(
+          reason instanceof Error
+            ? reason.message
+            : "AI Chat could not return to Main.",
+        );
+      }
+      return;
+    }
+    if (action === "hide") {
+      setCodexPanelOpen(false);
+    }
+  }
   // prettier-ignore
   const topbarProps = createAppTopbarProps({
     activateDocumentTab: workspaceTabActions.activateDocumentWorkspaceTab,
@@ -1082,19 +1145,14 @@ export function App() {
       documentOrderNavigation: sidebarWiring.documentOrderNavigation,
       codexSpikeAvailable: agentChatAvailable, codexSpikeActive: codexPanelOpen,
       codexSpikeDetached: detachedAgentChat.detached || detachedAgentChat.moving,
+      agentChatDisplayItems,
+      onSelectAgentChatDisplay: selectAgentChatDisplay,
     },
     closeWorkspaceTab: workspaceTabActions.closeWorkspaceTab,
     codexPanelOpen,
     dispatchCommand: (commandId) => void dispatchCommand(commandId),
     openDocumentTab: workspaceTabActions.openDocumentWorkspaceTab,
     openPreferencesTab, preferencesOpen,
-    setCodexPanelOpen: ((value) => {
-      if (detachedAgentChat.detached || detachedAgentChat.moving) {
-        void detachedAgentChat.focus();
-        return;
-      }
-      setCodexPanelOpen(value);
-    }),
     setTabMoreOpen,
   });
   return (
@@ -1143,6 +1201,10 @@ export function App() {
           handoffMoving={detachedAgentChat.moving}
           onHandoffReady={detachedAgentChat.acknowledgeReattach}
           onHandoffFailure={detachedAgentChat.failReattach}
+          onHandoffSnapshotChange={(snapshot) => {
+            latestMainAgentSnapshotRef.current = snapshot;
+            setMainAgentSnapshotReady(true);
+          }}
           lastMainPlacement={agentPanelPlacement}
           onReturnToQuotedContext={(snapshot) => {
             const target = beginQuotedContextReveal(snapshot);

@@ -8,6 +8,7 @@ pub(crate) use std::process::Command;
 pub(crate) use std::sync::Mutex;
 pub(crate) use tempfile::tempdir;
 
+mod agent_chat_window;
 mod antora_static_attributes;
 mod config;
 mod desktop_open;

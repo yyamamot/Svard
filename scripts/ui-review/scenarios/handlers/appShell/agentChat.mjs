@@ -12,6 +12,7 @@ import {
 import { agentChatContextScenarios } from "./agentChatContextScenarios.mjs";
 import { runAgentWorkspaceIsolationScenario } from "./agentChatWorkspaceIsolation.mjs";
 import { runAgentDetachedWindowScenario } from "./agentChatDetachedWindow.mjs";
+import { selectAgentChatDisplay } from "./agentChatDisplayMenu.mjs";
 import {
   recordAgentChangeReviewScenario,
   isAgentChatScenario,
@@ -141,7 +142,9 @@ export async function applyAppShellAgentChatScenario(context) {
         .getByRole("button", { name: "Ask AI" })
         .click();
     } else {
-      await page.locator('[data-review-id="codex-spike-toggle"]').click();
+      await selectAgentChatDisplay(page, "Right side", {
+        source: "topbar",
+      });
     }
     const composer = page.getByPlaceholder(
       "Ask about this workspace · ⌘/Ctrl+Enter to send",
@@ -521,9 +524,7 @@ export async function applyAppShellAgentChatScenario(context) {
       scenario === "viewer-agent-chat-openui-basic-balanced" ||
       scenario === "viewer-agent-chat-openui-basic-lean"
     ) {
-      await page
-        .getByRole("button", { name: "Move AI Chat to bottom" })
-        .click();
+      await selectAgentChatDisplay(page, "Bottom");
       const split = page.locator(
         '[data-review-id="codex-main-split"][data-agent-placement="bottom"]',
       );
@@ -974,7 +975,9 @@ export async function applyAppShellAgentChatScenario(context) {
     if (usesResponsiveAgentViewport(scenario)) {
       await page.setViewportSize({ width: 960, height: 640 });
     }
-    await page.locator('[data-review-id="codex-spike-toggle"]').click();
+    await selectAgentChatDisplay(page, "Right side", {
+      source: "topbar",
+    });
     await page.locator('[data-review-id="agent-panel"]').waitFor();
     let compactComposerBottomAligned = true;
     if (usesResponsiveAgentViewport(scenario)) {
@@ -1057,6 +1060,13 @@ export async function applyAppShellAgentChatScenario(context) {
         toolVisible,
       },
     );
+    if (scenario === "viewer-agent-chat-detached-window") {
+      await page
+        .locator('[data-review-id="agent-panel"]')
+        .locator('[data-review-id="agent-display-menu-trigger"]')
+        .click();
+      await page.locator('[data-review-id="agent-display-menu"]').waitFor();
+    }
     if (scenario === "viewer-agent-chat-session-management") {
       await page.setViewportSize({ width: 1280, height: 840 });
       await page.locator('[data-review-id="left-sidebar"]').waitFor();

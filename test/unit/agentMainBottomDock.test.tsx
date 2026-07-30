@@ -66,8 +66,15 @@ describe("Main bottom AI Chat panel", () => {
 
     await harness.click(
       harness.container.querySelector<HTMLButtonElement>(
-        '[aria-label="Move AI Chat to bottom"]',
+        '[data-review-id="agent-display-menu-trigger"]',
       ),
+    );
+    await harness.click(
+      Array.from(
+        harness.container.querySelectorAll<HTMLButtonElement>(
+          '[role="menuitemradio"]',
+        ),
+      ).find((item) => item.textContent?.includes("Bottom")) ?? null,
     );
 
     const split = harness.byReviewId("codex-main-split");
@@ -75,14 +82,17 @@ describe("Main bottom AI Chat panel", () => {
     expect(
       harness.container.querySelector<HTMLTextAreaElement>("textarea")?.value,
     ).toBe("配置変更後も保持する質問");
-    expect(
-      harness.container.querySelector('[aria-label="Move AI Chat to right"]'),
-    ).toBeTruthy();
-
     await harness.click(
       harness.container.querySelector<HTMLButtonElement>(
-        '[aria-label="Move AI Chat to right"]',
+        '[data-review-id="agent-display-menu-trigger"]',
       ),
+    );
+    await harness.click(
+      Array.from(
+        harness.container.querySelectorAll<HTMLButtonElement>(
+          '[role="menuitemradio"]',
+        ),
+      ).find((item) => item.textContent?.includes("Right side")) ?? null,
     );
     expect(split.dataset.agentPlacement).toBe("right");
     expect(
@@ -191,7 +201,7 @@ describe("Main bottom AI Chat panel", () => {
     expect(harness.byReviewId("viewer-split")).toBeTruthy();
   });
 
-  it("does not expose the normal placement control in the Diff Drawer", () => {
+  it("only exposes Diff Preview and Separate window in the Diff Drawer", async () => {
     harness.render(
       <AgentPanelHost
         activeDocument={null}
@@ -204,11 +214,18 @@ describe("Main bottom AI Chat panel", () => {
         workspaceRoot="/workspace"
       />,
     );
-    expect(
-      harness.container.querySelector('[aria-label="Move AI Chat to bottom"]'),
-    ).toBeNull();
-    expect(
-      harness.container.querySelector('[aria-label="Move AI Chat to right"]'),
-    ).toBeNull();
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[data-review-id="agent-display-menu-trigger"]',
+      ),
+    );
+    const labels = Array.from(
+      harness.container.querySelectorAll<HTMLButtonElement>(
+        '[role^="menuitem"]',
+      ),
+    ).map((item) => item.textContent?.trim());
+    expect(labels).toEqual(["Diff Preview", "Separate window", "Hide AI Chat"]);
+    expect(labels).not.toContain("Right side");
+    expect(labels).not.toContain("Bottom");
   });
 });

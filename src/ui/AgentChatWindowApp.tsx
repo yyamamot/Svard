@@ -113,6 +113,30 @@ export function AgentChatWindowApp() {
   );
 
   useEffect(() => {
+    let disposed = false;
+    let handle: { dispose(): void } | null = null;
+    void host
+      .watchAgentChatReattachRequest(() => {
+        if (disposed) return;
+        const snapshot = latestSnapshotRef.current;
+        if (snapshot) {
+          void reattach(snapshot);
+        } else {
+          setError("AI Chat is still preparing to return to Main.");
+        }
+      })
+      .then((nextHandle) => {
+        if (disposed) nextHandle.dispose();
+        else handle = nextHandle;
+      })
+      .catch(() => undefined);
+    return () => {
+      disposed = true;
+      handle?.dispose();
+    };
+  }, [reattach]);
+
+  useEffect(() => {
     if (!request) return;
     let disposed = false;
     let unlisten: (() => void) | null = null;

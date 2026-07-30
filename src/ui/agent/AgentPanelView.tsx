@@ -1,8 +1,6 @@
 import {
   ExternalLink,
   History,
-  PanelLeftOpen,
-  PanelBottom,
   PanelRight,
   RotateCcw,
   ShieldAlert,
@@ -17,6 +15,11 @@ import type { AgentPanelHostProps } from "./agentPanelTypes";
 import type { AgentSessionController } from "./useAgentSessionController";
 import type { AgentTurnComposer } from "./useAgentTurnComposer";
 import { agentChatHandoffPayload } from "./agentChatHandoff";
+import { AgentChatDisplayMenu } from "./AgentChatDisplayMenu";
+import {
+  buildAgentChatDisplayMenu,
+  type AgentChatDisplayAction,
+} from "./agentChatDisplay";
 
 export function AgentPanelView({
   composer,
@@ -59,6 +62,7 @@ export function AgentPanelView({
     activeTurnId,
     cancelFullAccessStart,
     closeSessionRuntime,
+    composerInputRef,
     confirmFullAccessStart,
     confirmClosedFullAccessResume,
     confirmFullAccess,
@@ -88,6 +92,46 @@ export function AgentPanelView({
     setSessionArchived,
     setSettingsOpen,
   } = session;
+  const mainPlacement =
+    placement === "mainBottom"
+      ? "bottom"
+      : placement === "mainRight"
+        ? "right"
+        : (hostProps.lastMainPlacement ?? "right");
+  const displayItems = buildAgentChatDisplayMenu({
+    detached,
+    diffOpen: placement === "diffDock",
+    mainOpen: true,
+    mainPlacement,
+    moving: handoffMoving,
+    snapshotAvailable: true,
+  });
+  async function selectDisplayAction(action: AgentChatDisplayAction) {
+    if (action === "showRight" || action === "showBottom") {
+      onMainPlacementChange?.(action === "showRight" ? "right" : "bottom");
+      window.requestAnimationFrame(() => composerInputRef.current?.focus());
+      return;
+    }
+    if (action === "showDiff") {
+      window.requestAnimationFrame(() => composerInputRef.current?.focus());
+      return;
+    }
+    if (action === "openDetached") {
+      await onDetach?.(currentHandoffSnapshot());
+      return;
+    }
+    if (action === "focusDetached") {
+      window.focus();
+      return;
+    }
+    if (action === "attachMain") {
+      await onReattach?.(currentHandoffSnapshot());
+      return;
+    }
+    if (action === "hide") {
+      onClose();
+    }
+  }
   return (
     <aside
       className={`codex-panel agent-panel ${
@@ -145,54 +189,16 @@ export function AgentPanelView({
           >
             <History size={15} />
           </button>
-          {!detached && placement !== "diffDock" ? (
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={
-                placement === "mainBottom"
-                  ? "Move AI Chat to right"
-                  : "Move AI Chat to bottom"
-              }
-              title={
-                placement === "mainBottom"
-                  ? "Move AI Chat to right"
-                  : "Move AI Chat to bottom"
-              }
-              onClick={() =>
-                onMainPlacementChange?.(
-                  placement === "mainBottom" ? "right" : "bottom",
-                )
-              }
-            >
-              {placement === "mainBottom" ? (
-                <PanelRight size={15} />
-              ) : (
-                <PanelBottom size={15} />
-              )}
-            </button>
-          ) : null}
-          {detached ? (
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Attach AI Chat to Main"
-              title="Attach AI Chat to Main"
-              onClick={() => void onReattach?.(currentHandoffSnapshot())}
-            >
-              <PanelLeftOpen size={15} />
-            </button>
-          ) : onDetach ? (
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Open AI Chat in separate window"
-              title="Open AI Chat in separate window"
-              onClick={() => void onDetach(currentHandoffSnapshot())}
-            >
-              <ExternalLink size={15} />
-            </button>
-          ) : null}
+          <AgentChatDisplayMenu
+            active
+            disabled={handoffMoving}
+            items={displayItems}
+            onSelect={selectDisplayAction}
+            reviewId="agent-display-menu-trigger"
+            triggerIcon={
+              detached ? <ExternalLink size={15} /> : <PanelRight size={15} />
+            }
+          />
           <button
             type="button"
             className="icon-button"
@@ -208,15 +214,11 @@ export function AgentPanelView({
           <button
             type="button"
             className="icon-button"
-            aria-label={
-              placement === "diffDock" ? "Hide AI Chat" : "Close AI Chat"
-            }
+            aria-label="Close AI Chat"
             onClick={() => {
               void (async () => {
                 setSettingsOpen(false);
-                if (placement !== "diffDock") {
-                  await closeSessionRuntime();
-                }
+                await closeSessionRuntime();
                 onClose();
               })();
             }}

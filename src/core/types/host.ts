@@ -170,6 +170,8 @@ export interface HostAdapter {
   watchAgentChatReattach(
     onSnapshot: (snapshot: AgentChatHandoffSnapshot) => void,
   ): Promise<WatchHandle>;
+  requestAgentChatReattach(): Promise<void>;
+  watchAgentChatReattachRequest(onRequest: () => void): Promise<WatchHandle>;
   watchAgentChatReattachReady(onReady: () => void): Promise<WatchHandle>;
   acknowledgeAgentChatReattach(): Promise<void>;
   watchAgentChatReady(

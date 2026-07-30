@@ -659,6 +659,34 @@ fn route_agent_chat_origin_action(
     Ok(())
 }
 
+fn detached_agent_chat_label_for_origin(
+    pending: &PendingAgentChatWindows,
+    origin_label: &str,
+) -> Result<String, AppError> {
+    pending
+        .labels_by_origin
+        .lock()
+        .map_err(|_| AppError::from("failed to lock detached AI Chat windows"))?
+        .get(origin_label)
+        .cloned()
+        .ok_or_else(|| AppError::from("Detached AI Chat is unavailable."))
+}
+
+#[tauri::command]
+fn request_agent_chat_reattach(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+    pending: tauri::State<PendingAgentChatWindows>,
+) -> Result<(), AppError> {
+    let detached_label = detached_agent_chat_label_for_origin(&pending, window.label())?;
+    let detached = app
+        .get_webview_window(&detached_label)
+        .ok_or_else(|| AppError::from("Detached AI Chat is unavailable."))?;
+    detached
+        .emit("agent-chat-reattach-request", ())
+        .map_err(|_| AppError::from("AI Chat reattach request could not be delivered."))
+}
+
 #[tauri::command]
 fn acknowledge_agent_chat_reattach(
     window: tauri::WebviewWindow,
@@ -1354,6 +1382,7 @@ pub fn run() {
             close_agent_chat_window,
             route_agent_chat_owner_sync,
             route_agent_chat_origin_action,
+            request_agent_chat_reattach,
             acknowledge_agent_chat_reattach,
             get_git_diff_preview,
             get_git_diff_previews,

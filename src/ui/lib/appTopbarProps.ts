@@ -7,7 +7,6 @@ type TopbarBaseProps = Omit<
   | "onActivateTab"
   | "onCloseTab"
   | "onDispatchCommand"
-  | "onOpenCodexSpike"
   | "onOpenDocumentOrderTarget"
   | "onToggleTabMore"
 >;
@@ -21,7 +20,6 @@ export function createAppTopbarProps({
   openDocumentTab,
   openPreferencesTab,
   preferencesOpen,
-  setCodexPanelOpen,
   setTabMoreOpen,
 }: {
   activateDocumentTab: (path: string) => void;
@@ -32,7 +30,6 @@ export function createAppTopbarProps({
   openDocumentTab: (path: string) => void | Promise<void>;
   openPreferencesTab: () => void;
   preferencesOpen: boolean;
-  setCodexPanelOpen: Dispatch<SetStateAction<boolean>>;
   setTabMoreOpen: Dispatch<SetStateAction<boolean>>;
 }): TopbarProps {
   return {
@@ -40,13 +37,6 @@ export function createAppTopbarProps({
     rightSidebarVisible: base.rightSidebarVisible && !codexPanelOpen,
     rightSidebarAvailable: !preferencesOpen && !codexPanelOpen,
     codexSpikeActive: codexPanelOpen,
-    onOpenCodexSpike: () => {
-      if (codexPanelOpen) {
-        setCodexPanelOpen(false);
-      } else {
-        setCodexPanelOpen(true);
-      }
-    },
     onActivateTab: (tab) => {
       if (tab.kind === "preferences") {
         openPreferencesTab();

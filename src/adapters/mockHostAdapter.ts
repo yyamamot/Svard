@@ -129,6 +129,24 @@ export class MockHostAdapter extends MockAgentFacade implements HostAdapter {
     });
   }
 
+  requestAgentChatReattach(): Promise<void> {
+    globalThis.dispatchEvent(
+      new CustomEvent("svard-agent-chat-reattach-request"),
+    );
+    return Promise.resolve();
+  }
+
+  watchAgentChatReattachRequest(onRequest: () => void): Promise<WatchHandle> {
+    globalThis.addEventListener("svard-agent-chat-reattach-request", onRequest);
+    return Promise.resolve({
+      dispose: () =>
+        globalThis.removeEventListener(
+          "svard-agent-chat-reattach-request",
+          onRequest,
+        ),
+    });
+  }
+
   watchAgentChatReattachReady(onReady: () => void): Promise<WatchHandle> {
     globalThis.addEventListener("svard-agent-chat-reattach-ready", onReady);
     return Promise.resolve({

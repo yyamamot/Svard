@@ -1,3 +1,5 @@
+import { selectAgentChatDisplay } from "./agentChatDisplayMenu.mjs";
+
 async function openTokenDetails(page) {
   const trigger = page.locator('[data-review-id="agent-context-trigger"]');
   await trigger.click();
@@ -53,7 +55,7 @@ export async function runAgentTokenDiagnosticsScenario({ page }) {
       .getByText("Aggregated provider reports", { exact: true })
       .count()) === 1;
 
-  await page.getByRole("button", { name: "Move AI Chat to bottom" }).click();
+  await selectAgentChatDisplay(page, "Bottom");
   await page
     .locator(
       '[data-review-id="codex-main-split"][data-agent-placement="bottom"]',
@@ -78,7 +80,7 @@ export async function runAgentTokenDiagnosticsScenario({ page }) {
     (await popover.getByText("Token details", { exact: true }).count()) === 1;
   await page.locator('[data-review-id="agent-context-trigger"]').click();
   await page.getByRole("button", { name: "Close Git diff preview" }).click();
-  await page.getByRole("button", { name: "Move AI Chat to right" }).click();
+  await selectAgentChatDisplay(page, "Right side");
   await page
     .locator(
       '[data-review-id="codex-main-split"][data-agent-placement="right"]',

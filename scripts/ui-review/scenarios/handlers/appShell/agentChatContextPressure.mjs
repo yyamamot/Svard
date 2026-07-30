@@ -1,3 +1,5 @@
+import { selectAgentChatDisplay } from "./agentChatDisplayMenu.mjs";
+
 async function sendWithUsage({ composer, page, usedTokens }) {
   const previousTurnCount = await page.locator(".agent-turn").count();
   await page.evaluate((value) => {
@@ -60,7 +62,7 @@ export async function runAgentContextPressureScenario({ composer, page }) {
   const manualResultVisible =
     (await popover.getByText("Last compacted manually.").count()) === 1;
 
-  await page.getByRole("button", { name: "Move AI Chat to bottom" }).click();
+  await selectAgentChatDisplay(page, "Bottom");
   await page
     .locator(
       '[data-review-id="codex-main-split"][data-agent-placement="bottom"]',
@@ -84,7 +86,7 @@ export async function runAgentContextPressureScenario({ composer, page }) {
   await page
     .locator('[data-review-id="git-diff-preview-panel"]')
     .waitFor({ state: "detached" });
-  await page.getByRole("button", { name: "Move AI Chat to right" }).click();
+  await selectAgentChatDisplay(page, "Right side");
   await page
     .locator(
       '[data-review-id="codex-main-split"][data-agent-placement="right"]',

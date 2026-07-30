@@ -150,6 +150,17 @@ export class TauriHostAdapter extends TauriAgentFacade implements HostAdapter {
     return { dispose: unlisten };
   }
 
+  requestAgentChatReattach(): Promise<void> {
+    return invokeCommand("request_agent_chat_reattach");
+  }
+
+  async watchAgentChatReattachRequest(
+    onRequest: () => void,
+  ): Promise<WatchHandle> {
+    const unlisten = await listen("agent-chat-reattach-request", onRequest);
+    return { dispose: unlisten };
+  }
+
   async watchAgentChatReattachReady(onReady: () => void): Promise<WatchHandle> {
     const unlisten = await listen("agent-chat-reattach-ready", onReady);
     return { dispose: unlisten };

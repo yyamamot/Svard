@@ -421,13 +421,23 @@ export async function buildAppShellAssertions(context) {
             const result = window.__SVARD_AGENT_DETACHED_WINDOW_CHECK__;
             return (
               result?.bottomReattached === true &&
-              result?.detachControlVisible === true &&
+              JSON.stringify(result?.detachedMenuLabels) ===
+                JSON.stringify(["Focus separate window", "Attach to Main"]) &&
               result?.diffDrawerClosedAfterDetach === true &&
               result?.diffDrawerReopenedAfterReattach === true &&
+              JSON.stringify(result?.diffMenuLabels) ===
+                JSON.stringify([
+                  "Diff Preview",
+                  "Separate window",
+                  "Hide AI Chat",
+                ]) &&
               result?.diffPreviewMaintained === true &&
               result?.draftPreserved === true &&
               result?.focusMaintainedSingleOwner === true &&
               result?.mainControllerRemoved === true &&
+              result?.mainPanelFlashed === false &&
+              JSON.stringify(result?.normalMenuLabels) ===
+                JSON.stringify(["Right side", "Bottom", "Separate window"]) &&
               result?.reattached === true &&
               result?.rightSidebarRestored === true
             );

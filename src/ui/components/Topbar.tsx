@@ -17,6 +17,11 @@ import { preferencesTabId } from "../lib/workspaceTabs";
 import type { CommandId } from "../../core/commands";
 import type { DocumentOrderNavigationState } from "../lib/fileTreeDocuments";
 import type { WorkspaceTab } from "../types";
+import { AgentChatDisplayMenu } from "../agent/AgentChatDisplayMenu";
+import type {
+  AgentChatDisplayAction,
+  AgentChatDisplayMenuItem,
+} from "../agent/agentChatDisplay";
 
 interface TopbarProps {
   sidebarVisible: boolean;
@@ -35,7 +40,10 @@ interface TopbarProps {
   codexSpikeAvailable?: boolean;
   codexSpikeActive?: boolean;
   codexSpikeDetached?: boolean;
-  onOpenCodexSpike?: () => void;
+  agentChatDisplayItems?: AgentChatDisplayMenuItem[];
+  onSelectAgentChatDisplay?: (
+    action: AgentChatDisplayAction,
+  ) => void | Promise<void>;
   onActivateTab: (tab: WorkspaceTab) => void;
   onCloseTab: (tab: WorkspaceTab) => void;
   onToggleTabMore: () => void;
@@ -60,7 +68,8 @@ export function Topbar({
   codexSpikeAvailable = false,
   codexSpikeActive = false,
   codexSpikeDetached = false,
-  onOpenCodexSpike,
+  agentChatDisplayItems = [],
+  onSelectAgentChatDisplay,
   onActivateTab,
   onCloseTab,
   onToggleTabMore,
@@ -221,31 +230,14 @@ export function Topbar({
       )}
       <div className="toolbar">
         {codexSpikeAvailable ? (
-          <button
-            type="button"
-            className={`icon-button topbar-mode-toggle ${
-              codexSpikeActive ? "active" : ""
-            }`}
-            data-review-id="codex-spike-toggle"
-            aria-label={
-              codexSpikeDetached
-                ? "Focus detached AI Chat"
-                : codexSpikeActive
-                  ? "Close AI Chat"
-                  : "AI Chat"
-            }
-            title={
-              codexSpikeDetached
-                ? "Focus detached AI Chat"
-                : codexSpikeActive
-                  ? "Close AI Chat"
-                  : "AI Chat"
-            }
-            aria-pressed={codexSpikeActive}
-            onClick={onOpenCodexSpike}
-          >
-            <Bot size={17} />
-          </button>
+          <AgentChatDisplayMenu
+            active={codexSpikeActive || codexSpikeDetached}
+            items={agentChatDisplayItems}
+            onSelect={(action) => onSelectAgentChatDisplay?.(action)}
+            reviewId="codex-spike-toggle"
+            triggerClassName="icon-button topbar-mode-toggle"
+            triggerIcon={<Bot size={22} />}
+          />
         ) : null}
         {documentOrderNavigation ? (
           <div
