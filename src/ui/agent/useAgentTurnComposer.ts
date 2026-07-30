@@ -49,6 +49,7 @@ import {
 import type { AgentPanelHostProps } from "./agentPanelTypes";
 import { agentErrorMessage } from "./agentChatState";
 import { agentChatHandoffPayload } from "./agentChatHandoff";
+import { reusableAgentQuotedContexts } from "./agentQuotedContext";
 import type { AgentSessionController } from "./useAgentSessionController";
 import {
   useAgentRunningTurnControl,
@@ -77,6 +78,7 @@ export function useAgentTurnComposer(
     acceptedTurnIdsRef,
     attachments,
     composerDockRef,
+    composerInputRef,
     contextCompactionStatus,
     dispatch,
     ensureSessionReady,
@@ -87,6 +89,7 @@ export function useAgentTurnComposer(
     mediaModes,
     question,
     responseMode,
+    recoveryState,
     restoredQuotedContexts,
     runtime,
     selectionImageAttachmentsRef,
@@ -446,9 +449,13 @@ export function useAgentTurnComposer(
   const restoreInputBlocked = Boolean(
     activeTurnId ||
     sessionStarting ||
+    recoveryState === "cleaning" ||
+    recoveryState === "reconnecting" ||
     question.trim() ||
     images.length > 0 ||
-    quotedContexts.length > 0,
+    quotedContexts.length > 0 ||
+    focusFiles.length > 0 ||
+    attachments.length > 0,
   );
 
   function restoreTurnInput(turn: AgentConversationTurn) {
@@ -470,6 +477,29 @@ export function useAgentTurnComposer(
         ? "Input restored. Attach the image again before sending."
         : "Input restored. Review it before sending.",
     );
+  }
+
+  function reuseTurnInput(turn: AgentConversationTurn) {
+    const reusableQuotedContexts = reusableAgentQuotedContexts(
+      turn.quotedContexts,
+    );
+    if (
+      restoreInputBlocked ||
+      turn.restored ||
+      turn.status !== "completed" ||
+      (!turn.question && reusableQuotedContexts.length === 0)
+    ) {
+      return;
+    }
+    setRestoredQuotedContexts(reusableQuotedContexts);
+    setResponseMode(turn.responseMode);
+    setQuestion(turn.question);
+    setActionNotice(
+      turn.images.length > 0
+        ? "Input reused. Attach the image again before sending."
+        : "Input reused. Review it before sending.",
+    );
+    window.requestAnimationFrame(() => composerInputRef.current?.focus());
   }
 
   const openAgentWorkspaceFile = useCallback(
@@ -881,6 +911,7 @@ export function useAgentTurnComposer(
     internalDragPreview,
     restoreInputBlocked,
     restoreTurnInput,
+    reuseTurnInput,
     pendingTurn,
     runningAction,
     steeringModeMatches:

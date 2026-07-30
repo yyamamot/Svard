@@ -75,6 +75,7 @@ export function AgentPanelView({
     pendingFullAccessResume,
     permissionMode,
     probeError,
+    recoveryState,
     renameSession,
     responseMode,
     restartSessionFromProviderDefaults,
@@ -106,6 +107,8 @@ export function AgentPanelView({
     moving: handoffMoving,
     snapshotAvailable: true,
   });
+  const recoveryMoving =
+    recoveryState === "cleaning" || recoveryState === "reconnecting";
   async function selectDisplayAction(action: AgentChatDisplayAction) {
     if (action === "showRight" || action === "showBottom") {
       onMainPlacementChange?.(action === "showRight" ? "right" : "bottom");
@@ -191,7 +194,7 @@ export function AgentPanelView({
           </button>
           <AgentChatDisplayMenu
             active
-            disabled={handoffMoving}
+            disabled={handoffMoving || recoveryMoving}
             items={displayItems}
             onSelect={selectDisplayAction}
             reviewId="agent-display-menu-trigger"
@@ -203,7 +206,7 @@ export function AgentPanelView({
             type="button"
             className="icon-button"
             aria-label="Start new chat"
-            disabled={sessionStarting}
+            disabled={sessionStarting || recoveryMoving}
             onClick={() => {
               setSettingsOpen(false);
               void restartSessionFromProviderDefaults();

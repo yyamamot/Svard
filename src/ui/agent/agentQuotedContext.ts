@@ -14,6 +14,18 @@ export type AgentQuotedContextAppendResult =
   | { ok: true; contexts: AgentQuotedContext[] }
   | { ok: false; message: string };
 
+export function reusableAgentQuotedContexts(
+  contexts: AgentQuotedContext[],
+): AgentQuotedContext[] {
+  return contexts.filter(
+    (context) =>
+      !isDocumentChangeSnapshot(context) &&
+      !context.diagnostics.some(
+        (diagnostic) => diagnostic.severity === "blocking",
+      ),
+  );
+}
+
 export function appendAgentQuotedContext(
   current: AgentQuotedContext[],
   snapshot: AgentQuotedContext,

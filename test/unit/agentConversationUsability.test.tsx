@@ -4,6 +4,7 @@ import { MockHostAdapter } from "../../src/adapters/mockHostAdapter";
 import { defaultConfig } from "../../src/core/defaultConfig";
 import type {
   AgentEvent,
+  AgentChatHandoffSnapshot,
   AgentQuotedContext,
   AgentSessionInfo,
   AgentSessionStartInput,
@@ -11,10 +12,12 @@ import type {
   AgentSteerOutcome,
   AgentTurnInput,
   AgentTurnOutcome,
+  AppConfig,
   DocumentChangeSnapshot,
   DocumentSelectionSnapshot,
 } from "../../src/core/types";
 import { AgentPanelHost } from "../../src/ui/agent/AgentPanelHost";
+import { agentChatHandoffPayload } from "../../src/ui/agent/agentChatHandoff";
 import { agentConversationIsNearBottom } from "../../src/ui/agent/useAgentConversationScroll";
 import {
   createReactRootHarness,
@@ -150,23 +153,31 @@ class UsabilityHost extends MockHostAdapter {
 }
 
 function TestPanel({
+  handoffSnapshot,
   host,
   initialQuotedContexts = [],
+  onHandoffSnapshotChange,
   onReviewChanges,
+  providerConfig = structuredClone(defaultConfig).agentProviders,
 }: {
+  handoffSnapshot?: AgentChatHandoffSnapshot | null;
   host: UsabilityHost;
   initialQuotedContexts?: AgentQuotedContext[];
+  onHandoffSnapshotChange?: (snapshot: AgentChatHandoffSnapshot) => void;
   onReviewChanges?: () => void | Promise<void>;
+  providerConfig?: AppConfig["agentProviders"];
 }) {
   const [quotedContexts, setQuotedContexts] = useState(initialQuotedContexts);
   return (
     <AgentPanelHost
       activeDocument={null}
+      handoffSnapshot={handoffSnapshot}
       host={host}
       open
       onClose={() => {}}
-      providerConfig={structuredClone(defaultConfig).agentProviders}
+      providerConfig={providerConfig}
       quotedContexts={quotedContexts}
+      onHandoffSnapshotChange={onHandoffSnapshotChange}
       onQuotedContextsAccepted={(snapshotIds) =>
         setQuotedContexts((current) =>
           current.filter((item) => !snapshotIds.includes(item.snapshotId)),
@@ -318,6 +329,215 @@ describe("Agent Chat conversation usability", () => {
     expect(
       harness.container.querySelector<HTMLTextAreaElement>("textarea")?.value,
     ).toBe("Cancel and restore this");
+  });
+
+  it("cleans up an unexpected disconnect and reconnects without replacing the conversation", async () => {
+    const closeSession = vi.spyOn(host, "closeAgentSession");
+    const resumeSession = vi.spyOn(host, "resumeAgentSession");
+    const readHistory = vi.spyOn(host, "readAgentSessionHistory");
+    let latestSnapshot: AgentChatHandoffSnapshot | null = null;
+    harness.render(
+      <TestPanel
+        host={host}
+        onHandoffSnapshotChange={(snapshot) => {
+          latestSnapshot = snapshot;
+        }}
+      />,
+    );
+
+    await sendQuestion("Unexpected disconnect during approval");
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain(
+        "Codex app-server disconnected.",
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain("Restore input"),
+    );
+    expect(
+      harness.container.querySelector(
+        '.agent-turn[data-turn-status="running"]',
+      ),
+    ).toBeNull();
+    expect(harness.container.textContent).not.toContain("Approval required");
+    await vi.waitFor(() => expect(closeSession).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() =>
+      expect(agentChatHandoffPayload(latestSnapshot)?.recoveryState).toBe(
+        "disconnected",
+      ),
+    );
+
+    const failedTurn = harness.container.querySelector(
+      '.agent-turn[data-turn-status="failed"]',
+    );
+    expect(failedTurn).toBeTruthy();
+    await vi.waitFor(() =>
+      expect(harness.buttonByText("Reconnect").disabled).toBe(false),
+    );
+    await harness.click(harness.buttonByText("Reconnect"));
+
+    await vi.waitFor(() => expect(resumeSession).toHaveBeenCalledTimes(1));
+    expect(readHistory).not.toHaveBeenCalled();
+    expect(
+      harness.container.querySelector('.agent-turn[data-turn-status="failed"]'),
+    ).toBe(failedTurn);
+    expect(harness.container.textContent).not.toContain("AI Chat disconnected");
+    expect(host.turnInputs).toHaveLength(1);
+    expect(agentChatHandoffPayload(latestSnapshot)?.recoveryState).toBe(
+      "connected",
+    );
+  });
+
+  it("hydrates disconnected recovery state across an exclusive handoff", async () => {
+    let latestSnapshot: AgentChatHandoffSnapshot | null = null;
+    harness.render(
+      <TestPanel
+        key="main"
+        host={host}
+        onHandoffSnapshotChange={(snapshot) => {
+          latestSnapshot = snapshot;
+        }}
+      />,
+    );
+    await sendQuestion("Unexpected disconnect while streaming");
+    await vi.waitFor(() =>
+      expect(agentChatHandoffPayload(latestSnapshot)?.recoveryState).toBe(
+        "disconnected",
+      ),
+    );
+    const handoffSnapshot = latestSnapshot;
+    expect(handoffSnapshot).toBeTruthy();
+
+    harness.render(
+      <TestPanel
+        key="detached"
+        handoffSnapshot={handoffSnapshot}
+        host={host}
+      />,
+    );
+
+    expect(
+      harness.container.querySelector('.agent-turn[data-turn-status="failed"]'),
+    ).toBeTruthy();
+    expect(harness.buttonByText("Reconnect")).toBeTruthy();
+    await harness.click(harness.buttonByText("Reconnect"));
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).not.toContain(
+        "AI Chat disconnected",
+      ),
+    );
+    expect(
+      harness.container.querySelector('.agent-turn[data-turn-status="failed"]'),
+    ).toBeTruthy();
+  });
+
+  it("reuses a completed live input as a new explicit turn", async () => {
+    harness.render(<TestPanel host={host} />);
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[data-review-id="agent-response-mode"]',
+      ),
+    );
+    await sendQuestion("Reuse this completed question");
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain("Reuse input"),
+    );
+
+    const composer =
+      harness.container.querySelector<HTMLTextAreaElement>("textarea")!;
+    await harness.setTextAreaValue(composer, "Existing draft");
+    expect(harness.buttonByText("Reuse input").disabled).toBe(true);
+    await harness.setTextAreaValue(composer, "");
+    await harness.click(harness.buttonByText("Reuse input"));
+
+    expect(composer.value).toBe("Reuse this completed question");
+    expect(
+      harness.container.querySelector('[data-review-id="agent-response-mode"]')
+        ?.textContent,
+    ).toContain("Visualize");
+    expect(host.turnInputs).toHaveLength(1);
+
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>('[aria-label="Send"]'),
+    );
+    await vi.waitFor(() => expect(host.turnInputs).toHaveLength(2));
+    expect(host.turnInputs[1]?.clientTurnId).not.toBe(
+      host.turnInputs[0]?.clientTurnId,
+    );
+  });
+
+  it("reconnects once before sending restored disconnected input", async () => {
+    const resumeSession = vi.spyOn(host, "resumeAgentSession");
+    harness.render(<TestPanel host={host} />);
+    await sendQuestion("Unexpected disconnect while streaming");
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain("Restore input"),
+    );
+    await vi.waitFor(() =>
+      expect(harness.buttonByText("Reconnect").disabled).toBe(false),
+    );
+    await harness.click(harness.buttonByText("Restore input"));
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>('[aria-label="Send"]'),
+    );
+
+    await vi.waitFor(() => expect(resumeSession).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(host.turnInputs).toHaveLength(2));
+    expect(host.turnInputs[1]?.question).toBe(
+      "Unexpected disconnect while streaming",
+    );
+  });
+
+  it("keeps the draft and disconnected state when reconnect fails", async () => {
+    vi.spyOn(host, "closeAgentSession").mockRejectedValueOnce(
+      new Error("Synthetic cleanup failure."),
+    );
+    harness.render(<TestPanel host={host} />);
+    await sendQuestion("Unexpected disconnect while streaming");
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain("Restore input"),
+    );
+    await vi.waitFor(() =>
+      expect(harness.buttonByText("Reconnect").disabled).toBe(false),
+    );
+    await harness.click(harness.buttonByText("Restore input"));
+    const composer =
+      harness.container.querySelector<HTMLTextAreaElement>("textarea")!;
+    await harness.click(harness.buttonByText("Reconnect"));
+
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain(
+        "AI Chat could not reconnect. Try again.",
+      ),
+    );
+    expect(composer.value).toBe("Unexpected disconnect while streaming");
+    expect(harness.buttonByText("Reconnect")).toBeTruthy();
+    expect(host.turnInputs).toHaveLength(1);
+  });
+
+  it("keeps disconnected Full Access input when reconnect confirmation is refused", async () => {
+    const providerConfig = structuredClone(defaultConfig).agentProviders;
+    providerConfig.codex.permissionMode = "fullAccess";
+    harness.render(<TestPanel host={host} providerConfig={providerConfig} />);
+    await sendQuestion("Unexpected disconnect while streaming");
+    await harness.click(harness.buttonByText("Enable Full Access"));
+    await vi.waitFor(() =>
+      expect(harness.buttonByText("Reconnect")).toBeTruthy(),
+    );
+    await harness.click(harness.buttonByText("Restore input"));
+    await harness.click(harness.buttonByText("Reconnect"));
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain(
+        "Resume this chat with Full Access?",
+      ),
+    );
+    await harness.click(harness.buttonByText("Cancel"));
+
+    expect(harness.buttonByText("Reconnect")).toBeTruthy();
+    expect(
+      harness.container.querySelector<HTMLTextAreaElement>("textarea")?.value,
+    ).toBe("Unexpected disconnect while streaming");
+    expect(host.turnInputs).toHaveLength(1);
   });
 
   it("queues one draft and sends it only after the active turn completes", async () => {

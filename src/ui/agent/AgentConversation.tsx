@@ -5,6 +5,7 @@ import {
   FileImage,
   FileText,
   LoaderCircle,
+  RefreshCw,
   ShieldAlert,
   Sparkles,
   X,
@@ -28,6 +29,7 @@ import {
   type AgentConversationTurn,
 } from "./agentChatState";
 import { changeDisplayLabel, selectionDisplayLabel } from "./agentPanelModel";
+import { reusableAgentQuotedContexts } from "./agentQuotedContext";
 import type { AgentSessionController } from "./useAgentSessionController";
 import type { AgentTurnComposer } from "./useAgentTurnComposer";
 
@@ -98,6 +100,7 @@ function ConversationTurn({
   onAgentAction,
   onOpenExternalLink,
   onOpenFile,
+  onReuseInput,
   onRestoreInput,
   onReviewChanges,
   resolveWorkspaceImage,
@@ -111,6 +114,7 @@ function ConversationTurn({
   onAgentAction: (message: string) => void;
   onOpenExternalLink: (url: string) => void;
   onOpenFile: (relativePath: string) => void;
+  onReuseInput: (turn: AgentConversationTurn) => void;
   onRestoreInput: (turn: AgentConversationTurn) => void;
   onReviewChanges?: () => void | Promise<void>;
   resolveWorkspaceImage: (relativePath: string) => Promise<string | null>;
@@ -356,6 +360,30 @@ function ConversationTurn({
           ) : null}
         </div>
       ) : null}
+      {!turn.restored &&
+      turn.status === "completed" &&
+      (turn.question ||
+        reusableAgentQuotedContexts(turn.quotedContexts).length > 0) ? (
+        <div className="agent-turn-restore">
+          <button
+            type="button"
+            className="button"
+            data-review-id="agent-reuse-input"
+            disabled={restoreInputDisabled}
+            title={
+              restoreInputDisabled
+                ? "Clear the current input before reusing this turn."
+                : "Copy this input to the composer without sending it."
+            }
+            onClick={() => onReuseInput(turn)}
+          >
+            Reuse input
+          </button>
+          {turn.images.length > 0 ? (
+            <small>Attach the image again before sending.</small>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -384,6 +412,8 @@ export function AgentConversation({
     followLatestConversation,
     handleConversationScroll,
     loadOlderSessionHistory,
+    reconnectSession,
+    recoveryState,
   } = session;
   const {
     openAgentExternalLink,
@@ -391,6 +421,7 @@ export function AgentConversation({
     resolveAgentWorkspaceImage,
     restoreInputBlocked,
     restoreTurnInput,
+    reuseTurnInput,
     submit,
   } = composer;
   return (
@@ -434,6 +465,7 @@ export function AgentConversation({
             onAgentAction={(message) => void submit(message)}
             onOpenExternalLink={openAgentExternalLink}
             onOpenFile={openAgentWorkspaceFile}
+            onReuseInput={reuseTurnInput}
             onRestoreInput={restoreTurnInput}
             onReviewChanges={onReviewChanges}
             resolveWorkspaceImage={resolveAgentWorkspaceImage}
@@ -441,12 +473,39 @@ export function AgentConversation({
           />
         ))}
         {state.disconnectedMessage ? (
-          <p className="agent-turn-error">
-            {redactAgentWorkspacePaths(
-              state.disconnectedMessage,
-              workspaceRoot,
-            )}
-          </p>
+          <section
+            className="agent-disconnected"
+            data-review-id="agent-disconnected"
+            role="status"
+            aria-label="AI Chat disconnected"
+          >
+            <p className="agent-turn-error">
+              {redactAgentWorkspacePaths(
+                state.disconnectedMessage,
+                workspaceRoot,
+              )}
+            </p>
+            <button
+              type="button"
+              className="button"
+              disabled={
+                recoveryState === "cleaning" || recoveryState === "reconnecting"
+              }
+              onClick={() => void reconnectSession()}
+            >
+              {recoveryState === "cleaning" ||
+              recoveryState === "reconnecting" ? (
+                <LoaderCircle className="spin" size={13} />
+              ) : (
+                <RefreshCw size={13} />
+              )}
+              {recoveryState === "cleaning"
+                ? "Preparing reconnect…"
+                : recoveryState === "reconnecting"
+                  ? "Reconnecting…"
+                  : "Reconnect"}
+            </button>
+          </section>
         ) : null}
       </div>
       {newActivityAvailable ? (

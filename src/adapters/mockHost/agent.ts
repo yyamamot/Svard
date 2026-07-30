@@ -330,6 +330,9 @@ export class MockAgentFacade {
     input: AgentSessionResumeInput,
     onEvent: (event: AgentEvent) => void,
   ): Promise<AgentSessionInfo> {
+    if (this.agentSessions.has(input.clientSessionId)) {
+      throw new Error("This agent session is already open.");
+    }
     const record = this.requireAgentSessionRecord(input.clientSessionId);
     const overrides = globalThis as typeof globalThis & {
       __SVARD_AGENT_SESSION_RESUME_FAILURE__?: true | string;
@@ -527,6 +530,39 @@ export class MockAgentFacade {
       clientTurnId: input.clientTurnId,
       imageAttachmentIds,
     });
+    if (input.question.toLowerCase().includes("unexpected disconnect")) {
+      emit({
+        type: "toolStarted",
+        toolId: "mock-disconnected-command",
+        kind: "command",
+        category: "command",
+        title: "Running a workspace command",
+        visibility: "user",
+      });
+      if (input.question.toLowerCase().includes("approval")) {
+        emit({
+          type: "permissionRequested",
+          request: {
+            requestId: `approval-${input.clientTurnId}`,
+            kind: "command",
+            title: "Run a workspace command?",
+            detail: "The agent requested a workspace command.",
+            impact: "This command can inspect workspace files.",
+          },
+        });
+      }
+      emit({
+        type: "providerDisconnected",
+        code: "provider-disconnected",
+        message: "Codex app-server disconnected.",
+      });
+      session.activeTurnId = null;
+      return {
+        status: "failed",
+        code: "provider-disconnected",
+        message: "Codex app-server disconnected.",
+      };
+    }
     let expectedAutomaticTitle: string | null = null;
     if (session.automaticTitlePending) {
       session.automaticTitlePending = false;

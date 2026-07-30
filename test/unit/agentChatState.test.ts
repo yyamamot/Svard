@@ -152,6 +152,69 @@ describe("agent chat state", () => {
     expect(state.turns[0]?.inputAccepted).toBe(true);
   });
 
+  it("keeps the active turn addressable until a disconnect failure arrives", () => {
+    let state = reduceAgentChat(initialAgentChatState, {
+      type: "userTurn",
+      turnId: "disconnected-turn",
+      question: "Inspect this.",
+      images: [],
+      responseMode: "auto",
+    });
+    state = reduceAgentChat(state, {
+      type: "event",
+      event: {
+        type: "toolStarted",
+        toolId: "command",
+        kind: "command",
+        category: "command",
+        title: "Running a command",
+        visibility: "user",
+      },
+    });
+    state = reduceAgentChat(state, {
+      type: "event",
+      event: {
+        type: "permissionRequested",
+        request: {
+          requestId: "approval",
+          kind: "command",
+          title: "Run a command?",
+          impact: "Can inspect workspace files.",
+        },
+      },
+    });
+    state = reduceAgentChat(state, {
+      type: "event",
+      event: {
+        type: "providerDisconnected",
+        code: "provider-disconnected",
+        message: "Codex app-server disconnected.",
+      },
+    });
+
+    expect(state.activeTurnId).toBe("disconnected-turn");
+    expect(state.turns[0]).toMatchObject({
+      approval: null,
+      status: "running",
+      tools: [{ status: "failed" }],
+    });
+
+    state = reduceAgentChat(state, {
+      type: "event",
+      event: {
+        type: "turnFailed",
+        clientTurnId: "disconnected-turn",
+        code: "provider-disconnected",
+        message: "Codex app-server disconnected.",
+      },
+    });
+    expect(state.activeTurnId).toBeNull();
+    expect(state.turns[0]).toMatchObject({
+      status: "failed",
+      error: "Codex app-server disconnected.",
+    });
+  });
+
   it("shows only the latest normalized reasoning summary", () => {
     expect(
       latestReasoningSummary(

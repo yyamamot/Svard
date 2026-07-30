@@ -257,6 +257,7 @@ export type AgentChatAction =
     }
   | { type: "steerAccepted"; turnId: string; question: string }
   | { type: "suppressRestore"; turnId: string }
+  | { type: "connectionRestored" }
   | { type: "event"; event: AgentEvent }
   | { type: "reset" };
 
@@ -360,6 +361,9 @@ export function reduceAgentChat(
       disconnectedMessage: null,
     };
   }
+  if (action.type === "connectionRestored") {
+    return { ...state, disconnectedMessage: null };
+  }
   if (action.type === "steerAccepted") {
     return {
       ...state,
@@ -421,8 +425,15 @@ export function reduceAgentChat(
       }));
     case "providerDisconnected":
       return {
-        ...state,
-        activeTurnId: null,
+        ...updateActiveTurn(state, (turn) => ({
+          ...turn,
+          approval: null,
+          tools: turn.tools.map((tool) =>
+            tool.status === "running" || tool.status === "waitingForApproval"
+              ? { ...tool, status: "failed" }
+              : tool,
+          ),
+        })),
         disconnectedMessage: event.message,
       };
     case "reasoningSummaryDelta":
@@ -527,6 +538,11 @@ export function reduceAgentChat(
         ...updateActiveTurn(state, (turn) => ({
           ...finalizeCommentary(turn),
           approval: null,
+          tools: turn.tools.map((tool) =>
+            tool.status === "running" || tool.status === "waitingForApproval"
+              ? { ...tool, status: "failed" }
+              : tool,
+          ),
           status: "failed",
           error: event.message,
         })),

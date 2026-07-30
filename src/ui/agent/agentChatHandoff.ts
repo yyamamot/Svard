@@ -18,6 +18,12 @@ import type { ContextPressureSnapshot } from "./useAgentContextPressure";
 import type { AgentConversationScrollSnapshot } from "./useAgentConversationScroll";
 import type { PreparedAgentTurn } from "./useAgentRunningTurnControl";
 
+export type AgentSessionRecoveryState =
+  | "connected"
+  | "cleaning"
+  | "disconnected"
+  | "reconnecting";
+
 export interface AgentChatHandoffPayload {
   activeDocument: DocumentPayload | null;
   providerConfig: AppConfig["agentProviders"];
@@ -26,6 +32,7 @@ export interface AgentChatHandoffPayload {
   sessionId: string;
   sessionReady: boolean;
   sessionLifecycle: "idle" | "starting" | "ready" | "closed";
+  recoveryState: AgentSessionRecoveryState;
   sessionSettings: AgentRuntimeSettingsSnapshot | null;
   runtime: AgentProviderRuntimeSnapshot | null;
   permissionMode: AgentPermissionMode;

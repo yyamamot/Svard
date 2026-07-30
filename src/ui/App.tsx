@@ -71,6 +71,7 @@ import {
   resolveAgentChatEntry,
   type AgentChatEntryState,
 } from "./agent/agentChatEntry";
+import { agentChatHandoffPayload } from "./agent/agentChatHandoff";
 export function App() {
   const local = useAppLocalState();
   // prettier-ignore
@@ -171,6 +172,8 @@ export function App() {
     null,
   );
   const [mainAgentSnapshotReady, setMainAgentSnapshotReady] = useState(false);
+  const [mainAgentSnapshotMovable, setMainAgentSnapshotMovable] =
+    useState(true);
   const { contextMenu, closeContextMenu, openContextMenu } =
     useContextMenuState();
   const beginViewerCaptureArea = (variant: CaptureAreaVariant = "plain") =>
@@ -1115,7 +1118,7 @@ export function App() {
     mainOpen: codexPanelOpen && !detachedAgentChat.detached,
     mainPlacement: agentPanelPlacement,
     moving: detachedAgentChat.moving,
-    snapshotAvailable: mainAgentSnapshotReady,
+    snapshotAvailable: mainAgentSnapshotReady && mainAgentSnapshotMovable,
   });
   async function selectAgentChatDisplay(action: AgentChatDisplayAction) {
     if (action === "showRight" || action === "showBottom") {
@@ -1275,6 +1278,10 @@ export function App() {
           onHandoffSnapshotChange={(snapshot) => {
             latestMainAgentSnapshotRef.current = snapshot;
             setMainAgentSnapshotReady(true);
+            const recovery = agentChatHandoffPayload(snapshot)?.recoveryState;
+            setMainAgentSnapshotMovable(
+              recovery !== "cleaning" && recovery !== "reconnecting",
+            );
           }}
           lastMainPlacement={agentPanelPlacement}
           onReturnToQuotedContext={(snapshot) => {

@@ -439,6 +439,21 @@
   color: #a13f36;
 }
 
+.agent-disconnected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, #a13f36 36%, var(--reader-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, #a13f36 7%, var(--reader-surface));
+}
+
+.agent-disconnected .button {
+  flex: 0 0 auto;
+}
+
 .agent-turn-cancelled {
   color: var(--reader-muted);
 }

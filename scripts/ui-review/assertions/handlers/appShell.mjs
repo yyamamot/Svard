@@ -304,6 +304,26 @@ export async function buildAppShellAssertions(context) {
             );
           })
         : true,
+    hasAgentDisconnectRecovery:
+      scenario === "viewer-agent-chat-disconnect-recovery"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_DISCONNECT_RECOVERY_CHECK__;
+            return (
+              result?.activityClosed === true &&
+              result?.approvalClosed === true &&
+              result?.bottomPlacement === true &&
+              result?.compactLayoutValid === true &&
+              result?.detachedExclusive === true &&
+              result?.failedTurnMaintained === true &&
+              result?.reconnectCleared === true &&
+              result?.restoredDraft === true &&
+              result?.reusedDraft === true &&
+              result?.reuseDidNotSend === true &&
+              result?.rightPlacement === true &&
+              result?.runningClosed === true
+            );
+          })
+        : true,
     hasAgentChangeReview:
       scenario === "viewer-agent-chat-change-review"
         ? await page.evaluate(() => {

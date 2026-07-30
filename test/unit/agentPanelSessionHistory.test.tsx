@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act } from "react";
 import { MockHostAdapter } from "../../src/adapters/mockHostAdapter";
 import { defaultConfig } from "../../src/core/defaultConfig";
 import type {
@@ -138,6 +137,7 @@ describe("AgentPanelHost session history", () => {
     expect(host.resumes[0]?.clientSessionId).toBe(
       host.starts[0]?.clientSessionId,
     );
+    expect(harness.container.textContent).not.toContain("Reuse input");
 
     await openHistory();
     const current = [

@@ -14,6 +14,7 @@ import { runAgentWorkspaceIsolationScenario } from "./agentChatWorkspaceIsolatio
 import { runAgentDetachedWindowScenario } from "./agentChatDetachedWindow.mjs";
 import { selectAgentChatDisplay } from "./agentChatDisplayMenu.mjs";
 import { runAgentChatProviderSetupScenario } from "./agentChatProviderSetup.mjs";
+import { runAgentChatDisconnectRecoveryScenario } from "./agentChatDisconnectRecovery.mjs";
 import {
   recordAgentChangeReviewScenario,
   isAgentChatScenario,
@@ -433,6 +434,8 @@ export async function applyAppShellAgentChatScenario(context) {
       );
     } else if (scenario === "viewer-agent-chat-running-input-control") {
       await composer.fill("Explain the current implementation.");
+    } else if (scenario === "viewer-agent-chat-disconnect-recovery") {
+      await composer.fill("Unexpected disconnect during approval.");
     } else if (scenario === "viewer-agent-chat-change-review") {
       await composer.fill("Show change review.");
     } else if (
@@ -464,6 +467,10 @@ export async function applyAppShellAgentChatScenario(context) {
       await composer.fill("Explain how the focused files are related.");
     } else {
       await composer.fill("Explain how the focused files are related.");
+    }
+    if (scenario === "viewer-agent-chat-disconnect-recovery") {
+      await runAgentChatDisconnectRecoveryScenario({ composer, page });
+      return true;
     }
     if (scenario === "viewer-agent-chat-conversation-usability") {
       await runAgentChatUsabilityScenario({ composer, page });

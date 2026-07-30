@@ -4,7 +4,10 @@ import type {
   DocumentMediaSnapshot,
   DocumentSelectionSnapshot,
 } from "../../src/core/types";
-import { appendAgentQuotedContext } from "../../src/ui/agent/agentQuotedContext";
+import {
+  appendAgentQuotedContext,
+  reusableAgentQuotedContexts,
+} from "../../src/ui/agent/agentQuotedContext";
 
 function selection(
   snapshotId: string,
@@ -67,6 +70,24 @@ function change(
 }
 
 describe("Agent quoted context transaction", () => {
+  it("reuses only non-blocking selection and media snapshots", () => {
+    const blocked = selection("blocked");
+    blocked.diagnostics.push({
+      severity: "blocking",
+      code: "imageUnavailable",
+      message: "An image in the selection could not be prepared.",
+    });
+
+    expect(
+      reusableAgentQuotedContexts([
+        selection("selection-1"),
+        media("media-1"),
+        change("change-1"),
+        blocked,
+      ]).map((context) => context.snapshotId),
+    ).toEqual(["selection-1", "media-1"]);
+  });
+
   it("preserves selection and media insertion order", () => {
     const first = appendAgentQuotedContext([], selection("selection-1"));
     expect(first.ok).toBe(true);
