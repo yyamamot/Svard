@@ -7,9 +7,13 @@
 - Added document selections, focused files, images, and diagram context as turn-local AI Chat references.
 - Added session history, automatic titles, rename, archive, restore, and delete controls for Codex conversations.
 - Added retry input restoration, answer and code copying, scroll-follow controls, and Cmd/Ctrl+Enter sending.
+- Added manual reconnect after provider disconnections and Reuse input for copying completed questions back to the composer without resending them.
 - Added Queue, Steer, and Stop and Send controls for follow-up input while an AI response is running.
 - Added changed-file summaries with a direct path to Source Control > Changes for reviewing the current working tree.
 - Added a resizable AI Chat drawer to Diff Preview and All diffs while preserving the current conversation, draft, and running response.
+- Added an exclusive separate AI Chat window that preserves running turns and approvals, and reattaches when the detached window closes.
+- Added an AI Chat display menu for Right side, Bottom, Diff Preview, and Separate window, with focus and attach actions for detached chats.
+- Added a direct AI Providers setup path from the AI Chat button when no ready provider is detected.
 - Added right-click attachment of the current rendered change as an exact Before/After reference for free-form AI Chat questions.
 - Improved AI Chat workspace isolation so conversations and pending input do not carry across workspace changes.
 - Added a Focused context profile plus context-use and token diagnostics, with manual compaction when the provider supports it.
