@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 #[cfg(unix)]
 use std::os::unix::fs::DirBuilderExt;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     env, fs,
     io::{BufRead, BufReader, Cursor, Read, Write},
     path::{Path, PathBuf},
@@ -44,7 +44,8 @@ use management_types::*;
 
 pub use compaction::compact_agent_session;
 pub use lifecycle::{
-    list_agent_sessions, read_agent_session_history, resume_agent_session, start_agent_session,
+    attach_agent_session, list_agent_sessions, read_agent_session_history, resume_agent_session,
+    start_agent_session,
 };
 pub use management::{
     close_agent_session, delete_agent_session, rename_agent_session, set_agent_session_archived,

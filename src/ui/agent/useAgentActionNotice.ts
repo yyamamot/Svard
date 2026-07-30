@@ -4,8 +4,10 @@ import { defaultInlineNoticeTimeout } from "../lib/notice";
 export const workspaceChangedAgentNotice =
   "Workspace changed. AI Chat is ready for a new conversation.";
 
-export function useAgentActionNotice() {
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
+export function useAgentActionNotice(initialNotice: string | null = null) {
+  const [actionNotice, setActionNotice] = useState<string | null>(
+    initialNotice,
+  );
 
   useEffect(() => {
     if (actionNotice !== workspaceChangedAgentNotice) {

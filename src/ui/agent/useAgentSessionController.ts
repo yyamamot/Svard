@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type {
   AgentEvent,
   AgentAttachment,
+  AgentChatHandoffSnapshot,
   AgentFocusFile,
   AgentImageAttachment,
   AgentPermissionMode,
@@ -33,6 +34,7 @@ import {
   type AgentImageError,
   type AgentRuntimeSettingsSnapshot,
 } from "./agentPanelModel";
+import { agentChatHandoffPayload } from "./agentChatHandoff";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
 import {
   useAgentActionNotice,
@@ -49,15 +51,23 @@ type AgentSessionLifecycle = "idle" | "starting" | "ready" | "closed";
 type PendingSessionAction = () => void | Promise<void>;
 type PendingFullAccessTransaction = () => Promise<boolean>;
 export function useAgentSessionController({
+  activeDocument,
   host,
   open,
   providerConfig,
+  theme = "light",
+  onHandoffReady,
+  onHandoffFailure,
   onQuotedContextsAccepted,
   terminateSession = false,
   workspaceRoot,
+  handoffSnapshot,
+  quotedContexts: providedQuotedContexts = [],
 }: AgentPanelHostProps) {
+  const handoff = agentChatHandoffPayload(handoffSnapshot);
   const [runtime, setRuntime] = useState<AgentProviderRuntimeSnapshot | null>(
     () =>
+      handoff?.runtime ??
       host.peekAgentProviderRuntime(
         "codex-app-server",
         providerConfig.codex.executable,
@@ -65,37 +75,51 @@ export function useAgentSessionController({
   );
   const [probeError, setProbeError] = useState<string | null>(null);
   const [sessionLifecycle, setSessionLifecycle] =
-    useState<AgentSessionLifecycle>("idle");
+    useState<AgentSessionLifecycle>(handoff?.sessionLifecycle ?? "idle");
   const sessionReady = sessionLifecycle === "ready";
   const sessionStarting = sessionLifecycle === "starting";
   const [sessionSettings, setSessionSettings] =
-    useState<AgentRuntimeSettingsSnapshot | null>(null);
+    useState<AgentRuntimeSettingsSnapshot | null>(
+      handoff?.sessionSettings ?? null,
+    );
   const codexDefaults = providerConfig.codex;
   const [permissionMode, setPermissionMode] = useState<AgentPermissionMode>(
-    codexDefaults.permissionMode,
+    handoff?.permissionMode ?? codexDefaults.permissionMode,
   );
   const [networkAccess, setNetworkAccess] = useState(
-    codexDefaults.networkAccess,
+    handoff?.networkAccess ?? codexDefaults.networkAccess,
   );
-  const [webSearch, setWebSearch] = useState(codexDefaults.webSearch);
+  const [webSearch, setWebSearch] = useState(
+    handoff?.webSearch ?? codexDefaults.webSearch,
+  );
   const [contextProfile, setContextProfile] = useState(
-    effectiveContextProfile(codexDefaults, runtime),
+    handoff?.contextProfile ?? effectiveContextProfile(codexDefaults, runtime),
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmFullAccess, setConfirmFullAccess] = useState(false);
-  const [responseMode, setResponseMode] = useState<AgentResponseMode>("auto");
-  const [question, setQuestion] = useState("");
-  const [focusFiles, setFocusFiles] = useState<AgentFocusFile[]>([]);
-  const [attachments, setAttachments] = useState<AgentAttachment[]>([]);
-  const [images, setImages] = useState<AgentImageAttachment[]>([]);
+  const [responseMode, setResponseMode] = useState<AgentResponseMode>(
+    handoff?.responseMode ?? "auto",
+  );
+  const [question, setQuestion] = useState(handoff?.question ?? "");
+  const [focusFiles, setFocusFiles] = useState<AgentFocusFile[]>(
+    handoff?.focusFiles ?? [],
+  );
+  const [attachments, setAttachments] = useState<AgentAttachment[]>(
+    handoff?.attachments ?? [],
+  );
+  const [images, setImages] = useState<AgentImageAttachment[]>(
+    handoff?.images ?? [],
+  );
   const [restoredQuotedContexts, setRestoredQuotedContexts] = useState<
     AgentQuotedContext[]
-  >([]);
+  >(handoff?.quotedContexts ?? []);
   const [imageErrors, setImageErrors] = useState<AgentImageError[]>([]);
   const [mediaModes, setMediaModes] = useState<
     Record<string, DocumentMediaMode>
-  >({});
-  const [actionNotice, setActionNotice] = useAgentActionNotice();
+  >(handoff?.mediaModes ?? {});
+  const [actionNotice, setActionNotice] = useAgentActionNotice(
+    handoff?.actionNotice ?? null,
+  );
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyArchived, setHistoryArchived] = useState(false);
   const historySearch = useAgentSessionHistorySearchState();
@@ -112,23 +136,33 @@ export function useAgentSessionController({
     useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [dropActive, setDropActive] = useState(false);
-  const [state, dispatch] = useReducer(reduceAgentChat, initialAgentChatState);
+  const [state, dispatch] = useReducer(
+    reduceAgentChat,
+    handoff?.state ?? initialAgentChatState,
+  );
   const {
+    captureConversationScroll,
     followLatestConversation,
     handleConversationScroll,
     historyPrependScrollRef,
     newActivityAvailable,
     resetConversationFollow,
     scrollRef,
-  } = useAgentConversationScroll(state);
-  const sessionIdRef = useRef<string>(crypto.randomUUID());
-  const sessionReadyRef = useRef(false);
-  const sessionSettingsRef = useRef<AgentRuntimeSettingsSnapshot | null>(null);
+  } = useAgentConversationScroll(state, handoff?.scroll);
+  const sessionIdRef = useRef<string>(
+    handoff?.sessionId ?? crypto.randomUUID(),
+  );
+  const sessionReadyRef = useRef(handoff?.sessionReady ?? false);
+  const sessionSettingsRef = useRef<AgentRuntimeSettingsSnapshot | null>(
+    handoff?.sessionSettings ?? null,
+  );
   const sessionTitleEventSequenceRef = useRef(0);
   const sessionTitleEventsRef = useRef(
     new Map<string, { sequence: number; title: string }>(),
   );
   const acceptedTurnIdsRef = useRef(new Set<string>());
+  const handoffAttachedRef = useRef(false);
+  const handoffReadyReportedRef = useRef(false);
   const sessionStartingRef = useRef(false);
   const resumeClosedSessionRef = useRef(false);
   const pendingSessionActionRef = useRef<PendingSessionAction | null>(null);
@@ -136,6 +170,11 @@ export function useAgentSessionController({
     useRef<PendingFullAccessTransaction | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (handoffSnapshot) return;
+    handoffAttachedRef.current = false;
+    handoffReadyReportedRef.current = false;
+  }, [handoffSnapshot]);
   const activeTurnId = state.activeTurnId;
   const {
     captureContextPressure,
@@ -156,6 +195,7 @@ export function useAgentSessionController({
     sessionIdRef,
     sessionReadyRef,
     setActionNotice,
+    initialSnapshot: handoff?.contextPressure,
   });
   const selectionImageAttachmentsRef = useRef(
     new Map<string, AgentImageAttachment>(),
@@ -317,6 +357,54 @@ export function useAgentSessionController({
     },
     [handleContextEvent, onQuotedContextsAccepted],
   );
+  useEffect(() => {
+    if (
+      !handoffSnapshot ||
+      handoff?.sessionReady ||
+      handoffReadyReportedRef.current
+    ) {
+      return;
+    }
+    handoffReadyReportedRef.current = true;
+    onHandoffReady?.();
+  }, [handoff?.sessionReady, handoffSnapshot, onHandoffReady]);
+  useEffect(() => {
+    if (
+      !handoffSnapshot ||
+      !handoff?.sessionReady ||
+      handoffAttachedRef.current
+    ) {
+      return;
+    }
+    handoffAttachedRef.current = true;
+    void host
+      .attachAgentSession(
+        handoff.sessionId,
+        handoffSnapshot.lastEventSequence,
+        handleEvent,
+      )
+      .then(() => {
+        handoffReadyReportedRef.current = true;
+        onHandoffReady?.();
+      })
+      .catch((error: unknown) => {
+        handoffAttachedRef.current = false;
+        const message =
+          error instanceof Error
+            ? error.message
+            : "AI Chat could not move to this window.";
+        setActionNotice(message);
+        onHandoffFailure?.(message);
+      });
+  }, [
+    handoff,
+    handoffSnapshot,
+    handleEvent,
+    host,
+    onHandoffReady,
+    onHandoffFailure,
+    setActionNotice,
+  ]);
   useEffect(() => {
     if (!terminateSession) return;
     if (sessionReady) {
@@ -829,8 +917,63 @@ export function useAgentSessionController({
     clearSessionLocalContext();
   }
 
+  function createHandoffSnapshot(
+    lastMainPlacement: "right" | "bottom",
+  ): AgentChatHandoffSnapshot {
+    const clientSessionId = sessionIdRef.current;
+    const quotedContexts = [
+      ...providedQuotedContexts,
+      ...restoredQuotedContexts,
+    ].filter(
+      (context, index, all) =>
+        all.findIndex((item) => item.snapshotId === context.snapshotId) ===
+        index,
+    );
+    return {
+      version: 1,
+      clientSessionId,
+      workspaceRoot: workspaceRoot ?? "",
+      lastEventSequence: host.getAgentEventSequence(clientSessionId),
+      lastMainPlacement,
+      payload: {
+        activeDocument,
+        providerConfig,
+        theme,
+        state,
+        sessionId: clientSessionId,
+        sessionReady: sessionReadyRef.current,
+        sessionLifecycle,
+        sessionSettings,
+        runtime,
+        permissionMode,
+        networkAccess,
+        webSearch,
+        contextProfile,
+        responseMode,
+        question,
+        focusFiles,
+        attachments,
+        images,
+        quotedContexts,
+        mediaModes,
+        actionNotice,
+        contextPressure: captureContextPressure(),
+        scroll: captureConversationScroll(),
+        pendingTurn: handoff?.pendingTurn ?? null,
+        runningAction: handoff?.runningAction ?? null,
+      },
+    };
+  }
+
   return {
-    ...{ runtime, probeError, sessionReady, sessionStarting, sessionSettings },
+    ...{
+      runtime,
+      probeError,
+      sessionReady,
+      sessionStarting,
+      sessionLifecycle,
+      sessionSettings,
+    },
     ...{ codexDefaults, permissionMode, setPermissionMode },
     ...{
       networkAccess,
@@ -872,6 +1015,7 @@ export function useAgentSessionController({
     workspaceGeneration: workspaceIsolation.generation,
     isSessionWorkspaceCurrent: workspaceIsolation.isSessionCurrent,
     closeSessionRuntime,
+    createHandoffSnapshot,
     ensureSessionReady,
     cancelFullAccessStart,
     confirmFullAccessStart,

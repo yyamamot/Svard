@@ -34,6 +34,7 @@ interface TopbarProps {
   documentOrderNavigation?: DocumentOrderNavigationState | null;
   codexSpikeAvailable?: boolean;
   codexSpikeActive?: boolean;
+  codexSpikeDetached?: boolean;
   onOpenCodexSpike?: () => void;
   onActivateTab: (tab: WorkspaceTab) => void;
   onCloseTab: (tab: WorkspaceTab) => void;
@@ -58,6 +59,7 @@ export function Topbar({
   documentOrderNavigation = null,
   codexSpikeAvailable = false,
   codexSpikeActive = false,
+  codexSpikeDetached = false,
   onOpenCodexSpike,
   onActivateTab,
   onCloseTab,
@@ -225,8 +227,20 @@ export function Topbar({
               codexSpikeActive ? "active" : ""
             }`}
             data-review-id="codex-spike-toggle"
-            aria-label={codexSpikeActive ? "Close AI Chat" : "AI Chat"}
-            title={codexSpikeActive ? "Close AI Chat" : "AI Chat"}
+            aria-label={
+              codexSpikeDetached
+                ? "Focus detached AI Chat"
+                : codexSpikeActive
+                  ? "Close AI Chat"
+                  : "AI Chat"
+            }
+            title={
+              codexSpikeDetached
+                ? "Focus detached AI Chat"
+                : codexSpikeActive
+                  ? "Close AI Chat"
+                  : "AI Chat"
+            }
             aria-pressed={codexSpikeActive}
             onClick={onOpenCodexSpike}
           >

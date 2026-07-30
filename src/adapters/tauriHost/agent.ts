@@ -4,6 +4,7 @@ import type {
   AgentApprovalResponseInput,
   AgentCompactionOutcome,
   AgentEvent,
+  AgentEventEnvelope,
   AgentExecutablePreference,
   AgentImageAttachment,
   AgentImageDiscardInput,
@@ -37,6 +38,7 @@ function agentRuntimeKey(
 }
 
 export class TauriAgentFacade {
+  private readonly agentEventSequences = new Map<string, number>();
   private readonly agentProviderRuntime = new Map<
     string,
     AgentProviderRuntimeSnapshot
@@ -111,8 +113,11 @@ export class TauriAgentFacade {
     input: AgentSessionStartInput,
     onEvent: (event: AgentEvent) => void,
   ): Promise<AgentSessionInfo> {
-    const onEventChannel = new Channel<AgentEvent>();
-    onEventChannel.onmessage = onEvent;
+    const onEventChannel = new Channel<AgentEventEnvelope>();
+    onEventChannel.onmessage = (envelope) => {
+      this.agentEventSequences.set(input.clientSessionId, envelope.sequence);
+      onEvent(envelope.event);
+    };
     return invokeCommand("start_agent_session", {
       input,
       onEvent: onEventChannel,
@@ -129,12 +134,51 @@ export class TauriAgentFacade {
     input: AgentSessionResumeInput,
     onEvent: (event: AgentEvent) => void,
   ): Promise<AgentSessionInfo> {
-    const onEventChannel = new Channel<AgentEvent>();
-    onEventChannel.onmessage = onEvent;
+    const onEventChannel = new Channel<AgentEventEnvelope>();
+    onEventChannel.onmessage = (envelope) => {
+      this.agentEventSequences.set(input.clientSessionId, envelope.sequence);
+      onEvent(envelope.event);
+    };
     return invokeCommand("resume_agent_session", {
       input,
       onEvent: onEventChannel,
     });
+  }
+
+  async attachAgentSession(
+    clientSessionId: string,
+    afterSequence: number,
+    onEvent: (event: AgentEvent) => void,
+  ): Promise<void> {
+    const onEventChannel = new Channel<AgentEventEnvelope>();
+    const liveDuringAttach: AgentEventEnvelope[] = [];
+    let attaching = true;
+    onEventChannel.onmessage = (envelope) => {
+      if (attaching) {
+        liveDuringAttach.push(envelope);
+        return;
+      }
+      this.agentEventSequences.set(clientSessionId, envelope.sequence);
+      onEvent(envelope.event);
+    };
+    const replay = await invokeCommand<AgentEventEnvelope[]>(
+      "attach_agent_session",
+      { clientSessionId, afterSequence, onEvent: onEventChannel },
+    );
+    attaching = false;
+    const ordered = [...replay, ...liveDuringAttach].sort(
+      (left, right) => left.sequence - right.sequence,
+    );
+    for (const envelope of ordered) {
+      const current = this.agentEventSequences.get(clientSessionId) ?? 0;
+      if (envelope.sequence <= current) continue;
+      this.agentEventSequences.set(clientSessionId, envelope.sequence);
+      onEvent(envelope.event);
+    }
+  }
+
+  getAgentEventSequence(clientSessionId: string): number {
+    return this.agentEventSequences.get(clientSessionId) ?? 0;
   }
 
   readAgentSessionHistory(

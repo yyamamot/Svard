@@ -408,7 +408,10 @@ fn observe_never_enables_network() {
         title_child: Mutex::new(None),
         title_scratch_directory: Mutex::new(None),
         stdin: Mutex::new(panic_stdin()),
-        event_channel: test_channel(sender),
+        event_router: Mutex::new(AgentEventRouter::new(
+            "test-main".to_string(),
+            test_channel(sender),
+        )),
         request_counter: AtomicU64::new(0),
         approval_counter: AtomicU64::new(0),
         pending_requests: Mutex::new(HashMap::new()),
@@ -453,7 +456,10 @@ fn codex_quality_settings_use_supported_turn_start_fields() {
         title_child: Mutex::new(None),
         title_scratch_directory: Mutex::new(None),
         stdin: Mutex::new(panic_stdin()),
-        event_channel: test_channel(sender),
+        event_router: Mutex::new(AgentEventRouter::new(
+            "test-main".to_string(),
+            test_channel(sender),
+        )),
         request_counter: AtomicU64::new(0),
         approval_counter: AtomicU64::new(0),
         pending_requests: Mutex::new(HashMap::new()),
@@ -726,7 +732,10 @@ fn external_attachment_uses_safe_label_and_untrusted_context() {
         title_child: Mutex::new(None),
         title_scratch_directory: Mutex::new(None),
         stdin: Mutex::new(panic_stdin()),
-        event_channel: test_channel(sender),
+        event_router: Mutex::new(AgentEventRouter::new(
+            "test-main".to_string(),
+            test_channel(sender),
+        )),
         request_counter: AtomicU64::new(0),
         approval_counter: AtomicU64::new(0),
         pending_requests: Mutex::new(HashMap::new()),
@@ -761,4 +770,43 @@ fn external_attachment_uses_safe_label_and_untrusted_context() {
     assert!(serialized.contains("\"kind\":\"untrusted\""));
     assert!(!serialized.contains("/private/source"));
     assert!(scratch.join("01-notes.md").is_file());
+}
+
+#[test]
+fn agent_event_router_replays_ordered_events_and_moves_owner() {
+    let mut router = AgentEventRouter::new("main".to_string(), Channel::new(|_| Ok(())));
+    router.emit(AgentEvent::TurnStarted {
+        client_turn_id: "turn-1".to_string(),
+    });
+    router.emit(AgentEvent::TurnStarted {
+        client_turn_id: "turn-2".to_string(),
+    });
+
+    let replay = router
+        .attach("agent-opaque".to_string(), Channel::new(|_| Ok(())), 0)
+        .unwrap();
+
+    assert_eq!(
+        replay
+            .iter()
+            .map(|envelope| envelope.sequence)
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+    assert!(router.is_owner("agent-opaque"));
+    assert!(!router.is_owner("main"));
+}
+
+#[test]
+fn agent_event_router_bounds_the_handoff_journal() {
+    let mut router = AgentEventRouter::new("main".to_string(), Channel::new(|_| Ok(())));
+    for index in 0..(AGENT_EVENT_JOURNAL_LIMIT + 4) {
+        router.emit(AgentEvent::TurnStarted {
+            client_turn_id: format!("turn-{index}"),
+        });
+    }
+
+    let replay = router.attach("agent-opaque".to_string(), Channel::new(|_| Ok(())), 0);
+
+    assert!(replay.is_err());
 }

@@ -230,7 +230,10 @@ fn token_usage_test_session() -> AgentSession {
         title_child: Mutex::new(None),
         title_scratch_directory: Mutex::new(None),
         stdin: Mutex::new(panic_stdin()),
-        event_channel: test_channel(sender),
+        event_router: Mutex::new(AgentEventRouter::new(
+            "test-main".to_string(),
+            test_channel(sender),
+        )),
         request_counter: AtomicU64::new(0),
         approval_counter: AtomicU64::new(0),
         pending_requests: Mutex::new(HashMap::new()),

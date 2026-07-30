@@ -1,0 +1,65 @@
+.agent-detached-window {
+  display: flex;
+  min-width: 0;
+  height: 100vh;
+  min-height: 0;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+}
+
+.agent-detached-window > .codex-panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.agent-detached-window.is-moving > .codex-panel {
+  pointer-events: none;
+}
+
+.agent-panel.is-handoff-moving > :not(.agent-handoff-moving) {
+  pointer-events: none;
+}
+
+.agent-handoff-moving {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  color: var(--reader-muted);
+  background: color-mix(in srgb, var(--reader-bg) 88%, transparent);
+  place-items: center;
+}
+
+.agent-detached-moving {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  color: var(--reader-muted);
+  background: color-mix(in srgb, var(--reader-bg) 88%, transparent);
+  place-items: center;
+}
+
+.agent-detached-loading,
+.agent-detached-error {
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  color: var(--reader-muted);
+  background: var(--reader-bg);
+  place-items: center;
+}
+
+.agent-detached-notice {
+  position: fixed;
+  z-index: 20;
+  top: 12px;
+  right: 12px;
+  left: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--notice-border);
+  border-radius: 8px;
+  color: var(--notice-text);
+  background: var(--notice-bg);
+}

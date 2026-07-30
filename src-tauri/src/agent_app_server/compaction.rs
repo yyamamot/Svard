@@ -183,9 +183,11 @@ pub(super) fn normalize_token_usage_diagnostics(
 #[tauri::command]
 pub async fn compact_agent_session(
     client_session_id: String,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<AgentCompactionOutcome, String> {
     let session = session_for(&state, &client_session_id)?;
+    session.ensure_owner(window.label())?;
     if !session.manual_compaction_supported.load(Ordering::SeqCst) {
         return Ok(AgentCompactionOutcome::Failed {
             code: "compaction-unsupported".to_string(),

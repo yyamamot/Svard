@@ -46,6 +46,8 @@ export function useAgentRunningTurnControl({
   setQuestion,
   setRestoredQuotedContexts,
   state,
+  initialPendingTurn,
+  initialRunningAction,
 }: {
   activeTurnId: string | null;
   dispatch: Dispatch<AgentChatAction>;
@@ -64,13 +66,16 @@ export function useAgentRunningTurnControl({
   setQuestion: Dispatch<SetStateAction<string>>;
   setRestoredQuotedContexts: Dispatch<SetStateAction<AgentQuotedContext[]>>;
   state: AgentChatState;
+  initialPendingTurn?: PreparedAgentTurn | null;
+  initialRunningAction?: "queue" | "steer" | "stopAndSend" | null;
 }) {
   const [pendingTurn, setPendingTurn] = useState<PreparedAgentTurn | null>(
-    null,
+    initialPendingTurn ?? null,
   );
   const [runningAction, setRunningAction] = useState<
     "queue" | "steer" | "stopAndSend" | null
-  >(null);
+  >(initialRunningAction ?? null);
+  const workspaceGenerationRef = useRef(workspaceGeneration);
   const dispatchPreparedTurnRef = useRef(dispatchPreparedTurn);
   dispatchPreparedTurnRef.current = dispatchPreparedTurn;
 
@@ -121,6 +126,8 @@ export function useAgentRunningTurnControl({
   }
 
   useEffect(() => {
+    if (workspaceGenerationRef.current === workspaceGeneration) return;
+    workspaceGenerationRef.current = workspaceGeneration;
     setPendingTurn(null);
     setRunningAction(null);
   }, [workspaceGeneration]);

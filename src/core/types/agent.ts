@@ -1,4 +1,5 @@
-import type { AgentTurnContentPart } from "./selection";
+import type { DocumentPayload } from "./document";
+import type { AgentQuotedContext, AgentTurnContentPart } from "./selection";
 
 export type AgentProviderId =
   | "codex-app-server"
@@ -467,6 +468,41 @@ export type AgentEvent =
       message: string;
     }
   | { type: "turnCancelled"; clientTurnId: string };
+
+export interface AgentEventEnvelope {
+  sequence: number;
+  event: AgentEvent;
+}
+
+export type AgentChatOwner =
+  | { kind: "main"; windowLabel: string }
+  | { kind: "detached"; windowLabel: string };
+
+export interface AgentChatHandoffSnapshot {
+  version: 1;
+  clientSessionId: string;
+  workspaceRoot: string;
+  lastEventSequence: number;
+  lastMainPlacement: "right" | "bottom";
+  payload: unknown;
+}
+
+export interface AgentChatWindowOpenRequest {
+  handoffId?: string;
+  originWindowLabel?: string;
+  snapshot: AgentChatHandoffSnapshot;
+}
+
+export type AgentChatOriginAction =
+  | { type: "openDocument"; path: string }
+  | { type: "reviewChanges" }
+  | { type: "returnToQuotedContext"; snapshot: AgentQuotedContext };
+
+export interface AgentChatOwnerSync {
+  activeDocument: DocumentPayload | null;
+  quotedContexts: AgentQuotedContext[];
+  workspaceRoot: string | null;
+}
 
 export type AgentTurnOutcome =
   | { status: "completed" }

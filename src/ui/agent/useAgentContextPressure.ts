@@ -7,9 +7,9 @@ import type {
 } from "../../core/types";
 
 export type AgentContextCompactionStatus = "idle" | "running" | "updating";
-type LastCompaction = "automatic" | "manual" | null;
+export type LastCompaction = "automatic" | "manual" | null;
 
-interface ContextPressureSnapshot {
+export interface ContextPressureSnapshot {
   usage: AgentContextUsage | null;
   tokenUsageDiagnostics: AgentTokenUsageDiagnostics | null;
   status: AgentContextCompactionStatus;
@@ -24,6 +24,7 @@ interface UseAgentContextPressureInput {
   sessionIdRef: MutableRefObject<string>;
   sessionReadyRef: MutableRefObject<boolean>;
   setActionNotice: (notice: string | null) => void;
+  initialSnapshot?: ContextPressureSnapshot | null;
 }
 
 export function useAgentContextPressure({
@@ -34,21 +35,29 @@ export function useAgentContextPressure({
   sessionIdRef,
   sessionReadyRef,
   setActionNotice,
+  initialSnapshot,
 }: UseAgentContextPressureInput) {
   const [contextUsage, setContextUsage] = useState<AgentContextUsage | null>(
-    null,
+    initialSnapshot?.usage ?? null,
   );
   const [tokenUsageDiagnostics, setTokenUsageDiagnostics] =
-    useState<AgentTokenUsageDiagnostics | null>(null);
+    useState<AgentTokenUsageDiagnostics | null>(
+      initialSnapshot?.tokenUsageDiagnostics ?? null,
+    );
   const [contextCompactionStatus, setContextCompactionStatus] =
-    useState<AgentContextCompactionStatus>("idle");
-  const [lastCompaction, setLastCompaction] = useState<LastCompaction>(null);
-  const contextUsageRef = useRef<AgentContextUsage | null>(null);
-  const tokenUsageDiagnosticsRef = useRef<AgentTokenUsageDiagnostics | null>(
-    null,
+    useState<AgentContextCompactionStatus>(initialSnapshot?.status ?? "idle");
+  const [lastCompaction, setLastCompaction] = useState<LastCompaction>(
+    initialSnapshot?.lastCompaction ?? null,
   );
-  const contextCompactionStatusRef =
-    useRef<AgentContextCompactionStatus>("idle");
+  const contextUsageRef = useRef<AgentContextUsage | null>(
+    initialSnapshot?.usage ?? null,
+  );
+  const tokenUsageDiagnosticsRef = useRef<AgentTokenUsageDiagnostics | null>(
+    initialSnapshot?.tokenUsageDiagnostics ?? null,
+  );
+  const contextCompactionStatusRef = useRef<AgentContextCompactionStatus>(
+    initialSnapshot?.status ?? "idle",
+  );
 
   const resetContextPressure = useCallback(() => {
     contextUsageRef.current = null;

@@ -561,7 +561,10 @@ sleep 10
             title_child: Mutex::new(None),
             title_scratch_directory: Mutex::new(None),
             stdin: Mutex::new(sink.stdin.take().unwrap()),
-            event_channel: Channel::new(|_| Ok(())),
+            event_router: Mutex::new(AgentEventRouter::new(
+                "test-main".to_string(),
+                Channel::new(|_| Ok(())),
+            )),
             request_counter: AtomicU64::new(0),
             approval_counter: AtomicU64::new(0),
             pending_requests: Mutex::new(HashMap::new()),

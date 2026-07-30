@@ -274,9 +274,11 @@ pub(super) fn pending_image_usage(staged: &HashMap<String, StagedAgentImage>) ->
 #[tauri::command]
 pub fn stage_agent_image(
     input: AgentImageStageInput,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<AgentImageAttachment, String> {
     let session = session_for(&state, &input.client_session_id)?;
+    session.ensure_owner(window.label())?;
     if !session.image_input.load(Ordering::SeqCst) {
         return Err("This Codex app-server does not support image input.".to_string());
     }
@@ -350,9 +352,11 @@ pub fn stage_agent_image(
 #[tauri::command]
 pub fn discard_agent_image(
     input: AgentImageDiscardInput,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<(), String> {
     let session = session_for(&state, &input.client_session_id)?;
+    session.ensure_owner(window.label())?;
     let mut staged = session
         .staged_images
         .lock()
@@ -575,6 +579,7 @@ pub(super) fn stage_attachments(
 pub async fn send_agent_turn(
     input: AgentTurnInput,
     app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<AgentTurnOutcome, String> {
     let title_question = input.question.clone();
@@ -604,6 +609,7 @@ pub async fn send_agent_turn(
         return Err("The visualization instructions are too large.".to_string());
     }
     let session = session_for(&state, &input.client_session_id)?;
+    session.ensure_owner(window.label())?;
     if session
         .active_turn
         .lock()
@@ -759,10 +765,9 @@ pub async fn send_agent_turn(
     let outcome = match wait_result {
         Ok(outcome) => outcome,
         Err(_) => {
-            let _ = cancel_agent_turn(
-                input.client_session_id.clone(),
+            let _ = cancel_agent_turn_for_session(
+                &session,
                 current_client_turn(&session).unwrap_or_default(),
-                state,
             );
             AgentTurnOutcome::Failed {
                 code: "turn-timeout".to_string(),
@@ -782,9 +787,11 @@ pub async fn send_agent_turn(
 #[tauri::command]
 pub fn respond_to_agent_approval(
     input: AgentApprovalResponseInput,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<(), String> {
     let session = session_for(&state, &input.client_session_id)?;
+    session.ensure_owner(window.label())?;
     let approval = session
         .pending_approvals
         .lock()
@@ -832,9 +839,18 @@ pub fn respond_to_agent_approval(
 pub fn cancel_agent_turn(
     client_session_id: String,
     client_turn_id: String,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<(), String> {
     let session = session_for(&state, &client_session_id)?;
+    session.ensure_owner(window.label())?;
+    cancel_agent_turn_for_session(&session, client_turn_id)
+}
+
+fn cancel_agent_turn_for_session(
+    session: &AgentSession,
+    client_turn_id: String,
+) -> Result<(), String> {
     let (thread_id, provider_turn_id) = {
         let active = session
             .active_turn

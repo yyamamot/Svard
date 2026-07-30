@@ -1,5 +1,6 @@
 import type {
   AgentQuotedContext,
+  AgentChatHandoffSnapshot,
   AppConfig,
   DocumentPayload,
   HostAdapter,
@@ -22,11 +23,21 @@ export function AppAgentPanel({
   onRemoveQuotedContext,
   onReturnToQuotedContext,
   onMainPlacementChange,
+  onDetach,
+  handoffSnapshot,
+  handoffMoving,
+  lastMainPlacement,
+  detached,
+  onReattach,
+  onHandoffSnapshotChange,
+  onHandoffReady,
+  onHandoffFailure,
   open,
   placement,
   portalTarget,
   preferencesOpen,
   providerConfig,
+  theme,
   quotedContexts,
   workspaceRoot,
 }: {
@@ -41,11 +52,21 @@ export function AppAgentPanel({
   onRemoveQuotedContext: (snapshotId: string) => void;
   onReturnToQuotedContext: (snapshot: AgentQuotedContext) => void;
   onMainPlacementChange: (placement: MainAgentPanelPlacement) => void;
+  onDetach?: (snapshot: AgentChatHandoffSnapshot) => void | Promise<void>;
+  handoffSnapshot?: AgentChatHandoffSnapshot | null;
+  handoffMoving?: boolean;
+  lastMainPlacement?: MainAgentPanelPlacement;
+  detached?: boolean;
+  onReattach?: (snapshot: AgentChatHandoffSnapshot) => void | Promise<void>;
+  onHandoffSnapshotChange?: (snapshot: AgentChatHandoffSnapshot) => void;
+  onHandoffReady?: () => void;
+  onHandoffFailure?: (message: string) => void;
   open: boolean;
   placement?: AgentPanelPlacement;
   portalTarget?: HTMLElement | null;
   preferencesOpen: boolean;
   providerConfig: AppConfig["agentProviders"];
+  theme: AppConfig["theme"];
   quotedContexts: AgentQuotedContext[];
   workspaceRoot: string | null;
 }) {
@@ -59,12 +80,22 @@ export function AppAgentPanel({
       onClose={onClose}
       onOpenDocument={onOpenDocument}
       providerConfig={providerConfig}
+      theme={theme}
       quotedContexts={quotedContexts}
       onRemoveQuotedContext={onRemoveQuotedContext}
       onQuotedContextsAccepted={onQuotedContextsAccepted}
       onReviewChanges={onReviewChanges}
       onReturnToQuotedContext={onReturnToQuotedContext}
       onMainPlacementChange={onMainPlacementChange}
+      onDetach={onDetach}
+      handoffSnapshot={handoffSnapshot}
+      handoffMoving={handoffMoving}
+      lastMainPlacement={lastMainPlacement}
+      detached={detached}
+      onReattach={onReattach}
+      onHandoffSnapshotChange={onHandoffSnapshotChange}
+      onHandoffReady={onHandoffReady}
+      onHandoffFailure={onHandoffFailure}
       placement={placement}
       portalTarget={portalTarget}
       terminateSession={preferencesOpen}

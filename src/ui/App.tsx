@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { defaultConfig } from "../core/defaultConfig";
 import { AppMainShell } from "./components/AppMainShell";
 import { AppAgentPanel } from "./components/AppAgentPanel";
@@ -36,6 +36,7 @@ import { useQuickOpenActions } from "./hooks/useQuickOpenActions";
 import { useQuickOpenShellState } from "./hooks/useQuickOpenShellState";
 import { useDiffOverlayCommandRefs } from "./hooks/useDiffOverlayCommandRefs";
 import { useDiffAgentDockState } from "./hooks/useDiffAgentDockState";
+import { useDetachedAgentChat } from "./hooks/useDetachedAgentChat";
 import { useRecentWorkspaceActions } from "./hooks/useRecentWorkspaceActions";
 import { useSearchQueryForPath } from "./hooks/useSearchQueryForPath";
 import { useSearchState } from "./hooks/useSearchState";
@@ -151,6 +152,11 @@ export function App() {
     useInlineNotice();
   const { lightweightActionFeedback, showLightweightActionFeedback } =
     useLightweightActionFeedback();
+  const detachedAgentChat = useDetachedAgentChat({
+    host,
+    onError: showLightweightActionFeedback,
+    onOpenChange: setCodexPanelOpen,
+  });
   const { contextMenu, closeContextMenu, openContextMenu } =
     useContextMenuState();
   const beginViewerCaptureArea = (variant: CaptureAreaVariant = "plain") =>
@@ -498,11 +504,13 @@ export function App() {
     refreshSourceControlFromFileTree;
   // prettier-ignore
   const { addQuotedContext: addAgentDiffQuotedContext, agentDock: diffAgentDock,
-    focusRequest: diffAgentFocusRequest, mainPanelOpen: mainAgentPanelOpen,
+    focusRequest: diffAgentFocusRequest, mainPanelOpen: baseMainAgentPanelOpen,
     mountTarget: diffAgentMountTarget } = useDiffAgentDockState({
       available: agentChatAvailable, chatOpen: codexPanelOpen,
       diffOpen: Boolean(documentDiffPreview || documentDiffStreamPreview), onChatOpenChange: setCodexPanelOpen, registerQuotedContext: registerAgentQuotedContext,
     });
+  const mainAgentPanelOpen =
+    baseMainAgentPanelOpen && !detachedAgentChat.detached;
   const matchCount = searchHits.length;
   const {
     activateSearchHit,
@@ -986,6 +994,78 @@ export function App() {
     setPendingReveal: setPendingQuotedContextReveal,
     showInlineNotice,
   });
+  const detachedAgentContextCountRef = useRef(agentQuotedContexts.length);
+  useEffect(() => {
+    const previousContextCount = detachedAgentContextCountRef.current;
+    detachedAgentContextCountRef.current = agentQuotedContexts.length;
+    if (!detachedAgentChat.detached) return;
+    const focusAfterDelivery =
+      agentQuotedContexts.length > previousContextCount;
+    void host
+      .routeAgentChatOwnerSync({
+        activeDocument: activeDocumentPayload,
+        quotedContexts: agentQuotedContexts,
+        workspaceRoot: rootDirectory,
+      })
+      .then(() => {
+        if (focusAfterDelivery) void detachedAgentChat.focus();
+      })
+      .catch((error: unknown) => {
+        showLightweightActionFeedback(
+          error instanceof Error
+            ? error.message
+            : "AI Chat context could not be delivered.",
+        );
+      });
+  }, [
+    activeDocumentPayload,
+    agentQuotedContexts,
+    detachedAgentChat.detached,
+    detachedAgentChat.focus,
+    host,
+    rootDirectory,
+    showLightweightActionFeedback,
+  ]);
+  useEffect(() => {
+    let disposed = false;
+    let handle: { dispose(): void } | null = null;
+    void host
+      .watchAgentChatOriginAction((action) => {
+        if (disposed) return;
+        if (action.type === "openDocument") {
+          void openFileActions.activateTab(action.path);
+          return;
+        }
+        if (action.type === "reviewChanges") {
+          void sourceControl.reviewAgentChanges();
+          return;
+        }
+        const target = beginQuotedContextReveal(action.snapshot);
+        if (target.kind === "diffPreview") {
+          setDocumentDiffPreview(target.preview);
+        } else if (target.kind === "diffStream") {
+          openSourceControlAllDiffs(target.stream);
+        } else {
+          void openFileActions.activateTab(target.documentPath);
+        }
+      })
+      .then((nextHandle) => {
+        if (disposed) nextHandle.dispose();
+        else handle = nextHandle;
+      })
+      .catch(() => undefined);
+    return () => {
+      disposed = true;
+      handle?.dispose();
+    };
+  }, [
+    beginQuotedContextReveal,
+    host,
+    openFileActions,
+    openSourceControlAllDiffs,
+    setDocumentDiffPreview,
+    sourceControl,
+  ]);
   const { clearRecentDocuments, clearRecentDirectories } =
     useRecentWorkspaceActions(persistWorkspace);
   // prettier-ignore
@@ -1001,12 +1081,21 @@ export function App() {
       hideTabs: zenModeApplies && zenModeConfig.hideTabs,
       documentOrderNavigation: sidebarWiring.documentOrderNavigation,
       codexSpikeAvailable: agentChatAvailable, codexSpikeActive: codexPanelOpen,
+      codexSpikeDetached: detachedAgentChat.detached || detachedAgentChat.moving,
     },
     closeWorkspaceTab: workspaceTabActions.closeWorkspaceTab,
     codexPanelOpen,
     dispatchCommand: (commandId) => void dispatchCommand(commandId),
     openDocumentTab: workspaceTabActions.openDocumentWorkspaceTab,
-    openPreferencesTab, preferencesOpen, setCodexPanelOpen, setTabMoreOpen,
+    openPreferencesTab, preferencesOpen,
+    setCodexPanelOpen: ((value) => {
+      if (detachedAgentChat.detached || detachedAgentChat.moving) {
+        void detachedAgentChat.focus();
+        return;
+      }
+      setCodexPanelOpen(value);
+    }),
+    setTabMoreOpen,
   });
   return (
     // prettier-ignore
@@ -1026,7 +1115,7 @@ export function App() {
       agentPanelPlacement={agentPanelPlacement}
       codexPanelOpen={mainAgentPanelOpen}
       codexPanel={
-        <AppAgentPanel
+        detachedAgentChat.detached ? null : <AppAgentPanel
           activeDocument={activeDocumentPayload}
           confirmExternalLink={confirmExternalLink}
           focusRequest={diffAgentFocusRequest}
@@ -1037,11 +1126,24 @@ export function App() {
           providerConfig={
             config?.agentProviders ?? defaultConfig.agentProviders
           }
+          theme={config?.theme ?? defaultConfig.theme}
           quotedContexts={agentQuotedContexts}
           onRemoveQuotedContext={removeQuotedContext}
           onQuotedContextsAccepted={acceptQuotedContexts}
           onReviewChanges={sourceControl.reviewAgentChanges}
           onMainPlacementChange={setAgentPanelPlacement}
+          onDetach={async (snapshot) => {
+            const detachedFromDiff = diffAgentMountTarget !== null;
+            const moved = await detachedAgentChat.detach(snapshot);
+            if (moved && detachedFromDiff) {
+              setCodexPanelOpen(false);
+            }
+          }}
+          handoffSnapshot={detachedAgentChat.reattachSnapshot}
+          handoffMoving={detachedAgentChat.moving}
+          onHandoffReady={detachedAgentChat.acknowledgeReattach}
+          onHandoffFailure={detachedAgentChat.failReattach}
+          lastMainPlacement={agentPanelPlacement}
           onReturnToQuotedContext={(snapshot) => {
             const target = beginQuotedContextReveal(snapshot);
             if (target.kind === "diffPreview") {

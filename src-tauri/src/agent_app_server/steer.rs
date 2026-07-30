@@ -31,6 +31,7 @@ pub(super) fn steer_prompt(
 #[tauri::command]
 pub fn steer_agent_turn(
     input: AgentSteerInput,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<AgentSteerOutcome, String> {
     if input.question.as_bytes().len() > QUESTION_LIMIT {
@@ -49,6 +50,7 @@ pub fn steer_agent_turn(
         });
     }
     let session = session_for(&state, &input.client_session_id)?;
+    session.ensure_owner(window.label())?;
     if !session.turn_steering.load(Ordering::SeqCst) {
         return Ok(AgentSteerOutcome::Failed {
             code: "steer-unsupported".to_string(),

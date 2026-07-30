@@ -55,6 +55,7 @@ import {
 } from "./openUiEvaluationFixtures";
 
 export class MockAgentFacade {
+  private readonly agentEventSequences = new Map<string, number>();
   private readonly agentSessions = new Map<
     string,
     {
@@ -73,6 +74,36 @@ export class MockAgentFacade {
     string,
     MockAgentSessionRecord
   >();
+
+  attachAgentSession(
+    clientSessionId: string,
+    _afterSequence: number,
+    onEvent: (event: AgentEvent) => void,
+  ): Promise<void> {
+    const session = this.agentSessions.get(clientSessionId);
+    if (!session) {
+      return Promise.reject(new Error("The agent chat is not running."));
+    }
+    session.onEvent = this.agentEventHandler(clientSessionId, onEvent);
+    return Promise.resolve();
+  }
+
+  getAgentEventSequence(clientSessionId: string): number {
+    return this.agentEventSequences.get(clientSessionId) ?? 0;
+  }
+
+  private agentEventHandler(
+    clientSessionId: string,
+    onEvent: (event: AgentEvent) => void,
+  ): (event: AgentEvent) => void {
+    return (event) => {
+      this.agentEventSequences.set(
+        clientSessionId,
+        (this.agentEventSequences.get(clientSessionId) ?? 0) + 1,
+      );
+      onEvent(event);
+    };
+  }
   private agentSessionTimestamp = Math.floor(Date.now() / 1_000);
   private agentImageCounter = 0;
   private readonly agentProviderRuntime = new Map<
@@ -230,9 +261,10 @@ export class MockAgentFacade {
         ? selected.inputModalities.includes("image")
         : codexAppServerCapabilities.imageInput,
     };
+    this.agentEventSequences.set(input.clientSessionId, 0);
     this.agentSessions.set(input.clientSessionId, {
       input: { ...input, contextProfile },
-      onEvent,
+      onEvent: this.agentEventHandler(input.clientSessionId, onEvent),
       cancelledTurns: new Set(),
       pendingApprovals: new Map(),
       images: new Map(),
@@ -252,7 +284,7 @@ export class MockAgentFacade {
       availability: "available",
       turns: previous?.turns ?? [],
     });
-    onEvent({
+    this.agentSessions.get(input.clientSessionId)?.onEvent({
       type: "sessionReady",
       clientSessionId: input.clientSessionId,
       capabilities,
@@ -347,9 +379,10 @@ export class MockAgentFacade {
       executablePreference: structuredClone(input.executablePreference),
     };
     record.updatedAt = this.nextAgentSessionTimestamp();
+    this.agentEventSequences.set(input.clientSessionId, 0);
     this.agentSessions.set(input.clientSessionId, {
       input: structuredClone(record.input),
-      onEvent,
+      onEvent: this.agentEventHandler(input.clientSessionId, onEvent),
       cancelledTurns: new Set(),
       pendingApprovals: new Map(),
       images: new Map(),
@@ -358,7 +391,7 @@ export class MockAgentFacade {
       compacting: false,
       steeringMessages: [],
     });
-    onEvent({
+    this.agentSessions.get(input.clientSessionId)?.onEvent({
       type: "sessionReady",
       clientSessionId: input.clientSessionId,
       capabilities,

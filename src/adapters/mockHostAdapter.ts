@@ -7,6 +7,9 @@ import { createMockProviderTokenFacade } from "./mockHost/providerTokens";
 import { createMockWatcherFacade } from "./mockHost/watchers";
 import type {
   AppConfig,
+  AgentChatOriginAction,
+  AgentChatOwnerSync,
+  AgentChatWindowOpenRequest,
   CodexCliProbe,
   CodexContextFile,
   CodexContextFileLoadInput,
@@ -62,6 +65,180 @@ import type {
 import { searchMockWorkspace } from "../core/workspaceSearch";
 
 export class MockHostAdapter extends MockAgentFacade implements HostAdapter {
+  private agentChatWindowRequest: AgentChatWindowOpenRequest | null = null;
+
+  openAgentChatWindow(request: AgentChatWindowOpenRequest): Promise<string> {
+    const handoffId = request.handoffId ?? crypto.randomUUID();
+    this.agentChatWindowRequest = structuredClone({
+      ...request,
+      handoffId,
+      originWindowLabel: request.originWindowLabel ?? "main",
+    });
+    (
+      globalThis as typeof globalThis & {
+        __SVARD_MOCK_AGENT_REATTACH__?: () => void;
+      }
+    ).__SVARD_MOCK_AGENT_REATTACH__ = () => {
+      const current = this.agentChatWindowRequest;
+      if (!current) return;
+      globalThis.dispatchEvent(
+        new CustomEvent("svard-agent-chat-reattach", {
+          detail: structuredClone(current.snapshot),
+        }),
+      );
+    };
+    queueMicrotask(() => {
+      globalThis.dispatchEvent(
+        new CustomEvent("svard-agent-chat-ready", { detail: handoffId }),
+      );
+    });
+    return Promise.resolve(handoffId);
+  }
+
+  takeCurrentAgentChatWindowRequest(): Promise<AgentChatWindowOpenRequest | null> {
+    const request = this.agentChatWindowRequest;
+    this.agentChatWindowRequest = null;
+    return Promise.resolve(request ? structuredClone(request) : null);
+  }
+
+  focusAgentChatWindow(): Promise<boolean> {
+    return Promise.resolve(Boolean(this.agentChatWindowRequest));
+  }
+
+  closeAgentChatWindow(): Promise<void> {
+    this.agentChatWindowRequest = null;
+    delete (
+      globalThis as typeof globalThis & {
+        __SVARD_MOCK_AGENT_REATTACH__?: () => void;
+      }
+    ).__SVARD_MOCK_AGENT_REATTACH__;
+    return Promise.resolve();
+  }
+
+  watchAgentChatReattach(
+    onSnapshot: (snapshot: AgentChatWindowOpenRequest["snapshot"]) => void,
+  ): Promise<WatchHandle> {
+    const handler = (event: Event) =>
+      onSnapshot(
+        (event as CustomEvent<AgentChatWindowOpenRequest["snapshot"]>).detail,
+      );
+    globalThis.addEventListener("svard-agent-chat-reattach", handler);
+    return Promise.resolve({
+      dispose: () =>
+        globalThis.removeEventListener("svard-agent-chat-reattach", handler),
+    });
+  }
+
+  watchAgentChatReattachReady(onReady: () => void): Promise<WatchHandle> {
+    globalThis.addEventListener("svard-agent-chat-reattach-ready", onReady);
+    return Promise.resolve({
+      dispose: () =>
+        globalThis.removeEventListener(
+          "svard-agent-chat-reattach-ready",
+          onReady,
+        ),
+    });
+  }
+
+  acknowledgeAgentChatReattach(): Promise<void> {
+    globalThis.dispatchEvent(
+      new CustomEvent("svard-agent-chat-reattach-ready"),
+    );
+    this.agentChatWindowRequest = null;
+    delete (
+      globalThis as typeof globalThis & {
+        __SVARD_MOCK_AGENT_REATTACH__?: () => void;
+      }
+    ).__SVARD_MOCK_AGENT_REATTACH__;
+    return Promise.resolve();
+  }
+
+  emitAgentChatReattach(
+    _originWindowLabel: string,
+    snapshot: AgentChatWindowOpenRequest["snapshot"],
+  ): Promise<void> {
+    globalThis.dispatchEvent(
+      new CustomEvent("svard-agent-chat-reattach", { detail: snapshot }),
+    );
+    return Promise.resolve();
+  }
+
+  watchAgentChatReady(
+    onReady: (handoffId: string) => void,
+  ): Promise<WatchHandle> {
+    const handler = (event: Event) =>
+      onReady((event as CustomEvent<string>).detail);
+    globalThis.addEventListener("svard-agent-chat-ready", handler);
+    return Promise.resolve({
+      dispose: () =>
+        globalThis.removeEventListener("svard-agent-chat-ready", handler),
+    });
+  }
+
+  emitAgentChatReady(
+    _originWindowLabel: string,
+    handoffId: string,
+  ): Promise<void> {
+    globalThis.dispatchEvent(
+      new CustomEvent("svard-agent-chat-ready", { detail: handoffId }),
+    );
+    return Promise.resolve();
+  }
+
+  watchAgentChatClosed(onClosed: () => void): Promise<WatchHandle> {
+    globalThis.addEventListener("svard-agent-chat-closed", onClosed);
+    return Promise.resolve({
+      dispose: () =>
+        globalThis.removeEventListener("svard-agent-chat-closed", onClosed),
+    });
+  }
+
+  emitAgentChatClosed(_originWindowLabel: string): Promise<void> {
+    globalThis.dispatchEvent(new CustomEvent("svard-agent-chat-closed"));
+    return Promise.resolve();
+  }
+
+  watchAgentChatOriginAction(
+    onAction: (action: AgentChatOriginAction) => void,
+  ): Promise<WatchHandle> {
+    const handler = (event: Event) =>
+      onAction((event as CustomEvent<AgentChatOriginAction>).detail);
+    globalThis.addEventListener("svard-agent-chat-origin-action", handler);
+    return Promise.resolve({
+      dispose: () =>
+        globalThis.removeEventListener(
+          "svard-agent-chat-origin-action",
+          handler,
+        ),
+    });
+  }
+
+  routeAgentChatOriginAction(action: AgentChatOriginAction): Promise<void> {
+    globalThis.dispatchEvent(
+      new CustomEvent("svard-agent-chat-origin-action", { detail: action }),
+    );
+    return Promise.resolve();
+  }
+
+  watchAgentChatOwnerSync(
+    onSync: (sync: AgentChatOwnerSync) => void,
+  ): Promise<WatchHandle> {
+    const handler = (event: Event) =>
+      onSync((event as CustomEvent<AgentChatOwnerSync>).detail);
+    globalThis.addEventListener("svard-agent-chat-owner-sync", handler);
+    return Promise.resolve({
+      dispose: () =>
+        globalThis.removeEventListener("svard-agent-chat-owner-sync", handler),
+    });
+  }
+
+  routeAgentChatOwnerSync(sync: AgentChatOwnerSync): Promise<void> {
+    globalThis.dispatchEvent(
+      new CustomEvent("svard-agent-chat-owner-sync", { detail: sync }),
+    );
+    return Promise.resolve();
+  }
+
   private readonly cancelledCodexRuns = new Set<string>();
   private readonly codexSessions = new Set<string>();
   private readonly codexContexts = createMockCodexContextFacade();

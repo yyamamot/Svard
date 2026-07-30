@@ -299,6 +299,7 @@ while IFS= read -r line; do :; done
     let session = spawn_session_with_executable(
         &input,
         test_channel(sender),
+        "test-main".to_string(),
         CodexExecutable::custom_for_test(script),
         true,
         true,
@@ -409,7 +410,10 @@ while IFS= read -r line; do :; done
         title_child: Mutex::new(None),
         title_scratch_directory: Mutex::new(None),
         stdin: Mutex::new(panic_stdin()),
-        event_channel: test_channel(sender),
+        event_router: Mutex::new(AgentEventRouter::new(
+            "test-main".to_string(),
+            test_channel(sender),
+        )),
         request_counter: AtomicU64::new(0),
         approval_counter: AtomicU64::new(0),
         pending_requests: Mutex::new(HashMap::new()),
@@ -845,11 +849,11 @@ fn panic_stdin() -> ChildStdin {
     child.stdin.take().unwrap()
 }
 
-fn test_channel(sender: mpsc::Sender<Value>) -> Channel<AgentEvent> {
+fn test_channel(sender: mpsc::Sender<Value>) -> Channel<AgentEventEnvelope> {
     Channel::new(move |body| {
         if let tauri::ipc::InvokeResponseBody::Json(value) = body {
-            if let Ok(event) = serde_json::from_str::<Value>(&value) {
-                let _ = sender.send(event);
+            if let Ok(envelope) = serde_json::from_str::<Value>(&value) {
+                let _ = sender.send(envelope["event"].clone());
             }
         }
         Ok(())

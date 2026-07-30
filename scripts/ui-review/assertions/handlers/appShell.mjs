@@ -207,6 +207,7 @@ export async function buildAppShellAssertions(context) {
       scenario === "viewer-agent-chat-session-management" ||
       scenario === "viewer-agent-chat-workspace-isolation" ||
       scenario === "viewer-agent-chat-main-bottom-dock" ||
+      scenario === "viewer-agent-chat-detached-window" ||
       scenario === "viewer-agent-chat-dark-theme" ||
       scenario === "viewer-agent-chat-composer-access" ||
       scenario === "viewer-agent-chat-context-pressure" ||
@@ -411,6 +412,24 @@ export async function buildAppShellAssertions(context) {
               result?.splitReopenMaintained === true &&
               result?.splitViewMaintained === true &&
               result?.streamingMoveMaintained === true
+            );
+          })
+        : true,
+    hasAgentDetachedWindow:
+      scenario === "viewer-agent-chat-detached-window"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_AGENT_DETACHED_WINDOW_CHECK__;
+            return (
+              result?.bottomReattached === true &&
+              result?.detachControlVisible === true &&
+              result?.diffDrawerClosedAfterDetach === true &&
+              result?.diffDrawerReopenedAfterReattach === true &&
+              result?.diffPreviewMaintained === true &&
+              result?.draftPreserved === true &&
+              result?.focusMaintainedSingleOwner === true &&
+              result?.mainControllerRemoved === true &&
+              result?.reattached === true &&
+              result?.rightSidebarRestored === true
             );
           })
         : true,

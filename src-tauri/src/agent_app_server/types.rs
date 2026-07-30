@@ -601,6 +601,91 @@ pub enum AgentEvent {
     },
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentEventEnvelope {
+    pub sequence: u64,
+    pub event: AgentEvent,
+}
+
+pub(super) const AGENT_EVENT_JOURNAL_LIMIT: usize = 4_096;
+pub(super) const AGENT_EVENT_JOURNAL_BYTES_LIMIT: usize = 8 * 1024 * 1024;
+
+pub(super) struct AgentEventRouter {
+    pub(super) owner_window_label: String,
+    channel: Channel<AgentEventEnvelope>,
+    sequence: u64,
+    journal: VecDeque<(usize, AgentEventEnvelope)>,
+    journal_bytes: usize,
+}
+
+impl AgentEventRouter {
+    pub(super) fn new(owner_window_label: String, channel: Channel<AgentEventEnvelope>) -> Self {
+        Self {
+            owner_window_label,
+            channel,
+            sequence: 0,
+            journal: VecDeque::new(),
+            journal_bytes: 0,
+        }
+    }
+
+    pub(super) fn emit(&mut self, event: AgentEvent) {
+        self.sequence = self.sequence.saturating_add(1);
+        let envelope = AgentEventEnvelope {
+            sequence: self.sequence,
+            event,
+        };
+        let encoded_bytes = serde_json::to_vec(&envelope)
+            .map(|value| value.len())
+            .unwrap_or_default();
+        self.journal_bytes = self.journal_bytes.saturating_add(encoded_bytes);
+        self.journal.push_back((encoded_bytes, envelope.clone()));
+        while self.journal.len() > AGENT_EVENT_JOURNAL_LIMIT
+            || self.journal_bytes > AGENT_EVENT_JOURNAL_BYTES_LIMIT
+        {
+            if let Some((bytes, _)) = self.journal.pop_front() {
+                self.journal_bytes = self.journal_bytes.saturating_sub(bytes);
+            } else {
+                break;
+            }
+        }
+        let _ = self.channel.send(envelope);
+    }
+
+    pub(super) fn attach(
+        &mut self,
+        owner_window_label: String,
+        channel: Channel<AgentEventEnvelope>,
+        after_sequence: u64,
+    ) -> Result<Vec<AgentEventEnvelope>, String> {
+        if self.sequence > after_sequence
+            && self
+                .journal
+                .front()
+                .is_some_and(|(_, envelope)| envelope.sequence > after_sequence.saturating_add(1))
+        {
+            return Err(
+                "AI Chat produced too many events while moving. It stayed in the current window."
+                    .to_string(),
+            );
+        }
+        self.owner_window_label = owner_window_label;
+        self.channel = channel;
+        Ok(self
+            .journal
+            .iter()
+            .filter_map(|(_, envelope)| {
+                (envelope.sequence > after_sequence).then_some(envelope.clone())
+            })
+            .collect())
+    }
+
+    pub(super) fn is_owner(&self, window_label: &str) -> bool {
+        self.owner_window_label == window_label
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentCompactionSource {
@@ -675,7 +760,7 @@ pub(super) struct AgentSession {
     pub(super) title_child: Mutex<Option<Child>>,
     pub(super) title_scratch_directory: Mutex<Option<PathBuf>>,
     pub(super) stdin: Mutex<ChildStdin>,
-    pub(super) event_channel: Channel<AgentEvent>,
+    pub(super) event_router: Mutex<AgentEventRouter>,
     pub(super) request_counter: AtomicU64,
     pub(super) approval_counter: AtomicU64,
     pub(super) pending_requests: Mutex<HashMap<u64, mpsc::Sender<Result<Value, String>>>>,
@@ -699,7 +784,23 @@ pub(super) struct AgentSession {
 
 impl AgentSession {
     pub(super) fn emit(&self, event: AgentEvent) {
-        let _ = self.event_channel.send(event);
+        self.event_router
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .emit(event);
+    }
+
+    pub(super) fn ensure_owner(&self, window_label: &str) -> Result<(), String> {
+        if self
+            .event_router
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .is_owner(window_label)
+        {
+            Ok(())
+        } else {
+            Err("AI Chat is active in another window.".to_string())
+        }
     }
 
     pub(super) fn write_message(&self, value: &Value) -> Result<(), String> {
@@ -856,6 +957,17 @@ impl AgentAppServerState {
             .map(|(_, session)| session)
             .collect::<Vec<_>>();
         for session in sessions {
+            session.shutdown();
+        }
+    }
+
+    pub fn cleanup_session(&self, client_session_id: &str) {
+        if let Some(session) = self
+            .sessions
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .remove(client_session_id)
+        {
             session.shutdown();
         }
     }

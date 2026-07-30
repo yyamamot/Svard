@@ -41,7 +41,8 @@ pub(super) enum AgentSessionLaunch {
 
 pub(super) fn spawn_session_with_executable(
     input: &AgentSessionStartInput,
-    event_channel: Channel<AgentEvent>,
+    event_channel: Channel<AgentEventEnvelope>,
+    owner_window_label: String,
     executable: CodexExecutable,
     image_input: bool,
     turn_steering: bool,
@@ -120,7 +121,7 @@ pub(super) fn spawn_session_with_executable(
         title_child: Mutex::new(None),
         title_scratch_directory: Mutex::new(None),
         stdin: Mutex::new(stdin),
-        event_channel,
+        event_router: Mutex::new(AgentEventRouter::new(owner_window_label, event_channel)),
         request_counter: AtomicU64::new(0),
         approval_counter: AtomicU64::new(0),
         pending_requests: Mutex::new(HashMap::new()),
@@ -376,8 +377,10 @@ pub(super) fn session_record(
 #[tauri::command]
 pub fn start_agent_session(
     input: AgentSessionStartInput,
-    on_event: Channel<AgentEvent>,
+    on_event: Channel<AgentEventEnvelope>,
+    window: tauri::WebviewWindow,
     app: tauri::AppHandle,
+    pending_windows: State<'_, crate::PendingAgentChatWindows>,
     state: State<'_, AgentAppServerState>,
 ) -> Result<AgentSessionInfo, String> {
     if input.provider_id != "codex-app-server" {
@@ -414,6 +417,7 @@ pub fn start_agent_session(
     let session = match spawn_session_with_executable(
         &input,
         on_event,
+        window.label().to_string(),
         executable,
         image_input,
         turn_steering,
@@ -488,6 +492,14 @@ pub fn start_agent_session(
         .lock()
         .unwrap_or_else(|error| error.into_inner())
         .insert(input.client_session_id.clone(), session);
+    if !crate::record_agent_chat_session_for_window(
+        &pending_windows,
+        window.label(),
+        &input.client_session_id,
+    ) {
+        state.cleanup_session(&input.client_session_id);
+        return Err("The AI Chat window was closed while starting.".to_string());
+    }
     Ok(AgentSessionInfo {
         client_session_id: input.client_session_id,
         provider_id: "codex-app-server",
@@ -628,8 +640,10 @@ pub(super) fn provider_session_missing(error: &str) -> bool {
 #[tauri::command]
 pub fn resume_agent_session(
     input: AgentSessionResumeInput,
-    on_event: Channel<AgentEvent>,
+    on_event: Channel<AgentEventEnvelope>,
+    window: tauri::WebviewWindow,
     app: tauri::AppHandle,
+    pending_windows: State<'_, crate::PendingAgentChatWindows>,
     state: State<'_, AgentAppServerState>,
 ) -> Result<AgentSessionInfo, String> {
     if input.client_session_id.trim().is_empty() {
@@ -679,6 +693,7 @@ pub fn resume_agent_session(
     let session = match spawn_session_with_executable(
         &start_input,
         on_event,
+        window.label().to_string(),
         executable,
         image_input,
         turn_steering,
@@ -734,12 +749,45 @@ pub fn resume_agent_session(
         }
         return Err(error);
     }
+    if !crate::record_agent_chat_session_for_window(
+        &pending_windows,
+        window.label(),
+        &input.client_session_id,
+    ) {
+        state.cleanup_session(&input.client_session_id);
+        return Err("The AI Chat window was closed while resuming.".to_string());
+    }
     Ok(AgentSessionInfo {
         client_session_id: input.client_session_id,
         provider_id: "codex-app-server",
         capabilities,
         context_profile: start_input.context_profile,
     })
+}
+
+#[tauri::command]
+pub fn attach_agent_session(
+    client_session_id: String,
+    after_sequence: u64,
+    on_event: Channel<AgentEventEnvelope>,
+    window: tauri::WebviewWindow,
+    pending_windows: State<'_, crate::PendingAgentChatWindows>,
+    state: State<'_, AgentAppServerState>,
+) -> Result<Vec<AgentEventEnvelope>, String> {
+    let session = session_for(&state, &client_session_id)?;
+    if !crate::record_agent_chat_session_for_window(
+        &pending_windows,
+        window.label(),
+        &client_session_id,
+    ) {
+        return Err("The AI Chat window was closed while moving.".to_string());
+    }
+    let replay = session
+        .event_router
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .attach(window.label().to_string(), on_event, after_sequence)?;
+    Ok(replay)
 }
 
 pub(super) fn session_for(

@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "agent-chat",
+  "description": "Capability for detached Svard AI Chat windows",
+  "windows": ["agent-*"],
+  "permissions": [
+    "core:default",
+    "core:app:allow-set-app-theme",
+    "dialog:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "http://*" }, { "url": "https://*" }]
+    }
+  ]
+}

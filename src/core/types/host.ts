@@ -1,5 +1,9 @@
 import type {
   AgentApprovalResponseInput,
+  AgentChatHandoffSnapshot,
+  AgentChatOriginAction,
+  AgentChatOwnerSync,
+  AgentChatWindowOpenRequest,
   AgentCompactionOutcome,
   AgentEvent,
   AgentExecutablePreference,
@@ -153,6 +157,42 @@ export interface HostAdapter {
     input: AgentSessionStartInput,
     onEvent: (event: AgentEvent) => void,
   ): Promise<AgentSessionInfo>;
+  attachAgentSession(
+    clientSessionId: string,
+    afterSequence: number,
+    onEvent: (event: AgentEvent) => void,
+  ): Promise<void>;
+  getAgentEventSequence(clientSessionId: string): number;
+  openAgentChatWindow(request: AgentChatWindowOpenRequest): Promise<string>;
+  takeCurrentAgentChatWindowRequest(): Promise<AgentChatWindowOpenRequest | null>;
+  focusAgentChatWindow(originWindowLabel?: string): Promise<boolean>;
+  closeAgentChatWindow(originWindowLabel?: string): Promise<void>;
+  watchAgentChatReattach(
+    onSnapshot: (snapshot: AgentChatHandoffSnapshot) => void,
+  ): Promise<WatchHandle>;
+  watchAgentChatReattachReady(onReady: () => void): Promise<WatchHandle>;
+  acknowledgeAgentChatReattach(): Promise<void>;
+  watchAgentChatReady(
+    onReady: (handoffId: string) => void,
+  ): Promise<WatchHandle>;
+  emitAgentChatReady(
+    originWindowLabel: string,
+    handoffId: string,
+  ): Promise<void>;
+  watchAgentChatClosed(onClosed: () => void): Promise<WatchHandle>;
+  emitAgentChatClosed(originWindowLabel: string): Promise<void>;
+  watchAgentChatOriginAction(
+    onAction: (action: AgentChatOriginAction) => void,
+  ): Promise<WatchHandle>;
+  routeAgentChatOriginAction(action: AgentChatOriginAction): Promise<void>;
+  watchAgentChatOwnerSync(
+    onSync: (sync: AgentChatOwnerSync) => void,
+  ): Promise<WatchHandle>;
+  routeAgentChatOwnerSync(sync: AgentChatOwnerSync): Promise<void>;
+  emitAgentChatReattach(
+    originWindowLabel: string,
+    snapshot: AgentChatHandoffSnapshot,
+  ): Promise<void>;
   listAgentSessions(input: AgentSessionListInput): Promise<AgentSessionPage>;
   resumeAgentSession(
     input: AgentSessionResumeInput,

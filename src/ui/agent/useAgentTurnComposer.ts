@@ -48,6 +48,7 @@ import {
 } from "./agentQuotedContextContent";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
 import { agentErrorMessage } from "./agentChatState";
+import { agentChatHandoffPayload } from "./agentChatHandoff";
 import type { AgentSessionController } from "./useAgentSessionController";
 import {
   useAgentRunningTurnControl,
@@ -58,6 +59,7 @@ export function useAgentTurnComposer(
   {
     activeDocument,
     confirmExternalLink,
+    handoffSnapshot,
     host,
     onOpenDocument,
     onQuotedContextsAccepted,
@@ -67,6 +69,7 @@ export function useAgentTurnComposer(
   }: AgentPanelHostProps,
   session: AgentSessionController,
 ) {
+  const handoff = agentChatHandoffPayload(handoffSnapshot);
   const [internalDragPreview, setInternalDragPreview] =
     useState<AgentInternalDragPreview | null>(null);
   const {
@@ -121,6 +124,8 @@ export function useAgentTurnComposer(
     setQuestion,
     setRestoredQuotedContexts,
     state,
+    initialPendingTurn: handoff?.pendingTurn,
+    initialRunningAction: handoff?.runningAction,
   });
   const { pendingTurn, runningAction } = runningTurnControl;
   async function submit(
@@ -338,9 +343,7 @@ export function useAgentTurnComposer(
         ],
         contentParts,
         visualizationInstructions:
-          responseMode === "visualize"
-            ? svardOpenUiBalancedPrompt
-            : undefined,
+          responseMode === "visualize" ? svardOpenUiBalancedPrompt : undefined,
       },
     };
     if (activeTurnId) {

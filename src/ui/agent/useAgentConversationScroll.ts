@@ -17,14 +17,23 @@ export function agentConversationIsNearBottom(
   );
 }
 
-export function useAgentConversationScroll(state: AgentChatState) {
+export interface AgentConversationScrollSnapshot {
+  followLatest: boolean;
+  scrollTop: number;
+}
+
+export function useAgentConversationScroll(
+  state: AgentChatState,
+  initialSnapshot?: AgentConversationScrollSnapshot | null,
+) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const conversationFollowRef = useRef(true);
+  const conversationFollowRef = useRef(initialSnapshot?.followLatest ?? true);
   const [newActivityAvailable, setNewActivityAvailable] = useState(false);
   const historyPrependScrollRef = useRef<{
     height: number;
     top: number;
   } | null>(null);
+  const initialScrollTopRef = useRef(initialSnapshot?.scrollTop ?? null);
 
   const followLatestConversation = useCallback(() => {
     conversationFollowRef.current = true;
@@ -65,6 +74,11 @@ export function useAgentConversationScroll(state: AgentChatState) {
       return;
     }
     if (!scrollRef.current) return;
+    if (initialScrollTopRef.current !== null) {
+      scrollRef.current.scrollTop = initialScrollTopRef.current;
+      initialScrollTopRef.current = null;
+      return;
+    }
     if (conversationFollowRef.current) {
       followLatestConversation();
     } else {
@@ -73,6 +87,10 @@ export function useAgentConversationScroll(state: AgentChatState) {
   }, [followLatestConversation, state]);
 
   return {
+    captureConversationScroll: (): AgentConversationScrollSnapshot => ({
+      followLatest: conversationFollowRef.current,
+      scrollTop: scrollRef.current?.scrollTop ?? 0,
+    }),
     followLatestConversation,
     handleConversationScroll,
     historyPrependScrollRef,

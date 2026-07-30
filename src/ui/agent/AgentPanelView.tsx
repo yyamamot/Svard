@@ -1,5 +1,7 @@
 import {
+  ExternalLink,
   History,
+  PanelLeftOpen,
   PanelBottom,
   PanelRight,
   RotateCcw,
@@ -14,6 +16,7 @@ import { permissionLabel, probeLabel } from "./agentPanelModel";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
 import type { AgentSessionController } from "./useAgentSessionController";
 import type { AgentTurnComposer } from "./useAgentTurnComposer";
+import { agentChatHandoffPayload } from "./agentChatHandoff";
 
 export function AgentPanelView({
   composer,
@@ -28,11 +31,30 @@ export function AgentPanelView({
     host,
     onClose,
     onMainPlacementChange,
+    onDetach,
+    onReattach,
+    detached = false,
+    handoffMoving = false,
     onReviewChanges,
     placement = "mainRight",
     workspaceRoot,
   } = hostProps;
   const { probe, ready } = composer;
+  const currentHandoffSnapshot = () => {
+    const snapshot = session.createHandoffSnapshot(
+      placement === "mainBottom"
+        ? "bottom"
+        : placement === "mainRight"
+          ? "right"
+          : (hostProps.lastMainPlacement ?? "right"),
+    );
+    const payload = agentChatHandoffPayload(snapshot);
+    if (payload) {
+      payload.pendingTurn = composer.pendingTurn;
+      payload.runningAction = composer.runningAction;
+    }
+    return snapshot;
+  };
   const {
     activeTurnId,
     cancelFullAccessStart,
@@ -67,7 +89,17 @@ export function AgentPanelView({
     setSettingsOpen,
   } = session;
   return (
-    <aside className="codex-panel agent-panel" data-review-id="agent-panel">
+    <aside
+      className={`codex-panel agent-panel ${
+        handoffMoving ? "is-handoff-moving" : ""
+      }`}
+      data-review-id="agent-panel"
+    >
+      {handoffMoving ? (
+        <div className="agent-handoff-moving" role="status">
+          Moving AI Chat…
+        </div>
+      ) : null}
       <header className="codex-panel-header">
         <div>
           <strong>AI Chat</strong>
@@ -113,7 +145,7 @@ export function AgentPanelView({
           >
             <History size={15} />
           </button>
-          {placement !== "diffDock" ? (
+          {!detached && placement !== "diffDock" ? (
             <button
               type="button"
               className="icon-button"
@@ -138,6 +170,27 @@ export function AgentPanelView({
               ) : (
                 <PanelBottom size={15} />
               )}
+            </button>
+          ) : null}
+          {detached ? (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Attach AI Chat to Main"
+              title="Attach AI Chat to Main"
+              onClick={() => void onReattach?.(currentHandoffSnapshot())}
+            >
+              <PanelLeftOpen size={15} />
+            </button>
+          ) : onDetach ? (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Open AI Chat in separate window"
+              title="Open AI Chat in separate window"
+              onClick={() => void onDetach(currentHandoffSnapshot())}
+            >
+              <ExternalLink size={15} />
             </button>
           ) : null}
           <button

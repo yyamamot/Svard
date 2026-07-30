@@ -2,6 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { setTheme as setAppTheme } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { buildFileDocumentDiffPreview } from "../core/documentDiff";
@@ -10,6 +11,9 @@ import { TauriAgentFacade } from "./tauriHost/agent";
 import { invokeCommand } from "./tauriHost/invoke";
 import type {
   AppConfig,
+  AgentChatOriginAction,
+  AgentChatOwnerSync,
+  AgentChatWindowOpenRequest,
   CodexCliProbe,
   CodexContextFile,
   CodexContextFileLoadInput,
@@ -120,6 +124,112 @@ function workspaceRootForSelectedPath(
 }
 
 export class TauriHostAdapter extends TauriAgentFacade implements HostAdapter {
+  openAgentChatWindow(request: AgentChatWindowOpenRequest): Promise<string> {
+    return invokeCommand("open_agent_chat_window", { request });
+  }
+
+  takeCurrentAgentChatWindowRequest(): Promise<AgentChatWindowOpenRequest | null> {
+    return invokeCommand("take_current_agent_chat_window_request");
+  }
+
+  focusAgentChatWindow(originWindowLabel?: string): Promise<boolean> {
+    return invokeCommand("focus_agent_chat_window", { originWindowLabel });
+  }
+
+  closeAgentChatWindow(originWindowLabel?: string): Promise<void> {
+    return invokeCommand("close_agent_chat_window", { originWindowLabel });
+  }
+
+  async watchAgentChatReattach(
+    onSnapshot: (snapshot: AgentChatWindowOpenRequest["snapshot"]) => void,
+  ): Promise<WatchHandle> {
+    const unlisten = await listen<AgentChatWindowOpenRequest["snapshot"]>(
+      "agent-chat-reattach",
+      (event) => onSnapshot(event.payload),
+    );
+    return { dispose: unlisten };
+  }
+
+  async watchAgentChatReattachReady(onReady: () => void): Promise<WatchHandle> {
+    const unlisten = await listen("agent-chat-reattach-ready", onReady);
+    return { dispose: unlisten };
+  }
+
+  acknowledgeAgentChatReattach(): Promise<void> {
+    return invokeCommand("acknowledge_agent_chat_reattach");
+  }
+
+  async watchAgentChatReady(
+    onReady: (handoffId: string) => void,
+  ): Promise<WatchHandle> {
+    const unlisten = await listen<string>("agent-chat-ready", (event) =>
+      onReady(event.payload),
+    );
+    return { dispose: unlisten };
+  }
+
+  emitAgentChatReady(
+    originWindowLabel: string,
+    handoffId: string,
+  ): Promise<void> {
+    return getCurrentWebviewWindow().emitTo(
+      originWindowLabel,
+      "agent-chat-ready",
+      handoffId,
+    );
+  }
+
+  async watchAgentChatClosed(onClosed: () => void): Promise<WatchHandle> {
+    const unlisten = await listen("agent-chat-closed", onClosed);
+    return { dispose: unlisten };
+  }
+
+  emitAgentChatClosed(originWindowLabel: string): Promise<void> {
+    return getCurrentWebviewWindow().emitTo(
+      originWindowLabel,
+      "agent-chat-closed",
+    );
+  }
+
+  async watchAgentChatOriginAction(
+    onAction: (action: AgentChatOriginAction) => void,
+  ): Promise<WatchHandle> {
+    const unlisten = await listen<AgentChatOriginAction>(
+      "agent-chat-origin-action",
+      (event) => onAction(event.payload),
+    );
+    return { dispose: unlisten };
+  }
+
+  routeAgentChatOriginAction(action: AgentChatOriginAction): Promise<void> {
+    return invokeCommand("route_agent_chat_origin_action", { action });
+  }
+
+  async watchAgentChatOwnerSync(
+    onSync: (sync: AgentChatOwnerSync) => void,
+  ): Promise<WatchHandle> {
+    const unlisten = await listen<AgentChatOwnerSync>(
+      "agent-chat-owner-sync",
+      (event) => onSync(event.payload),
+    );
+    return { dispose: unlisten };
+  }
+
+  routeAgentChatOwnerSync(sync: AgentChatOwnerSync): Promise<void> {
+    return invokeCommand("route_agent_chat_owner_sync", { sync });
+  }
+
+  emitAgentChatReattach(
+    originWindowLabel: string,
+    snapshot: AgentChatWindowOpenRequest["snapshot"],
+  ): Promise<void> {
+    return getCurrentWebviewWindow().emitTo(
+      originWindowLabel,
+      "agent-chat-reattach",
+      snapshot,
+    );
+  }
+
   probeCodex(): Promise<CodexCliProbe> {
     return invokeCommand("probe_codex");
   }

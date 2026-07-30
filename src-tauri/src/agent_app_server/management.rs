@@ -121,6 +121,7 @@ pub(super) fn normalized_session_title(title: &str) -> Result<String, String> {
 pub fn rename_agent_session(
     input: AgentSessionRenameInput,
     app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<AgentSessionSummary, String> {
     let title = normalized_session_title(&input.title)?;
@@ -130,6 +131,9 @@ pub fn rename_agent_session(
         .unwrap_or_else(|error| error.into_inner())
         .get(&input.client_session_id)
         .cloned();
+    if let Some(session) = active_session.as_ref() {
+        session.ensure_owner(window.label())?;
+    }
     let _title_guard = active_session.as_ref().map(|session| {
         session
             .title_update_lock
@@ -189,6 +193,7 @@ pub fn rename_agent_session(
 pub fn set_agent_session_archived(
     input: AgentSessionArchiveInput,
     app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<AgentSessionSummary, String> {
     ensure_session_idle(&state, &input.client_session_id)?;
@@ -198,6 +203,9 @@ pub fn set_agent_session_archived(
         .unwrap_or_else(|error| error.into_inner())
         .get(&input.client_session_id)
         .cloned();
+    if let Some(session) = active_session.as_ref() {
+        session.ensure_owner(window.label())?;
+    }
     let _title_guard = active_session.as_ref().map(|session| {
         session
             .title_update_lock
@@ -272,6 +280,7 @@ pub fn set_agent_session_archived(
 pub fn delete_agent_session(
     input: AgentSessionDeleteInput,
     app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<(), String> {
     ensure_session_idle(&state, &input.client_session_id)?;
@@ -281,6 +290,9 @@ pub fn delete_agent_session(
         .unwrap_or_else(|error| error.into_inner())
         .get(&input.client_session_id)
         .cloned();
+    if let Some(session) = active_session.as_ref() {
+        session.ensure_owner(window.label())?;
+    }
     let _title_guard = active_session.as_ref().map(|session| {
         session
             .title_update_lock
@@ -326,8 +338,11 @@ pub fn delete_agent_session(
 #[tauri::command]
 pub fn close_agent_session(
     client_session_id: String,
+    window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<(), String> {
+    let session = session_for(&state, &client_session_id)?;
+    session.ensure_owner(window.label())?;
     if let Some(session) = state
         .sessions
         .lock()

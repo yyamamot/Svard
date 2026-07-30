@@ -11,6 +11,7 @@ import {
 } from "./agentChatComposerAccess.mjs";
 import { agentChatContextScenarios } from "./agentChatContextScenarios.mjs";
 import { runAgentWorkspaceIsolationScenario } from "./agentChatWorkspaceIsolation.mjs";
+import { runAgentDetachedWindowScenario } from "./agentChatDetachedWindow.mjs";
 import {
   recordAgentChangeReviewScenario,
   isAgentChatScenario,
@@ -669,6 +670,9 @@ export async function applyAppShellAgentChatScenario(context) {
     }
     if (scenario === "viewer-agent-chat-main-bottom-dock") {
       await runAgentMainBottomDockScenario({ composer, page });
+    }
+    if (scenario === "viewer-agent-chat-detached-window") {
+      await runAgentDetachedWindowScenario({ composer, page });
     }
     if (scenario === "viewer-agent-chat-active-file") {
       const firstTurn = await page.evaluate(

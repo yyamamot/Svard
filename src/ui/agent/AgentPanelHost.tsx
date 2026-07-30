@@ -4,6 +4,7 @@ import { AgentPanelView } from "./AgentPanelView";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
 import { useAgentSessionController } from "./useAgentSessionController";
 import { useAgentTurnComposer } from "./useAgentTurnComposer";
+import { agentChatHandoffPayload } from "./agentChatHandoff";
 
 export {
   activeFileForTurn,
@@ -14,6 +15,23 @@ export {
 export function AgentPanelHost(props: AgentPanelHostProps) {
   const session = useAgentSessionController(props);
   const composer = useAgentTurnComposer(props, session);
+  useEffect(() => {
+    const snapshot = session.createHandoffSnapshot(
+      props.placement === "mainBottom"
+        ? "bottom"
+        : props.placement === "mainRight"
+          ? "right"
+          : (props.lastMainPlacement ??
+            props.handoffSnapshot?.lastMainPlacement ??
+            "right"),
+    );
+    const payload = agentChatHandoffPayload(snapshot);
+    if (payload) {
+      payload.pendingTurn = composer.pendingTurn;
+      payload.runningAction = composer.runningAction;
+    }
+    props.onHandoffSnapshotChange?.(snapshot);
+  });
   useEffect(() => {
     if (!props.open || !props.focusRequest) return;
     const frame = window.requestAnimationFrame(() => {
