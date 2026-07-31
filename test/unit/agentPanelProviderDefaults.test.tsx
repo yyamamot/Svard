@@ -141,7 +141,9 @@ describe("AgentPanelHost provider defaults", () => {
     const popover = document.querySelector(
       '[data-review-id="agent-access-popover"]',
     );
-    expect(popover?.textContent).toContain("Changing access starts a new chat");
+    expect(popover?.textContent).toContain(
+      "Changing access or context profile starts a new chat",
+    );
     const agentRadio = [...popover!.querySelectorAll("label")]
       .find((label) => label.textContent?.trim() === "Agent")
       ?.querySelector<HTMLInputElement>('input[type="radio"]');

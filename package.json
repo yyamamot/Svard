@@ -41,6 +41,7 @@
     "review:ui:llm": "node scripts/review-ui-llm.mjs",
     "review:ui:system": "node scripts/review-ui-system.mjs",
     "smoke:tauri-checklist": "node scripts/tauri-smoke-checklist.mjs",
+    "smoke:agent-chat-native": "node scripts/agent-chat-native-regression.mjs",
     "smoke:cross-platform": "node scripts/cross-platform-smoke.mjs",
     "poc:plantuml-teavm": "node scripts/poc-plantuml-teavm.mjs",
     "update:plantuml-teavm-assets": "node scripts/update-plantuml-teavm-assets.mjs",
