@@ -55,6 +55,9 @@ pub(super) fn terminate_owned_process(child: &mut Child) -> Result<(), String> {
     #[cfg(unix)]
     {
         let process_group_id = child.id();
+        child
+            .try_wait()
+            .map_err(|_| "The Codex app-server process state is unavailable.".to_string())?;
         signal_process_group(process_group_id, libc::SIGTERM)?;
         if !wait_for_process_group_exit(child, process_group_id, GRACEFUL_PROCESS_EXIT_TIMEOUT)? {
             signal_process_group(process_group_id, libc::SIGKILL)?;
@@ -136,7 +139,7 @@ mod tests {
 
         let result = unsafe { libc::kill(child.id() as i32, libc::SIGKILL) };
         assert_eq!(result, 0);
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(2_500));
 
         terminate_owned_process(&mut child).unwrap();
 
