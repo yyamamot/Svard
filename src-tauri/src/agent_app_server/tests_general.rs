@@ -686,6 +686,23 @@ fn unsafe_command_output_does_not_create_activity_detail() {
 }
 
 #[test]
+fn one_unsafe_activity_field_hides_the_entire_detail() {
+    let workspace = tempfile::tempdir().unwrap();
+    for item in [
+        json!({
+            "command": r"type C:\Users\person\secret.txt",
+            "aggregatedOutput": "completed"
+        }),
+        json!({
+            "command": "rg Agent src/main.rs",
+            "aggregatedOutput": r"found \\server\share\secret.txt"
+        }),
+    ] {
+        assert_eq!(completed_tool_detail(workspace.path(), &item), None);
+    }
+}
+
+#[test]
 fn internal_failures_keep_only_a_generic_summary() {
     let workspace = tempfile::tempdir().unwrap();
     let item = json!({
@@ -729,6 +746,70 @@ fn activity_detail_redacts_workspace_paths_and_rejects_external_paths() {
     assert!(safe.contains("./src"));
     assert!(!safe.contains(workspace.path().to_string_lossy().as_ref()));
     assert!(safe_activity_text(workspace.path(), "cat /private/secret", 480).is_none());
+}
+
+#[test]
+fn activity_detail_rejects_windows_and_uri_paths_on_every_host_os() {
+    let workspace = Path::new(r"C:\Users\person\workspace");
+    let safe = safe_activity_text(
+        workspace,
+        r#"rg Agent "C:\Users\person\workspace\src""#,
+        480,
+    )
+    .unwrap();
+    assert_eq!(safe, r#"rg Agent ".\src""#);
+
+    for unsafe_value in [
+        r#"type "C:\Users\person\secret.txt""#,
+        r"type C:relative\secret.txt",
+        r"type \Windows\secret.txt",
+        r"type \\server\share\secret.txt",
+        r"type \\?\C:\secret.txt",
+        r"type \\?\UNC\server\share\secret.txt",
+        r"type \\.\PhysicalDrive0",
+        r"open file:///C:/Users/person/secret.txt",
+        r#"tool --path="C:\Users\person\secret.txt""#,
+        r#"inspect ("C:\Users\person\secret.txt")."#,
+        r"tool --path=/private/secret",
+    ] {
+        assert!(
+            safe_activity_text(workspace, unsafe_value, 480).is_none(),
+            "unsafe activity detail was displayed: {unsafe_value}"
+        );
+    }
+}
+
+#[test]
+fn activity_detail_allows_urls_and_relative_paths() {
+    let workspace = Path::new(r"C:\Users\person\workspace");
+    for safe_value in [
+        "rg Agent src/main.rs",
+        "open https://example.com/docs/path",
+        "tool --path=src/main.rs",
+        "read ./README.md",
+    ] {
+        assert_eq!(
+            safe_activity_text(workspace, safe_value, 480).as_deref(),
+            Some(safe_value)
+        );
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn workspace_file_labels_handle_windows_canonical_paths_and_unicode() {
+    let workspace = tempfile::tempdir().unwrap();
+    let nested = workspace.path().join("資料");
+    std::fs::create_dir_all(&nested).unwrap();
+    let file = nested.join("概要.md");
+    std::fs::write(&file, "# Windows\n").unwrap();
+
+    let canonical_root = workspace.path().canonicalize().unwrap();
+    let mixed_path = file.to_string_lossy().replace('\\', "/");
+    assert_eq!(
+        workspace_relative_file_label(&canonical_root, &mixed_path).unwrap(),
+        Some("資料/概要.md".to_string())
+    );
 }
 
 #[test]

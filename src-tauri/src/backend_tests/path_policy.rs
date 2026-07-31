@@ -1,6 +1,31 @@
 use super::shared::create_security_path_fixture;
 use super::*;
 
+#[cfg(windows)]
+#[test]
+fn windows_path_kinds_cover_drive_unc_and_verbatim_prefixes() {
+    assert_eq!(
+        path_location_kind(Path::new(r"C:\Workspace\docs")),
+        PathLocationKind::Local
+    );
+    assert_eq!(
+        path_location_kind(Path::new(r"\\Server\Share\docs")),
+        PathLocationKind::NetworkUnc
+    );
+    assert_eq!(
+        path_location_kind(Path::new(r"\\?\UNC\wSl.LoCaLhOsT\Ubuntu\docs")),
+        PathLocationKind::WslUnc
+    );
+    assert_eq!(
+        path_to_ui_path(Path::new(r"\\?\C:\Workspace\docs")),
+        PathBuf::from(r"C:\Workspace\docs")
+    );
+    assert_eq!(
+        path_to_ui_path(Path::new(r"\\?\UNC\Server\Share\docs")),
+        PathBuf::from(r"\\Server\Share\docs")
+    );
+}
+
 #[test]
 fn allowed_roots_allow_registered_children_and_reject_outside_paths() {
     let dir = tempdir().expect("temp dir");

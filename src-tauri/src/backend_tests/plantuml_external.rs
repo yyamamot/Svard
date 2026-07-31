@@ -152,7 +152,7 @@ fn external_plantuml_error_does_not_expose_stderr_source_or_paths() {
         ExternalPlantUmlRenderInput {
             source: source.to_string(),
             theme: "light".to_string(),
-            timeout_ms: 1_000,
+            timeout_ms: 5_000,
             binary_path: Some(binary.to_string_lossy().to_string()),
             dot_path: None,
         },

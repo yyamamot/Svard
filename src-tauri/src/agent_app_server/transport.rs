@@ -240,19 +240,7 @@ pub(super) fn safe_activity_text(
     let redacted = value
         .replace(root.as_ref(), ".")
         .replace(&normalized_root, ".");
-    let contains_absolute_path = redacted.split_whitespace().any(|token| {
-        let token = token.trim_matches(|character: char| {
-            matches!(
-                character,
-                '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | ',' | ';'
-            )
-        });
-        token.starts_with('/')
-            || (token.len() > 2
-                && token.as_bytes()[1] == b':'
-                && matches!(token.as_bytes()[2], b'/' | b'\\'))
-    });
-    if contains_absolute_path {
+    if contains_private_path(&redacted) {
         return None;
     }
     let safe = redacted
@@ -265,15 +253,44 @@ pub(super) fn safe_activity_text(
     (!safe.is_empty()).then_some(safe)
 }
 
+fn contains_private_path(value: &str) -> bool {
+    value
+        .split_whitespace()
+        .flat_map(|token| token.split('='))
+        .any(looks_like_private_path)
+}
+
+fn looks_like_private_path(value: &str) -> bool {
+    let candidate = value.trim_end_matches('.').trim_matches(|character: char| {
+        matches!(
+            character,
+            '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | ',' | ';'
+        )
+    });
+    if candidate.is_empty() {
+        return false;
+    }
+
+    let lower = candidate.to_ascii_lowercase();
+    if lower.starts_with("file://") {
+        return true;
+    }
+
+    let bytes = candidate.as_bytes();
+    candidate.starts_with('/')
+        || candidate.starts_with('\\')
+        || (bytes.len() > 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
+}
+
 pub(super) fn completed_tool_detail(workspace_root: &Path, item: &Value) -> Option<String> {
-    let command = item
-        .get("command")
-        .and_then(Value::as_str)
-        .and_then(|value| safe_activity_text(workspace_root, value, 480));
-    let output = item
-        .get("aggregatedOutput")
-        .and_then(Value::as_str)
-        .and_then(|value| safe_activity_text(workspace_root, value, 1200));
+    let command = match item.get("command").and_then(Value::as_str) {
+        Some(value) => Some(safe_activity_text(workspace_root, value, 480)?),
+        None => None,
+    };
+    let output = match item.get("aggregatedOutput").and_then(Value::as_str) {
+        Some(value) => Some(safe_activity_text(workspace_root, value, 1200)?),
+        None => None,
+    };
     match (command, output) {
         (Some(command), Some(output)) => Some(format!("Command\n{command}\n\nOutput\n{output}")),
         (Some(command), None) => Some(format!("Command\n{command}")),

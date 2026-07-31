@@ -840,9 +840,20 @@ fn auto_and_visualize_turns_receive_distinct_guidance() {
     assert!(visualize.ends_with("Visualize the workspace."));
 }
 
+#[cfg(unix)]
 fn panic_stdin() -> ChildStdin {
     let mut child = Command::new("sh")
         .args(["-c", "cat >/dev/null"])
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap()
+}
+
+#[cfg(windows)]
+fn panic_stdin() -> ChildStdin {
+    let mut child = Command::new("cmd")
+        .args(["/C", "more >NUL"])
         .stdin(Stdio::piped())
         .spawn()
         .unwrap();

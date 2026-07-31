@@ -114,19 +114,8 @@ pub fn executable_candidates(
         .map(|value| env::split_paths(&value).collect())
         .unwrap_or_default();
     let home = env::var_os("HOME").map(PathBuf::from);
-    let mut raw = automatic_candidate_paths(path_directories, home.clone());
-    #[cfg(target_os = "windows")]
-    if let Some(local_app_data) = env::var_os("LOCALAPPDATA").map(PathBuf::from) {
-        raw.push((
-            local_app_data
-                .join("Programs")
-                .join("OpenAI")
-                .join("Codex")
-                .join("bin")
-                .join(executable_name()),
-            CodexInstallationSource::Standalone,
-        ));
-    }
+    let local_app_data = env::var_os("LOCALAPPDATA").map(PathBuf::from);
+    let mut raw = automatic_candidate_paths(path_directories, home.clone(), local_app_data);
     #[cfg(target_os = "macos")]
     {
         if let Some(home) = home {
@@ -161,6 +150,7 @@ pub fn executable_candidates(
 fn automatic_candidate_paths(
     path_directories: Vec<PathBuf>,
     home: Option<PathBuf>,
+    local_app_data: Option<PathBuf>,
 ) -> Vec<(PathBuf, CodexInstallationSource)> {
     let mut candidates = path_directories
         .into_iter()
@@ -180,7 +170,22 @@ fn automatic_candidate_paths(
         ));
     }
     #[cfg(target_os = "windows")]
-    let _ = home;
+    {
+        let _ = home;
+        if let Some(local_app_data) = local_app_data {
+            candidates.push((
+                local_app_data
+                    .join("Programs")
+                    .join("OpenAI")
+                    .join("Codex")
+                    .join("bin")
+                    .join(executable_name()),
+                CodexInstallationSource::Standalone,
+            ));
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = local_app_data;
     #[cfg(not(target_os = "windows"))]
     {
         candidates.push((
@@ -244,6 +249,7 @@ mod tests {
         let candidates = automatic_candidate_paths(
             vec![PathBuf::from("/mock/path/bin")],
             Some(PathBuf::from("/mock/home")),
+            None,
         );
         assert_eq!(
             candidates
@@ -256,6 +262,38 @@ mod tests {
                 CodexInstallationSource::Common,
                 CodexInstallationSource::Common,
                 CodexInstallationSource::ChatgptApp,
+            ]
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn automatic_candidates_use_exe_and_follow_windows_priority_order() {
+        let candidates = automatic_candidate_paths(
+            vec![
+                PathBuf::from(r"C:\Path\First"),
+                PathBuf::from(r"D:\Path\Second"),
+            ],
+            None,
+            Some(PathBuf::from(r"C:\Users\person\AppData\Local")),
+        );
+        assert_eq!(
+            candidates,
+            vec![
+                (
+                    PathBuf::from(r"C:\Path\First\codex.exe"),
+                    CodexInstallationSource::Path,
+                ),
+                (
+                    PathBuf::from(r"D:\Path\Second\codex.exe"),
+                    CodexInstallationSource::Path,
+                ),
+                (
+                    PathBuf::from(
+                        r"C:\Users\person\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe",
+                    ),
+                    CodexInstallationSource::Standalone,
+                ),
             ]
         );
     }

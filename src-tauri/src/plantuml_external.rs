@@ -10,8 +10,8 @@ use std::{
 };
 
 use crate::{
-    ExternalPlantUmlRenderInput, ExternalPlantUmlTestInput, PlantUmlRenderMetrics,
-    PlantUmlRenderResult, prune_cache_dir, remove_oversized_cache_file, touch_cache_file,
+    prune_cache_dir, remove_oversized_cache_file, touch_cache_file, ExternalPlantUmlRenderInput,
+    ExternalPlantUmlTestInput, PlantUmlRenderMetrics, PlantUmlRenderResult,
 };
 
 const MIN_TIMEOUT_MS: u64 = 1_000;
@@ -206,8 +206,9 @@ fn run_plantuml_command(
         }
     };
 
-    let stdout = recv_limited_reader(stdout_reader);
-    let _stderr = recv_limited_reader(stderr_reader);
+    let pipe_drain_deadline = Instant::now() + Duration::from_millis(PIPE_DRAIN_GRACE_MS);
+    let stdout = recv_limited_reader_until(stdout_reader, pipe_drain_deadline);
+    let _stderr = recv_limited_reader_until(stderr_reader, pipe_drain_deadline);
 
     Ok(CommandOutput {
         status_success,
@@ -227,9 +228,9 @@ fn spawn_limited_reader<R: Read + Send + 'static>(
     receiver
 }
 
-fn recv_limited_reader(receiver: mpsc::Receiver<Vec<u8>>) -> Vec<u8> {
+fn recv_limited_reader_until(receiver: mpsc::Receiver<Vec<u8>>, deadline: Instant) -> Vec<u8> {
     receiver
-        .recv_timeout(Duration::from_millis(PIPE_DRAIN_GRACE_MS))
+        .recv_timeout(deadline.saturating_duration_since(Instant::now()))
         .unwrap_or_else(|_| Vec::new())
 }
 
