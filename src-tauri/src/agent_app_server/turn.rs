@@ -101,6 +101,13 @@ pub(super) fn sandbox_policy(session: &AgentSession) -> Value {
     }
 }
 
+pub(super) fn approval_policy(permission_mode: AgentPermissionMode) -> &'static str {
+    match permission_mode {
+        AgentPermissionMode::Observe | AgentPermissionMode::FullAccess => "never",
+        AgentPermissionMode::Agent => "untrusted",
+    }
+}
+
 pub(super) fn safe_attachment_label(label: &str, index: usize) -> String {
     let basename = Path::new(label)
         .file_name()
@@ -690,7 +697,7 @@ pub async fn send_agent_turn(
         "threadId": thread_id,
         "input": turn_input,
         "additionalContext": additional_context,
-        "approvalPolicy": "on-request",
+        "approvalPolicy": approval_policy(session.permission_mode),
         "approvalsReviewer": "user",
         "sandboxPolicy": sandbox_policy(&session),
         "summary": "concise",

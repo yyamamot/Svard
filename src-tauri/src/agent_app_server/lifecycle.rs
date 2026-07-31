@@ -183,7 +183,7 @@ pub(super) fn spawn_session_with_executable(
             "cwd": workspace_root.to_string_lossy(),
             "runtimeWorkspaceRoots": [workspace_root.to_string_lossy()],
             "developerInstructions": SVARD_AGENT_DEVELOPER_INSTRUCTIONS,
-            "approvalPolicy": "on-request",
+            "approvalPolicy": turn::approval_policy(input.permission_mode),
             "approvalsReviewer": "user",
             "sandbox": match input.permission_mode {
                 AgentPermissionMode::Observe => "read-only",

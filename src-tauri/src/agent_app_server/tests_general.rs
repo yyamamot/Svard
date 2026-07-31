@@ -439,6 +439,25 @@ fn observe_never_enables_network() {
 }
 
 #[test]
+fn approval_policy_matches_the_permission_boundary() {
+    assert_eq!(
+        approval_policy(AgentPermissionMode::Observe),
+        "never",
+        "Observe must not approve an escape from read-only mode"
+    );
+    assert_eq!(
+        approval_policy(AgentPermissionMode::Agent),
+        "untrusted",
+        "Agent must route untrusted workspace actions through approval"
+    );
+    assert_eq!(
+        approval_policy(AgentPermissionMode::FullAccess),
+        "never",
+        "Full Access is already confirmed for the chat"
+    );
+}
+
+#[test]
 fn codex_quality_settings_use_supported_turn_start_fields() {
     let workspace = tempfile::tempdir().unwrap();
     let (sender, _receiver) = std::sync::mpsc::channel();
