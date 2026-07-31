@@ -42,6 +42,7 @@ import type { AgentPanelHostProps } from "./agentPanelTypes";
 import {
   useAgentActionNotice,
   workspaceChangedAgentNotice,
+  workspaceCleanupFailedAgentNotice,
 } from "./useAgentActionNotice";
 import { useAgentSessionContextCleanup } from "./useAgentSessionContextCleanup";
 import {
@@ -235,6 +236,7 @@ export function useAgentSessionController({
   const workspaceIsolation = useAgentWorkspaceIsolation({
     activeTurnId,
     host,
+    onCleanupFailure: () => setActionNotice(workspaceCleanupFailedAgentNotice),
     onReset: () => {
       pendingSessionActionRef.current = null;
       pendingFullAccessTransactionRef.current = null;
@@ -468,7 +470,9 @@ export function useAgentSessionController({
   async function startIdleSession(
     fullAccessConfirmed = false,
   ): Promise<boolean> {
-    await workspaceIsolation.ensureWorkspaceBoundary();
+    if (!(await workspaceIsolation.ensureWorkspaceBoundary())) {
+      return false;
+    }
     if (
       sessionReadyRef.current ||
       sessionStartingRef.current ||
@@ -517,7 +521,7 @@ export function useAgentSessionController({
         !workspaceIsolation.isOperationCurrent(operation) ||
         !workspaceIsolation.bindSession(operation)
       ) {
-        await host.closeAgentSession(clientSessionId).catch(() => undefined);
+        await workspaceIsolation.cleanupSession(clientSessionId);
         return false;
       }
       sessionReadyRef.current = true;
@@ -525,17 +529,20 @@ export function useAgentSessionController({
       resumeClosedSessionRef.current = false;
       return true;
     } catch (error) {
-      await host.closeAgentSession(clientSessionId).catch(() => undefined);
+      const cleanupSucceeded =
+        await workspaceIsolation.cleanupSession(clientSessionId);
       if (!workspaceIsolation.isOperationCurrent(operation)) {
         return false;
       }
       sessionReadyRef.current = false;
       setSessionLifecycle("idle");
-      setActionNotice(
-        error instanceof Error
-          ? error.message
-          : "Could not start the agent chat.",
-      );
+      if (cleanupSucceeded) {
+        setActionNotice(
+          error instanceof Error
+            ? error.message
+            : "Could not start the agent chat.",
+        );
+      }
       return false;
     } finally {
       if (workspaceIsolation.isOperationCurrent(operation)) {
@@ -544,7 +551,9 @@ export function useAgentSessionController({
     }
   }
   async function ensureSessionReady(action: PendingSessionAction) {
-    await workspaceIsolation.ensureWorkspaceBoundary();
+    if (!(await workspaceIsolation.ensureWorkspaceBoundary())) {
+      return;
+    }
     if (
       workspaceIsolation.isSessionCurrent() &&
       sessionReadyRef.current &&
@@ -607,7 +616,9 @@ export function useAgentSessionController({
     nextContextProfile = contextProfile,
     preserveComposerContext = false,
   }: AgentSessionAccessTransactionInput) {
-    await workspaceIsolation.ensureWorkspaceBoundary();
+    if (!(await workspaceIsolation.ensureWorkspaceBoundary())) {
+      return false;
+    }
     if (
       activeTurnId ||
       sessionStartingRef.current ||
@@ -650,7 +661,7 @@ export function useAgentSessionController({
         !workspaceIsolation.isOperationCurrent(operation) ||
         !workspaceIsolation.bindSession(operation)
       ) {
-        await host.closeAgentSession(nextSessionId).catch(() => undefined);
+        await workspaceIsolation.cleanupSession(nextSessionId);
         return false;
       }
       sessionReadyRef.current = true;
@@ -683,7 +694,7 @@ export function useAgentSessionController({
       }
       return true;
     } catch (error) {
-      await host.closeAgentSession(nextSessionId).catch(() => undefined);
+      await workspaceIsolation.cleanupSession(nextSessionId);
       if (!workspaceIsolation.isOperationCurrent(operation)) {
         return false;
       }
@@ -773,7 +784,9 @@ export function useAgentSessionController({
     fullAccessConfirmed,
     reason,
   }: AgentSessionResumeOptions) {
-    await workspaceIsolation.ensureWorkspaceBoundary();
+    if (!(await workspaceIsolation.ensureWorkspaceBoundary())) {
+      return false;
+    }
     if (disconnectCleanupRef.current) {
       await disconnectCleanupRef.current;
     }
@@ -818,7 +831,7 @@ export function useAgentSessionController({
         !workspaceIsolation.isOperationCurrent(operation) ||
         !workspaceIsolation.bindSession(operation)
       ) {
-        await host.closeAgentSession(clientSessionId).catch(() => undefined);
+        await workspaceIsolation.cleanupSession(clientSessionId);
         return false;
       }
       if (history) {
@@ -839,20 +852,23 @@ export function useAgentSessionController({
       if (reconnecting) setActionNotice("AI Chat reconnected.");
       return true;
     } catch (error) {
-      await host.closeAgentSession(clientSessionId).catch(() => undefined);
+      const cleanupSucceeded =
+        await workspaceIsolation.cleanupSession(clientSessionId);
       if (!workspaceIsolation.isOperationCurrent(operation)) {
         return false;
       }
       sessionReadyRef.current = false;
       setSessionLifecycle("closed");
       if (reconnecting) updateRecoveryState("disconnected");
-      setActionNotice(
-        reconnecting
-          ? "AI Chat could not reconnect. Try again."
-          : error instanceof Error
-            ? error.message
-            : "This chat could not be resumed.",
-      );
+      if (cleanupSucceeded) {
+        setActionNotice(
+          reconnecting
+            ? "AI Chat could not reconnect. Try again."
+            : error instanceof Error
+              ? error.message
+              : "This chat could not be resumed.",
+        );
+      }
       return false;
     } finally {
       if (workspaceIsolation.isOperationCurrent(operation)) {
@@ -881,7 +897,9 @@ export function useAgentSessionController({
     summary: AgentSessionSummary,
     fullAccessConfirmed = false,
   ) {
-    await workspaceIsolation.ensureWorkspaceBoundary();
+    if (!(await workspaceIsolation.ensureWorkspaceBoundary())) {
+      return;
+    }
     if (
       activeTurnId ||
       sessionStartingRef.current ||
@@ -932,7 +950,7 @@ export function useAgentSessionController({
         !workspaceIsolation.isOperationCurrent(operation) ||
         !workspaceIsolation.bindSession(operation)
       ) {
-        await host.closeAgentSession(nextSessionId).catch(() => undefined);
+        await workspaceIsolation.cleanupSession(nextSessionId);
         return;
       }
       const settings: AgentRuntimeSettingsSnapshot = {
@@ -963,7 +981,7 @@ export function useAgentSessionController({
       setPendingFullAccessResume(null);
       await host.closeAgentSession(previousSessionId);
     } catch (error) {
-      await host.closeAgentSession(nextSessionId).catch(() => undefined);
+      await workspaceIsolation.cleanupSession(nextSessionId);
       if (!workspaceIsolation.isOperationCurrent(operation)) {
         return;
       }

@@ -67,6 +67,7 @@ pub(super) fn spawn_session_with_executable(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    configure_owned_process(&mut command);
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(_) => {
@@ -75,14 +76,12 @@ pub(super) fn spawn_session_with_executable(
         }
     };
     let Some(stdin) = child.stdin.take() else {
-        let _ = child.kill();
-        let _ = child.wait();
+        let _ = terminate_owned_process(&mut child);
         let _ = fs::remove_dir_all(&scratch_directory);
         return Err("Codex app-server stdin is unavailable.".to_string());
     };
     let Some(stdout) = child.stdout.take() else {
-        let _ = child.kill();
-        let _ = child.wait();
+        let _ = terminate_owned_process(&mut child);
         let _ = fs::remove_dir_all(&scratch_directory);
         return Err("Codex app-server stdout is unavailable.".to_string());
     };
@@ -222,7 +221,7 @@ pub(super) fn spawn_session_with_executable(
     let thread_id = match setup {
         Ok(thread_id) => thread_id,
         Err(error) => {
-            session.shutdown();
+            let _ = session.shutdown();
             return Err(error);
         }
     };
@@ -463,7 +462,7 @@ pub fn start_agent_session(
                     Duration::from_secs(3),
                 );
             }
-            session.shutdown();
+            let _ = session.shutdown();
             return Err(error);
         }
     };
@@ -480,7 +479,7 @@ pub fn start_agent_session(
             json!({ "threadId": provider_thread_id }),
             Duration::from_secs(3),
         );
-        session.shutdown();
+        let _ = session.shutdown();
         return Err(error);
     }
     session.emit(AgentEvent::SessionReady {
@@ -745,7 +744,7 @@ pub fn resume_agent_session(
             .unwrap_or_else(|poison| poison.into_inner())
             .remove(&input.client_session_id)
         {
-            session.shutdown();
+            let _ = session.shutdown();
         }
         return Err(error);
     }

@@ -849,59 +849,54 @@ impl AgentSession {
         self.write_message(&json!({ "id": id, "result": result }))
     }
 
-    pub(super) fn shutdown(&self) {
+    pub(super) fn shutdown(&self) -> Result<(), String> {
         let _title_guard = self
             .title_update_lock
             .lock()
             .unwrap_or_else(|error| error.into_inner());
-        if self.closed.swap(true, Ordering::SeqCst) {
-            return;
-        }
-        if let Some(active) = self
-            .active_turn
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .take()
-        {
-            let thread_id = self
-                .thread_id
+        if !self.closed.swap(true, Ordering::SeqCst) {
+            if let Some(active) = self
+                .active_turn
                 .lock()
                 .unwrap_or_else(|error| error.into_inner())
-                .clone();
-            if let Some(thread_id) = thread_id {
-                if let Some(provider_turn_id) = active.provider_turn_id {
-                    let _ = self.request(
-                        "turn/interrupt",
-                        json!({
-                            "threadId": thread_id,
-                            "turnId": provider_turn_id,
-                        }),
-                        Duration::from_secs(2),
-                    );
+                .take()
+            {
+                let thread_id = self
+                    .thread_id
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .clone();
+                if let Some(thread_id) = thread_id {
+                    if let Some(provider_turn_id) = active.provider_turn_id {
+                        let _ = self.request(
+                            "turn/interrupt",
+                            json!({
+                                "threadId": thread_id,
+                                "turnId": provider_turn_id,
+                            }),
+                            Duration::from_secs(2),
+                        );
+                    }
                 }
+                let _ = active.completion.send(AgentTurnOutcome::Cancelled);
             }
-            let _ = active.completion.send(AgentTurnOutcome::Cancelled);
+            if let Some(compaction) = self
+                .manual_compaction
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .take()
+            {
+                let _ = compaction.completion.send(AgentCompactionOutcome::Failed {
+                    code: "session-closed".to_string(),
+                    message: "The chat closed before context compaction completed.".to_string(),
+                });
+            }
+            *self
+                .automatic_title
+                .lock()
+                .unwrap_or_else(|error| error.into_inner()) = AutomaticTitleState::Cancelled;
         }
-        if let Some(compaction) = self
-            .manual_compaction
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .take()
-        {
-            let _ = compaction.completion.send(AgentCompactionOutcome::Failed {
-                code: "session-closed".to_string(),
-                message: "The chat closed before context compaction completed.".to_string(),
-            });
-        }
-        if let Some(mut child) = self
-            .title_child
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .take()
-        {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
+        terminate_owned_process_slot(&self.title_child)?;
         if let Some(path) = self
             .title_scratch_directory
             .lock()
@@ -910,20 +905,9 @@ impl AgentSession {
         {
             let _ = fs::remove_dir_all(path);
         }
-        *self
-            .automatic_title
-            .lock()
-            .unwrap_or_else(|error| error.into_inner()) = AutomaticTitleState::Cancelled;
-        if let Some(mut child) = self
-            .child
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .take()
-        {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
+        terminate_owned_process_slot(&self.child)?;
         let _ = fs::remove_dir_all(&self.scratch_directory);
+        Ok(())
     }
 }
 
@@ -957,7 +941,7 @@ impl AgentAppServerState {
             .map(|(_, session)| session)
             .collect::<Vec<_>>();
         for session in sessions {
-            session.shutdown();
+            let _ = session.shutdown();
         }
     }
 
@@ -968,7 +952,7 @@ impl AgentAppServerState {
             .unwrap_or_else(|error| error.into_inner())
             .remove(client_session_id)
         {
-            session.shutdown();
+            let _ = session.shutdown();
         }
     }
 

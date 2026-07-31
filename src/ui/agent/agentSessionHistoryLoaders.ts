@@ -75,7 +75,7 @@ export function createAgentSessionHistoryLoaders({
 }) {
   async function loadSessionPage(reset: boolean, archived = historyArchived) {
     if (!workspaceRoot) return;
-    await workspaceIsolation.ensureWorkspaceBoundary();
+    if (!(await workspaceIsolation.ensureWorkspaceBoundary())) return;
     const sessionId = sessionIdRef.current;
     const operation = workspaceIsolation.createOperationToken(
       sessionId,

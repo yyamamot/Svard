@@ -23,8 +23,12 @@ class WorkspaceIsolationHost extends MockHostAdapter {
   readonly closes: string[] = [];
   holdFirstTurn = false;
   delayFirstStart = false;
+  delayNextClose = false;
   delayNextHistory = false;
+  failNextCancel = false;
+  failNextClose = false;
   historyRequests = 0;
+  private releaseClose: (() => void) | null = null;
   private releaseStart: (() => void) | null = null;
   private releaseHistory: (() => void) | null = null;
   private heldTurn:
@@ -73,6 +77,10 @@ class WorkspaceIsolationHost extends MockHostAdapter {
     this.releaseHistory = null;
   }
 
+  emitEvent(clientSessionId: string, event: AgentEvent) {
+    this.handlers.get(clientSessionId)?.(event);
+  }
+
   override async sendAgentTurn(
     input: AgentTurnInput,
   ): Promise<AgentTurnOutcome> {
@@ -98,6 +106,10 @@ class WorkspaceIsolationHost extends MockHostAdapter {
     clientTurnId: string,
   ): Promise<void> {
     this.cancels.push({ sessionId: clientSessionId, turnId: clientTurnId });
+    if (this.failNextCancel) {
+      this.failNextCancel = false;
+      throw new Error("Synthetic cancel failure.");
+    }
     if (
       this.heldTurn?.input.clientSessionId === clientSessionId &&
       this.heldTurn.input.clientTurnId === clientTurnId
@@ -115,7 +127,22 @@ class WorkspaceIsolationHost extends MockHostAdapter {
 
   override async closeAgentSession(clientSessionId: string): Promise<void> {
     this.closes.push(clientSessionId);
+    if (this.delayNextClose) {
+      this.delayNextClose = false;
+      await new Promise<void>((resolve) => {
+        this.releaseClose = resolve;
+      });
+    }
+    if (this.failNextClose) {
+      this.failNextClose = false;
+      throw new Error("Synthetic close failure.");
+    }
     await super.closeAgentSession(clientSessionId);
+  }
+
+  releaseDelayedClose() {
+    this.releaseClose?.();
+    this.releaseClose = null;
   }
 }
 
@@ -233,6 +260,89 @@ describe("Agent Chat workspace isolation", () => {
     expect(
       harness.container.querySelector<HTMLTextAreaElement>("textarea")?.value,
     ).toBe("");
+  });
+
+  it("closes the old runtime even when active turn cancellation fails", async () => {
+    host.holdFirstTurn = true;
+    host.failNextCancel = true;
+    render("/workspace-a");
+    await send("Long running question");
+    await vi.waitFor(() => expect(host.turns).toHaveLength(1));
+    const firstSessionId = host.starts[0]?.clientSessionId;
+
+    render("/workspace-b");
+
+    await vi.waitFor(() => expect(host.cancels).toHaveLength(1));
+    await vi.waitFor(() => expect(host.closes).toContain(firstSessionId));
+  });
+
+  it("closes a pending approval when the workspace changes", async () => {
+    host.holdFirstTurn = true;
+    render("/workspace-a");
+    await send("Approval question");
+    await vi.waitFor(() => expect(host.turns).toHaveLength(1));
+    const firstSessionId = host.starts[0]?.clientSessionId;
+    host.emitEvent(firstSessionId, {
+      type: "permissionRequested",
+      request: {
+        requestId: "approval-a",
+        kind: "command",
+        title: "Synthetic approval",
+        impact: "Synthetic impact",
+      },
+    });
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain("Synthetic approval"),
+    );
+
+    render("/workspace-b");
+
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).not.toContain("Synthetic approval"),
+    );
+    expect(harness.container.textContent).not.toContain("Allow once");
+    expect(harness.container.textContent).not.toContain("Deny");
+  });
+
+  it("waits for old runtime cleanup before starting the new workspace", async () => {
+    render("/workspace-a");
+    await send("Workspace A");
+    await vi.waitFor(() => expect(host.starts).toHaveLength(1));
+    host.delayNextClose = true;
+
+    render("/workspace-b");
+    await vi.waitFor(() => expect(host.closes).toHaveLength(1));
+    await send("Workspace B");
+    expect(host.starts).toHaveLength(1);
+
+    host.releaseDelayedClose();
+    await vi.waitFor(() => expect(host.starts).toHaveLength(2));
+    expect(host.starts[1]?.workspaceRoot).toBe("/workspace-b");
+  });
+
+  it("fails closed and retries the same cleanup on the next explicit send", async () => {
+    render("/workspace-a");
+    await send("Workspace A");
+    await vi.waitFor(() => expect(host.starts).toHaveLength(1));
+    const firstSessionId = host.starts[0]?.clientSessionId;
+    host.failNextClose = true;
+
+    render("/workspace-b");
+
+    await vi.waitFor(() =>
+      expect(harness.container.textContent).toContain(
+        "The previous AI Chat could not be closed.",
+      ),
+    );
+    expect(host.starts).toHaveLength(1);
+
+    await send("Workspace B after retry");
+
+    await vi.waitFor(() => expect(host.starts).toHaveLength(2));
+    expect(
+      host.closes.filter((sessionId) => sessionId === firstSessionId),
+    ).toHaveLength(2);
+    expect(host.starts[1]?.workspaceRoot).toBe("/workspace-b");
   });
 
   it("ignores a session start that completes after the workspace changes", async () => {

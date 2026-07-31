@@ -265,18 +265,17 @@ fn generate_session_title_with_timeout(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
+    configure_owned_process(&mut command);
     let mut child = command
         .spawn()
         .map_err(|_| "Codex title generation could not start.".to_string())?;
     let Some(mut stdin) = child.stdin.take() else {
-        let _ = child.kill();
-        let _ = child.wait();
+        let _ = terminate_owned_process(&mut child);
         let _ = fs::remove_dir_all(&scratch);
         return Err("Codex title generation stdin is unavailable.".to_string());
     };
     let Some(stdout) = child.stdout.take() else {
-        let _ = child.kill();
-        let _ = child.wait();
+        let _ = terminate_owned_process(&mut child);
         let _ = fs::remove_dir_all(&scratch);
         return Err("Codex title generation stdout is unavailable.".to_string());
     };
@@ -467,15 +466,7 @@ fn write_title_message(stdin: &mut ChildStdin, value: &Value) -> Result<(), Stri
 }
 
 fn cleanup_title_process(session: &AgentSession) {
-    if let Some(mut child) = session
-        .title_child
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
-        .take()
-    {
-        let _ = child.kill();
-        let _ = child.wait();
-    }
+    let _ = terminate_owned_process_slot(&session.title_child);
     if let Some(path) = session
         .title_scratch_directory
         .lock()

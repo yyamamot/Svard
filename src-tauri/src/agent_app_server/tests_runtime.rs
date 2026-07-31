@@ -362,7 +362,7 @@ while IFS= read -r line; do :; done
     let scratch = session.scratch_directory.clone();
     assert!(scratch.is_dir());
     std::fs::write(scratch.join("staged-image.png"), b"private snapshot").unwrap();
-    session.shutdown();
+    session.shutdown().unwrap();
     assert!(!scratch.exists());
 }
 

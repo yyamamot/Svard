@@ -4980,6 +4980,7 @@ dependencies = [
  "gix",
  "image",
  "keyring",
+ "libc",
  "notify",
  "reqwest 0.12.28",
  "serde",

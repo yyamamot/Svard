@@ -262,7 +262,7 @@ pub fn set_agent_session_archived(
             .unwrap_or_else(|error| error.into_inner())
             .remove(&input.client_session_id)
         {
-            session.shutdown();
+            let _ = session.shutdown();
         }
     }
     let updated = state
@@ -328,7 +328,7 @@ pub fn delete_agent_session(
         .unwrap_or_else(|error| error.into_inner())
         .remove(&input.client_session_id)
     {
-        session.shutdown();
+        let _ = session.shutdown();
     }
     state
         .session_registry
@@ -341,15 +341,21 @@ pub fn close_agent_session(
     window: tauri::WebviewWindow,
     state: State<'_, AgentAppServerState>,
 ) -> Result<(), String> {
-    let session = session_for(&state, &client_session_id)?;
-    session.ensure_owner(window.label())?;
-    if let Some(session) = state
+    let session = state
         .sessions
         .lock()
         .unwrap_or_else(|error| error.into_inner())
-        .remove(&client_session_id)
-    {
-        session.shutdown();
-    }
+        .get(&client_session_id)
+        .cloned();
+    let Some(session) = session else {
+        return Ok(());
+    };
+    session.ensure_owner(window.label())?;
+    session.shutdown()?;
+    state
+        .sessions
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .remove(&client_session_id);
     Ok(())
 }

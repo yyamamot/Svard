@@ -5,6 +5,8 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 #[cfg(unix)]
 use std::os::unix::fs::DirBuilderExt;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::{
     collections::{HashMap, VecDeque},
     env, fs,
@@ -33,6 +35,7 @@ mod history;
 mod lifecycle;
 mod management;
 mod management_types;
+mod process;
 mod provider;
 mod steer;
 mod title;
@@ -62,6 +65,7 @@ pub use types::*;
 use compaction::*;
 use history::*;
 use lifecycle::*;
+use process::*;
 use provider::*;
 #[cfg(test)]
 use steer::steer_prompt;
