@@ -254,32 +254,92 @@ pub(super) fn safe_activity_text(
 }
 
 fn contains_private_path(value: &str) -> bool {
-    value
-        .split_whitespace()
-        .flat_map(|token| token.split('='))
-        .any(looks_like_private_path)
+    let bytes = value.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        let remaining = &bytes[index..];
+        if has_token_boundary(bytes, index)
+            && (starts_with_ascii_case_insensitive(remaining, b"http://")
+                || starts_with_ascii_case_insensitive(remaining, b"https://"))
+        {
+            index += remaining
+                .iter()
+                .position(|byte| {
+                    matches!(
+                        byte,
+                        b' ' | b'\t'
+                            | b'\r'
+                            | b'\n'
+                            | b'"'
+                            | b'\''
+                            | b'`'
+                            | b')'
+                            | b']'
+                            | b'}'
+                            | b','
+                            | b';'
+                    )
+                })
+                .unwrap_or(remaining.len());
+            continue;
+        }
+        if has_token_boundary(bytes, index)
+            && (starts_with_ascii_case_insensitive(remaining, b"file://")
+                || looks_like_drive_path(remaining)
+                || looks_like_rooted_path(bytes, index))
+        {
+            return true;
+        }
+        index += 1;
+    }
+    false
 }
 
-fn looks_like_private_path(value: &str) -> bool {
-    let candidate = value.trim_end_matches('.').trim_matches(|character: char| {
-        matches!(
-            character,
-            '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | ',' | ';'
-        )
-    });
-    if candidate.is_empty() {
-        return false;
-    }
+fn starts_with_ascii_case_insensitive(value: &[u8], prefix: &[u8]) -> bool {
+    value.len() >= prefix.len() && value[..prefix.len()].eq_ignore_ascii_case(prefix)
+}
 
-    let lower = candidate.to_ascii_lowercase();
-    if lower.starts_with("file://") {
+fn has_token_boundary(value: &[u8], index: usize) -> bool {
+    if index == 0 {
         return true;
     }
+    !matches!(
+        value[index - 1],
+        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'
+    )
+}
 
-    let bytes = candidate.as_bytes();
-    candidate.starts_with('/')
-        || candidate.starts_with('\\')
-        || (bytes.len() > 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
+fn looks_like_drive_path(value: &[u8]) -> bool {
+    value.len() > 2
+        && value[0].is_ascii_alphabetic()
+        && value[1] == b':'
+        && !matches!(
+            value[2],
+            b' ' | b'\t' | b'\r' | b'\n' | b'"' | b'\'' | b'`' | b')' | b']' | b'}'
+        )
+}
+
+fn looks_like_rooted_path(value: &[u8], index: usize) -> bool {
+    let current = value[index];
+    if !matches!(current, b'/' | b'\\') {
+        return false;
+    }
+    if index > 0 && matches!(value[index - 1], b'.' | b'/' | b'\\') {
+        return false;
+    }
+    if current == b'/' && index > 0 && value[index - 1] == b':' {
+        let scheme = &value[..index - 1];
+        let start = scheme
+            .iter()
+            .rposition(|byte| !byte.is_ascii_alphanumeric())
+            .map_or(0, |position| position + 1);
+        if scheme[start..].eq_ignore_ascii_case(b"http")
+            || scheme[start..].eq_ignore_ascii_case(b"https")
+        {
+            return false;
+        }
+    }
+    true
 }
 
 pub(super) fn completed_tool_detail(workspace_root: &Path, item: &Value) -> Option<String> {

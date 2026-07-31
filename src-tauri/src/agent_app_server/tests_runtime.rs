@@ -111,6 +111,24 @@ exit 1
     );
 }
 
+#[cfg(windows)]
+#[test]
+fn windows_schema_probe_requires_usage_and_compaction_contracts() {
+    let workspace = tempfile::tempdir().unwrap();
+    let executable = windows_fixture_executable(workspace.path(), "fake-codex-schema");
+    assert_eq!(
+        schema_capabilities(&CodexExecutable::custom_for_test(executable)),
+        ProtocolCapabilities {
+            image_input: true,
+            turn_steering: true,
+            context_usage: true,
+            token_usage_diagnostics: true,
+            manual_compaction: true,
+            focused_context: true,
+        }
+    );
+}
+
 #[test]
 fn focused_config_disables_extensions_and_deduplicates_skill_names() {
     let names = focused_skill_names(&json!({
@@ -191,6 +209,16 @@ exit 0
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
     assert!(probe_focused_context(&CodexExecutable::custom_for_test(
         script
+    )));
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_focused_runtime_probe_stops_before_resume_requires_a_rollout() {
+    let workspace = tempfile::tempdir().unwrap();
+    let executable = windows_fixture_executable(workspace.path(), "fake-focused-codex");
+    assert!(probe_focused_context(&CodexExecutable::custom_for_test(
+        executable
     )));
 }
 
@@ -366,6 +394,52 @@ while IFS= read -r line; do :; done
     assert!(!scratch.exists());
 }
 
+#[cfg(windows)]
+#[test]
+fn windows_fake_app_server_initializes_and_cleans_up() {
+    let workspace = tempfile::tempdir().unwrap();
+    let executable = windows_fixture_executable(workspace.path(), "fake-codex");
+    let input = AgentSessionStartInput {
+        provider_id: "codex-app-server".to_string(),
+        executable_preference: CodexExecutablePreference::default(),
+        client_session_id: "fake-session".to_string(),
+        workspace_root: workspace.path().to_string_lossy().to_string(),
+        permission_mode: AgentPermissionMode::Observe,
+        network_access: false,
+        web_search: false,
+        context_profile: AgentContextProfile::ProviderDefaults,
+        model: Some("gpt-5.6-sol".to_string()),
+        reasoning_effort: Some("high".to_string()),
+        personality: Some("pragmatic".to_string()),
+    };
+    let (sender, _receiver) = std::sync::mpsc::channel();
+    let session = spawn_session_with_executable(
+        &input,
+        test_channel(sender),
+        "test-main".to_string(),
+        CodexExecutable::custom_for_test(executable),
+        true,
+        true,
+        true,
+        true,
+        true,
+        AgentSessionLaunch::Start,
+    )
+    .unwrap();
+    assert_eq!(
+        session
+            .thread_id
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .as_deref(),
+        Some("fixture-thread")
+    );
+    let scratch = session.scratch_directory.clone();
+    assert!(scratch.is_dir());
+    session.shutdown().unwrap();
+    assert!(!scratch.exists());
+}
+
 #[cfg(unix)]
 #[test]
 fn title_app_server_is_ephemeral_private_and_uses_only_the_question() {
@@ -511,6 +585,17 @@ fi
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
     let catalog =
         list_agent_models_with_executable(CodexExecutable::custom_for_test(script)).unwrap();
+    assert_eq!(catalog.models.len(), 1);
+    assert_eq!(catalog.models[0].model, "available");
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_transient_fake_app_server_lists_models_without_starting_a_thread() {
+    let workspace = tempfile::tempdir().unwrap();
+    let executable = windows_fixture_executable(workspace.path(), "fake-codex-models");
+    let catalog =
+        list_agent_models_with_executable(CodexExecutable::custom_for_test(executable)).unwrap();
     assert_eq!(catalog.models.len(), 1);
     assert_eq!(catalog.models[0].model, "available");
 }

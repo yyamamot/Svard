@@ -12,7 +12,7 @@ use std::{
     env, fs,
     io::{BufRead, BufReader, Cursor, Read, Write},
     path::{Path, PathBuf},
-    process::{Child, ChildStdin, Command, Stdio},
+    process::{ChildStdin, Command, Stdio},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc, Arc, Condvar, Mutex,

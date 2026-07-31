@@ -17,8 +17,7 @@ pub(super) fn request_saved_thread(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    let mut child = command
-        .spawn()
+    let mut child = spawn_owned_process(&mut command)
         .map_err(|_| "Codex app-server could not start.".to_string())?;
     let result = (|| -> Result<Value, String> {
         let mut stdin = child
@@ -62,8 +61,7 @@ pub(super) fn request_saved_thread(
             .map_err(|_| "Codex app-server disconnected.".to_string())?;
         transient_management_request(&mut stdin, &receiver, 2, method, params)
     })();
-    let _ = child.kill();
-    let _ = child.wait();
+    let _ = terminate_owned_process(&mut child);
     result
 }
 

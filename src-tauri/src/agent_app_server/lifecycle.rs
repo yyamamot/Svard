@@ -67,8 +67,7 @@ pub(super) fn spawn_session_with_executable(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    configure_owned_process(&mut command);
-    let mut child = match command.spawn() {
+    let mut child = match spawn_owned_process(&mut command) {
         Ok(child) => child,
         Err(_) => {
             let _ = fs::remove_dir_all(&scratch_directory);

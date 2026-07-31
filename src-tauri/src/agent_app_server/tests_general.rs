@@ -771,6 +771,12 @@ fn activity_detail_rejects_windows_and_uri_paths_on_every_host_os() {
         r#"tool --path="C:\Users\person\secret.txt""#,
         r#"inspect ("C:\Users\person\secret.txt")."#,
         r"tool --path=/private/secret",
+        r#"{"path":"C:\Users\person\secret.txt"}"#,
+        r#"[details](C:\Users\person\secret.txt)"#,
+        r"tool --path:C:\Users\person\secret.txt",
+        r#"{"path":"/private/secret.txt"}"#,
+        r#"[details](/private/secret.txt)"#,
+        r"tool --path:/private/secret.txt",
     ] {
         assert!(
             safe_activity_text(workspace, unsafe_value, 480).is_none(),
@@ -785,6 +791,9 @@ fn activity_detail_allows_urls_and_relative_paths() {
     for safe_value in [
         "rg Agent src/main.rs",
         "open https://example.com/docs/path",
+        "open https://example.com/C:/docs/path",
+        r#"{"url":"https://example.com/docs/path"}"#,
+        "[documentation](https://example.com/docs/path)",
         "tool --path=src/main.rs",
         "read ./README.md",
     ] {

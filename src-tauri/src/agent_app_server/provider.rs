@@ -247,7 +247,7 @@ pub(super) fn probe_focused_context(executable: &CodexExecutable) -> bool {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    let Ok(mut child) = command.spawn() else {
+    let Ok(mut child) = spawn_owned_process(&mut command) else {
         let _ = fs::remove_dir_all(&scratch_directory);
         return false;
     };
@@ -325,8 +325,7 @@ pub(super) fn probe_focused_context(executable: &CodexExecutable) -> bool {
         // and the session lifecycle reapplies the same config when resuming.
         Ok(())
     })();
-    let _ = child.kill();
-    let _ = child.wait();
+    let _ = terminate_owned_process(&mut child);
     let _ = fs::remove_dir_all(&scratch_directory);
     result.is_ok()
 }
@@ -802,7 +801,7 @@ pub(super) fn list_agent_models_with_executable(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    let mut child = match command.spawn() {
+    let mut child = match spawn_owned_process(&mut command) {
         Ok(child) => child,
         Err(_) => {
             let _ = fs::remove_dir_all(&scratch_directory);
@@ -855,8 +854,7 @@ pub(super) fn list_agent_models_with_executable(
             transient_rpc_request(&mut stdin, &receiver, request_id, "model/list", params)
         })
     })();
-    let _ = child.kill();
-    let _ = child.wait();
+    let _ = terminate_owned_process(&mut child);
     let _ = fs::remove_dir_all(&scratch_directory);
     result
 }

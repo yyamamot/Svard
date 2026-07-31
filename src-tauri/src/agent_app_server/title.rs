@@ -265,9 +265,7 @@ fn generate_session_title_with_timeout(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    configure_owned_process(&mut command);
-    let mut child = command
-        .spawn()
+    let mut child = spawn_owned_process(&mut command)
         .map_err(|_| "Codex title generation could not start.".to_string())?;
     let Some(mut stdin) = child.stdin.take() else {
         let _ = terminate_owned_process(&mut child);
@@ -483,6 +481,57 @@ mod tests {
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
+    #[cfg(windows)]
+    fn windows_title_session(
+        workspace: &Path,
+        executable: PathBuf,
+    ) -> (AgentSession, std::process::Child) {
+        let mut sink = Command::new("cmd")
+            .args(["/C", "more >NUL"])
+            .stdin(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let session = AgentSession {
+            client_session_id: "title-session".to_string(),
+            workspace_root: workspace.to_path_buf(),
+            scratch_directory: workspace.join("main-scratch"),
+            permission_mode: AgentPermissionMode::Observe,
+            network_access: false,
+            model: Some("gpt-5.6-sol".to_string()),
+            reasoning_effort: Some("high".to_string()),
+            personality: Some("pragmatic".to_string()),
+            executable: CodexExecutable::custom_for_test(executable),
+            child: Mutex::new(None),
+            title_child: Mutex::new(None),
+            title_scratch_directory: Mutex::new(None),
+            stdin: Mutex::new(sink.stdin.take().unwrap()),
+            event_router: Mutex::new(AgentEventRouter::new(
+                "test-main".to_string(),
+                Channel::new(|_| Ok(())),
+            )),
+            request_counter: AtomicU64::new(0),
+            approval_counter: AtomicU64::new(0),
+            pending_requests: Mutex::new(HashMap::new()),
+            pending_approvals: Mutex::new(HashMap::new()),
+            item_phases: Mutex::new(HashMap::new()),
+            thread_id: Mutex::new(Some("main-thread".to_string())),
+            active_turn: Mutex::new(None),
+            manual_compaction: Mutex::new(None),
+            staged_images: Mutex::new(HashMap::new()),
+            image_counter: AtomicU64::new(0),
+            image_input: AtomicBool::new(true),
+            turn_steering: AtomicBool::new(true),
+            context_usage: AtomicBool::new(true),
+            token_usage_diagnostics: AtomicBool::new(true),
+            token_usage_tracking: Mutex::new(AgentTokenUsageTracking::default()),
+            manual_compaction_supported: AtomicBool::new(true),
+            automatic_title: Mutex::new(AutomaticTitleState::Finished),
+            title_update_lock: Mutex::new(()),
+            closed: AtomicBool::new(false),
+        };
+        (session, sink)
+    }
+
     #[test]
     fn fallback_normalizes_markdown_whitespace_and_length() {
         assert_eq!(
@@ -593,6 +642,65 @@ sleep 10
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .is_none());
+        let _ = sink.kill();
+        let _ = sink.wait();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_title_fixture_is_private_and_uses_only_the_question() {
+        let workspace = tempfile::tempdir().unwrap();
+        let executable = windows_fixture_executable(workspace.path(), "fake-codex-title");
+        let request_log = executable.with_extension("requests.jsonl");
+        let cwd_log = executable.with_extension("cwd.txt");
+        let (session, mut sink) = windows_title_session(workspace.path(), executable);
+
+        let title = generate_session_title(&session, "Improve AI chat titles").unwrap();
+
+        assert_eq!(title, "AI Chat title support");
+        let requests = fs::read_to_string(request_log).unwrap();
+        let mut lines = requests.lines();
+        let thread_start: Value = serde_json::from_str(lines.next().unwrap()).unwrap();
+        let turn_start: Value = serde_json::from_str(lines.next().unwrap()).unwrap();
+        assert_eq!(
+            thread_start.pointer("/params/ephemeral"),
+            Some(&json!(true))
+        );
+        assert_eq!(
+            thread_start.pointer("/params/approvalPolicy"),
+            Some(&json!("never"))
+        );
+        assert_eq!(
+            turn_start.pointer("/params/input/0/text"),
+            Some(&json!("Improve AI chat titles"))
+        );
+        assert!(!requests.contains(workspace.path().to_string_lossy().as_ref()));
+        assert_ne!(
+            fs::read_to_string(cwd_log).unwrap().trim(),
+            workspace.path().to_string_lossy()
+        );
+        assert!(session.title_child.lock().unwrap().is_none());
+        assert!(session.title_scratch_directory.lock().unwrap().is_none());
+        let _ = sink.kill();
+        let _ = sink.wait();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_title_timeout_stops_the_job_and_removes_the_scratch_directory() {
+        let workspace = tempfile::tempdir().unwrap();
+        let executable = windows_fixture_executable(workspace.path(), "fake-codex-title-timeout");
+        let (session, mut sink) = windows_title_session(workspace.path(), executable);
+
+        let result = generate_session_title_with_timeout(
+            &session,
+            "Improve titles",
+            Duration::from_millis(100),
+        );
+
+        assert!(result.unwrap_err().contains("timed out"));
+        assert!(session.title_child.lock().unwrap().is_none());
+        assert!(session.title_scratch_directory.lock().unwrap().is_none());
         let _ = sink.kill();
         let _ = sink.wait();
     }
