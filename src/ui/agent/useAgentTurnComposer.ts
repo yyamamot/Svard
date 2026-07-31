@@ -895,6 +895,9 @@ export function useAgentTurnComposer(
   const ready =
     probe?.state === "ready" &&
     Boolean(workspaceRoot) &&
+    recoveryState !== "cleaning" &&
+    recoveryState !== "cleanupFailed" &&
+    recoveryState !== "reconnecting" &&
     contextCompactionStatus !== "running";
   return {
     submit,

@@ -85,9 +85,10 @@ class WorkspaceIsolationHost extends MockHostAdapter {
     input: AgentTurnInput,
   ): Promise<AgentTurnOutcome> {
     this.turns.push(structuredClone(input));
-    if (!this.holdFirstTurn || this.turns.length !== 1) {
+    if (!this.holdFirstTurn) {
       return super.sendAgentTurn(input);
     }
+    this.holdFirstTurn = false;
     const onEvent = this.handlers.get(input.clientSessionId);
     if (!onEvent) throw new Error("Missing session event handler.");
     onEvent({ type: "turnStarted", clientTurnId: input.clientTurnId });
@@ -228,6 +229,52 @@ describe("Agent Chat workspace isolation", () => {
         (session) => session.clientSessionId === firstSessionId,
       ),
     ).toBe(true);
+  });
+
+  it("closes the prior client session even when frontend runtime flags are idle", async () => {
+    render("/workspace-a");
+    expect(host.starts).toHaveLength(0);
+
+    render("/workspace-b");
+
+    await vi.waitFor(() => expect(host.closes).toHaveLength(1));
+    expect(host.starts).toHaveLength(0);
+    expect(harness.container.querySelectorAll(".agent-turn")).toHaveLength(0);
+    expect(
+      harness.container.querySelector<HTMLTextAreaElement>("textarea")?.value,
+    ).toBe("");
+  });
+
+  it("closes an active runtime after manual compaction has completed", async () => {
+    render("/workspace-a");
+    await send("Complete before manual compaction");
+    await vi.waitFor(() => expect(host.turns).toHaveLength(1));
+    const firstSessionId = host.starts[0]?.clientSessionId;
+    if (!firstSessionId) throw new Error("Workspace A session did not start.");
+    host.emitEvent(firstSessionId, {
+      type: "contextCompactionStarted",
+      source: "manual",
+    });
+    host.emitEvent(firstSessionId, {
+      type: "contextCompactionCompleted",
+      source: "manual",
+    });
+
+    host.holdFirstTurn = true;
+    await send("Active after manual compaction");
+    await vi.waitFor(() =>
+      expect(
+        harness.container.querySelector<HTMLButtonElement>(
+          '[aria-label="Cancel"]',
+        ),
+      ).toBeTruthy(),
+    );
+
+    render("/workspace-b");
+
+    await vi.waitFor(() => expect(host.cancels).toHaveLength(1));
+    await vi.waitFor(() => expect(host.closes).toContain(firstSessionId));
+    expect(harness.container.querySelectorAll(".agent-turn")).toHaveLength(0);
   });
 
   it("cancels the active turn and discards queued input on workspace change", async () => {

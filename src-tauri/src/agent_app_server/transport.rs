@@ -81,6 +81,7 @@ pub(super) fn reader_loop(session: Arc<AgentSession>, stdout: impl std::io::Read
             });
         }
     }
+    let _ = terminate_owned_process_slot(&session.child);
 }
 
 pub(super) fn current_client_turn(session: &AgentSession) -> Option<String> {

@@ -122,10 +122,6 @@ export function useAgentWorkspaceIsolation({
 
       const previousSessionId = sessionIdRef.current;
       const previousTurnId = activeTurnIdRef.current;
-      const hadLiveRuntime =
-        sessionReadyRef.current ||
-        sessionStartingRef.current ||
-        previousTurnId !== null;
       const nextGeneration = generationRef.current + 1;
 
       trackedWorkspaceRootRef.current = nextWorkspaceRoot;
@@ -139,9 +135,7 @@ export function useAgentWorkspaceIsolation({
       setGeneration(nextGeneration);
       onResetRef.current();
 
-      if (hadLiveRuntime) {
-        queueCleanup(previousSessionId, previousTurnId);
-      }
+      queueCleanup(previousSessionId, previousTurnId);
       const previousTransition = transitionRef.current ?? Promise.resolve(true);
       const transition = previousTransition.then(() => runPendingCleanups());
       transitionRef.current = transition;

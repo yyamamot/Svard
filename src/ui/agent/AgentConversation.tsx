@@ -501,9 +501,11 @@ export function AgentConversation({
               )}
               {recoveryState === "cleaning"
                 ? "Preparing reconnect…"
-                : recoveryState === "reconnecting"
-                  ? "Reconnecting…"
-                  : "Reconnect"}
+                : recoveryState === "cleanupFailed"
+                  ? "Retry cleanup"
+                  : recoveryState === "reconnecting"
+                    ? "Reconnecting…"
+                    : "Reconnect"}
             </button>
           </section>
         ) : null}

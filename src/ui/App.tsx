@@ -1280,7 +1280,9 @@ export function App() {
             setMainAgentSnapshotReady(true);
             const recovery = agentChatHandoffPayload(snapshot)?.recoveryState;
             setMainAgentSnapshotMovable(
-              recovery !== "cleaning" && recovery !== "reconnecting",
+              recovery !== "cleaning" &&
+                recovery !== "cleanupFailed" &&
+                recovery !== "reconnecting",
             );
           }}
           lastMainPlacement={agentPanelPlacement}

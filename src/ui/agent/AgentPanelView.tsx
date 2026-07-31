@@ -108,7 +108,9 @@ export function AgentPanelView({
     snapshotAvailable: true,
   });
   const recoveryMoving =
-    recoveryState === "cleaning" || recoveryState === "reconnecting";
+    recoveryState === "cleaning" ||
+    recoveryState === "cleanupFailed" ||
+    recoveryState === "reconnecting";
   async function selectDisplayAction(action: AgentChatDisplayAction) {
     if (action === "showRight" || action === "showBottom") {
       onMainPlacementChange?.(action === "showRight" ? "right" : "bottom");
@@ -221,8 +223,9 @@ export function AgentPanelView({
             onClick={() => {
               void (async () => {
                 setSettingsOpen(false);
-                await closeSessionRuntime();
-                onClose();
+                if (await closeSessionRuntime()) {
+                  onClose();
+                }
               })();
             }}
           >

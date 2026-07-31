@@ -488,31 +488,75 @@ describe("Agent Chat conversation usability", () => {
     );
   });
 
-  it("keeps the draft and disconnected state when reconnect fails", async () => {
-    vi.spyOn(host, "closeAgentSession").mockRejectedValueOnce(
-      new Error("Synthetic cleanup failure."),
-    );
+  it("fails closed until disconnected runtime cleanup is retried", async () => {
+    const closeSession = vi
+      .spyOn(host, "closeAgentSession")
+      .mockRejectedValueOnce(new Error("Synthetic cleanup failure."));
+    const resumeSession = vi.spyOn(host, "resumeAgentSession");
     harness.render(<TestPanel host={host} />);
     await sendQuestion("Unexpected disconnect while streaming");
     await vi.waitFor(() =>
       expect(harness.container.textContent).toContain("Restore input"),
     );
     await vi.waitFor(() =>
-      expect(harness.buttonByText("Reconnect").disabled).toBe(false),
+      expect(harness.buttonByText("Retry cleanup").disabled).toBe(false),
     );
+    expect(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[aria-label="Start new chat"]',
+      )?.disabled,
+    ).toBe(true);
+    expect(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[data-review-id="agent-display-menu-trigger"]',
+      )?.disabled,
+    ).toBe(true);
     await harness.click(harness.buttonByText("Restore input"));
     const composer =
       harness.container.querySelector<HTMLTextAreaElement>("textarea")!;
-    await harness.click(harness.buttonByText("Reconnect"));
+    expect(
+      harness.container.querySelector<HTMLButtonElement>('[aria-label="Send"]')
+        ?.disabled,
+    ).toBe(true);
+    expect(resumeSession).not.toHaveBeenCalled();
 
+    await harness.click(harness.buttonByText("Retry cleanup"));
+    await vi.waitFor(() => expect(closeSession).toHaveBeenCalledTimes(2));
     await vi.waitFor(() =>
-      expect(harness.container.textContent).toContain(
-        "AI Chat could not reconnect. Try again.",
-      ),
+      expect(harness.buttonByText("Reconnect").disabled).toBe(false),
     );
     expect(composer.value).toBe("Unexpected disconnect while streaming");
-    expect(harness.buttonByText("Reconnect")).toBeTruthy();
     expect(host.turnInputs).toHaveLength(1);
+    expect(resumeSession).not.toHaveBeenCalled();
+
+    await harness.click(harness.buttonByText("Reconnect"));
+    await vi.waitFor(() => expect(resumeSession).toHaveBeenCalledTimes(1));
+    expect(composer.value).toBe("Unexpected disconnect while streaming");
+    expect(host.turnInputs).toHaveLength(1);
+  });
+
+  it("retries disconnected runtime cleanup when Close AI Chat is selected", async () => {
+    const closeSession = vi
+      .spyOn(host, "closeAgentSession")
+      .mockRejectedValueOnce(new Error("Synthetic cleanup failure."))
+      .mockRejectedValueOnce(new Error("Synthetic cleanup retry failure."));
+    harness.render(<TestPanel host={host} />);
+    await sendQuestion("Unexpected disconnect while streaming");
+    await vi.waitFor(() =>
+      expect(harness.buttonByText("Retry cleanup")).toBeTruthy(),
+    );
+
+    await harness.click(
+      harness.container.querySelector<HTMLButtonElement>(
+        '[aria-label="Close AI Chat"]',
+      ),
+    );
+
+    await vi.waitFor(() => expect(closeSession).toHaveBeenCalledTimes(2));
+    expect(harness.buttonByText("Retry cleanup")).toBeTruthy();
+    expect(harness.container.textContent).toContain(
+      "Codex app-server disconnected.",
+    );
   });
 
   it("keeps disconnected Full Access input when reconnect confirmation is refused", async () => {

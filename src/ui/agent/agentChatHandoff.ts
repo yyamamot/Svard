@@ -21,6 +21,7 @@ import type { PreparedAgentTurn } from "./useAgentRunningTurnControl";
 export type AgentSessionRecoveryState =
   | "connected"
   | "cleaning"
+  | "cleanupFailed"
   | "disconnected"
   | "reconnecting";
 

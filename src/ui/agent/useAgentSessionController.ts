@@ -40,6 +40,7 @@ import {
 } from "./agentChatHandoff";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
 import {
+  providerCleanupFailedAgentNotice,
   useAgentActionNotice,
   workspaceChangedAgentNotice,
   workspaceCleanupFailedAgentNotice,
@@ -181,7 +182,7 @@ export function useAgentSessionController({
   const sessionStartingRef = useRef(false);
   const resumeClosedSessionRef = useRef(handoff?.sessionLifecycle === "closed");
   const recoveryStateRef = useRef(recoveryState);
-  const disconnectCleanupRef = useRef<Promise<void> | null>(null);
+  const disconnectCleanupRef = useRef<Promise<boolean> | null>(null);
   const pendingSessionActionRef = useRef<PendingSessionAction | null>(null);
   const pendingFullAccessTransactionRef =
     useRef<PendingFullAccessTransaction | null>(null);
@@ -191,6 +192,38 @@ export function useAgentSessionController({
     recoveryStateRef.current = next;
     setRecoveryState(next);
   }, []);
+  const runDisconnectCleanup = useCallback(
+    (clientSessionId: string): Promise<boolean> => {
+      if (disconnectCleanupRef.current) {
+        return disconnectCleanupRef.current;
+      }
+      updateRecoveryState("cleaning");
+      const cleanup = host
+        .closeAgentSession(clientSessionId)
+        .then(() => {
+          if (sessionIdRef.current === clientSessionId) {
+            setActionNotice(null);
+            updateRecoveryState("disconnected");
+          }
+          return true;
+        })
+        .catch(() => {
+          if (sessionIdRef.current === clientSessionId) {
+            setActionNotice(providerCleanupFailedAgentNotice);
+            updateRecoveryState("cleanupFailed");
+          }
+          return false;
+        })
+        .finally(() => {
+          if (disconnectCleanupRef.current === cleanup) {
+            disconnectCleanupRef.current = null;
+          }
+        });
+      disconnectCleanupRef.current = cleanup;
+      return cleanup;
+    },
+    [host, setActionNotice, updateRecoveryState],
+  );
   useEffect(() => {
     if (handoffSnapshot) return;
     handoffAttachedRef.current = false;
@@ -346,20 +379,7 @@ export function useAgentSessionController({
         sessionReadyRef.current = false;
         resumeClosedSessionRef.current = true;
         setSessionLifecycle("closed");
-        updateRecoveryState("cleaning");
-        if (!disconnectCleanupRef.current) {
-          disconnectCleanupRef.current = host
-            .closeAgentSession(disconnectedSessionId)
-            .catch(() => undefined)
-            .then(() => {
-              if (sessionIdRef.current === disconnectedSessionId) {
-                updateRecoveryState("disconnected");
-              }
-            })
-            .finally(() => {
-              disconnectCleanupRef.current = null;
-            });
-        }
+        void runDisconnectCleanup(disconnectedSessionId);
       }
       if (event.type === "turnInputAccepted") {
         acceptedTurnIdsRef.current.add(event.clientTurnId);
@@ -399,7 +419,7 @@ export function useAgentSessionController({
       handleContextEvent(event);
       dispatch({ type: "event", event });
     },
-    [handleContextEvent, host, onQuotedContextsAccepted, updateRecoveryState],
+    [handleContextEvent, onQuotedContextsAccepted, runDisconnectCleanup],
   );
   useEffect(() => {
     if (
@@ -554,6 +574,10 @@ export function useAgentSessionController({
     if (!(await workspaceIsolation.ensureWorkspaceBoundary())) {
       return;
     }
+    if (recoveryStateRef.current === "cleanupFailed") {
+      setActionNotice(providerCleanupFailedAgentNotice);
+      return;
+    }
     if (
       workspaceIsolation.isSessionCurrent() &&
       sessionReadyRef.current &&
@@ -598,6 +622,10 @@ export function useAgentSessionController({
       recoveryStateRef.current === "reconnecting" ||
       sessionStartingRef.current
     ) {
+      return;
+    }
+    if (recoveryStateRef.current === "cleanupFailed") {
+      await runDisconnectCleanup(sessionIdRef.current);
       return;
     }
     if (permissionMode === "fullAccess") {
@@ -788,7 +816,12 @@ export function useAgentSessionController({
       return false;
     }
     if (disconnectCleanupRef.current) {
-      await disconnectCleanupRef.current;
+      if (!(await disconnectCleanupRef.current)) {
+        return false;
+      }
+    }
+    if (recoveryStateRef.current === "cleanupFailed") {
+      return false;
     }
     if (
       sessionStartingRef.current ||
@@ -1016,7 +1049,7 @@ export function useAgentSessionController({
       workspaceRoot,
     });
 
-  async function closeSessionRuntime() {
+  async function closeSessionRuntime(): Promise<boolean> {
     pendingSessionActionRef.current = null;
     pendingFullAccessTransactionRef.current = null;
     setConfirmFullAccess(false);
@@ -1025,11 +1058,20 @@ export function useAgentSessionController({
       await host.cancelAgentTurn(sessionIdRef.current, activeTurnId);
     }
     if (disconnectCleanupRef.current) {
-      await disconnectCleanupRef.current;
+      if (!(await disconnectCleanupRef.current)) {
+        return false;
+      }
     }
-    if (sessionReadyRef.current) {
+    if (
+      sessionReadyRef.current ||
+      resumeClosedSessionRef.current ||
+      recoveryStateRef.current !== "connected"
+    ) {
+      const closed = await runDisconnectCleanup(sessionIdRef.current);
+      if (!closed) {
+        return false;
+      }
       resumeClosedSessionRef.current = true;
-      await host.closeAgentSession(sessionIdRef.current);
       sessionReadyRef.current = false;
       setSessionLifecycle("closed");
     }
@@ -1038,6 +1080,7 @@ export function useAgentSessionController({
       updateRecoveryState("connected");
     }
     clearSessionLocalContext();
+    return true;
   }
 
   function createHandoffSnapshot(

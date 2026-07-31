@@ -1,7 +1,7 @@
 use super::*;
 
 const GRACEFUL_PROCESS_EXIT_TIMEOUT: Duration = Duration::from_secs(2);
-const FORCED_PROCESS_EXIT_TIMEOUT: Duration = Duration::from_millis(500);
+const FORCED_PROCESS_EXIT_TIMEOUT: Duration = Duration::from_secs(2);
 const PROCESS_EXIT_POLL_INTERVAL: Duration = Duration::from_millis(20);
 
 pub(super) fn configure_owned_process(command: &mut Command) {
@@ -116,5 +116,55 @@ mod tests {
         terminate_owned_process(&mut child).unwrap();
 
         assert!(!process_group_exists(process_group_id));
+    }
+
+    #[test]
+    fn owned_process_cleanup_reaps_an_externally_killed_direct_child() {
+        let mut command = Command::new("/bin/sh");
+        command
+            .args([
+                "-c",
+                "trap '' TERM; (trap '' TERM; while :; do sleep 1; done) & wait",
+            ])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        configure_owned_process(&mut command);
+        let mut child = command.spawn().unwrap();
+        let process_group_id = child.id();
+        thread::sleep(Duration::from_millis(50));
+
+        let result = unsafe { libc::kill(child.id() as i32, libc::SIGKILL) };
+        assert_eq!(result, 0);
+        thread::sleep(Duration::from_millis(50));
+
+        terminate_owned_process(&mut child).unwrap();
+
+        assert!(!process_group_exists(process_group_id));
+        assert!(child.try_wait().unwrap().is_some());
+    }
+
+    #[test]
+    fn owned_process_slot_cleanup_is_idempotent_under_contention() {
+        let mut command = Command::new("/bin/sh");
+        command
+            .args(["-c", "while :; do sleep 1; done"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        configure_owned_process(&mut command);
+        let slot = Arc::new(Mutex::new(Some(command.spawn().unwrap())));
+        let first = Arc::clone(&slot);
+        let second = Arc::clone(&slot);
+
+        let first_cleanup = thread::spawn(move || terminate_owned_process_slot(&first));
+        let second_cleanup = thread::spawn(move || terminate_owned_process_slot(&second));
+
+        first_cleanup.join().unwrap().unwrap();
+        second_cleanup.join().unwrap().unwrap();
+        assert!(slot
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .is_none());
     }
 }
