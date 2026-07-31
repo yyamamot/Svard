@@ -616,7 +616,10 @@ fn safe_display_label(path: &Path, workspace_root: Option<&Path>) -> String {
                 .map(Path::new)
                 .unwrap_or_else(|| Path::new("context"))
         });
-    path_to_ui_string(candidate)
+    let label = path_to_ui_string(candidate);
+    #[cfg(windows)]
+    let label = label.replace('\\', "/");
+    label
         .chars()
         .map(|value| {
             if value.is_control() || value == '|' {
