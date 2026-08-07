@@ -13,8 +13,8 @@ function isWhitespace(value: string | undefined) {
   return value === undefined || /\s/u.test(value);
 }
 
-function isWordCharacter(value: string | undefined) {
-  return value !== undefined && /[\p{Letter}\p{Number}_]/u.test(value);
+function isAsciiWordCharacter(value: string | undefined) {
+  return value !== undefined && /[A-Za-z0-9_]/u.test(value);
 }
 
 function hasUnescapedPipe(value: string) {
@@ -46,7 +46,7 @@ function canOpenInlineMath(source: string, position: number, max: number) {
   }
 
   const previous = position > 0 ? source[position - 1] : undefined;
-  if (previous === "\\" || previous === "$" || isWordCharacter(previous)) {
+  if (previous === "\\" || previous === "$" || isAsciiWordCharacter(previous)) {
     return false;
   }
 
@@ -60,7 +60,7 @@ function canCloseInlineMath(source: string, position: number, max: number) {
   }
 
   const next = position + 1 < max ? source[position + 1] : undefined;
-  return !isWordCharacter(next);
+  return !isAsciiWordCharacter(next);
 }
 
 export function registerMathRules(markdown: MarkdownIt) {

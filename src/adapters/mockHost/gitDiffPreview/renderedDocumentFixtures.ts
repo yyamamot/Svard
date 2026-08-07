@@ -212,6 +212,14 @@ Inline stem should render correctly: stem:[E = mc^2].
 \\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}
 ++++
 
+[stem]
+++++
+\\begin{bmatrix}
+1 & 2 \\\\
+3 & 4
+\\end{bmatrix}
+++++
+
 [mermaid]
 ----
 flowchart TD
@@ -228,6 +236,14 @@ Inline stem should render in diff: stem:[E = mc^2].
 \\sum_{i=1}^{n} i = \\frac{n(n+1)}{2} + 0
 ++++
 
+[stem]
+++++
+\\begin{bmatrix}
+1 & 2 \\\\
+3 & 5
+\\end{bmatrix}
+++++
+
 [mermaid]
 ----
 flowchart TD
@@ -240,67 +256,7 @@ flowchart TD
       status: "modified",
       leftLabel: "HEAD",
       rightLabel: "Working Tree",
-      hunks: [
-        {
-          oldStart: 1,
-          oldLines: 14,
-          newStart: 1,
-          newLines: 14,
-          lines: [
-            {
-              kind: "context",
-              oldLine: 1,
-              newLine: 1,
-              text: "= Git Rendered Math Diff Fixture",
-            },
-            { kind: "context", oldLine: 2, newLine: 2, text: ":stem:" },
-            { kind: "context", oldLine: 3, newLine: 3, text: "" },
-            {
-              kind: "removed",
-              oldLine: 4,
-              newLine: null,
-              text: "Inline stem should render correctly: stem:[E = mc^2].",
-            },
-            {
-              kind: "added",
-              oldLine: null,
-              newLine: 4,
-              text: "Inline stem should render in diff: stem:[E = mc^2].",
-            },
-            { kind: "context", oldLine: 5, newLine: 5, text: "" },
-            { kind: "context", oldLine: 6, newLine: 6, text: "[stem]" },
-            { kind: "context", oldLine: 7, newLine: 7, text: "++++" },
-            {
-              kind: "removed",
-              oldLine: 8,
-              newLine: null,
-              text: "\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}",
-            },
-            {
-              kind: "added",
-              oldLine: null,
-              newLine: 8,
-              text: "\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2} + 0",
-            },
-            { kind: "context", oldLine: 9, newLine: 9, text: "++++" },
-            { kind: "context", oldLine: 10, newLine: 10, text: "" },
-            { kind: "context", oldLine: 11, newLine: 11, text: "[mermaid]" },
-            { kind: "context", oldLine: 12, newLine: 12, text: "----" },
-            {
-              kind: "removed",
-              oldLine: 13,
-              newLine: null,
-              text: 'flowchart TD  A["`Stable math $E = mc^2$`"] --> B["Rendered"]',
-            },
-            {
-              kind: "added",
-              oldLine: null,
-              newLine: 13,
-              text: 'flowchart TD  A["`Diff math $E = mc^2$`"] --> B["Rendered"]',
-            },
-          ],
-        },
-      ],
+      hunks: diffHunksFromText(leftText, rightText),
       message: null,
       leftText,
       rightText,

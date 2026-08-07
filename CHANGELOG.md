@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed inline Markdown math next to Japanese and other non-ASCII text so it renders with KaTeX without requiring spaces and follows the surrounding prose baseline, and preserved matrix rows in AsciiDoc stem blocks.
 - Added workspace-native Codex AI Chat with Markdown responses and an explicit Visualize mode for interactive OpenUI output.
 - Added configurable Codex model, reasoning, personality, access, network, and web-search settings with per-session snapshots.
 - Added document selections, focused files, images, and diagram context as turn-local AI Chat references.

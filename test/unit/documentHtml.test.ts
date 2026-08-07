@@ -312,6 +312,25 @@ describe("prepareDocumentHtml", () => {
     expect(
       doc.querySelector('[data-review-id="math-block"] [style]'),
     ).toBeTruthy();
+    const matrix = doc.querySelector('[data-review-id="math-block"] .mtable');
+    const matrixColumns = Array.from(
+      matrix?.querySelectorAll(":scope > .col-align-c") ?? [],
+    );
+    expect(matrixColumns).toHaveLength(2);
+    expect(
+      matrixColumns.map((column) =>
+        Array.from(
+          column.querySelectorAll(
+            ":scope > .vlist-t > .vlist-r > .vlist > span",
+          ),
+        )
+          .map((row) => row.textContent?.trim())
+          .filter(Boolean),
+      ),
+    ).toEqual([
+      ["1", "3"],
+      ["2", "4"],
+    ]);
     expect(doc.querySelector("pre")?.textContent).toContain("\\$not math\\$");
   });
 

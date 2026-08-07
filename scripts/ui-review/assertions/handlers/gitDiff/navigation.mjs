@@ -1,3 +1,5 @@
+import { hasExpectedMatrixLayout } from "../../../core/mathLayout.mjs";
+
 async function hasConsistentActiveRulerMarker(page) {
   return page.evaluate(() => {
     const targets = Array.from(
@@ -304,7 +306,7 @@ export async function buildGitDiffNavigationAssertions(context) {
         : true,
     hasDiffMathRendering:
       scenario === "viewer-diff-math-rendering"
-        ? await page.evaluate(() => {
+        ? (await page.evaluate(() => {
             const root = document.querySelector(
               '[data-review-id="git-rendered-diff"]',
             );
@@ -327,6 +329,7 @@ export async function buildGitDiffNavigationAssertions(context) {
               ".diagram-inline .git-inline-word-highlight, svg .git-inline-word-highlight",
             );
             return (
+              window.__SVARD_DIFF_MATH_MATRIX_FULL_PREVIEW_OK__ === true &&
               inlineMathRect !== undefined &&
               blockMathRect !== undefined &&
               inlineMathRect.width > 20 &&
@@ -337,7 +340,11 @@ export async function buildGitDiffNavigationAssertions(context) {
               mathHighlight === null &&
               diagramHighlight === null
             );
-          })
+          })) &&
+          (await hasExpectedMatrixLayout(
+            page.locator('[data-review-id="git-rendered-diff"]'),
+            [[2], [2]],
+          ))
         : true,
     hasDiffRichAsciiDocPreview:
       scenario === "viewer-diff-rich-asciidoc-preview"

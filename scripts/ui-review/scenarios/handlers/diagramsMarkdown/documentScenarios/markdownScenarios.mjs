@@ -13,6 +13,10 @@ export async function applyMarkdownScenario(context) {
       .first()
       .waitFor();
     await page
+      .locator('[data-review-id="math-block"] .mtable')
+      .first()
+      .waitFor();
+    await page
       .getByRole("heading", { name: "Invalid Math Fallback" })
       .waitFor();
   } else if (scenario === "viewer-markdown-math-edge-cases") {
@@ -21,7 +25,9 @@ export async function applyMarkdownScenario(context) {
       .getByRole("heading", { name: "Markdown Math Edge Cases" })
       .waitFor();
     await page.getByRole("heading", { name: "Valid Math" }).waitFor();
+    await page.getByRole("heading", { name: "Non-ASCII Boundaries" }).waitFor();
     await page.locator(".math-inline .katex").first().waitFor();
+    await page.locator(".math-inline .mfrac").first().waitFor();
     await page
       .locator('[data-review-id="math-block"] .katex')
       .first()

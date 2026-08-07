@@ -2125,6 +2125,16 @@ $$
 \\int_0^1 x^2 dx = \\frac{1}{3}
 $$
 
+## Non-ASCII Boundaries
+
+予測値と正解$t$の差を、二乗誤差で測る。
+
+- $x$と$t$：学習データ。optimizerは更新しない
+- $w$と$b$：学習可能なパラメータ。optimizerが更新する
+- $wx$、$\\hat{y}$、$L$：入力と現在のパラメータから一時的に計算される値
+- $x$が1変化すると、$u$は$\\dfrac{du}{dx}$だけ変化する
+- $u$が1変化すると、$y$は$\\dfrac{dy}{du}$だけ変化する
+
 ## Currency And Escapes
 
 Costs stay readable: $12.00, USD $5, and price is $5 and $6.

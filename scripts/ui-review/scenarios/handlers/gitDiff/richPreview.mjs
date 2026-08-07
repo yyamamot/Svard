@@ -1,3 +1,5 @@
+import { hasExpectedMatrixLayout } from "../../../core/mathLayout.mjs";
+
 export async function applyGitDiffRichPreviewScenario(context) {
   const scenario = context.scenario;
   const page = context.page;
@@ -170,10 +172,25 @@ export async function applyGitDiffRichPreviewScenario(context) {
       )
       .first()
       .waitFor();
+    await page
+      .locator('[data-review-id="git-full-preview-diff"] .mtable')
+      .first()
+      .waitFor();
+    const fullPreviewMatrixLayout = await hasExpectedMatrixLayout(
+      page.locator('[data-review-id="git-full-preview-diff"]'),
+      [[2], [2]],
+    );
+    await page.evaluate((valid) => {
+      window.__SVARD_DIFF_MATH_MATRIX_FULL_PREVIEW_OK__ = valid;
+    }, fullPreviewMatrixLayout);
     await page.locator('[data-review-id="git-diff-rendered-view"]').click();
     await page.locator('[data-review-id="git-rendered-diff"]').waitFor();
     await page
       .locator('[data-review-id="git-rendered-diff"] .math-inline .katex')
+      .first()
+      .waitFor();
+    await page
+      .locator('[data-review-id="git-rendered-diff"] .mtable')
       .first()
       .waitFor();
   } else if (scenario === "viewer-diff-rich-asciidoc-preview") {

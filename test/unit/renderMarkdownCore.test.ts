@@ -388,6 +388,69 @@ $not rendered in source$
     expect(result.html).toContain("$not rendered in source$");
   });
 
+  it("preserves Markdown matrix rows and columns", () => {
+    const result = renderMarkdownCore(`# Matrix
+
+$$
+\\begin{bmatrix}
+1 & 2 \\\\
+3 & 4
+\\end{bmatrix}
+$$
+`);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    const matrix = doc.querySelector('[data-review-id="math-block"] .mtable');
+    const columns = Array.from(
+      matrix?.querySelectorAll(":scope > .col-align-c") ?? [],
+    );
+
+    expect(
+      columns.map((column) =>
+        Array.from(
+          column.querySelectorAll(
+            ":scope > .vlist-t > .vlist-r > .vlist > span",
+          ),
+        )
+          .map((row) => row.textContent?.trim())
+          .filter(Boolean),
+      ),
+    ).toEqual([
+      ["1", "3"],
+      ["2", "4"],
+    ]);
+  });
+
+  it("renders inline math adjacent to non-ASCII prose", () => {
+    const result = renderMarkdownCore(`# Non-ASCII Math Boundaries
+
+予測値と正解$t$の差を測る。
+
+- $x$と$t$：学習データ
+- 中文$x$内容
+- 한국어$y$내용
+`);
+
+    expect(result.html.match(/class="math-inline"/g)?.length).toBe(5);
+    expect(result.html.match(/data-math-source="t"/g)?.length).toBe(2);
+    expect(result.html).not.toContain("$x$と$t$");
+    expect(result.html).not.toContain("中文$x$内容");
+    expect(result.html).not.toContain("한국어$y$내용");
+  });
+
+  it("keeps ASCII word adjacency and non-ASCII currency as text", () => {
+    const result = renderMarkdownCore(`# Ambiguous Dollar Boundaries
+
+ASCII identifiers stay readable: word$x$word and v2$x$.
+
+Japanese currency stays readable: 日本語$5$です。
+`);
+
+    expect(result.html).not.toContain('class="math-inline"');
+    expect(result.html).toContain("word$x$word");
+    expect(result.html).toContain("v2$x$");
+    expect(result.html).toContain("日本語$5$です");
+  });
+
   it("does not treat currency and escaped dollars as inline math", () => {
     const result = renderMarkdownCore(`# Math Edge Cases
 

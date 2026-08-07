@@ -57,7 +57,10 @@ function replaceAsciiDocStemBlocks(doc: Document) {
     if (!text.includes("\\$")) {
       return;
     }
-    const mathSource = text.replace(/\\+\$/g, "").trim();
+    const mathSource = text
+      .replace(/\\\\\$[ \t]*\r?\n[ \t]*\\\$/g, "\\\\\n")
+      .replace(/\\+\$/g, "")
+      .trim();
     content.replaceChildren(
       htmlFragment(doc, markSafeHtml(renderMathBlock(mathSource))),
     );

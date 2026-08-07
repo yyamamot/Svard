@@ -1,3 +1,66 @@
+import { hasExpectedMatrixLayout } from "../../../../core/mathLayout.mjs";
+
+async function hasNaturalInlineMathBaseline(page) {
+  const fractionLines = page
+    .locator(".document-body li")
+    .filter({ has: page.locator(".math-inline .mfrac") });
+  if ((await fractionLines.count()) !== 2) {
+    return false;
+  }
+
+  for (let index = 0; index < 2; index += 1) {
+    const valid = await fractionLines.nth(index).evaluate((line) => {
+      const wrappers = Array.from(line.querySelectorAll(".math-inline"));
+      const simpleWrappers = wrappers.filter(
+        (wrapper) => !wrapper.querySelector(".mfrac"),
+      );
+      const fractionWrapper = wrappers.find((wrapper) =>
+        wrapper.querySelector(".mfrac"),
+      );
+      const proseNode = Array.from(line.childNodes).find(
+        (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+      );
+      if (simpleWrappers.length !== 2 || !fractionWrapper || !proseNode) {
+        return false;
+      }
+
+      const proseRange = document.createRange();
+      proseRange.selectNodeContents(proseNode);
+      const proseRect = proseRange.getBoundingClientRect();
+      const simpleMathAligned = simpleWrappers.every((wrapper) => {
+        const mathRect = wrapper
+          .querySelector(".katex")
+          ?.getBoundingClientRect();
+        return mathRect && Math.abs(mathRect.top - proseRect.top) <= 3;
+      });
+      const usesNaturalInlineLayout = wrappers.every((wrapper) => {
+        const style = getComputedStyle(wrapper);
+        return (
+          style.verticalAlign === "baseline" &&
+          style.overflowX === "visible" &&
+          style.overflowY === "visible"
+        );
+      });
+      const lineRect = line.getBoundingClientRect();
+      const fractionRect = fractionWrapper
+        .querySelector(".katex")
+        ?.getBoundingClientRect();
+      const fractionIsNotClipped =
+        fractionRect &&
+        lineRect.top <= fractionRect.top + 1 &&
+        lineRect.bottom >= fractionRect.bottom - 1;
+
+      return Boolean(
+        simpleMathAligned && usesNaturalInlineLayout && fractionIsNotClipped,
+      );
+    });
+    if (!valid) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export async function buildMarkdownAssertions({
   scenario,
   page,
@@ -15,6 +78,10 @@ export async function buildMarkdownAssertions({
           (await page
             .locator('[data-review-id="math-block"] .katex')
             .count()) >= 2 &&
+          (await hasExpectedMatrixLayout(
+            page.locator('[data-review-id="document-body"]'),
+            [[2, 1, 1]],
+          )) &&
           bodyText.includes("not rendered inside source")
         : true,
     hasMarkdownMathEdgeCases:
@@ -28,7 +95,25 @@ export async function buildMarkdownAssertions({
           bodyText.includes("$not math$") &&
           bodyText.includes("not rendered inside source") &&
           bodyText.includes("After invalid math remains visible") &&
-          (await page.locator(".math-inline .katex").count()) === 2 &&
+          (await page.locator(".math-inline .katex").count()) === 16 &&
+          (await page
+            .locator("li")
+            .filter({ hasText: "学習データ。optimizerは更新しない" })
+            .locator(".math-inline .katex")
+            .count()) === 2 &&
+          (await page
+            .locator("li")
+            .filter({ hasText: "学習可能なパラメータ。optimizerが更新する" })
+            .locator(".math-inline .katex")
+            .count()) === 2 &&
+          (await page
+            .locator("li")
+            .filter({
+              hasText: "入力と現在のパラメータから一時的に計算される値",
+            })
+            .locator(".math-inline .katex")
+            .count()) === 3 &&
+          (await hasNaturalInlineMathBaseline(page)) &&
           (await page
             .locator('[data-review-id="math-block"] .katex')
             .count()) === 1 &&

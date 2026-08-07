@@ -239,9 +239,6 @@
   display: inline-block;
   max-width: 100%;
   color: var(--reader-heading);
-  overflow-x: auto;
-  overflow-y: hidden;
-  vertical-align: -0.18em;
 }
 
 .document-body .math-block,
