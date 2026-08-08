@@ -1,60 +1,28 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import type {
-  AgentEvent,
-  AgentAttachment,
-  AgentChatHandoffSnapshot,
-  AgentFocusFile,
-  AgentImageAttachment,
-  AgentPermissionMode,
-  AgentProviderRuntimeSnapshot,
-  AgentQuotedContext,
-  AgentResponseMode,
-  AgentSessionPage,
-  AgentSessionSummary,
-  DocumentMediaMode,
-} from "../../core/types";
-import { initialAgentChatState, reduceAgentChat } from "./agentChatState";
+import { useCallback, useEffect, useRef } from "react";
+// prettier-ignore
+import type { AgentEvent, AgentImageAttachment, AgentSessionSummary } from "../../core/types";
 import { createAgentFullAccessActions } from "./agentFullAccessActions";
 import { applyAgentSessionTitleEvent } from "./agentSessionTitleEvents";
-import {
-  createAgentAccessSelectors,
-  createAgentContextProfileSelector,
-  createRestartSessionFromProviderDefaults,
-  effectiveContextProfile,
-  type AgentSessionAccessTransactionInput,
-} from "./agentSessionAccessActions";
+// prettier-ignore
+import { createAgentAccessSelectors, createAgentContextProfileSelector, createRestartSessionFromProviderDefaults, effectiveContextProfile, type AgentSessionAccessTransactionInput, } from "./agentSessionAccessActions";
 import { createAgentSessionHistoryLoaders } from "./agentSessionHistoryLoaders";
 import { createAgentSessionManagementActions } from "./agentSessionManagementActions";
-import { useAgentConversationScroll } from "./useAgentConversationScroll";
 import { useAgentContextPressure } from "./useAgentContextPressure";
-import {
-  createAgentSessionStartInput,
-  createAgentSessionSettingsSnapshot,
-  restoredConversationTurn,
-  type AgentImageError,
-  type AgentRuntimeSettingsSnapshot,
-} from "./agentPanelModel";
-import {
-  agentChatHandoffPayload,
-  type AgentSessionRecoveryState,
-} from "./agentChatHandoff";
+// prettier-ignore
+import { createAgentSessionStartInput, createAgentSessionSettingsSnapshot } from "./agentPanelModel";
 import type { AgentPanelHostProps } from "./agentPanelTypes";
-import {
-  providerCleanupFailedAgentNotice,
-  useAgentActionNotice,
-  workspaceChangedAgentNotice,
-  workspaceCleanupFailedAgentNotice,
-} from "./useAgentActionNotice";
+// prettier-ignore
+import { providerCleanupFailedAgentNotice, workspaceChangedAgentNotice, workspaceCleanupFailedAgentNotice, } from "./useAgentActionNotice";
 import { useAgentSessionContextCleanup } from "./useAgentSessionContextCleanup";
-import {
-  useAgentSessionHistorySearchReload,
-  useAgentSessionHistorySearchState,
-} from "./useAgentSessionHistorySearchState";
+// prettier-ignore
+import { useAgentSessionHistorySearchReload } from "./useAgentSessionHistorySearchState";
 import { useAgentWorkspaceIsolation } from "./useAgentWorkspaceIsolation";
+import { useAgentSessionControllerState } from "./useAgentSessionControllerState";
+// prettier-ignore
+import { resumeAgentSessionTransaction, resumeClosedAgentSession } from "./agentSessionTransactions";
+import { useAgentRuntimeProbe } from "./useAgentRuntimeProbe";
 
-type AgentSessionLifecycle = "idle" | "starting" | "ready" | "closed";
 type PendingSessionAction = () => void | Promise<void>;
-type PendingFullAccessTransaction = () => Promise<boolean>;
 type AgentSessionResumeReason = "closed" | "providerDisconnected";
 
 interface AgentSessionResumeOptions {
@@ -76,154 +44,17 @@ export function useAgentSessionController({
   handoffSnapshot,
   quotedContexts: providedQuotedContexts = [],
 }: AgentPanelHostProps) {
-  const handoff = agentChatHandoffPayload(handoffSnapshot);
-  const [runtime, setRuntime] = useState<AgentProviderRuntimeSnapshot | null>(
-    () =>
-      handoff?.runtime ??
-      host.peekAgentProviderRuntime(
-        "codex-app-server",
-        providerConfig.codex.executable,
-      ),
-  );
-  const [probeError, setProbeError] = useState<string | null>(null);
-  const [sessionLifecycle, setSessionLifecycle] =
-    useState<AgentSessionLifecycle>(handoff?.sessionLifecycle ?? "idle");
-  const [recoveryState, setRecoveryState] = useState<AgentSessionRecoveryState>(
-    handoff?.recoveryState ??
-      (handoff?.state.disconnectedMessage ? "disconnected" : "connected"),
-  );
-  const sessionReady = sessionLifecycle === "ready";
-  const sessionStarting = sessionLifecycle === "starting";
-  const [sessionSettings, setSessionSettings] =
-    useState<AgentRuntimeSettingsSnapshot | null>(
-      handoff?.sessionSettings ?? null,
-    );
-  const codexDefaults = providerConfig.codex;
-  const [permissionMode, setPermissionMode] = useState<AgentPermissionMode>(
-    handoff?.permissionMode ?? codexDefaults.permissionMode,
-  );
-  const [networkAccess, setNetworkAccess] = useState(
-    handoff?.networkAccess ?? codexDefaults.networkAccess,
-  );
-  const [webSearch, setWebSearch] = useState(
-    handoff?.webSearch ?? codexDefaults.webSearch,
-  );
-  const [contextProfile, setContextProfile] = useState(
-    handoff?.contextProfile ?? effectiveContextProfile(codexDefaults, runtime),
-  );
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [confirmFullAccess, setConfirmFullAccess] = useState(false);
-  const [responseMode, setResponseMode] = useState<AgentResponseMode>(
-    handoff?.responseMode ?? "auto",
-  );
-  const [question, setQuestion] = useState(handoff?.question ?? "");
-  const [focusFiles, setFocusFiles] = useState<AgentFocusFile[]>(
-    handoff?.focusFiles ?? [],
-  );
-  const [attachments, setAttachments] = useState<AgentAttachment[]>(
-    handoff?.attachments ?? [],
-  );
-  const [images, setImages] = useState<AgentImageAttachment[]>(
-    handoff?.images ?? [],
-  );
-  const [restoredQuotedContexts, setRestoredQuotedContexts] = useState<
-    AgentQuotedContext[]
-  >(handoff?.quotedContexts ?? []);
-  const [imageErrors, setImageErrors] = useState<AgentImageError[]>([]);
-  const [mediaModes, setMediaModes] = useState<
-    Record<string, DocumentMediaMode>
-  >(handoff?.mediaModes ?? {});
-  const [actionNotice, setActionNotice] = useAgentActionNotice(
-    handoff?.actionNotice ?? null,
-  );
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyArchived, setHistoryArchived] = useState(false);
-  const historySearch = useAgentSessionHistorySearchState();
-  const [sessionPage, setSessionPage] = useState<AgentSessionPage | null>(null);
-  const [sessionListLoading, setSessionListLoading] = useState(false);
-  const [sessionListError, setSessionListError] = useState<string | null>(null);
-  const [olderHistoryCursor, setOlderHistoryCursor] = useState<string | null>(
-    null,
-  );
-  const [olderHistoryLoading, setOlderHistoryLoading] = useState(false);
-  const [pendingFullAccessResume, setPendingFullAccessResume] =
-    useState<AgentSessionSummary | null>(null);
-  const [confirmClosedFullAccessResume, setConfirmClosedFullAccessResume] =
-    useState(false);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [dropActive, setDropActive] = useState(false);
-  const [state, dispatch] = useReducer(
-    reduceAgentChat,
-    handoff?.state ?? initialAgentChatState,
-  );
-  const {
-    captureConversationScroll,
-    followLatestConversation,
-    handleConversationScroll,
-    historyPrependScrollRef,
-    newActivityAvailable,
-    resetConversationFollow,
-    scrollRef,
-  } = useAgentConversationScroll(state, handoff?.scroll);
-  const sessionIdRef = useRef<string>(
-    handoff?.sessionId ?? crypto.randomUUID(),
-  );
-  const sessionReadyRef = useRef(handoff?.sessionReady ?? false);
-  const sessionSettingsRef = useRef<AgentRuntimeSettingsSnapshot | null>(
-    handoff?.sessionSettings ?? null,
-  );
-  const sessionTitleEventSequenceRef = useRef(0);
-  const sessionTitleEventsRef = useRef(
-    new Map<string, { sequence: number; title: string }>(),
-  );
-  const acceptedTurnIdsRef = useRef(new Set<string>());
-  const handoffAttachedRef = useRef(false);
-  const handoffReadyReportedRef = useRef(false);
-  const sessionStartingRef = useRef(false);
-  const resumeClosedSessionRef = useRef(handoff?.sessionLifecycle === "closed");
-  const recoveryStateRef = useRef(recoveryState);
-  const disconnectCleanupRef = useRef<Promise<boolean> | null>(null);
-  const pendingSessionActionRef = useRef<PendingSessionAction | null>(null);
-  const pendingFullAccessTransactionRef =
-    useRef<PendingFullAccessTransaction | null>(null);
-  const composerDockRef = useRef<HTMLDivElement>(null);
-  const composerInputRef = useRef<HTMLTextAreaElement>(null);
-  const updateRecoveryState = useCallback((next: AgentSessionRecoveryState) => {
-    recoveryStateRef.current = next;
-    setRecoveryState(next);
-  }, []);
-  const runDisconnectCleanup = useCallback(
-    (clientSessionId: string): Promise<boolean> => {
-      if (disconnectCleanupRef.current) {
-        return disconnectCleanupRef.current;
-      }
-      updateRecoveryState("cleaning");
-      const cleanup = host
-        .closeAgentSession(clientSessionId)
-        .then(() => {
-          if (sessionIdRef.current === clientSessionId) {
-            setActionNotice(null);
-            updateRecoveryState("disconnected");
-          }
-          return true;
-        })
-        .catch(() => {
-          if (sessionIdRef.current === clientSessionId) {
-            setActionNotice(providerCleanupFailedAgentNotice);
-            updateRecoveryState("cleanupFailed");
-          }
-          return false;
-        })
-        .finally(() => {
-          if (disconnectCleanupRef.current === cleanup) {
-            disconnectCleanupRef.current = null;
-          }
-        });
-      disconnectCleanupRef.current = cleanup;
-      return cleanup;
-    },
-    [host, setActionNotice, updateRecoveryState],
-  );
+  const sessionControllerState = useAgentSessionControllerState({
+    activeDocument,
+    handoffSnapshot,
+    host,
+    providerConfig,
+    quotedContexts: providedQuotedContexts,
+    theme,
+    workspaceRoot,
+  });
+  // prettier-ignore
+  const { handoff, runtime, setRuntime, probeError, setProbeError, sessionLifecycle, setSessionLifecycle, recoveryState, sessionReady, sessionStarting, sessionSettings, setSessionSettings, codexDefaults, permissionMode, setPermissionMode, networkAccess, setNetworkAccess, webSearch, setWebSearch, contextProfile, setContextProfile, settingsOpen, setSettingsOpen, confirmFullAccess, setConfirmFullAccess, responseMode, setResponseMode, question, setQuestion, focusFiles, setFocusFiles, attachments, setAttachments, images, setImages, restoredQuotedContexts, setRestoredQuotedContexts, imageErrors, setImageErrors, mediaModes, setMediaModes, actionNotice, setActionNotice, historyOpen, setHistoryOpen, historyArchived, setHistoryArchived, historySearch, sessionPage, setSessionPage, sessionListLoading, setSessionListLoading, sessionListError, setSessionListError, olderHistoryCursor, setOlderHistoryCursor, olderHistoryLoading, setOlderHistoryLoading, pendingFullAccessResume, setPendingFullAccessResume, confirmClosedFullAccessResume, setConfirmClosedFullAccessResume, addMenuOpen, setAddMenuOpen, dropActive, setDropActive, state, dispatch, followLatestConversation, handleConversationScroll, historyPrependScrollRef, newActivityAvailable, resetConversationFollow, scrollRef, sessionIdRef, sessionReadyRef, sessionSettingsRef, sessionTitleEventSequenceRef, sessionTitleEventsRef, acceptedTurnIdsRef, handoffAttachedRef, handoffReadyReportedRef, sessionStartingRef, resumeClosedSessionRef, recoveryStateRef, disconnectCleanupRef, pendingSessionActionRef, pendingFullAccessTransactionRef, composerDockRef, composerInputRef, closeSessionRuntimeFromState, createHandoffSnapshotFromState, runDisconnectCleanup, updateRecoveryState } = sessionControllerState;
   useEffect(() => {
     if (handoffSnapshot) return;
     handoffAttachedRef.current = false;
@@ -310,33 +141,14 @@ export function useAgentSessionController({
     setSessionLifecycle,
     workspaceRoot,
   });
-  useEffect(() => {
-    if (!open || !workspaceRoot) return;
-    let cancelled = false;
-    setProbeError(null);
-    void host
-      .getAgentProviderRuntime("codex-app-server", {
-        executablePreference: codexDefaults.executable,
-      })
-      .then((result) => {
-        if (!cancelled) setRuntime(result);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled)
-          setProbeError(
-            error instanceof Error ? error.message : "Codex probe failed.",
-          );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    codexDefaults.executable.mode,
-    codexDefaults.executable.path,
+  useAgentRuntimeProbe({
+    codexDefaults,
     host,
     open,
+    setProbeError,
+    setRuntime,
     workspaceRoot,
-  ]);
+  });
   useEffect(() => {
     if (
       sessionReady ||
@@ -808,106 +620,17 @@ export function useAgentSessionController({
     search: historySearch,
     sessionPage,
   });
-  async function resumeClosedSessionTransaction({
-    fullAccessConfirmed,
-    reason,
-  }: AgentSessionResumeOptions) {
-    if (!(await workspaceIsolation.ensureWorkspaceBoundary())) {
-      return false;
-    }
-    if (disconnectCleanupRef.current) {
-      if (!(await disconnectCleanupRef.current)) {
-        return false;
-      }
-    }
-    if (recoveryStateRef.current === "cleanupFailed") {
-      return false;
-    }
-    if (
-      sessionStartingRef.current ||
-      !workspaceRoot ||
-      !resumeClosedSessionRef.current
-    ) {
-      return false;
-    }
-    const reconnecting = reason === "providerDisconnected";
-    const clientSessionId = sessionIdRef.current;
-    sessionStartingRef.current = true;
-    setSessionLifecycle("starting");
-    if (reconnecting) updateRecoveryState("reconnecting");
-    setProbeError(null);
-    const operation = workspaceIsolation.createOperationToken(
-      clientSessionId,
+  async function resumeClosedSessionTransaction(
+    options: AgentSessionResumeOptions,
+  ) {
+    return resumeClosedAgentSession(options, {
+      handleEvent,
+      host,
+      resetConversationFollow,
+      state: sessionControllerState,
+      workspaceIsolation,
       workspaceRoot,
-    );
-    try {
-      await host.resumeAgentSession(
-        {
-          clientSessionId,
-          workspaceRoot,
-          executablePreference:
-            sessionSettingsRef.current?.executablePreference ??
-            codexDefaults.executable,
-          contextProfile:
-            sessionSettingsRef.current?.contextProfile ?? contextProfile,
-          fullAccessConfirmed,
-        },
-        workspaceIsolation.guardEvents(operation, handleEvent),
-      );
-      const history = reconnecting
-        ? null
-        : await host.readAgentSessionHistory({
-            clientSessionId,
-            limit: 50,
-          });
-      if (
-        !workspaceIsolation.isOperationCurrent(operation) ||
-        !workspaceIsolation.bindSession(operation)
-      ) {
-        await workspaceIsolation.cleanupSession(clientSessionId);
-        return false;
-      }
-      if (history) {
-        resetConversationFollow();
-        dispatch({
-          type: "hydrate",
-          turns: history.turns.map(restoredConversationTurn),
-        });
-        setOlderHistoryCursor(history.nextCursor);
-      } else {
-        dispatch({ type: "connectionRestored" });
-      }
-      resumeClosedSessionRef.current = false;
-      setConfirmClosedFullAccessResume(false);
-      sessionReadyRef.current = true;
-      setSessionLifecycle("ready");
-      updateRecoveryState("connected");
-      if (reconnecting) setActionNotice("AI Chat reconnected.");
-      return true;
-    } catch (error) {
-      const cleanupSucceeded =
-        await workspaceIsolation.cleanupSession(clientSessionId);
-      if (!workspaceIsolation.isOperationCurrent(operation)) {
-        return false;
-      }
-      sessionReadyRef.current = false;
-      setSessionLifecycle("closed");
-      if (reconnecting) updateRecoveryState("disconnected");
-      if (cleanupSucceeded) {
-        setActionNotice(
-          reconnecting
-            ? "AI Chat could not reconnect. Try again."
-            : error instanceof Error
-              ? error.message
-              : "This chat could not be resumed.",
-        );
-      }
-      return false;
-    } finally {
-      if (workspaceIsolation.isOperationCurrent(operation)) {
-        sessionStartingRef.current = false;
-      }
-    }
+    });
   }
   const { cancelFullAccessStart, confirmFullAccessStart } =
     createAgentFullAccessActions({
@@ -930,111 +653,19 @@ export function useAgentSessionController({
     summary: AgentSessionSummary,
     fullAccessConfirmed = false,
   ) {
-    if (!(await workspaceIsolation.ensureWorkspaceBoundary())) {
-      return;
-    }
-    if (
-      activeTurnId ||
-      sessionStartingRef.current ||
-      !workspaceRoot ||
-      summary.clientSessionId === sessionIdRef.current
-    ) {
-      return;
-    }
-    if (
-      summary.settings.permissionMode === "fullAccess" &&
-      !fullAccessConfirmed
-    ) {
-      setPendingFullAccessResume(summary);
-      return;
-    }
-    const previousSessionId = sessionIdRef.current;
-    const previousSessionReady = sessionReadyRef.current;
-    const previousSessionWorkspaceRoot =
-      workspaceIsolation.sessionWorkspaceRootRef.current;
-    const previousContextPressure = captureContextPressure();
-    const nextSessionId = summary.clientSessionId;
-    sessionStartingRef.current = true;
-    sessionReadyRef.current = false;
-    sessionIdRef.current = nextSessionId;
-    resetContextPressure();
-    setSessionLifecycle("starting");
-    setSessionListError(null);
-    const operation = workspaceIsolation.createOperationToken(
-      nextSessionId,
+    return resumeAgentSessionTransaction(summary, fullAccessConfirmed, {
+      activeTurnId,
+      captureContextPressure,
+      clearSessionLocalContext,
+      handleEvent,
+      host,
+      resetContextPressure,
+      resetConversationFollow,
+      restoreContextPressure,
+      state: sessionControllerState,
+      workspaceIsolation,
       workspaceRoot,
-    );
-    try {
-      await host.resumeAgentSession(
-        {
-          clientSessionId: nextSessionId,
-          workspaceRoot,
-          executablePreference: codexDefaults.executable,
-          contextProfile: summary.settings.contextProfile,
-          fullAccessConfirmed,
-        },
-        workspaceIsolation.guardEvents(operation, handleEvent),
-      );
-      const history = await host.readAgentSessionHistory({
-        clientSessionId: nextSessionId,
-        limit: 50,
-      });
-      if (
-        !workspaceIsolation.isOperationCurrent(operation) ||
-        !workspaceIsolation.bindSession(operation)
-      ) {
-        await workspaceIsolation.cleanupSession(nextSessionId);
-        return;
-      }
-      const settings: AgentRuntimeSettingsSnapshot = {
-        executablePreference: { ...codexDefaults.executable },
-        model: summary.settings.model,
-        modelDisplayName: summary.settings.model ?? "Codex default",
-        reasoningEffort: summary.settings.reasoningEffort,
-        personality: summary.settings.personality,
-        contextProfile: summary.settings.contextProfile,
-      };
-      sessionReadyRef.current = true;
-      sessionSettingsRef.current = settings;
-      setSessionSettings(settings);
-      setPermissionMode(summary.settings.permissionMode);
-      setNetworkAccess(summary.settings.networkAccess);
-      setWebSearch(summary.settings.webSearch);
-      setContextProfile(summary.settings.contextProfile);
-      setOlderHistoryCursor(history.nextCursor);
-      setSessionLifecycle("ready");
-      resumeClosedSessionRef.current = false;
-      resetConversationFollow();
-      dispatch({
-        type: "hydrate",
-        turns: history.turns.map(restoredConversationTurn),
-      });
-      clearSessionLocalContext();
-      setHistoryOpen(false);
-      setPendingFullAccessResume(null);
-      await host.closeAgentSession(previousSessionId);
-    } catch (error) {
-      await workspaceIsolation.cleanupSession(nextSessionId);
-      if (!workspaceIsolation.isOperationCurrent(operation)) {
-        return;
-      }
-      sessionStartingRef.current = false;
-      sessionIdRef.current = previousSessionId;
-      sessionReadyRef.current = previousSessionReady;
-      workspaceIsolation.sessionWorkspaceRootRef.current =
-        previousSessionWorkspaceRoot;
-      setSessionLifecycle(previousSessionReady ? "ready" : "idle");
-      restoreContextPressure(previousContextPressure);
-      setSessionListError(
-        error instanceof Error
-          ? error.message
-          : "This chat could not be resumed.",
-      );
-    } finally {
-      if (workspaceIsolation.isOperationCurrent(operation)) {
-        sessionStartingRef.current = false;
-      }
-    }
+    });
   }
 
   const { deleteSession, renameSession, setSessionArchived } =
@@ -1049,161 +680,14 @@ export function useAgentSessionController({
       workspaceRoot,
     });
 
-  async function closeSessionRuntime(): Promise<boolean> {
-    pendingSessionActionRef.current = null;
-    pendingFullAccessTransactionRef.current = null;
-    setConfirmFullAccess(false);
-    setConfirmClosedFullAccessResume(false);
-    if (activeTurnId && recoveryStateRef.current === "connected") {
-      await host.cancelAgentTurn(sessionIdRef.current, activeTurnId);
-    }
-    if (disconnectCleanupRef.current) {
-      if (!(await disconnectCleanupRef.current)) {
-        return false;
-      }
-    }
-    if (
-      sessionReadyRef.current ||
-      resumeClosedSessionRef.current ||
-      recoveryStateRef.current !== "connected"
-    ) {
-      const closed = await runDisconnectCleanup(sessionIdRef.current);
-      if (!closed) {
-        return false;
-      }
-      resumeClosedSessionRef.current = true;
-      sessionReadyRef.current = false;
-      setSessionLifecycle("closed");
-    }
-    if (recoveryStateRef.current !== "connected") {
-      dispatch({ type: "connectionRestored" });
-      updateRecoveryState("connected");
-    }
-    clearSessionLocalContext();
-    return true;
-  }
+  const closeSessionRuntime = () =>
+    closeSessionRuntimeFromState(activeTurnId, clearSessionLocalContext);
 
-  function createHandoffSnapshot(
-    lastMainPlacement: "right" | "bottom",
-  ): AgentChatHandoffSnapshot {
-    const clientSessionId = sessionIdRef.current;
-    const quotedContexts = [
-      ...providedQuotedContexts,
-      ...restoredQuotedContexts,
-    ].filter(
-      (context, index, all) =>
-        all.findIndex((item) => item.snapshotId === context.snapshotId) ===
-        index,
-    );
-    return {
-      version: 1,
-      clientSessionId,
-      workspaceRoot: workspaceRoot ?? "",
-      lastEventSequence: host.getAgentEventSequence(clientSessionId),
-      lastMainPlacement,
-      payload: {
-        activeDocument,
-        providerConfig,
-        theme,
-        state,
-        sessionId: clientSessionId,
-        sessionReady: sessionReadyRef.current,
-        sessionLifecycle,
-        recoveryState,
-        sessionSettings,
-        runtime,
-        permissionMode,
-        networkAccess,
-        webSearch,
-        contextProfile,
-        responseMode,
-        question,
-        focusFiles,
-        attachments,
-        images,
-        quotedContexts,
-        mediaModes,
-        actionNotice,
-        contextPressure: captureContextPressure(),
-        scroll: captureConversationScroll(),
-        pendingTurn: handoff?.pendingTurn ?? null,
-        runningAction: handoff?.runningAction ?? null,
-      },
-    };
-  }
+  const createHandoffSnapshot = (lastMainPlacement: "right" | "bottom") =>
+    createHandoffSnapshotFromState(lastMainPlacement, captureContextPressure());
 
-  return {
-    ...{
-      runtime,
-      probeError,
-      sessionReady,
-      sessionStarting,
-      sessionLifecycle,
-      recoveryState,
-      sessionSettings,
-    },
-    ...{ codexDefaults, permissionMode, setPermissionMode },
-    ...{
-      networkAccess,
-      setNetworkAccess,
-      webSearch,
-      setWebSearch,
-      contextProfile,
-      setContextProfile,
-    },
-    ...{
-      settingsOpen,
-      setSettingsOpen,
-      confirmFullAccess,
-      setConfirmFullAccess,
-    },
-    ...{ responseMode, setResponseMode, question, setQuestion },
-    ...{ focusFiles, setFocusFiles, attachments, setAttachments },
-    ...{ images, setImages, restoredQuotedContexts, setRestoredQuotedContexts },
-    ...{ imageErrors, setImageErrors, mediaModes, setMediaModes },
-    ...{ actionNotice, setActionNotice, historyOpen, setHistoryOpen },
-    ...{
-      historyArchived,
-      setHistoryArchived,
-      sessionPage,
-    },
-    ...historySearch.controller,
-    ...{ sessionListLoading, sessionListError, olderHistoryCursor },
-    ...{ olderHistoryLoading, pendingFullAccessResume },
-    ...{ setPendingFullAccessResume, confirmClosedFullAccessResume },
-    ...{ setConfirmClosedFullAccessResume, addMenuOpen, setAddMenuOpen },
-    ...{ dropActive, setDropActive, contextUsage, contextCompactionStatus },
-    tokenUsageDiagnostics,
-    ...{ lastCompaction, state, dispatch, sessionIdRef, sessionReadyRef },
-    ...{ resumeClosedSessionRef, scrollRef, newActivityAvailable },
-    ...{ followLatestConversation, handleConversationScroll },
-    ...{ composerDockRef, composerInputRef, activeTurnId },
-    ...{ selectionImageAttachmentsRef, submittedSelectionIdsRef },
-    ...{ acceptedTurnIdsRef },
-    workspaceGeneration: workspaceIsolation.generation,
-    isSessionWorkspaceCurrent: workspaceIsolation.isSessionCurrent,
-    closeSessionRuntime,
-    createHandoffSnapshot,
-    ensureSessionReady,
-    reconnectSession,
-    cancelFullAccessStart,
-    confirmFullAccessStart,
-    startSessionTransaction,
-    selectPermissionMode,
-    selectNetworkAccess,
-    selectWebSearch,
-    selectContextProfile,
-    restartSessionFromProviderDefaults,
-    loadSessionPage,
-    openSessionHistory,
-    resumeClosedSessionTransaction,
-    resumeSessionTransaction,
-    loadOlderSessionHistory,
-    renameSession,
-    setSessionArchived,
-    deleteSession,
-    compactContext,
-  };
+  // prettier-ignore
+  return { ...{ runtime, probeError, sessionReady, sessionStarting, sessionLifecycle, recoveryState, sessionSettings, }, ...{ codexDefaults, permissionMode, setPermissionMode }, ...{ networkAccess, setNetworkAccess, webSearch, setWebSearch, contextProfile, setContextProfile, }, ...{ settingsOpen, setSettingsOpen, confirmFullAccess, setConfirmFullAccess, }, ...{ responseMode, setResponseMode, question, setQuestion }, ...{ focusFiles, setFocusFiles, attachments, setAttachments }, ...{ images, setImages, restoredQuotedContexts, setRestoredQuotedContexts }, ...{ imageErrors, setImageErrors, mediaModes, setMediaModes }, ...{ actionNotice, setActionNotice, historyOpen, setHistoryOpen }, ...{ historyArchived, setHistoryArchived, sessionPage, }, ...historySearch.controller, ...{ sessionListLoading, sessionListError, olderHistoryCursor }, ...{ olderHistoryLoading, pendingFullAccessResume }, ...{ setPendingFullAccessResume, confirmClosedFullAccessResume }, ...{ setConfirmClosedFullAccessResume, addMenuOpen, setAddMenuOpen }, ...{ dropActive, setDropActive, contextUsage, contextCompactionStatus }, tokenUsageDiagnostics, ...{ lastCompaction, state, dispatch, sessionIdRef, sessionReadyRef }, ...{ resumeClosedSessionRef, scrollRef, newActivityAvailable }, ...{ followLatestConversation, handleConversationScroll }, ...{ composerDockRef, composerInputRef, activeTurnId }, ...{ selectionImageAttachmentsRef, submittedSelectionIdsRef }, ...{ acceptedTurnIdsRef }, workspaceGeneration: workspaceIsolation.generation, isSessionWorkspaceCurrent: workspaceIsolation.isSessionCurrent, closeSessionRuntime, createHandoffSnapshot, ensureSessionReady, reconnectSession, cancelFullAccessStart, confirmFullAccessStart, startSessionTransaction, selectPermissionMode, selectNetworkAccess, selectWebSearch, selectContextProfile, restartSessionFromProviderDefaults, loadSessionPage, openSessionHistory, resumeClosedSessionTransaction, resumeSessionTransaction, loadOlderSessionHistory, renameSession, setSessionArchived, deleteSession, compactContext, };
 }
 export type AgentSessionController = ReturnType<
   typeof useAgentSessionController
