@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use image::{codecs::jpeg::JpegEncoder, DynamicImage, ImageFormat};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 #[cfg(unix)]
