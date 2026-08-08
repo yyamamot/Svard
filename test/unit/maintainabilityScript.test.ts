@@ -6,9 +6,9 @@ import {
 } from "../../scripts/check-maintainability.mjs";
 
 describe("maintainability script", () => {
-  it("ratchets the warning budget to zero", () => {
+  it("ratchets the warning and severe budgets to zero", () => {
     expect(maintainabilityBudgets.warningCountMax).toBe(0);
-    expect(maintainabilityBudgets.severeCountMax).toBe(1);
+    expect(maintainabilityBudgets.severeCountMax).toBe(0);
   });
 
   it("excludes dependency and generated directories by exact path and descendants", () => {

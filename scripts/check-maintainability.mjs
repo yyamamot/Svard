@@ -8,11 +8,9 @@ const reportPath = path.join(artifactRoot, "report.json");
 const budgetMode = process.argv.includes("--budget");
 const budgetPath = path.join(artifactRoot, "budget-report.json");
 export const maintainabilityBudgets = {
-  severeCountMax: 1,
+  severeCountMax: 0,
   warningCountMax: 0,
-  severeFileLineMax: {
-    "scripts/ui-review/scenarios/handlers/gitDiff.mjs": 2026,
-  },
+  severeFileLineMax: {},
 };
 const budgets = maintainabilityBudgets;
 
