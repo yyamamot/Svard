@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added safe support for compact Markdown details blocks written as `<details><summary>...</summary>` while keeping arbitrary raw HTML disabled.
 - Fixed numeric-only inline math in Markdown table cells so values such as `$1$`, `$2$`, and `$0.5774$` render with KaTeX while prose currency remains text.
 - Fixed inline Markdown math next to Japanese and other non-ASCII text so it renders with KaTeX without requiring spaces and follows the surrounding prose baseline, and preserved matrix rows in AsciiDoc stem blocks.
 - Added workspace-native Codex AI Chat with Markdown responses and an explicit Visualize mode for interactive OpenUI output.

@@ -200,11 +200,13 @@ export async function buildMarkdownAssertions({
           bodyText.includes("Click to expand: Installation Instructions") &&
           bodyText.includes("Open by default summary") &&
           bodyText.includes("Inline math") &&
+          bodyText.includes("Compact answer") &&
+          bodyText.includes("D_head = D_model / H = 12 / 3 = 4") &&
           bodyText.includes("Unsafe attributes stay escaped") &&
           (await page
             .locator('[data-review-id="markdown-details"]')
-            .count()) === 2 &&
-          (await page.locator(".markdown-details[open]").count()) === 1 &&
+            .count()) === 3 &&
+          (await page.locator(".markdown-details[open]").count()) === 2 &&
           (await page
             .locator(".markdown-details .math-inline .katex")
             .count()) === 1 &&

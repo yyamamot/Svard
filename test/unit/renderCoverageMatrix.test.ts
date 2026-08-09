@@ -222,6 +222,11 @@ Footnote.[^one]
 Inside details.
 </details>
 
+<details><summary>Compact answer</summary>
+
+\`D_head = D_model / H = 12 / 3 = 4\`
+</details>
+
 \`\`\`python
 print("covered")
 \`\`\`
@@ -266,6 +271,10 @@ flowchart LR
     expect(doc.querySelector(".math-inline")).toBeTruthy();
     expect(doc.body.textContent).toContain("$12.00");
     expect(doc.querySelector(".markdown-details[open] strong")).toBeTruthy();
+    expect(doc.querySelectorAll(".markdown-details")).toHaveLength(2);
+    expect(
+      doc.querySelector(".markdown-details:not([open]) code")?.textContent,
+    ).toBe("D_head = D_model / H = 12 / 3 = 4");
     expect(
       doc.querySelector("pre.language-python, pre .language-python"),
     ).toBeTruthy();

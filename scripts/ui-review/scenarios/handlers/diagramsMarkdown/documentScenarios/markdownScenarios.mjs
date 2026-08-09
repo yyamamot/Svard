@@ -118,6 +118,17 @@ export async function applyMarkdownScenario(context) {
     await page.getByText("Open by default summary").waitFor();
     await page.getByText("Inline math").waitFor();
     await page.locator(".markdown-details[open] .language-python").waitFor();
+    const compactDetails = page
+      .locator('[data-review-id="markdown-details"]')
+      .filter({ has: page.getByText("Compact answer", { exact: true }) });
+    await compactDetails.waitFor();
+    if (await compactDetails.locator(".markdown-details-body").isVisible()) {
+      throw new Error("Compact Markdown details body must start collapsed.");
+    }
+    await compactDetails.locator("summary").click();
+    await compactDetails
+      .locator(".markdown-details-body")
+      .waitFor({ state: "visible" });
     await page
       .locator('[data-review-id="source-copy-button"]')
       .first()

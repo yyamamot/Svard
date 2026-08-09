@@ -614,6 +614,51 @@ Inline math $E = mc^2$.
     expect(result.html).toContain("markdown-alert-note");
   });
 
+  it("renders compact Markdown details opening lines", () => {
+    const result = renderMarkdownCore(`<details><summary>解答</summary>
+
+\`D_head = D_model / H = 12 / 3 = 4\`です。
+
+</details>
+
+<details open><summary>Open **answer**</summary>
+
+Inline math $E = mc^2$.
+
+</details>
+`);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    const details = doc.querySelectorAll(".markdown-details");
+
+    expect(details).toHaveLength(2);
+    expect(details[0].hasAttribute("open")).toBe(false);
+    expect(details[0].querySelector("summary")?.textContent).toBe("解答");
+    expect(details[0].querySelector("code")?.textContent).toBe(
+      "D_head = D_model / H = 12 / 3 = 4",
+    );
+    expect(details[1].hasAttribute("open")).toBe(true);
+    expect(details[1].querySelector("summary strong")?.textContent).toBe(
+      "answer",
+    );
+    expect(details[1].querySelector(".math-inline .katex")).toBeTruthy();
+  });
+
+  it("keeps compact details inside fenced code as source text", () => {
+    const result = renderMarkdownCore(`\`\`\`markdown
+<details><summary>Not interactive</summary>
+body
+</details>
+\`\`\`
+`);
+
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(result.html).not.toContain('class="markdown-details"');
+    expect(doc.querySelector("pre")?.textContent).toContain(
+      "<details><summary>Not interactive</summary>",
+    );
+  });
+
   it("escapes raw HTML inside Markdown details summary and body", () => {
     const result = renderMarkdownCore(`<details>
 <summary><img src=x onerror=alert(1)> Summary</summary>
@@ -635,6 +680,9 @@ Inline math $E = mc^2$.
 <summary>Unsafe</summary>
 body
 </details>`,
+      `<details onclick="alert(1)"><summary>Compact unsafe</summary>
+body
+</details>`,
       `<details>
 No summary
 </details>`,
@@ -648,6 +696,7 @@ body`,
 body
 </details>
 </details>`,
+      `<details><summary>Single line</summary>body</details>`,
     ];
 
     for (const source of invalidCases) {

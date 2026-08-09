@@ -4,9 +4,17 @@ import { markdown } from "./markdownIt";
 import type { MarkdownDetailsBlock } from "./types";
 
 const detailsOpenPattern = /^<details(?:\s+open)?\s*>$/i;
+const compactDetailsOpenPattern =
+  /^<details(\s+open)?\s*>\s*<summary>(.*)<\/summary>\s*$/i;
 const detailsClosePattern = /^<\/details>\s*$/i;
 const summaryPattern = /^<summary>(.*)<\/summary>\s*$/i;
 const detailsPlaceholderPrefix = "SVARD_MARKDOWN_DETAILS_PLACEHOLDER";
+
+interface MarkdownDetailsOpening {
+  bodyStartIndex: number;
+  open: boolean;
+  summary: string;
+}
 
 function renderMarkdownDetailsHtml(block: MarkdownDetailsBlock): string {
   const summaryHtml = markdown.renderInline(block.summary.trim());
@@ -19,19 +27,37 @@ function parseMarkdownDetailsAt(
   startIndex: number,
 ): { endIndex: number; html: string } | null {
   const opening = lines[startIndex].replace(/\r$/, "").trim();
-  if (!detailsOpenPattern.test(opening)) {
-    return null;
+  let parsedOpening: MarkdownDetailsOpening | null = null;
+  const compactMatch = opening.match(compactDetailsOpenPattern);
+  if (compactMatch) {
+    parsedOpening = {
+      bodyStartIndex: startIndex + 1,
+      open: Boolean(compactMatch[1]),
+      summary: compactMatch[2],
+    };
+  } else if (detailsOpenPattern.test(opening)) {
+    const summaryLine = lines[startIndex + 1]?.replace(/\r$/, "").trim();
+    const summaryMatch = summaryLine?.match(summaryPattern);
+    if (summaryMatch) {
+      parsedOpening = {
+        bodyStartIndex: startIndex + 2,
+        open: /\sopen\s*>$/i.test(opening),
+        summary: summaryMatch[1],
+      };
+    }
   }
 
-  const summaryLine = lines[startIndex + 1]?.replace(/\r$/, "").trim();
-  const summaryMatch = summaryLine?.match(summaryPattern);
-  if (!summaryMatch) {
+  if (!parsedOpening) {
     return null;
   }
 
   const bodyLines: string[] = [];
   let closeIndex = -1;
-  for (let index = startIndex + 2; index < lines.length; index += 1) {
+  for (
+    let index = parsedOpening.bodyStartIndex;
+    index < lines.length;
+    index += 1
+  ) {
     const trimmed = lines[index].replace(/\r$/, "").trim();
     if (detailsClosePattern.test(trimmed)) {
       closeIndex = index;
@@ -57,8 +83,8 @@ function parseMarkdownDetailsAt(
   return {
     endIndex: closeIndex,
     html: renderMarkdownDetailsHtml({
-      open: /\sopen\s*>$/i.test(opening),
-      summary: summaryMatch[1],
+      open: parsedOpening.open,
+      summary: parsedOpening.summary,
       body: bodyLines.join("\n"),
     }),
   };

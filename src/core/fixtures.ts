@@ -2428,6 +2428,12 @@ print("visible inside open details")
 
 </details>
 
+<details><summary>Compact answer</summary>
+
+\`D_head = D_model / H = 12 / 3 = 4\` is rendered inside a compact details block.
+
+</details>
+
 <details onclick="window.__SVARD_UNSAFE_DETAILS__ = true">
 <summary>Unsafe attributes stay escaped</summary>
 
