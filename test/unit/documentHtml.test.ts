@@ -549,6 +549,30 @@ $not rendered in source$
     );
   });
 
+  it("preserves numeric table math after document sanitization", async () => {
+    const result = renderMarkdownCore(`| Before | After |
+| --- | --- |
+| $1$ | $1 / \\sqrt{3}$ |
+| $0.5774$ | $2$ |
+`);
+    const html = await prepareDocumentHtml(
+      result.html,
+      {
+        ...documentPayload,
+        path: "/workspace/docs/example.md",
+        format: "markdown",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelectorAll("table .math-inline .katex")).toHaveLength(4);
+    expect(doc.querySelector('table [data-math-source="1"]')).toBeTruthy();
+    expect(doc.querySelector('table [data-math-source="0.5774"]')).toBeTruthy();
+    expect(doc.querySelector("table")?.textContent).not.toContain("$1$");
+  });
+
   it("blocks external images by default without exposing the raw URL", async () => {
     const html = await prepareDocumentHtml(
       '<p><img src="https://example.test/rust-logo.svg" alt="Rust Logo"></p>',

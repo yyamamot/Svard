@@ -451,6 +451,21 @@ Japanese currency stays readable: 日本語$5$です。
     expect(result.html).toContain("日本語$5$です");
   });
 
+  it("renders boundary-delimited numeric inline math", () => {
+    const result = renderMarkdownCore(`# Numeric Inline Math
+
+Standalone values: $1$, $2$, and $0.5774$.
+
+Japanese prose keeps embedded currency readable: 日本語$5$です。
+`);
+
+    expect(result.html.match(/class="math-inline"/g)?.length).toBe(3);
+    expect(result.html).toContain('data-math-source="1"');
+    expect(result.html).toContain('data-math-source="2"');
+    expect(result.html).toContain('data-math-source="0.5774"');
+    expect(result.html).toContain("日本語$5$です");
+  });
+
   it("does not treat currency and escaped dollars as inline math", () => {
     const result = renderMarkdownCore(`# Math Edge Cases
 
@@ -498,6 +513,31 @@ $$
     expect(result.html.match(/class="math-inline"/g)?.length).toBe(1);
     expect(result.html).toContain("$a");
     expect(result.html).toContain("b$");
+  });
+
+  it("renders numeric-only math in Markdown table cells", () => {
+    const result = renderMarkdownCore(`# Numeric Table Math
+
+| Query | Key | Before $R[i,j]$ | After $S[i,j]$ |
+| --- | --- | --- | --- |
+| Fish | Fish | $1$ | $1 / \\sqrt{3} \\approx 0.5774$ |
+| Fish | Eats | $1$ | $1 / \\sqrt{3} \\approx 0.5774$ |
+| Object | Object | $2$ | $2 / \\sqrt{3} \\approx 1.1547$ |
+| Eats | Eats | $2$ | $2 / \\sqrt{3} \\approx 1.1547$ |
+| Decimal | Decimal | $0.5774$ | $0.5774$ |
+`);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    const table = doc.querySelector("table");
+
+    expect(table?.querySelectorAll(".math-inline .katex")).toHaveLength(12);
+    expect(table?.querySelectorAll('[data-math-source="1"]')).toHaveLength(2);
+    expect(table?.querySelectorAll('[data-math-source="2"]')).toHaveLength(2);
+    expect(table?.querySelectorAll('[data-math-source="0.5774"]')).toHaveLength(
+      2,
+    );
+    expect(table?.textContent).not.toContain("$1$");
+    expect(table?.textContent).not.toContain("$2$");
+    expect(table?.textContent).not.toContain("$0.5774$");
   });
 
   it("keeps paragraph dollar pairs out of block math", () => {

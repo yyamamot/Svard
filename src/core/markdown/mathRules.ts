@@ -32,11 +32,27 @@ function hasUnescapedPipe(value: string) {
   return false;
 }
 
-function looksLikeCurrencyFragment(value: string) {
+function isProseCharacter(value: string | undefined) {
+  return value !== undefined && /[\p{L}\p{M}\p{N}]/u.test(value);
+}
+
+function looksLikeCurrencyFragment(
+  value: string,
+  source: string,
+  openPosition: number,
+  closePosition: number,
+) {
   if (!/^\d/u.test(value)) {
     return false;
   }
-  return !/[\\^_=+*/<>]/u.test(value);
+  if (/[\\^_=+*/<>]/u.test(value)) {
+    return false;
+  }
+
+  const before = openPosition > 0 ? source[openPosition - 1] : undefined;
+  const after =
+    closePosition + 1 < source.length ? source[closePosition + 1] : undefined;
+  return isProseCharacter(before) || isProseCharacter(after);
 }
 
 function canOpenInlineMath(source: string, position: number, max: number) {
@@ -171,7 +187,7 @@ export function registerMathRules(markdown: MarkdownIt) {
     if (
       !source ||
       hasUnescapedPipe(source) ||
-      looksLikeCurrencyFragment(source)
+      looksLikeCurrencyFragment(source, state.src, state.pos, cursor)
     ) {
       return false;
     }

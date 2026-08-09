@@ -2141,6 +2141,16 @@ Costs stay readable: $12.00, USD $5, and price is $5 and $6.
 
 Escaped dollars stay readable: \\$escaped\\$.
 
+## Numeric Table Math
+
+| Query | Key | Before $R[i,j]$ | After $S[i,j]$ |
+| --- | --- | --- | --- |
+| Fish | Fish | $1$ | $1 / \\sqrt{3} \\approx 0.5774$ |
+| Fish | Eats | $1$ | $1 / \\sqrt{3} \\approx 0.5774$ |
+| Object | Object | $2$ | $2 / \\sqrt{3} \\approx 1.1547$ |
+| Eats | Eats | $2$ | $2 / \\sqrt{3} \\approx 1.1547$ |
+| Decimal | Decimal | $0.5774$ | $0.5774$ |
+
 ## Table Pipes
 
 | Item | Formula | Notes |

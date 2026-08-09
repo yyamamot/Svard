@@ -95,7 +95,13 @@ export async function buildMarkdownAssertions({
           bodyText.includes("$not math$") &&
           bodyText.includes("not rendered inside source") &&
           bodyText.includes("After invalid math remains visible") &&
-          (await page.locator(".math-inline .katex").count()) === 16 &&
+          (await page.locator(".math-inline .katex").count()) === 28 &&
+          (await page
+            .getByRole("heading", { name: "Numeric Table Math" })
+            .locator("xpath=following::table[1]")
+            .locator(".math-inline .katex")
+            .count()) === 12 &&
+          !bodyText.includes("$0.5774$") &&
           (await page
             .locator("li")
             .filter({ hasText: "学習データ。optimizerは更新しない" })

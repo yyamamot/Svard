@@ -26,6 +26,7 @@ export async function applyMarkdownScenario(context) {
       .waitFor();
     await page.getByRole("heading", { name: "Valid Math" }).waitFor();
     await page.getByRole("heading", { name: "Non-ASCII Boundaries" }).waitFor();
+    await page.getByRole("heading", { name: "Numeric Table Math" }).waitFor();
     await page.locator(".math-inline .katex").first().waitFor();
     await page.locator(".math-inline .mfrac").first().waitFor();
     await page
