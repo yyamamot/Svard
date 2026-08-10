@@ -2135,6 +2135,16 @@ $$
 - $x$が1変化すると、$u$は$\\dfrac{du}{dx}$だけ変化する
 - $u$が1変化すると、$y$は$\\dfrac{dy}{du}$だけ変化する
 
+## ASCII Label Boundaries
+
+位置$i$、語彙ID$v$の一つのロジットを計算する。
+
+API$x$を使い、API$W_{\\mathrm{LM}}$、を射影に使う。
+
+These controls stay readable: word$x$word, v2$x$., and end-of-line ID$v$
+
+Numeric prose stays readable: ID$5$です and 日本語$5$です。
+
 ## Currency And Escapes
 
 Costs stay readable: $12.00, USD $5, and price is $5 and $6.

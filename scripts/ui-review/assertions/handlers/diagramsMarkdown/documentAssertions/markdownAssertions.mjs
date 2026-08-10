@@ -95,7 +95,18 @@ export async function buildMarkdownAssertions({
           bodyText.includes("$not math$") &&
           bodyText.includes("not rendered inside source") &&
           bodyText.includes("After invalid math remains visible") &&
-          (await page.locator(".math-inline .katex").count()) === 28 &&
+          (await page.locator(".math-inline .katex").count()) === 32 &&
+          (await page
+            .getByRole("heading", { name: "ASCII Label Boundaries" })
+            .locator("xpath=following-sibling::p[position() <= 4]")
+            .locator(".math-inline .katex")
+            .count()) === 4 &&
+          !bodyText.includes("ID$v$の") &&
+          !bodyText.includes("API$x$を") &&
+          bodyText.includes("word$x$word") &&
+          bodyText.includes("v2$x$.") &&
+          bodyText.includes("end-of-line ID$v$") &&
+          bodyText.includes("ID$5$です") &&
           (await page
             .getByRole("heading", { name: "Numeric Table Math" })
             .locator("xpath=following::table[1]")

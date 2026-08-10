@@ -573,6 +573,29 @@ $not rendered in source$
     expect(doc.querySelector("table")?.textContent).not.toContain("$1$");
   });
 
+  it("preserves ASCII-label-adjacent variable math after sanitization", async () => {
+    const result = renderMarkdownCore(
+      "位置$i$、語彙ID$v$の値をAPI$x$を使って計算する。",
+    );
+    const html = await prepareDocumentHtml(
+      result.html,
+      {
+        ...documentPayload,
+        path: "/workspace/docs/example.md",
+        format: "markdown",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelectorAll(".math-inline .katex")).toHaveLength(3);
+    expect(doc.querySelector('[data-math-source="v"]')).toBeTruthy();
+    expect(doc.querySelector('[data-math-source="x"]')).toBeTruthy();
+    expect(doc.body.textContent).not.toContain("ID$v$の");
+    expect(doc.body.textContent).not.toContain("API$x$を");
+  });
+
   it("blocks external images by default without exposing the raw URL", async () => {
     const html = await prepareDocumentHtml(
       '<p><img src="https://example.test/rust-logo.svg" alt="Rust Logo"></p>',

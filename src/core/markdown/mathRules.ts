@@ -17,6 +17,12 @@ function isAsciiWordCharacter(value: string | undefined) {
   return value !== undefined && /[A-Za-z0-9_]/u.test(value);
 }
 
+function isNonAsciiProseBoundary(value: string | undefined) {
+  return (
+    value !== undefined && !isWhitespace(value) && value.charCodeAt(0) > 0x7f
+  );
+}
+
 function hasUnescapedPipe(value: string) {
   let escaped = false;
   for (const char of value) {
@@ -67,6 +73,22 @@ function canOpenInlineMath(source: string, position: number, max: number) {
   }
 
   return position + 1 < max;
+}
+
+function canOpenInlineMathAfterAsciiLabel(
+  source: string,
+  position: number,
+  max: number,
+) {
+  const next = source[position + 1];
+  const previous = position > 0 ? source[position - 1] : undefined;
+  return (
+    Boolean(next) &&
+    next !== "$" &&
+    !isWhitespace(next) &&
+    isAsciiWordCharacter(previous) &&
+    position + 1 < max
+  );
 }
 
 function canCloseInlineMath(source: string, position: number, max: number) {
@@ -156,7 +178,15 @@ export function registerMathRules(markdown: MarkdownIt) {
     if (state.src.charCodeAt(state.pos + 1) === 0x24) {
       return false;
     }
-    if (!canOpenInlineMath(state.src, state.pos, state.posMax)) {
+    const opensAfterAsciiLabel = canOpenInlineMathAfterAsciiLabel(
+      state.src,
+      state.pos,
+      state.posMax,
+    );
+    if (
+      !canOpenInlineMath(state.src, state.pos, state.posMax) &&
+      !opensAfterAsciiLabel
+    ) {
       return false;
     }
 
@@ -192,9 +222,20 @@ export function registerMathRules(markdown: MarkdownIt) {
       return false;
     }
 
+    let rendered: string | undefined;
+    if (opensAfterAsciiLabel) {
+      if (!isNonAsciiProseBoundary(state.src[cursor + 1])) {
+        return false;
+      }
+      rendered = renderMathInline(source);
+      if (rendered.includes('class="math-render-error"')) {
+        return false;
+      }
+    }
+
     if (!silent) {
       const token = state.push("html_inline", "", 0);
-      token.content = `<span class="math-inline" data-math-source="${escapeHtmlAttribute(source)}">${renderMathInline(source)}</span>`;
+      token.content = `<span class="math-inline" data-math-source="${escapeHtmlAttribute(source)}">${rendered ?? renderMathInline(source)}</span>`;
     }
     state.pos = cursor + 1;
     return true;

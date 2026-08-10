@@ -451,6 +451,49 @@ Japanese currency stays readable: 日本語$5$です。
     expect(result.html).toContain("日本語$5$です");
   });
 
+  it("renders variable math between an ASCII label and non-ASCII prose", () => {
+    const result = renderMarkdownCore(`# ASCII Label Math Boundaries
+
+位置$i$、語彙ID$v$の一つのロジットを計算する。
+
+API$x$を使い、API$W_{\\mathrm{LM}}$、を射影に使う。
+`);
+
+    expect(result.html.match(/class="math-inline"/g)?.length).toBe(4);
+    expect(result.html).toContain('data-math-source="v"');
+    expect(result.html).toContain('data-math-source="x"');
+    expect(result.html).toContain('data-math-source="W_{\\mathrm{LM}}"');
+    expect(result.html).not.toContain("ID$v$の");
+    expect(result.html).not.toContain("API$x$を");
+  });
+
+  it("keeps unsupported ASCII label boundaries and numeric prose as text", () => {
+    const result = renderMarkdownCore(`# Unsupported ASCII Label Boundaries
+
+ASCII identifiers stay readable: word$x$word and v2$x$.
+
+End-of-line label math stays readable: ID$v$
+
+Numeric prose stays readable: ID$5$です and 日本語$5$です。
+`);
+
+    expect(result.html).not.toContain('class="math-inline"');
+    expect(result.html).toContain("word$x$word");
+    expect(result.html).toContain("v2$x$.");
+    expect(result.html).toContain("ID$v$");
+    expect(result.html).toContain("ID$5$です");
+    expect(result.html).toContain("日本語$5$です");
+  });
+
+  it("keeps invalid math after an ASCII label as text", () => {
+    const result = renderMarkdownCore(
+      "Invalid label math: ID$\\frac{1}{$の後。",
+    );
+
+    expect(result.html).not.toContain('class="math-inline"');
+    expect(result.html).toContain("ID$\\frac{1}{$の後");
+  });
+
   it("renders boundary-delimited numeric inline math", () => {
     const result = renderMarkdownCore(`# Numeric Inline Math
 
