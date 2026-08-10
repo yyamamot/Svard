@@ -1,4 +1,26 @@
-import type { Heading } from "../../core/types";
+import type { Heading, HeadingInlineNode } from "../../core/types";
+
+function renderInlineNodes(nodes: HeadingInlineNode[], keyPrefix: string) {
+  return nodes.map((node, index) => {
+    const key = `${keyPrefix}-${index}`;
+    switch (node.type) {
+      case "text":
+        return node.value;
+      case "code":
+        return (
+          <code className="toc-inline-code" key={key}>
+            {node.value}
+          </code>
+        );
+      case "strong":
+        return (
+          <strong key={key}>{renderInlineNodes(node.children, key)}</strong>
+        );
+      case "emphasis":
+        return <em key={key}>{renderInlineNodes(node.children, key)}</em>;
+    }
+  });
+}
 
 export function Toc({
   activeHeadingId,
@@ -24,7 +46,9 @@ export function Toc({
           }}
           style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}
         >
-          {heading.text}
+          {heading.inline
+            ? renderInlineNodes(heading.inline, heading.id)
+            : heading.text}
         </a>
       ))}
     </nav>

@@ -37,6 +37,7 @@ import {
   shouldPreviewLinkHref,
   type LinkPreviewState,
 } from "../../src/ui/lib/linkPreview";
+import { renderDocument } from "../../src/core/renderDocument";
 
 const currentDocument: DocumentPayload = {
   path: "/workspace/docs/current.md",
@@ -134,6 +135,53 @@ describe("link preview", () => {
       title: "Next",
       heading: "Intro",
       snippet: "Preview paragraph for the linked document.",
+    });
+  });
+
+  it("matches a formatted Markdown heading by its raw source text", async () => {
+    vi.mocked(renderDocument).mockResolvedValueOnce({
+      html: `<h1 id="next">Next</h1><h2 id="hugging-face-conv1d">Hugging Face <code>Conv1D</code></h2><p>Formatted heading preview.</p>`,
+      headings: [
+        { id: "next", level: 1, text: "Next", rawText: "Next" },
+        {
+          id: "hugging-face-conv1d",
+          level: 2,
+          text: "Hugging Face Conv1D",
+          rawText: "**Hugging Face** `Conv1D`",
+        },
+      ],
+      sourceBlocks: [],
+      diagnostics: [],
+      diagramSlots: [],
+      mermaidDiagrams: [],
+      plantUmlDiagrams: [],
+      graphvizDiagrams: [],
+      krokiDiagrams: [],
+    });
+
+    const preview = await buildLinkPreview({
+      href: "./next.md#hugging-face-conv1d",
+      currentDocument,
+      renderResult: currentRenderResult,
+      article: articleFrom(`<h1 id="current">Current</h1>`),
+      x: 10,
+      y: 20,
+      resolveDocumentLink: vi.fn(async () =>
+        resolved("/workspace/docs/next.md", "hugging-face-conv1d"),
+      ),
+      loadDocument: vi.fn(async () =>
+        markdownDocument(
+          "/workspace/docs/next.md",
+          "# Next\n\n## **Hugging Face** `Conv1D`\n\nFormatted heading preview.",
+        ),
+      ),
+    });
+
+    expect(preview).toMatchObject({
+      status: "ready",
+      title: "Next",
+      heading: "Hugging Face Conv1D",
+      snippet: "Formatted heading preview.",
     });
   });
 

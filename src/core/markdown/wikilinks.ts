@@ -52,6 +52,7 @@ export function registerWikilinkRule(markdown: MarkdownIt) {
 
     if (!silent) {
       const token = state.push("html_inline", "", 0);
+      token.meta = { svardHeadingText: parsed.label };
       const encodedTarget = encodeURIComponent(parsed.target);
       token.content = `<a href="svard-wikilink:${encodedTarget}" data-wikilink-target="${escapeHtmlAttribute(parsed.target)}" data-wikilink-label="${escapeHtmlAttribute(parsed.label)}" data-wikilink-raw="${escapeHtmlAttribute(raw)}">${escapeHtml(parsed.label)}</a>`;
     }

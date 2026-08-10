@@ -325,7 +325,8 @@ function sourceSnippetAfterHeading(
     }
     if (/^(={1,6}|#{1,6})\s+/u.test(text)) {
       include = heading
-        ? text.replace(/^(={1,6}|#{1,6})\s+/u, "") === heading.text
+        ? text.replace(/^(={1,6}|#{1,6})\s+/u, "") ===
+          (heading.rawText ?? heading.text)
         : false;
       continue;
     }

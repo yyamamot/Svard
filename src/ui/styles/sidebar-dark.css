@@ -331,6 +331,10 @@
   background: #1f2a32;
 }
 
+.theme-dark .toc-inline-code {
+  background: #2b353a;
+}
+
 .theme-dark .contents-section {
   border-color: #222a31;
 }

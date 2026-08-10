@@ -32,10 +32,18 @@ export interface SourceLocation {
   sourceId?: string;
 }
 
+export type HeadingInlineNode =
+  | { type: "text"; value: string }
+  | { type: "strong"; children: HeadingInlineNode[] }
+  | { type: "emphasis"; children: HeadingInlineNode[] }
+  | { type: "code"; value: string };
+
 export interface Heading {
   id: string;
   level: number;
   text: string;
+  rawText?: string;
+  inline?: HeadingInlineNode[];
   sourceLocation?: SourceLocation;
 }
 

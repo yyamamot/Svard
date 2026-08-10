@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DocumentPayload, Heading } from "../../src/core/types";
 import {
   buildLocationReference,
+  locationReferenceForHeading,
   locationReferenceForSelection,
 } from "../../src/ui/lib/locationReference";
 
@@ -34,6 +35,24 @@ const headings: Heading[] = [
 ];
 
 describe("location reference", () => {
+  it("uses the plain heading text in a heading reference", () => {
+    const heading: Heading = {
+      id: "conv1d",
+      level: 2,
+      text: "Hugging Face Conv1D",
+      rawText: "**Hugging Face** `Conv1D`",
+      sourceLocation: { line: 8, column: 1 },
+    };
+
+    expect(
+      locationReferenceForHeading({
+        document: documentPayload,
+        heading,
+        renderResult: { headings: [heading] },
+      }),
+    ).toContain("Text:\nHugging Face Conv1D");
+  });
+
   it("uses the include origin line as the compact file reference", () => {
     expect(
       buildLocationReference({

@@ -235,6 +235,7 @@ export function registerMathRules(markdown: MarkdownIt) {
 
     if (!silent) {
       const token = state.push("html_inline", "", 0);
+      token.meta = { svardHeadingText: source };
       token.content = `<span class="math-inline" data-math-source="${escapeHtmlAttribute(source)}">${rendered ?? renderMathInline(source)}</span>`;
     }
     state.pos = cursor + 1;

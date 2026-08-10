@@ -22,6 +22,7 @@ import {
 import { splitFrontmatter } from "./frontmatter";
 import { extractSourceSelectionBlocks } from "../sourceSelectionBlocks";
 import { markdown } from "./markdownIt";
+import { headingInlineMetadata } from "./headingInline";
 import {
   fallbackSourceLocation,
   slugifyHeading,
@@ -124,13 +125,16 @@ export function renderMarkdownDocument(source: string): RenderResult {
     if (token.type === "heading_open") {
       const level = Number(token.tag.replace(/^h/, ""));
       const inline = tokens[index + 1];
-      const text = inline?.type === "inline" ? inline.content : "";
-      const id = slugifyHeading(text, usedHeadingIds);
+      const rawText = inline?.type === "inline" ? inline.content : "";
+      const headingMetadata = headingInlineMetadata(inline?.children);
+      const id = slugifyHeading(rawText, usedHeadingIds);
       token.attrSet("id", id);
       headings.push({
         id,
         level,
-        text,
+        text: headingMetadata.text,
+        rawText,
+        ...(headingMetadata.inline ? { inline: headingMetadata.inline } : {}),
         ...(sourceLocationForToken(token, lineOffset)
           ? { sourceLocation: sourceLocationForToken(token, lineOffset) }
           : {}),

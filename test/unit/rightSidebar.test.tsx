@@ -279,6 +279,71 @@ describe("RightSidebar contents include section", () => {
     },
   };
 
+  it("renders only the supported safe Markdown heading formatting", () => {
+    const onNavigateHeading = vi.fn();
+    const { harness } = renderSearchSidebar({
+      activeHeadingId: "formatted-heading",
+      rightSidebarTab: "contents",
+      onNavigateHeading,
+      renderResult: {
+        html: "",
+        headings: [
+          {
+            id: "formatted-heading",
+            level: 2,
+            text: "Hugging Face Conv1D and nn.Linear",
+            rawText:
+              "**Hugging *Face*** `Conv1D` and [nn.Linear](https://example.com)",
+            inline: [
+              {
+                type: "strong",
+                children: [
+                  { type: "text", value: "Hugging " },
+                  {
+                    type: "emphasis",
+                    children: [{ type: "text", value: "Face" }],
+                  },
+                ],
+              },
+              { type: "text", value: " " },
+              { type: "code", value: "Conv1D" },
+              { type: "text", value: " and nn.Linear" },
+            ],
+          },
+          { id: "plain-heading", level: 2, text: "Plain heading" },
+        ],
+        sourceBlocks: [],
+        diagnostics: [],
+        diagramSlots: [],
+        mermaidDiagrams: [],
+        plantUmlDiagrams: [],
+        graphvizDiagrams: [],
+        krokiDiagrams: [],
+      },
+    });
+
+    const toc = harness.byReviewId("toc");
+    const formatted = toc.querySelector<HTMLAnchorElement>(
+      '[data-heading-id="formatted-heading"]',
+    )!;
+    expect(formatted.textContent).toBe("Hugging Face Conv1D and nn.Linear");
+    expect(formatted.classList.contains("active")).toBe(true);
+    expect(formatted.querySelector("strong")?.textContent).toBe("Hugging Face");
+    expect(formatted.querySelector("em")?.textContent).toBe("Face");
+    expect(formatted.querySelector("code")?.textContent).toBe("Conv1D");
+    expect(formatted.querySelectorAll("a")).toHaveLength(0);
+    expect(toc.querySelectorAll("a")).toHaveLength(2);
+    expect(toc.textContent).not.toContain("**");
+    expect(toc.textContent).not.toContain("`");
+
+    act(() => formatted.click());
+    expect(onNavigateHeading).toHaveBeenCalledWith("formatted-heading");
+    expect(
+      toc.querySelector('[data-heading-id="plain-heading"]')?.textContent,
+    ).toBe("Plain heading");
+    harness.cleanup();
+  });
+
   it("orders Contents, Links, and Includes in the Contents tab", () => {
     const { harness } = renderSearchSidebar({
       rightSidebarTab: "contents",

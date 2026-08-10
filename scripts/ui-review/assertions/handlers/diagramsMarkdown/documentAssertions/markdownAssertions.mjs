@@ -160,6 +160,48 @@ export async function buildMarkdownAssertions({
             .count()) === 1 &&
           (await page.locator("[data-copy-source-button]").count()) > 0
         : true,
+    hasMarkdownTocInlineFormatting:
+      scenario === "viewer-markdown-toc-inline-formatting"
+        ? await page.evaluate(() => {
+            const layoutCheck = window.__SVARD_MARKDOWN_TOC_INLINE_CHECK__;
+            const toc = document.querySelector('[data-review-id="toc"]');
+            const formatted = Array.from(toc?.querySelectorAll("a") ?? []).find(
+              (item) =>
+                item.textContent?.includes(
+                  "Hugging Face Conv1D と nn.Linear の違い",
+                ),
+            );
+            const linked = Array.from(toc?.querySelectorAll("a") ?? []).find(
+              (item) => item.textContent?.includes("Linked API"),
+            );
+            const longHeading = Array.from(
+              toc?.querySelectorAll("a") ?? [],
+            ).find((item) => item.textContent?.includes("configuration_id"));
+            return Boolean(
+              formatted?.classList.contains("active") &&
+              formatted.querySelector("strong")?.textContent ===
+                "Hugging Face" &&
+              formatted.querySelector("em")?.textContent === "nn.Linear" &&
+              formatted.querySelector("code")?.textContent === "Conv1D" &&
+              formatted.textContent ===
+                "Hugging Face Conv1D と nn.Linear の違い" &&
+              linked?.textContent === "Linked API and legacy behavior" &&
+              linked.querySelector("a") === null &&
+              longHeading &&
+              longHeading.scrollWidth > longHeading.clientWidth &&
+              layoutCheck?.normal?.ellipsis === true &&
+              layoutCheck.normal.viewportFits === true &&
+              layoutCheck.normal.lightCodeBackground !==
+                layoutCheck.normal.darkCodeBackground &&
+              layoutCheck?.narrow?.ellipsis === true &&
+              layoutCheck.narrow.viewportFits === true &&
+              !toc?.textContent?.includes("**") &&
+              !toc?.textContent?.includes("~~") &&
+              !toc?.textContent?.includes("`") &&
+              toc?.querySelectorAll('a[href^="http"]').length === 0,
+            );
+          })
+        : true,
     hasMarkdownCode:
       scenario === "viewer-markdown-code"
         ? bodyText.includes("Markdown Code Sample") &&

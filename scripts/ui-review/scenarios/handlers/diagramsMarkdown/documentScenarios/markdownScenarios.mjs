@@ -74,6 +74,63 @@ export async function applyMarkdownScenario(context) {
     await page.getByRole("heading", { name: "Reader Workflow" }).waitFor();
     await page.getByRole("heading", { name: "Code Fence" }).waitFor();
     await page.getByRole("heading", { name: "Table" }).waitFor();
+  } else if (scenario === "viewer-markdown-toc-inline-formatting") {
+    await page.locator("text=markdown-toc-inline.md").click();
+    await page
+      .getByRole("heading", { name: "Markdown TOC Inline Formatting" })
+      .waitFor();
+    const formattedHeading = page
+      .locator('[data-review-id="toc"] a')
+      .filter({ hasText: "Hugging Face Conv1D と nn.Linear の違い" });
+    await formattedHeading.waitFor();
+    await formattedHeading.click();
+    await formattedHeading.locator("strong").waitFor();
+    await formattedHeading.locator("em").waitFor();
+    await formattedHeading.locator("code").waitFor();
+    await formattedHeading.waitFor({ state: "visible" });
+    await page.waitForFunction(() =>
+      document
+        .querySelector('[data-review-id="toc"] a.active')
+        ?.textContent?.includes("Hugging Face Conv1D と nn.Linear の違い"),
+    );
+    const normalLayout = await page.evaluate(() => {
+      const shell = document.querySelector(".app-shell");
+      const code = document.querySelector('[data-review-id="toc"] code');
+      const longHeading = Array.from(
+        document.querySelectorAll('[data-review-id="toc"] a'),
+      ).find((item) => item.textContent?.includes("configuration_id"));
+      if (!shell || !code || !longHeading) {
+        return null;
+      }
+      const lightCodeBackground = getComputedStyle(code).backgroundColor;
+      shell.classList.remove("theme-light");
+      shell.classList.add("theme-dark");
+      const darkCodeBackground = getComputedStyle(code).backgroundColor;
+      shell.classList.remove("theme-dark");
+      shell.classList.add("theme-light");
+      return {
+        lightCodeBackground,
+        darkCodeBackground,
+        ellipsis: longHeading.scrollWidth > longHeading.clientWidth,
+        viewportFits: document.documentElement.scrollWidth <= window.innerWidth,
+      };
+    });
+    await page.setViewportSize({ width: 1000, height: 640 });
+    await page.evaluate((normal) => {
+      const longHeading = Array.from(
+        document.querySelectorAll('[data-review-id="toc"] a'),
+      ).find((item) => item.textContent?.includes("configuration_id"));
+      window.__SVARD_MARKDOWN_TOC_INLINE_CHECK__ = {
+        normal,
+        narrow: longHeading
+          ? {
+              ellipsis: longHeading.scrollWidth > longHeading.clientWidth,
+              viewportFits:
+                document.documentElement.scrollWidth <= window.innerWidth,
+            }
+          : null,
+      };
+    }, normalLayout);
   } else if (scenario === "viewer-content-cursor-basic") {
     await page.locator("text=markdown-sample.md").click();
     await page.getByRole("heading", { name: "Markdown Sample" }).waitFor();

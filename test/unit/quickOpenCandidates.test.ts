@@ -293,6 +293,32 @@ describe("quick open candidates", () => {
     ]);
   });
 
+  it("uses the plain heading label instead of Markdown source markers", () => {
+    const candidates = buildQuickOpenCandidates({
+      ...baseOptions,
+      quickOpenQuery: "@conv1d",
+      renderResult: {
+        ...renderResult,
+        headings: [
+          {
+            id: "hugging-face-conv1d",
+            level: 2,
+            text: "Hugging Face Conv1D",
+            rawText: "**Hugging Face** `Conv1D`",
+          },
+        ],
+      },
+    });
+
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        type: "heading",
+        id: "hugging-face-conv1d",
+        label: "Hugging Face Conv1D",
+      }),
+    ]);
+  });
+
   it("returns the nearest mapped source line target", () => {
     const candidates = buildQuickOpenCandidates({
       ...baseOptions,

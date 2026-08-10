@@ -147,6 +147,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "markdown-toc-inline.md",
+      path: "/workspace/docs/markdown-toc-inline.md",
+      kind: "file",
+    },
+    {
       name: "markdown-code.md",
       path: "/workspace/docs/markdown-code.md",
       kind: "file",
@@ -521,6 +526,11 @@ export const fixtureEntries: DirectoryEntry[] = [
   {
     name: "markdown-sample.md",
     path: "/workspace/docs/markdown-sample.md",
+    kind: "file",
+  },
+  {
+    name: "markdown-toc-inline.md",
+    path: "/workspace/docs/markdown-toc-inline.md",
     kind: "file",
   },
   {
@@ -2219,6 +2229,22 @@ export const product = "Svard";
 ## Links
 
 [External link](https://example.com)
+`,
+  "/workspace/docs/markdown-toc-inline.md": `# Markdown TOC Inline Formatting
+
+This fixture keeps rich heading labels readable in the Contents sidebar.
+
+## **Hugging Face** \`Conv1D\` と *nn.Linear* の違い
+
+Strong, inline code, and emphasis remain visible without source markers.
+
+## [Linked API](https://example.com) and ~~legacy~~ behavior
+
+Links and unsupported wrappers become plain text in Contents.
+
+## A deliberately long \`configuration_id\` heading for narrow sidebar ellipsis and navigation verification
+
+The long heading stays on one line and clips within the sidebar.
 `,
   "/workspace/docs/markdown-code.md": `# Markdown Code Sample
 

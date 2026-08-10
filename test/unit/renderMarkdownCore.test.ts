@@ -30,6 +30,58 @@ describe("renderMarkdownCore", () => {
     expect(result.html).toContain('id="日本語-見出し"');
   });
 
+  it("extracts safe inline formatting and plain text for Markdown headings", () => {
+    const result =
+      renderMarkdownCore(`## **Hugging *Face*** \`Conv1D\` and [nn.Linear](https://example.com)
+
+## Image ![diagram](./diagram.png), ~~legacy~~, [[Guide|local guide]], and $x^2$
+`);
+
+    expect(result.headings).toMatchObject([
+      {
+        id: "hugging-face-conv1d-and-nnlinearhttpsexamplecom",
+        level: 2,
+        text: "Hugging Face Conv1D and nn.Linear",
+        rawText:
+          "**Hugging *Face*** `Conv1D` and [nn.Linear](https://example.com)",
+        inline: [
+          {
+            type: "strong",
+            children: [
+              { type: "text", value: "Hugging " },
+              {
+                type: "emphasis",
+                children: [{ type: "text", value: "Face" }],
+              },
+            ],
+          },
+          { type: "text", value: " " },
+          { type: "code", value: "Conv1D" },
+          { type: "text", value: " and nn.Linear" },
+        ],
+      },
+      {
+        text: "Image diagram, legacy, local guide, and x^2",
+        rawText:
+          "Image ![diagram](./diagram.png), ~~legacy~~, [[Guide|local guide]], and $x^2$",
+      },
+    ]);
+    expect(result.headings[1].inline).toBeUndefined();
+    expect(result.html).toContain('href="https://example.com">nn.Linear</a>');
+  });
+
+  it("keeps escaped heading markers as text and ids source-compatible", () => {
+    const result = renderMarkdownCore(`## \\*literal\\* and **bold**
+
+## \\*literal\\* and **bold**
+`);
+
+    expect(result.headings.map(({ id, text }) => ({ id, text }))).toEqual([
+      { id: "literal-and-bold", text: "*literal* and bold" },
+      { id: "literal-and-bold-2", text: "*literal* and bold" },
+    ]);
+  });
+
   it("reports privacy-safe Markdown render performance stages", () => {
     const result = renderMarkdownCore(`# Title
 
