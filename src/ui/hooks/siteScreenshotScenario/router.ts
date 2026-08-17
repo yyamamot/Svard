@@ -1,5 +1,6 @@
 import { runAgentChatScenarios } from "./agentChatScenarios";
 import { runDiagramAndReviewScenarios } from "./diagramAndReviewScenarios";
+import { runDocsFeatureScenarios } from "./docsFeatureScenarios";
 import { runFilesAndNavigationScenarios } from "./filesAndNavigationScenarios";
 import { runPreferencesScenarios } from "./preferencesScenarios";
 import { runSearchAndReaderScenarios } from "./searchAndReaderScenarios";
@@ -25,6 +26,14 @@ const scenariosWithoutInitialOpen = new Set([
   "diagram-save-action",
   "change-review-mode-markers",
   "viewer-site-ai-chat-main",
+  "viewer-site-ai-chat-provider-settings",
+  "viewer-site-ai-chat-context-access",
+  "viewer-site-ai-chat-session-history",
+  "viewer-site-ai-chat-display-review",
+  "reading-math-details",
+  "copy-reference-actions",
+  "copy-image-reference",
+  "source-control-all-diffs",
 ]);
 
 export async function runSiteScreenshotScenario(
@@ -52,6 +61,7 @@ export async function runSiteScreenshotScenario(
   );
 
   if (await runAgentChatScenarios(context)) return;
+  if (await runDocsFeatureScenarios(context)) return;
   if (await runSearchAndReaderScenarios(context)) return;
   if (await runFilesAndNavigationScenarios(context)) return;
   if (await runSourceControlScenarios(context)) return;

@@ -37,14 +37,16 @@ export async function applyReaderActionsScenario(context) {
     await page
       .getByRole("heading", { name: "Copy Actions", exact: true })
       .waitFor();
-    await page.locator('[data-review-id="source-copy-button"]').click();
+    await page
+      .locator('[data-review-id="source-copy-button"]')
+      .click({ force: true });
     await page
       .locator('[data-review-id="lightweight-action-feedback"]')
       .filter({ hasText: "Source block copied" })
       .waitFor();
     await page
       .locator('[data-review-id="source-reference-copy-button"]')
-      .click();
+      .click({ force: true });
     await page
       .locator('[data-review-id="lightweight-action-feedback"]')
       .filter({ hasText: "Source reference copied" })

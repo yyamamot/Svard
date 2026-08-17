@@ -22,6 +22,85 @@
       "description": "Public-safe document review conversation in the right-side AI Chat panel of the native desktop window."
     },
     {
+      "id": "ai-chat-provider-settings",
+      "scenario": "viewer-site-ai-chat-provider-settings",
+      "output": "ai-chat-provider-settings.png",
+      "fixture": "workspace/product-overview.adoc",
+      "hostAdapter": "mock",
+      "timeoutMs": 90000,
+      "settleMs": 5500,
+      "description": "Public-safe Codex readiness and model settings in AI Providers."
+    },
+    {
+      "id": "ai-chat-context-access",
+      "scenario": "viewer-site-ai-chat-context-access",
+      "output": "ai-chat-context-access.png",
+      "fixture": "workspace/product-overview.adoc",
+      "hostAdapter": "mock",
+      "timeoutMs": 90000,
+      "settleMs": 6000,
+      "description": "Explicit document selection and Agent Access in the AI Chat composer."
+    },
+    {
+      "id": "ai-chat-session-history",
+      "scenario": "viewer-site-ai-chat-session-history",
+      "output": "ai-chat-session-history.png",
+      "fixture": "workspace/product-overview.adoc",
+      "hostAdapter": "mock",
+      "timeoutMs": 90000,
+      "settleMs": 6500,
+      "description": "Public-safe Recent and Archived AI Chat history."
+    },
+    {
+      "id": "ai-chat-display-review",
+      "scenario": "viewer-site-ai-chat-display-review",
+      "output": "ai-chat-display-review.png",
+      "fixture": "workspace/product-overview.adoc",
+      "hostAdapter": "mock",
+      "timeoutMs": 90000,
+      "settleMs": 6500,
+      "description": "AI Chat display targets beside public-safe Changed files review."
+    },
+    {
+      "id": "copy-reference-actions",
+      "scenario": "copy-reference-actions",
+      "output": "copy-reference-actions.png",
+      "fixture": "workspace/product-overview.adoc",
+      "hostAdapter": "mock",
+      "timeoutMs": 90000,
+      "settleMs": 4000,
+      "description": "Public-safe source and reference copy actions."
+    },
+    {
+      "id": "copy-image-reference",
+      "scenario": "copy-image-reference",
+      "output": "copy-image-reference.png",
+      "fixture": "workspace/product-overview.adoc",
+      "hostAdapter": "mock",
+      "timeoutMs": 90000,
+      "settleMs": 4000,
+      "description": "Public-safe image and referenced-image copy actions."
+    },
+    {
+      "id": "source-control-all-diffs",
+      "scenario": "source-control-all-diffs",
+      "output": "source-control-all-diffs.png",
+      "fixture": "workspace/rendered-diff.md",
+      "timeoutMs": 90000,
+      "settleMs": 4000,
+      "description": "Multi-document All Diffs review with Files, navigation, and overview ruler."
+    },
+    {
+      "id": "reading-math-details",
+      "scenario": "reading-math-details",
+      "output": "reading-math-details.png",
+      "fixture": "workspace/product-overview.adoc",
+      "hostAdapter": "mock",
+      "timeoutMs": 90000,
+      "settleMs": 5500,
+      "description": "Public-safe Markdown math and compact details rendering."
+    },
+    {
       "id": "hero-plantuml",
       "scenario": "hero-plantuml",
       "output": "hero-plantuml.png",

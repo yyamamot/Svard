@@ -1,5 +1,6 @@
 import { screenshot } from "./screenshots";
 import { sitePath } from "./paths";
+import { aiChatDocsJa } from "./docs.ai-chat.ja";
 
 const repositoryUrl = "https://github.com/yyamamot/Svard";
 const releasesUrl = "https://github.com/yyamamot/Svard/releases";
@@ -320,6 +321,32 @@ export const site = {
         ],
       },
       {
+        title: "AI Chat",
+        items: [
+          {
+            slug: "ai-chat",
+            title: "AI Chatを始める",
+            body: "Codexを準備し、最初の質問を送るまでの基本を確認します。",
+            state: "公開中",
+            href: sitePath("ja/docs/features/ai-chat/"),
+          },
+          {
+            slug: "ai-chat-context-access",
+            title: "コンテキストとAgent Access",
+            body: "明示的に追加する文書情報と操作権限の境界を確認します。",
+            state: "公開中",
+            href: sitePath("ja/docs/features/ai-chat-context-access/"),
+          },
+          {
+            slug: "ai-chat-conversation-review",
+            title: "会話と変更レビュー",
+            body: "会話管理、表示場所、実行中操作、変更レビューを確認します。",
+            state: "公開中",
+            href: sitePath("ja/docs/features/ai-chat-conversation-review/"),
+          },
+        ],
+      },
+      {
         title: "はじめに",
         items: [
           {
@@ -629,6 +656,13 @@ export const site = {
             href: sitePath("ja/docs/features/document-actions/"),
           },
           {
+            slug: "copy-references-for-ai",
+            title: "AI向けコピーと参照",
+            body: "本文、ソース、画像、図表、差分を参照情報とともにコピーします。",
+            state: "公開中",
+            href: sitePath("ja/docs/features/copy-references-for-ai/"),
+          },
+          {
             slug: "heading-toc-actions",
             title: "見出しと Contents の操作",
             body: "見出しや Contents からリンクコピーや移動を行います。",
@@ -751,7 +785,7 @@ export const site = {
         title: "AIエージェントが変更した文書をレビューする",
         lead: "Full Previewで一つの変更を理解し、All Diffsで多数文書へ広げ、通常の閲覧画面で文書全体を確かめる手順です",
         whatThisFeatureIs:
-          "Svardは、ローカルファイルやGitの比較にすでに存在する変更を、人間がレンダリング結果として検証するための環境です。AIエージェントを実行したり、変更者がAIかどうかを判定したりはしません。",
+          "Svardは、ローカルファイルやGitの比較にすでに存在する変更を、人間がレンダリング結果として検証するための環境です。変更者がAIかどうかは判定せず、必要な場合だけAI Chatへ文書や変更を明示的に追加して相談できます。",
         whenToUse:
           "AIエージェントがMarkdownやAsciiDocをまとめて変更し、ソース差分だけでは読者への影響や確認順序を判断しづらい時に使います。人間が行った通常の文書変更にも同じ手順を使えます。",
         workflow: [
@@ -768,6 +802,12 @@ export const site = {
           {
             title: "All Diffsで多数の変更文書へ広げる",
             body: "Source ControlのChanges、Branch Diff、またはRepo GraphのコミットからAll Diffsを開きます。Filesで対象文書を確認し、Previous / Nextと右端の全体ルーラーでレビュー全体を巡回します。各文書ではFull Previewと同じレンダリング差分を確認できます。",
+            screenshot: screenshot(
+              "source-control-all-diffs.png",
+              "All Diffsでの多数文書レビュー",
+              "Files、現在位置、Previous／Next、overview rulerを使って複数文書を巡回する状態です。",
+              "SvardのAll Diffsで複数の変更文書をレビューしている画面",
+            ),
           },
           {
             title: "確認する比較範囲を選ぶ",
@@ -805,6 +845,7 @@ export const site = {
       },
     },
     features: {
+      ...aiChatDocsJa,
       firstDocument: {
         title: "最初の文書を読む",
         lead: "最初の文書を読むページでは、ローカルフォルダを開き、文書を選んでプレビューで読み始める流れを示します",
@@ -860,7 +901,7 @@ export const site = {
         title: "ローカルファーストの考え方",
         lead: "Svard は、文書をローカルで扱うことを基本にし、外部サービス利用を暗黙の前提にしません",
         whatThisFeatureIs:
-          "Svard はローカルの文書、図表、比較結果を手元で扱うことを基本にします。外部サービスを使う機能は、ユーザーが明示的に設定した場合だけ補助経路として扱います。",
+          "Svard はローカルの文書、図表、比較結果を手元で扱うことを基本にします。AI Chatを使う場合だけ、ローカルにインストールされたCodexへ質問、現在の文書の相対パス、明示的に追加したコンテキスト、選択したAgent Access設定を渡します。",
         whenToUse:
           "社内文書、設計メモ、レビュー資料など、公開してはいけない情報を含む可能性がある文書を読む前に確認します。",
         workflow: [
@@ -884,11 +925,16 @@ export const site = {
               "Svard のプライバシー境界を説明する画面",
             ),
           },
+          {
+            title: "AI Chatへ渡す内容を確認する",
+            body: "現在の文書本文は自動添付せず、選択範囲、画像、図表、変更内容はユーザーが追加した場合だけ送信します。Agent AccessでCodexに許可する操作範囲も確認します。",
+          },
         ],
         limitations:
           "このページは Docs 公開時の考え方を説明するものです。完全なセキュリティ機能一覧、監査手順、組織ポリシーの代替ではありません。",
         related: [
           "Svard とは",
+          "AI ChatのコンテキストとAgent Access",
           "明示的な Kroki フォールバック",
           "セキュリティ設定",
         ],
@@ -1247,7 +1293,7 @@ export const site = {
         title: "AsciiDoc / Markdown の閲覧",
         lead: "Svard はローカルの AsciiDoc / Markdown を、編集対象ではなく読む文書として開きます",
         whatThisFeatureIs:
-          "Markdown と AsciiDoc を同じ閲覧画面で表示します。見出し、リスト、表などを文書として読み、閲覧のために元ファイルを書き換えることはありません。",
+          "Markdown と AsciiDoc を同じ閲覧画面で表示します。見出し、リスト、表、数式などを文書として読み、閲覧のために元ファイルを書き換えることはありません。",
         whenToUse:
           "ローカルにあるガイド、設計メモ、運用手順、リポジトリ内ドキュメントを、形式ごとに別のアプリへ切り替えず確認したい時に使います。",
         workflow: [
@@ -1271,9 +1317,19 @@ export const site = {
               "Svard で AsciiDoc 文書を表示している画面",
             ),
           },
+          {
+            title: "数式と折りたたみを読む",
+            body: "Markdownのインライン／表示数式、AsciiDocのstem数式、短いcompact detailsブロックを表示できます。識別子や通貨表現を数式と誤認しない境界を保ち、任意のraw HTMLは有効化しません。",
+            screenshot: screenshot(
+              "reading-math-details.png",
+              "数式とcompact details",
+              "数式と安全な折りたたみを含むMarkdown文書の表示結果です。",
+              "Svardで数式とcompact detailsを含むMarkdown文書を表示している画面",
+            ),
+          },
         ],
         limitations:
-          "Svard はエディタではありません。執筆機能、共同編集、すべての公開システムとの完全互換は約束しません。公開ページでは、表示結果が分かる短いサンプルだけを使います。",
+          "Svard はエディタではありません。執筆機能、共同編集、すべての公開システムとの完全互換は約束しません。Markdownのcompact detailsは安全な限定構文だけを扱い、任意のraw HTMLは無効のままです。",
         related: [
           "Contents サイドバー",
           "タブと開いているファイル",
@@ -2465,6 +2521,16 @@ export const site = {
           {
             title: "一括差分を確認する",
             body: "All Diffsを開くと、対応しているMarkdown / AsciiDocの変更文書を一つのレビューとして確認できます。Filesで文書全体と現在位置を把握し、Previous / Next、左余白の変更マーカー、右端の全体ルーラーで確認対象を巡回します。各文書ではFull Previewと同じレンダリング結果を確認できます。",
+            screenshot: screenshot(
+              "source-control-all-diffs.png",
+              "All Diffsのレビューセッション",
+              "複数文書の集合と現在位置を保ったままAll Diffsを巡回する状態です。",
+              "SvardのAll Diffsでレビューセッションを表示している画面",
+            ),
+          },
+          {
+            title: "変更を追跡しながらレビューする",
+            body: "DocumentsまたはSource Controlのレビューセッションは確認位置を保ちます。Review watchを有効にすると、作業ツリーの更新に合わせて対象一覧を再読込し、開いているDiff Previewが古くなった場合も分かります。",
           },
         ],
         limitations:

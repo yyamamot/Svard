@@ -2,6 +2,15 @@ import type { SiteScreenshotScenarioContext } from "./types";
 
 const publicDocumentPath = "/workspace/docs/preferences.adoc";
 const publicQuestion = "What should I verify before this release?";
+const publicChangeReviewQuestion =
+  "What should I verify before this release change review?";
+const agentChatScenarios = new Set([
+  "viewer-site-ai-chat-main",
+  "viewer-site-ai-chat-provider-settings",
+  "viewer-site-ai-chat-context-access",
+  "viewer-site-ai-chat-session-history",
+  "viewer-site-ai-chat-display-review",
+]);
 
 function delay(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
@@ -60,11 +69,7 @@ Capture unresolved items before publishing the release notes.
   };
 }
 
-export async function runAgentChatScenarios(
-  context: SiteScreenshotScenarioContext,
-) {
-  if (context.scenario !== "viewer-site-ai-chat-main") return false;
-
+async function openPublicDocument(context: SiteScreenshotScenarioContext) {
   installPublicDocumentOverride();
   context.closeAllTabs();
   await context.openDocument(publicDocumentPath);
@@ -77,7 +82,6 @@ export async function runAgentChatScenarios(
         }
       : current,
   );
-
   const heading = await waitForElement<HTMLElement>(
     '[data-review-id="document-body"] h1',
   );
@@ -88,6 +92,9 @@ export async function runAgentChatScenarios(
     await window.__SVARD_COMMANDS__?.dispatch("sidebar.toggleLeft");
     await delay(150);
   }
+}
+
+async function attachPublicSelection() {
   const paragraph = await waitForElement<HTMLElement>(
     '[data-review-id="document-body"] p',
   );
@@ -96,7 +103,7 @@ export async function runAgentChatScenarios(
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);
-  paragraph.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+  document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
   paragraph.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
 
   const toolbar = await waitForElement<HTMLElement>(
@@ -107,12 +114,14 @@ export async function runAgentChatScenarios(
   );
   if (!askButton) throw new Error("Ask AI selection action is unavailable.");
   askButton.click();
+  await waitForElement('[data-review-id="agent-selection-attachments"]');
+}
 
+async function sendQuestion(question: string) {
   const composer = await waitForElement<HTMLTextAreaElement>(
     'textarea[placeholder^="Ask about this workspace"]',
   );
-  await waitForElement('[data-review-id="agent-selection-attachments"]');
-  setTextareaValue(composer, publicQuestion);
+  setTextareaValue(composer, question);
   composer.dispatchEvent(
     new KeyboardEvent("keydown", {
       bubbles: true,
@@ -122,8 +131,78 @@ export async function runAgentChatScenarios(
       metaKey: true,
     }),
   );
-
   await waitForElement(".agent-final-answer");
+}
+
+export async function runAgentChatScenarios(
+  context: SiteScreenshotScenarioContext,
+) {
+  if (!agentChatScenarios.has(context.scenario)) return false;
+
+  await openPublicDocument(context);
+
+  if (context.scenario === "viewer-site-ai-chat-provider-settings") {
+    context.openPreferences();
+    const openProviders = () => {
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>(
+          '[data-review-id="preferences-nav-item"]',
+        ),
+      )
+        .find((button) => button.textContent?.trim() === "AI Providers")
+        ?.click();
+      const installationDetail = document.querySelector<HTMLElement>(
+        '[data-review-id="agent-provider-codex-installation-detail"]',
+      );
+      if (installationDetail) {
+        installationDetail.textContent = "PATH installation · Codex available";
+      }
+      Array.from(document.querySelectorAll<HTMLElement>(".mode-help"))
+        .find((element) => element.textContent?.includes("Primary provider"))
+        ?.replaceChildren("Primary provider");
+    };
+    await waitForElement('[data-review-id="preferences-nav-item"]');
+    openProviders();
+    await waitForElement('[data-review-id="agent-provider-codex-status"]');
+    for (const delayMs of [500, 1_500, 3_000, 4_500]) {
+      window.setTimeout(openProviders, delayMs);
+    }
+    await delay(250);
+    return true;
+  }
+
+  await attachPublicSelection();
+  if (context.scenario === "viewer-site-ai-chat-context-access") {
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-review-id="agent-access-trigger"]',
+      )
+      ?.click();
+    await waitForElement('[data-review-id="agent-access-popover"]');
+    await delay(250);
+    return true;
+  }
+
+  await sendQuestion(
+    context.scenario === "viewer-site-ai-chat-display-review"
+      ? publicChangeReviewQuestion
+      : publicQuestion,
+  );
+  if (context.scenario === "viewer-site-ai-chat-session-history") {
+    const historyButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open chat history"]',
+    );
+    historyButton?.click();
+    await waitForElement('[data-review-id="agent-session-history"]');
+  } else if (context.scenario === "viewer-site-ai-chat-display-review") {
+    await waitForElement('[data-review-id="agent-changed-files"]');
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-review-id="agent-display-menu-trigger"]',
+      )
+      ?.click();
+    await waitForElement('[data-review-id="agent-display-menu"]');
+  }
   await delay(250);
   return true;
 }

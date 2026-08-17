@@ -78,6 +78,82 @@ export async function runSourceControlScenarios(
     return true;
   }
 
+  if (scenario === "source-control-all-diffs") {
+    const directory = fixtureDirectory(fixturePath);
+    await openDirectory(directory);
+    await openDocument(fixturePath);
+    const applyAllDiffsSourceControlState = () => {
+      setRootDirectory(directory);
+      setConfig((current) =>
+        current
+          ? {
+              ...current,
+              sidebarVisible: true,
+              rightSidebarVisible: false,
+              layout: { ...current.layout, leftSidebarWidth: 330 },
+              workspace: {
+                ...current.workspace,
+                sidebarTab: "sourceControl",
+                sourceControlView: "changes",
+              },
+            }
+          : current,
+      );
+    };
+    applyAllDiffsSourceControlState();
+    const restoreState = window.setInterval(
+      applyAllDiffsSourceControlState,
+      500,
+    );
+    const allDiffs = await new Promise<HTMLButtonElement>((resolve, reject) => {
+      const startedAt = Date.now();
+      const find = () => {
+        const button = document.querySelector<HTMLButtonElement>(
+          '[data-review-id="source-control-all-diffs"]',
+        );
+        if (button) return resolve(button);
+        if (Date.now() - startedAt > 10_000)
+          return reject(new Error("All Diffs action did not appear."));
+        window.setTimeout(find, 50);
+      };
+      find();
+    });
+    window.clearInterval(restoreState);
+    allDiffs.click();
+    await new Promise<void>((resolve, reject) => {
+      const startedAt = Date.now();
+      const find = () => {
+        const panel = document.querySelector(
+          '[data-review-id="source-control-all-diffs-panel"]',
+        );
+        const sections = document.querySelectorAll(
+          '[data-review-id="diff-stream-file-section"]',
+        );
+        if (panel && sections.length > 1) return resolve();
+        if (Date.now() - startedAt > 15_000)
+          return reject(new Error("All Diffs review did not finish loading."));
+        window.setTimeout(find, 100);
+      };
+      find();
+    });
+    const keepAllDiffsOpen = () => {
+      if (
+        document.querySelector(
+          '[data-review-id="source-control-all-diffs-panel"]',
+        )
+      ) {
+        return;
+      }
+      document
+        .querySelector<HTMLButtonElement>(
+          '[data-review-id="source-control-all-diffs"]',
+        )
+        ?.click();
+    };
+    window.setInterval(keepAllDiffsOpen, 750);
+    return true;
+  }
+
   if (scenario === "source-control-open-diff") {
     const directory = fixtureDirectory(fixturePath);
     const applySourceControlDiffState = () => {

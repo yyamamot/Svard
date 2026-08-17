@@ -629,6 +629,7 @@ export async function prepareScreenshotFixture({
     capture.id === "source-control-branch-diff-preview" ||
     capture.id === "source-control-repo-graph" ||
     capture.id === "source-control-file-history" ||
+    capture.id === "source-control-all-diffs" ||
     capture.id === "files"
   ) {
     return prepareGitStatusWorkspace({ artifactRoot, id: capture.id });

@@ -71,6 +71,13 @@ export interface MockAgentSessionRecord {
 }
 
 export function mockChangedPaths(question: string): string[] {
+  if (/release change review/iu.test(question)) {
+    return [
+      "docs/release-guide.md",
+      "docs/verification.md",
+      "docs/follow-up.md",
+    ];
+  }
   return /change review/iu.test(question)
     ? [
         "src/ui/App.tsx",
