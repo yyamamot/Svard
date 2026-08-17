@@ -14,6 +14,8 @@ export function launchTauri({ capture, fixturePath, profileDir, logFile }) {
     SVARD_SITE_SCREENSHOT_FIXTURE: fixturePath,
     VITE_SVARD_SITE_SCREENSHOT_SCENARIO: capture.scenario,
     VITE_SVARD_SITE_SCREENSHOT_FIXTURE: fixturePath,
+    VITE_SVARD_SITE_SCREENSHOT_MOCK_HOST:
+      capture.hostAdapter === "mock" ? "1" : "0",
   };
   const child = spawn("pnpm", ["exec", "tauri", "dev"], {
     cwd: repoRoot,

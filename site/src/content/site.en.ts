@@ -97,8 +97,8 @@ export const site = {
       screenshot: screenshot(
         "ai-chat-main.png",
         "Document and AI Chat",
-        "Shows a public Release Review Guide with a right-side AI Chat conversation about verification steps.",
-        "Svard using right-side AI Chat while reading a document",
+        "Shows the Svard desktop app with a public Release Review Guide and a right-side AI Chat conversation about verification steps.",
+        "Svard desktop app using right-side AI Chat while reading a document",
       ),
     },
     privacy: {
@@ -186,8 +186,8 @@ export const site = {
         screenshot: screenshot(
           "ai-chat-main.png",
           "Document and AI Chat",
-          "Shows a public document and right-side AI Chat discussing release verification steps.",
-          "Svard asking about a document in right-side AI Chat",
+          "Shows the Svard desktop app with a public document and right-side AI Chat discussing release verification steps.",
+          "Svard desktop app asking about a document in right-side AI Chat",
         ),
       },
       {

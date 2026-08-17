@@ -4,9 +4,15 @@ Svard (Specification Viewer and Rendered Diff) is a local-first desktop viewer f
 
 This review flow is especially useful when AI agents update many technical documents. All Diffs, Rendered Diff, Change Review Mode, and Revision Lens let reviewers move from the changed document set to a specific comparison with its Base while keeping prose, lists, tables, diagrams, and source views in context.
 
-The normal rendering path is local-first. Svard does not run an AI agent, call an LLM, or send documents to an AI service; it reviews changes that already exist in local files or Git comparisons.
+The normal reading and rendering path remains local-first and does not invoke AI. AI Chat is an explicit, Experimental workflow that starts an installed Codex provider and sends the question, the current document's relative path, explicitly attached context, and the selected Agent Access settings.
 
 ![Rendered diff comparison in Svard](site/public/screenshots/rendered-diff.png)
+
+## AI Chat (Experimental)
+
+Ask about the workspace while reading and reviewing documents. AI Chat can use explicitly added selections, documents, images, diagrams, and rendered changes as context, and supports Markdown answers plus an interactive Visualize mode. It can be placed on the right, at the bottom, alongside Diff Preview or All Diffs, or in a separate window. Codex is the first supported provider.
+
+![AI Chat beside a document in Svard](site/public/screenshots/ai-chat-main.png)
 
 ## Website
 
@@ -18,6 +24,7 @@ https://yyamamot.github.io/Svard/
 
 - Review changes across many documents with All Diffs, Rendered Diff, Change Review Mode, and Revision Lens
 - Keep rendered output, change locations, and the Base or comparison source in the same review flow
+- Ask about documents and changes with workspace-native AI Chat using explicit context and configurable Agent Access
 - Local rendering for Markdown, AsciiDoc, Mermaid, PlantUML, and Graphviz-oriented workflows
 - Kroki support only as an explicit fallback path for unsupported or compatibility-focused diagrams
 - Browser-like reading with tabs, history, recently closed documents, quick open, split view, and find-in-page

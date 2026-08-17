@@ -97,8 +97,8 @@ export const site = {
       screenshot: screenshot(
         "ai-chat-main.png",
         "文書とAI Chat",
-        "公開用のRelease Review Guideを読みながら、右側のAI Chatで確認事項を相談している画面です。",
-        "Svardで文書を読みながら右側のAI Chatを使っている画面",
+        "Svardデスクトップアプリで公開用のRelease Review Guideを読みながら、右側のAI Chatで確認事項を相談している画面です。",
+        "Svardデスクトップアプリで文書を読みながら右側のAI Chatを使っている画面",
       ),
     },
     privacy: {
@@ -187,8 +187,8 @@ export const site = {
         screenshot: screenshot(
           "ai-chat-main.png",
           "文書とAI Chat",
-          "公開用文書と右側AI Chatで、リリース前の確認事項を相談している状態を示します。",
-          "Svardの右側AI Chatで文書について質問している画面",
+          "Svardデスクトップアプリの公開用文書と右側AI Chatで、リリース前の確認事項を相談している状態を示します。",
+          "Svardデスクトップアプリの右側AI Chatで文書について質問している画面",
         ),
       },
       {
