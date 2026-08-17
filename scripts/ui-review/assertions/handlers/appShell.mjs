@@ -184,6 +184,7 @@ export async function buildAppShellAssertions(context) {
           )
         : true,
     hasAgentStage5:
+      scenario === "viewer-site-ai-chat-main" ||
       scenario === "viewer-agent-chat-streaming" ||
       scenario === "viewer-agent-chat-approval" ||
       scenario === "viewer-agent-chat-openui" ||
@@ -348,6 +349,7 @@ export async function buildAppShellAssertions(context) {
           })
         : true,
     hasAgentSelection:
+      scenario === "viewer-site-ai-chat-main" ||
       scenario === "viewer-agent-chat-selection" ||
       scenario === "viewer-agent-chat-selection-image"
         ? await page.evaluate(() => {
@@ -358,6 +360,20 @@ export async function buildAppShellAssertions(context) {
               result?.mixedContentOrder === true
             );
           })
+        : true,
+    hasPublicSiteAiChat:
+      scenario === "viewer-site-ai-chat-main"
+        ? bodyText.includes("Release Review Guide") &&
+          bodyText.includes("What should I verify before this release?") &&
+          bodyText.includes("Release review summary") &&
+          bodyText.includes("Verify these items before publishing") &&
+          bodyText.includes("AI Chat") &&
+          bodyText.includes("Auto") &&
+          bodyText.includes("Observe") &&
+          !bodyText.includes("Mock") &&
+          !bodyText.includes("IMP-") &&
+          !bodyText.includes("/Users/") &&
+          !bodyText.includes("protocol identifiers")
         : true,
     hasAgentMediaContext:
       scenario === "viewer-agent-chat-media-context"

@@ -7,7 +7,7 @@ const { items } = Astro.props;
   <div class="feature-list">
     {
       items.map((item) => (
-        <article class="feature-item">
+        <article class="feature-item" id={item.id}>
           <h2>{item.title}</h2>
           <p>{item.body}</p>
           {item.screenshot && (

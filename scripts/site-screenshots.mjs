@@ -1,11 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { preview } from "vite";
+import { captureScenario, createArtifactRoot } from "./ui-review-utils.mjs";
 import {
   delay,
   ensureDir,
   parseArgs,
   readJson,
   repoRoot,
+  run,
   timestampId,
 } from "./site-screenshots/common.mjs";
 import {
@@ -22,7 +25,71 @@ import {
   prepareScreenshotFixture,
 } from "./site-screenshots/fixtures.mjs";
 
+async function captureUiReview({ manifest, capture, artifactRoot }) {
+  const outputPath = path.resolve(repoRoot, manifest.outputDir, capture.output);
+  const uiArtifactRoot = await createArtifactRoot(
+    `site-screenshot-${capture.id}`,
+  );
+  const port = 4291;
+  let server = null;
+  const startedAt = Date.now();
+  try {
+    await run("pnpm", ["run", "build"]);
+    server = await preview({
+      preview: {
+        host: "127.0.0.1",
+        port,
+        strictPort: true,
+      },
+    });
+    const report = await captureScenario({
+      scenario: capture.scenario,
+      id: capture.featureId ?? capture.id,
+      artifactRoot: uiArtifactRoot,
+      baseURL: `http://127.0.0.1:${port}`,
+    });
+    if (report.outcome !== "passed") {
+      throw new Error(
+        `UI review capture failed: ${report.assertionFailures.join(", ")}`,
+      );
+    }
+    await ensureDir(path.dirname(outputPath));
+    await fs.copyFile(report.screenshotPath, outputPath);
+    return {
+      id: capture.id,
+      scenario: capture.scenario,
+      outcome: "passed",
+      outputPath,
+      artifactRoot,
+      uiArtifactRoot,
+      durationMs: Date.now() - startedAt,
+      captureMethod: "ui-review-browser",
+      description: capture.description ?? null,
+    };
+  } catch (error) {
+    return {
+      id: capture.id,
+      scenario: capture.scenario,
+      outcome: "failed",
+      outputPath,
+      artifactRoot,
+      uiArtifactRoot,
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+      captureMethod: "ui-review-browser",
+      description: capture.description ?? null,
+    };
+  } finally {
+    if (server) {
+      await server.httpServer.close();
+    }
+  }
+}
+
 async function captureOne({ manifest, capture, artifactRoot }) {
+  if (capture.captureMode === "ui-review") {
+    return captureUiReview({ manifest, capture, artifactRoot });
+  }
   const fixtureRoot = path.resolve(repoRoot, manifest.fixtureRoot);
   let fixturePath = path.resolve(fixtureRoot, capture.fixture);
   const outputPath = path.resolve(repoRoot, manifest.outputDir, capture.output);
@@ -95,7 +162,9 @@ async function captureOne({ manifest, capture, artifactRoot }) {
 
 async function skippedExistingResult({ manifest, capture }) {
   const fixtureRoot = path.resolve(repoRoot, manifest.fixtureRoot);
-  const fixturePath = path.resolve(fixtureRoot, capture.fixture);
+  const fixturePath = capture.fixture
+    ? path.resolve(fixtureRoot, capture.fixture)
+    : null;
   const outputPath = path.resolve(repoRoot, manifest.outputDir, capture.output);
   const stat = await fs.stat(outputPath);
   return {

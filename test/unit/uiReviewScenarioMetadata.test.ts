@@ -60,6 +60,7 @@ describe("UI review scenario metadata", () => {
   it("keeps Git and Source Control marker expectations in scenario metadata", () => {
     expect(uiReviewScenarioContractIds).toEqual(
       expect.arrayContaining([
+        "viewer-site-ai-chat-main",
         "viewer-git-timeline-file-history-cache",
         "viewer-source-control-changes",
         "viewer-diff-preview-regression-suite",

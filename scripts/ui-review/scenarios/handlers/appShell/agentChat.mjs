@@ -45,7 +45,67 @@ export async function applyAppShellAgentChatScenario(context) {
     }
     const initialRightSidebar =
       (await page.locator('[data-review-id="right-sidebar"]').count()) === 1;
-    if (scenario === "viewer-agent-chat-media-context") {
+    if (scenario === "viewer-site-ai-chat-main") {
+      await page.evaluate(() => {
+        window.__SVARD_DOCUMENT_OVERRIDES__ = {
+          ...(window.__SVARD_DOCUMENT_OVERRIDES__ ?? {}),
+          "/workspace/docs/preferences.adoc": {
+            source: `= Release Review Guide
+:toc:
+
+This guide keeps the release scope, verification steps, and follow-up checks together for reviewers.
+
+== Release checklist
+
+Confirm the supported platforms, verify the rendered documentation, and record any checks that still need an owner.
+
+== Verification
+
+Review the installer, open the sample documents, and confirm that diagrams and links behave as expected.
+
+== Follow-up
+
+Capture unresolved items before publishing the release notes.
+`,
+          },
+        };
+      });
+      await page
+        .locator(
+          '[data-review-id="tree-file"][data-path="/workspace/docs/preferences.adoc"]',
+        )
+        .click();
+      await page
+        .locator('[data-review-id="document-body"] h1')
+        .filter({ hasText: "Release Review Guide" })
+        .waitFor();
+      await page.evaluate(async () => {
+        const leftSidebar = document.querySelector(
+          '[data-review-id="left-sidebar"]',
+        );
+        if (leftSidebar) {
+          await window.__SVARD_COMMANDS__?.dispatch("sidebar.toggleLeft");
+        }
+      });
+      const paragraph = page
+        .locator('[data-review-id="document-body"] p')
+        .first();
+      await paragraph.waitFor();
+      await paragraph.evaluate((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        element.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+        element.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+      });
+      await page.locator('[data-review-id="selection-mini-toolbar"]').waitFor();
+      await page
+        .locator('[data-review-id="selection-mini-toolbar"]')
+        .getByRole("button", { name: "Ask AI" })
+        .click();
+    } else if (scenario === "viewer-agent-chat-media-context") {
       await page
         .locator('[data-review-id="tree-file"]')
         .filter({ hasText: "asciidoc-comprehensive-visual.adoc" })
@@ -295,6 +355,11 @@ export async function applyAppShellAgentChatScenario(context) {
       await composer.fill("Unexpected disconnect during approval.");
     } else if (scenario === "viewer-agent-chat-change-review") {
       await composer.fill("Show change review.");
+    } else if (scenario === "viewer-site-ai-chat-main") {
+      await page
+        .locator('[data-review-id="agent-selection-attachments"]')
+        .waitFor();
+      await composer.fill("What should I verify before this release?");
     } else if (
       scenario === "viewer-agent-chat-selection" ||
       scenario === "viewer-agent-chat-selection-image"

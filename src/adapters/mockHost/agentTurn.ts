@@ -316,6 +316,9 @@ export async function runMockAgentTurn(
   });
   const wantsInterface = input.responseMode === "visualize";
   const wantsMarkdownAnswer = /markdown answer/iu.test(input.question);
+  const wantsPublicSiteAnswer = /verify before this release/iu.test(
+    input.question,
+  );
   const evaluationAnswer = wantsInterface
     ? mockOpenUiEvaluationAnswer(input.question)
     : null;
@@ -323,27 +326,39 @@ export async function runMockAgentTurn(
     ? evaluationAnswer
     : wantsInterface
       ? 'root = SvardExperience("Workspace answer", "The selected files are connected through the same workspace contract.", [stats, flow, files, followup])\nstats = Grid([{title:"Documents",value:"12",detail:"Markdown and AsciiDoc"},{title:"Code",value:"8",detail:"TypeScript and Rust"}], 2)\nflow = Timeline([{label:"1",title:"Inspect files",detail:"Read workspace context",status:"completed"},{label:"2",title:"Relate findings",detail:"Build the final answer",status:"completed"}])\nfiles = FileList("Key files", [{path:"src/ui/App.tsx",role:"UI shell"},{path:"src-tauri/src/lib.rs",role:"Tauri backend"}])\nfollowup = FollowUpButton("Compare responsibilities", "Compare the responsibilities of the UI shell and Tauri backend.", "Starts a new Agent turn")'
-      : wantsMarkdownAnswer
+      : wantsPublicSiteAnswer
         ? [
-            "## Workspace answer",
+            "## Release review summary",
             "",
-            "Use `docs/guide.md` with **Markdown formatting**.",
+            "Verify these items before publishing:",
             "",
-            "- Inspect the document",
-            "- Compare the implementation",
+            "- Confirm the supported platforms and installer behavior.",
+            "- Review the rendered Markdown and AsciiDoc samples.",
+            "- Assign an owner to every unresolved follow-up check.",
             "",
-            "| Area | Status |",
-            "| --- | --- |",
-            "| Agent Chat | Ready |",
-            "",
-            "```ts",
-            'const response = "safe";',
-            "```",
-            "",
-            "[Open workspace document](docs/guide.md)",
-            "[Open external documentation](https://example.com/docs)",
+            "The selected passage keeps the review focused on the documented release scope.",
           ].join("\n")
-        : "The focused files are related through the workspace-native agent session. No internal session or protocol identifiers are exposed.";
+        : wantsMarkdownAnswer
+          ? [
+              "## Workspace answer",
+              "",
+              "Use `docs/guide.md` with **Markdown formatting**.",
+              "",
+              "- Inspect the document",
+              "- Compare the implementation",
+              "",
+              "| Area | Status |",
+              "| --- | --- |",
+              "| Agent Chat | Ready |",
+              "",
+              "```ts",
+              'const response = "safe";',
+              "```",
+              "",
+              "[Open workspace document](docs/guide.md)",
+              "[Open external documentation](https://example.com/docs)",
+            ].join("\n")
+          : "The focused files are related through the workspace-native agent session. No internal session or protocol identifiers are exposed.";
   for (const part of answer.match(/[\s\S]{1,28}/gu) ?? [answer]) {
     emit({ type: "finalAnswerDelta", delta: part });
     await new Promise((resolve) => globalThis.setTimeout(resolve, 12));

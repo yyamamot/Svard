@@ -7,10 +7,12 @@ import PrivacySection from "../../components/PrivacySection.astro";
 import DiffSection from "../../components/DiffSection.astro";
 import FaqSection from "../../components/FaqSection.astro";
 import ReviewFlowSection from "../../components/ReviewFlowSection.astro";
+import AiChatSection from "../../components/AiChatSection.astro";
 ---
 
 <LandingLayout site={site}>
   <Hero content={site.top} />
+  <AiChatSection content={site.top.aiChat} />
   <DiffSection content={site.top.diff} locale={site.locale} />
   <ReviewFlowSection content={site.top.reviewFlow} />
   <FeatureGrid items={site.top.highlights} />

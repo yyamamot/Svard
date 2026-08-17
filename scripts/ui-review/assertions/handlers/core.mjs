@@ -27,6 +27,7 @@ export async function buildCoreAssertions(context) {
         bodyText.includes("Preferences") &&
         bodyText.includes("General")) ||
       bodyText.includes("Svard MVP Guide") ||
+      bodyText.includes("Release Review Guide") ||
       bodyText.includes("Preferences Defaults") ||
       bodyText.includes("Copy Actions") ||
       bodyText.includes("Large PlantUML Diagnostic") ||
@@ -167,6 +168,7 @@ export async function buildCoreAssertions(context) {
       scenario === "viewer-agent-chat-openui-basic-gallery" ||
       scenario === "viewer-agent-chat-openui-basic-balanced" ||
       scenario === "viewer-agent-chat-openui-basic-lean" ||
+      scenario === "viewer-site-ai-chat-main" ||
       scenario === "viewer-git-diff-too-complex-source-fallback" ||
       scenario === "viewer-topbar-direct-layout-controls" ||
       scenario.startsWith("viewer-git-timeline-") ||

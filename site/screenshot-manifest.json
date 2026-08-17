@@ -12,6 +12,14 @@
   },
   "captures": [
     {
+      "id": "ai-chat-main",
+      "scenario": "viewer-site-ai-chat-main",
+      "captureMode": "ui-review",
+      "featureId": "IMP-537",
+      "output": "ai-chat-main.png",
+      "description": "Public-safe document review conversation in the right-side AI Chat panel."
+    },
+    {
       "id": "hero-plantuml",
       "scenario": "hero-plantuml",
       "output": "hero-plantuml.png",

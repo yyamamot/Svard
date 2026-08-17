@@ -86,9 +86,24 @@ export const site = {
         body: "Mermaid, PlantUML, and Graphviz use local rendering as the primary path.",
       },
     ],
+    aiChat: {
+      label: "AI Chat",
+      title: "Ask in place while reading",
+      body: "Add a selection, image, or current change to AI Chat when it is useful, then continue understanding and reviewing the document in the same workspace.",
+      link: {
+        label: "Explore AI Chat",
+        href: `${sitePath("en/features/")}#ai-chat`,
+      },
+      screenshot: screenshot(
+        "ai-chat-main.png",
+        "Document and AI Chat",
+        "Shows a public Release Review Guide with a right-side AI Chat conversation about verification steps.",
+        "Svard using right-side AI Chat while reading a document",
+      ),
+    },
     privacy: {
       title: "Local-first boundary",
-      body: "Svard assumes local files. Kroki is treated only as a fallback for unsupported, fully compatible, or explicitly configured cases. It is not an implicit public-service default.",
+      body: "Svard assumes local files. AI Chat handles submitted questions and permitted workspace context under the selected Agent Access settings, while Kroki remains an explicitly configured fallback rather than an implicit public-service default.",
     },
     diff: {
       label: "Full Preview",
@@ -122,7 +137,7 @@ export const site = {
       {
         question: "Does Svard run AI agents or send documents to an LLM?",
         answer:
-          "No. Svard reviews changes that already exist in local files or Git comparisons. It does not run an AI agent, call an LLM, or send documents to an AI service.",
+          "When you use AI Chat, Svard launches a locally installed Codex as the first supported provider. A turn sends the question, the current document's relative path, explicitly added selections, images, or changes, and the selected Agent Access settings to the provider. Document reading and local diagram rendering continue to use local paths when AI Chat is not used.",
       },
       {
         question: "Is Svard an editor?",
@@ -144,7 +159,7 @@ export const site = {
   features: {
     eyebrow: "Features",
     heading: "Review, understand, and verify document changes.",
-    lead: "Svard is a local-first desktop viewer for reading Markdown and AsciiDoc and reviewing changes as rendered documents, including large documentation updates made by AI agents.",
+    lead: "Svard is a local-first desktop viewer for reading Markdown and AsciiDoc, reviewing changes as rendered documents, and using AI Chat to understand and verify the work.",
     screenshot: {
       ...screenshot(
         "reader-main.png",
@@ -162,6 +177,17 @@ export const site = {
           "Preview diff screenshot",
           "Shows visible document changes in the rendered diff preview.",
           "Svard preview diff view",
+        ),
+      },
+      {
+        id: "ai-chat",
+        title: "Workspace AI Chat (Experimental)",
+        body: "Add the current document, a selection, an image, or the current Rendered Diff change to a conversation, then use Auto for Markdown answers or Visualize for interactive output. The same conversation stays available across Right side, Bottom, Diff Preview, and Separate window. Codex is the first supported provider.",
+        screenshot: screenshot(
+          "ai-chat-main.png",
+          "Document and AI Chat",
+          "Shows a public document and right-side AI Chat discussing release verification steps.",
+          "Svard asking about a document in right-side AI Chat",
         ),
       },
       {
@@ -234,16 +260,6 @@ export const site = {
           "Svard bookmark management view",
         ),
       },
-      {
-        title: "Privacy boundary",
-        body: "Avoid casually exposing diagram source, full document text, local absolute paths, or service URLs to services or logs.",
-        screenshot: screenshot(
-          "privacy-boundary.png",
-          "Privacy screenshot",
-          "Shows settings that explain what should stay out of public artifacts.",
-          "Svard privacy boundary preference view",
-        ),
-      },
     ],
   },
   docs: {
@@ -267,7 +283,7 @@ export const site = {
         {
           title: "Catch up with changes across many documents from AI agents",
           body: [
-            "When an AI agent updates many documents, All Diffs, Rendered Diff, Change Review Mode, and Revision Lens keep rendered output, change locations, and the Base or comparison source in one reading flow. Svard does not run an AI agent or send documents to an LLM; it reviews changes already present in local files or Git comparisons.",
+            "When an AI agent updates many documents, All Diffs, Rendered Diff, Change Review Mode, and Revision Lens keep rendered output, change locations, and the Base or comparison source in one reading flow. When useful, you can explicitly add a document or current change to workspace AI Chat and discuss it in place.",
           ],
         },
         {

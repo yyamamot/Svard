@@ -86,9 +86,24 @@ export const site = {
         body: "Mermaid / PlantUML / Graphviz はローカルレンダリングを標準の経路にします。",
       },
     ],
+    aiChat: {
+      label: "AI Chat",
+      title: "文書を読みながら、その場で相談する",
+      body: "選択範囲、画像、現在の変更を必要な分だけAI Chatへ追加し、文書の理解とレビューを同じワークスペースで続けられます。",
+      link: {
+        label: "AI Chatの機能を見る",
+        href: `${sitePath("ja/features/")}#ai-chat`,
+      },
+      screenshot: screenshot(
+        "ai-chat-main.png",
+        "文書とAI Chat",
+        "公開用のRelease Review Guideを読みながら、右側のAI Chatで確認事項を相談している画面です。",
+        "Svardで文書を読みながら右側のAI Chatを使っている画面",
+      ),
+    },
     privacy: {
       title: "ローカルファーストの境界",
-      body: "Svard はローカルファイルを前提にしたビューアです。Kroki は未対応、完全互換、ユーザーが明示設定した場合のフォールバックとして扱い、暗黙の公開サービス依存にはしません。",
+      body: "Svard はローカルファイルを前提にしたビューアです。AI Chatはユーザーが送信した質問と許可されたワークスペース文脈を選択したAgent Access設定で扱い、Krokiもユーザーが明示設定した場合だけフォールバックとして使います。",
     },
     diff: {
       label: "Full Preview",
@@ -123,7 +138,7 @@ export const site = {
         question:
           "Svard は AI エージェントを実行したり、文書を LLM へ送信したりしますか？",
         answer:
-          "いいえ。Svard はローカルファイルや Git の比較にすでに存在する変更を確認するためのツールです。AIエージェントや LLM を実行せず、文書を AI サービスへ送信しません。",
+          "AI Chatを使う場合、Svardは最初の対応providerとしてローカルにインストールされたCodexを起動します。送信時には質問、現在の文書の相対パス、明示的に追加した選択範囲・画像・変更箇所と、選択したAgent Access設定がproviderへ渡ります。AI Chatを使わない文書閲覧とローカル図表レンダリングは従来どおりローカルを主経路にします。",
       },
       {
         question: "Svard は編集ツールですか？",
@@ -145,7 +160,7 @@ export const site = {
   features: {
     eyebrow: "Features",
     heading: "文書の変更を読み、理解し、検証する機能",
-    lead: "Svard は、Markdown / AsciiDoc を読み、変更をレンダリング結果として確認するためのローカルファーストなデスクトップビューアです。AIエージェントが更新した多数の文書も、同じレビューの流れで追えます。",
+    lead: "Svard は、Markdown / AsciiDoc を読み、変更をレンダリング結果として確認し、AI Chatで理解とレビューを進めるローカルファーストなデスクトップビューアです。",
     screenshot: {
       ...screenshot(
         "reader-main.png",
@@ -163,6 +178,17 @@ export const site = {
           "差分画面",
           "文書として見える差分をプレビュー上で確認している状態を示します。",
           "Svardのプレビュー差分画面",
+        ),
+      },
+      {
+        id: "ai-chat",
+        title: "ワークスペースAI Chat（Experimental）",
+        body: "閲覧中の文書、選択範囲、画像、Rendered Diffの現在の変更を会話へ追加し、AutoのMarkdown回答またはVisualizeで理解とレビューを進めます。Right side、Bottom、Diff Preview、Separate windowを切り替えても会話を維持します。最初の対応providerはCodexです。",
+        screenshot: screenshot(
+          "ai-chat-main.png",
+          "文書とAI Chat",
+          "公開用文書と右側AI Chatで、リリース前の確認事項を相談している状態を示します。",
+          "Svardの右側AI Chatで文書について質問している画面",
         ),
       },
       {
@@ -235,16 +261,6 @@ export const site = {
           "Svardのブックマーク管理画面",
         ),
       },
-      {
-        title: "プライバシー境界",
-        body: "図表ソース、全文、プライベートパス、サービスURLを不用意に外部サービスやログへ出さない境界を前提にします。",
-        screenshot: screenshot(
-          "privacy-boundary.png",
-          "プライバシー設定画面",
-          "公開成果物に出さない情報の境界を説明する設定画面を示します。",
-          "Svardのプライバシー境界設定画面",
-        ),
-      },
     ],
   },
   docs: {
@@ -268,7 +284,7 @@ export const site = {
         {
           title: "AIエージェントによる多数文書の変更へ追いつく",
           body: [
-            "AIエージェントが多数の文書を更新したとき、All Diffs、Rendered Diff、Change Review Mode、Revision Lens を使い、レンダリング結果、変更位置、Base などの比較元を一つの読書フローに保ちます。Svard 自身は AI エージェントや LLM を実行せず、ローカルファイルや Git の比較にすでに存在する変更を確認します。",
+            "AIエージェントが多数の文書を更新したとき、All Diffs、Rendered Diff、Change Review Mode、Revision Lens を使い、レンダリング結果、変更位置、Base などの比較元を一つの読書フローに保ちます。必要な場合は、ワークスペースのAI Chatへ文書や現在の変更を明示的に追加して相談できます。",
           ],
         },
         {

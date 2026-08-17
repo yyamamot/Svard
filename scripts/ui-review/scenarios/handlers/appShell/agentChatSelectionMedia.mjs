@@ -1,5 +1,6 @@
 export async function recordAgentSelectionMediaChecks({ page, scenario }) {
   if (
+    scenario === "viewer-site-ai-chat-main" ||
     scenario === "viewer-agent-chat-selection" ||
     scenario === "viewer-agent-chat-selection-image"
   ) {

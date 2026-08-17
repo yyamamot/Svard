@@ -95,6 +95,7 @@ export function usesResponsiveAgentViewport(scenario) {
 
 export function isAgentChatScenario(scenario) {
   return [
+    "viewer-site-ai-chat-main",
     "viewer-agent-chat-streaming",
     "viewer-agent-chat-approval",
     "viewer-agent-chat-openui",

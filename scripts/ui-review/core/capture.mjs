@@ -738,49 +738,53 @@ export async function captureScenario({
           scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO ||
           scenario === DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO
             ? null
-            : bodyText.includes("Render Fixtures")
-              ? "render-fixtures.adoc"
-              : bodyText.includes("AsciiDoc Comprehensive Visual Sample")
-                ? "asciidoc-comprehensive-visual.adoc"
-                : bodyText.includes("Markdown Sample")
-                  ? "markdown-sample.md"
-                  : bodyText.includes("Markdown Diagram Sample")
-                    ? "markdown-diagrams.md"
-                    : bodyText.includes(
-                          "Markdown Footnotes And Admonitions Sample",
-                        )
-                      ? "markdown-footnotes-admonitions.md"
-                      : bodyText.includes("Markdown 日本語確認")
-                        ? "markdown-japanese.md"
-                        : bodyText.includes("Large Table Row Addition")
-                          ? "git-large-table-row-addition.md"
-                          : bodyText.includes("Git Markdown Table Cell Fixture")
-                            ? "git-table-cells.md"
+            : bodyText.includes("Release Review Guide")
+              ? "preferences.adoc"
+              : bodyText.includes("Render Fixtures")
+                ? "render-fixtures.adoc"
+                : bodyText.includes("AsciiDoc Comprehensive Visual Sample")
+                  ? "asciidoc-comprehensive-visual.adoc"
+                  : bodyText.includes("Markdown Sample")
+                    ? "markdown-sample.md"
+                    : bodyText.includes("Markdown Diagram Sample")
+                      ? "markdown-diagrams.md"
+                      : bodyText.includes(
+                            "Markdown Footnotes And Admonitions Sample",
+                          )
+                        ? "markdown-footnotes-admonitions.md"
+                        : bodyText.includes("Markdown 日本語確認")
+                          ? "markdown-japanese.md"
+                          : bodyText.includes("Large Table Row Addition")
+                            ? "git-large-table-row-addition.md"
                             : bodyText.includes(
-                                  "Git Markdown Table Untracked Fixture",
+                                  "Git Markdown Table Cell Fixture",
                                 )
-                              ? "git-table-untracked.md"
+                              ? "git-table-cells.md"
                               : bodyText.includes(
-                                    "Git AsciiDoc Table Diff Fixture",
+                                    "Git Markdown Table Untracked Fixture",
                                   )
-                                ? "git-asciidoc-table.adoc"
+                                ? "git-table-untracked.md"
                                 : bodyText.includes(
-                                      "Git AsciiDoc Complex Table Diff Fixture",
+                                      "Git AsciiDoc Table Diff Fixture",
                                     )
-                                  ? "git-asciidoc-table-complex.adoc"
+                                  ? "git-asciidoc-table.adoc"
                                   : bodyText.includes(
-                                        "PlantUML Concurrency Stress",
+                                        "Git AsciiDoc Complex Table Diff Fixture",
                                       )
-                                    ? "plantuml-concurrency.adoc"
+                                    ? "git-asciidoc-table-complex.adoc"
                                     : bodyText.includes(
-                                          "Mixed Diagram Japanese Sample",
+                                          "PlantUML Concurrency Stress",
                                         )
-                                      ? "diagrams-mixed-long-ja.adoc"
+                                      ? "plantuml-concurrency.adoc"
                                       : bodyText.includes(
-                                            "Git Rendered List Reorder Fixture",
+                                            "Mixed Diagram Japanese Sample",
                                           )
-                                        ? "git-rendered-list-reorder.md"
-                                        : null,
+                                        ? "diagrams-mixed-long-ja.adoc"
+                                        : bodyText.includes(
+                                              "Git Rendered List Reorder Fixture",
+                                            )
+                                          ? "git-rendered-list-reorder.md"
+                                          : null,
         status: report.outcome,
         plantUmlMetrics,
         diagramScrollStability,
