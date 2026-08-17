@@ -1,27 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.0.6
 
-- Fixed inline Markdown variable math immediately after ASCII labels when the expression continues into Japanese or other non-ASCII prose, while preserving ambiguous identifier and currency text.
-- Added safe support for compact Markdown details blocks written as `<details><summary>...</summary>` while keeping arbitrary raw HTML disabled.
-- Fixed numeric-only inline math in Markdown table cells so values such as `$1$`, `$2$`, and `$0.5774$` render with KaTeX while prose currency remains text.
-- Fixed inline Markdown math next to Japanese and other non-ASCII text so it renders with KaTeX without requiring spaces and follows the surrounding prose baseline, and preserved matrix rows in AsciiDoc stem blocks.
-- Added workspace-native Codex AI Chat with Markdown responses and an explicit Visualize mode for interactive OpenUI output.
-- Added configurable Codex model, reasoning, personality, access, network, and web-search settings with per-session snapshots.
-- Added document selections, focused files, images, and diagram context as turn-local AI Chat references.
-- Added session history, automatic titles, rename, archive, restore, and delete controls for Codex conversations.
-- Added retry input restoration, answer and code copying, scroll-follow controls, and Cmd/Ctrl+Enter sending.
-- Added manual reconnect after provider disconnections and Reuse input for copying completed questions back to the composer without resending them.
-- Added Queue, Steer, and Stop and Send controls for follow-up input while an AI response is running.
-- Added changed-file summaries with a direct path to Source Control > Changes for reviewing the current working tree.
-- Added a resizable AI Chat drawer to Diff Preview and All diffs while preserving the current conversation, draft, and running response.
-- Added an exclusive separate AI Chat window that preserves running turns and approvals, and reattaches when the detached window closes.
-- Added an AI Chat display menu for Right side, Bottom, Diff Preview, and Separate window, with focus and attach actions for detached chats.
-- Added a direct AI Providers setup path from the AI Chat button when no ready provider is detected.
-- Added right-click attachment of the current rendered change as an exact Before/After reference for free-form AI Chat questions.
-- Improved AI Chat workspace isolation so conversations and pending input do not carry across workspace changes.
-- Added a Focused context profile plus context-use and token diagnostics, with manual compaction when the provider supports it.
-- Improved Visualize output with a smaller balanced OpenUI profile and safe fallbacks for unsupported or over-limit responses.
+- Added workspace-native Codex AI Chat with Markdown answers, interactive Visualize output, provider setup, and configurable model, reasoning, personality, access, network, and web-search settings.
+- Added document selections, files, images, diagrams, rendered changes, and working-tree summaries as explicit AI Chat context, with workspace isolation and context-use diagnostics.
+- Added conversation history and management, retry and reuse actions, answer and code copying, reconnect support, and Queue, Steer, and Stop and Send controls for running turns.
+- Added resizable AI Chat placements on the right, bottom, Diff Preview, and All Diffs, plus a separate window that preserves drafts, running turns, and approvals.
+- Improved Markdown and AsciiDoc math rendering around non-ASCII prose, numeric table cells, and stem matrices while preserving ambiguous identifiers and currency text.
+- Added safe compact Markdown details blocks while keeping arbitrary raw HTML disabled.
 
 ## 1.0.5
 
