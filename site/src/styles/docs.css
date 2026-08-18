@@ -371,6 +371,12 @@
   color: var(--muted);
 }
 
+.platform-commands {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
 .platform-support code {
   display: inline-block;
   max-width: 100%;

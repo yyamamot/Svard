@@ -52,9 +52,11 @@ import LandingLayout from "../../layouts/LandingLayout.astro";
               <span class="platform-status">{row.status}</span>
             </div>
             <dl>
-              <dt>確認コマンド</dt>
-              <dd>
-                <code>{row.command}</code>
+              <dt>インストール・確認コマンド</dt>
+              <dd class="platform-commands">
+                {row.commands.map((command) => (
+                  <code>{command}</code>
+                ))}
               </dd>
               <dt>注記</dt>
               <dd>{row.note}</dd>

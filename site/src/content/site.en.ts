@@ -3612,19 +3612,22 @@ export const site = {
         {
           platform: "macOS",
           status: "Supported",
-          command: "xattr -dr com.apple.quarantine /Applications/Svard.app",
-          note: "Run this only after confirming that the app came from the official release. Control-click Open in Finder or System Settings approval can also be used.",
+          commands: [
+            "brew install --cask yyamamot/tap/svard",
+            "xattr -dr com.apple.quarantine /Applications/Svard.app",
+          ],
+          note: "After installing from the custom Homebrew tap, confirm that the package comes from the official release before removing its quarantine attribute. Control-click Open in Finder or System Settings approval can also be used.",
         },
         {
           platform: "Windows",
           status: "Supported",
-          command: "Unblock-File -Path .\\Svard.exe",
+          commands: ["Unblock-File -Path .\\Svard.exe"],
           note: "Run this in PowerShell for the downloaded executable. If SmartScreen appears, use More info and then Run anyway.",
         },
         {
           platform: "Linux",
           status: "Unsupported",
-          command: "None",
+          commands: ["None"],
           note: "Linux artifacts and launch instructions are not provided at this time.",
         },
       ],

@@ -52,9 +52,11 @@ import LandingLayout from "../../layouts/LandingLayout.astro";
               <span class="platform-status">{row.status}</span>
             </div>
             <dl>
-              <dt>Command</dt>
-              <dd>
-                <code>{row.command}</code>
+              <dt>Install / verification commands</dt>
+              <dd class="platform-commands">
+                {row.commands.map((command) => (
+                  <code>{command}</code>
+                ))}
               </dd>
               <dt>Notes</dt>
               <dd>{row.note}</dd>
