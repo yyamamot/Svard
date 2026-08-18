@@ -115,6 +115,14 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
           cache-bin: false
 
+      - name: Build Windows Agent Chat fixture
+        if: needs.prepare.outputs.run_smoke == 'true' && matrix.id == 'windows-x86_64'
+        shell: pwsh
+        run: |
+          cargo build --locked --manifest-path src-tauri/Cargo.toml --example agent_app_server_fixture
+          $fixture = Resolve-Path "src-tauri/target/debug/examples/agent_app_server_fixture.exe"
+          "SVARD_AGENT_APP_SERVER_FIXTURE=$fixture" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Install dependencies
         id: install
         shell: bash
