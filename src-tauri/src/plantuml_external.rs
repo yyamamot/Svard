@@ -1,12 +1,29 @@
 use sha2::{Digest, Sha256};
 use std::{
+    collections::HashMap,
     fs,
     io::{Read, Write},
     path::{Path, PathBuf},
-    process::{Command, Stdio},
-    sync::mpsc,
+    process::{Child, Command, Stdio},
+    sync::{mpsc, Mutex, OnceLock},
     thread,
     time::{Duration, Instant, UNIX_EPOCH},
+};
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+
+#[cfg(windows)]
+use std::os::windows::io::AsRawHandle;
+
+#[cfg(windows)]
+use windows_sys::Win32::{
+    Foundation::{CloseHandle, HANDLE},
+    System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    },
 };
 
 use crate::{
@@ -17,11 +34,137 @@ use crate::{
 const MIN_TIMEOUT_MS: u64 = 1_000;
 const MAX_TIMEOUT_MS: u64 = 60_000;
 const MAX_STDOUT_BYTES: usize = 2 * 1024 * 1024;
+const MAX_VERSION_STDOUT_BYTES: usize = 64 * 1024;
 const MAX_STDERR_BYTES: usize = 64 * 1024;
 const PIPE_DRAIN_GRACE_MS: u64 = 1_000;
 const MAX_CACHE_TOTAL_BYTES: u64 = 128 * 1024 * 1024;
-const EXTERNAL_PLANTUML_CACHE_VERSION: &str = "plantuml-external-v1";
+const EXTERNAL_PLANTUML_CACHE_VERSION: &str = "plantuml-external-v2-sandbox";
 const TEST_SOURCE: &str = "@startuml\nAlice -> Bob: test\n@enduml\n";
+const SANDBOX_VALIDATION_ERROR: &str = "External PlantUML sandbox validation failed.";
+const SANDBOX_PROFILE: &str = "SANDBOX";
+const PLANTUML_LIMIT_SIZE: &str = "4096";
+const SANDBOX_PROFILE_PROBE_MARKER: &str = "SVARD_PROFILE_SANDBOX";
+const SANDBOX_PROFILE_PROBE_SOURCE: &str =
+    "@startuml\ntitle SVARD_PROFILE_%getenv(\"PLANTUML_SECURITY_PROFILE\")\nAlice -> Bob\n@enduml\n";
+const MIN_SANDBOX_VERSION: PlantUmlVersion = PlantUmlVersion {
+    major: 1,
+    year: 2020,
+    release: 11,
+};
+
+static SANDBOX_VALIDATION_CACHE: OnceLock<Mutex<HashMap<String, bool>>> = OnceLock::new();
+
+#[cfg(windows)]
+struct ExternalProcessJob {
+    handle: HANDLE,
+}
+
+#[cfg(windows)]
+unsafe impl Send for ExternalProcessJob {}
+
+#[cfg(windows)]
+impl ExternalProcessJob {
+    fn new() -> Result<Self, String> {
+        let handle = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+        if handle.is_null() {
+            return Err("Failed to isolate external PlantUML process tree.".to_string());
+        }
+        let mut information = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        information.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let configured = unsafe {
+            SetInformationJobObject(
+                handle,
+                JobObjectExtendedLimitInformation,
+                std::ptr::addr_of!(information).cast(),
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            )
+        };
+        if configured == 0 {
+            unsafe { CloseHandle(handle) };
+            return Err("Failed to isolate external PlantUML process tree.".to_string());
+        }
+        Ok(Self { handle })
+    }
+
+    fn assign(&self, child: &Child) -> Result<(), String> {
+        let assigned =
+            unsafe { AssignProcessToJobObject(self.handle, child.as_raw_handle() as HANDLE) };
+        (assigned != 0)
+            .then_some(())
+            .ok_or_else(|| "Failed to isolate external PlantUML process tree.".to_string())
+    }
+
+    fn terminate(&self) -> Result<(), String> {
+        let terminated = unsafe { TerminateJobObject(self.handle, 1) };
+        (terminated != 0)
+            .then_some(())
+            .ok_or_else(|| "Failed to terminate external PlantUML process tree.".to_string())
+    }
+}
+
+#[cfg(windows)]
+impl Drop for ExternalProcessJob {
+    fn drop(&mut self) {
+        unsafe { CloseHandle(self.handle) };
+    }
+}
+
+struct ExternalProcess {
+    child: Child,
+    #[cfg(windows)]
+    job: ExternalProcessJob,
+}
+
+fn spawn_external_process(command: &mut Command) -> Result<ExternalProcess, String> {
+    #[cfg(unix)]
+    command.process_group(0);
+
+    #[cfg(windows)]
+    let job = ExternalProcessJob::new()?;
+    let child = command
+        .spawn()
+        .map_err(|_| "Failed to start external PlantUML binary.".to_string())?;
+    #[cfg(windows)]
+    {
+        let mut child = child;
+        if let Err(error) = job.assign(&child) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(error);
+        }
+        return Ok(ExternalProcess { child, job });
+    }
+    #[cfg(not(windows))]
+    Ok(ExternalProcess { child })
+}
+
+fn terminate_external_process_tree(process: &mut ExternalProcess) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        let process_group_id = process.child.id() as i32;
+        let result = unsafe { libc::kill(-process_group_id, libc::SIGKILL) };
+        if result != 0 && std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH) {
+            return Err("Failed to terminate external PlantUML process tree.".to_string());
+        }
+    }
+    #[cfg(windows)]
+    process.job.terminate()?;
+    #[cfg(not(any(unix, windows)))]
+    if process.child.try_wait().ok().flatten().is_none() {
+        process
+            .child
+            .kill()
+            .map_err(|_| "Failed to terminate external PlantUML process tree.".to_string())?;
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct PlantUmlVersion {
+    major: u32,
+    year: u32,
+    release: u32,
+}
 
 pub(crate) fn render_external_plantuml_with_cache_dir(
     input: ExternalPlantUmlRenderInput,
@@ -53,10 +196,26 @@ pub(crate) fn render_external_plantuml_with_cache_dir(
     }
 
     let started = Instant::now();
+    let deadline = started + Duration::from_millis(timeout_ms);
+    if ensure_sandbox_validated(&binary_path, dot_path.as_ref(), deadline).is_err() {
+        return Ok(error_result(
+            "error",
+            SANDBOX_VALIDATION_ERROR,
+            started.elapsed().as_millis() as u64,
+            "not-written",
+        ));
+    }
     let output =
-        match run_plantuml_command(&binary_path, dot_path.as_ref(), &input.source, timeout_ms) {
+        match run_plantuml_command(&binary_path, dot_path.as_ref(), &input.source, deadline) {
             Ok(output) => output,
-            Err(message) => return Ok(error_result("error", &message, 0, "not-written")),
+            Err(message) => {
+                return Ok(error_result(
+                    "error",
+                    &message,
+                    started.elapsed().as_millis() as u64,
+                    "not-written",
+                ))
+            }
         };
     let render_ms = started.elapsed().as_millis() as u64;
 
@@ -111,7 +270,9 @@ pub(crate) fn test_external_plantuml(
     let dot_path = validate_optional_user_path(input.dot_path.as_deref())?;
     let timeout_ms = validate_timeout(input.timeout_ms);
     let started = Instant::now();
-    let output = run_plantuml_command(&binary_path, dot_path.as_ref(), TEST_SOURCE, timeout_ms)?;
+    let deadline = started + Duration::from_millis(timeout_ms);
+    ensure_sandbox_validated(&binary_path, dot_path.as_ref(), deadline)?;
+    let output = run_plantuml_command(&binary_path, dot_path.as_ref(), TEST_SOURCE, deadline)?;
     let render_ms = started.elapsed().as_millis() as u64;
     if output.timed_out {
         return Ok(error_result(
@@ -157,14 +318,136 @@ struct CommandOutput {
     stdout: Vec<u8>,
 }
 
+fn ensure_sandbox_validated(
+    binary_path: &Path,
+    dot_path: Option<&PathBuf>,
+    deadline: Instant,
+) -> Result<(), String> {
+    let identity = path_identity(binary_path).map_err(|_| SANDBOX_VALIDATION_ERROR.to_string())?;
+    if let Some(valid) = sandbox_validation_cache()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(&identity)
+        .copied()
+    {
+        return valid
+            .then_some(())
+            .ok_or_else(|| SANDBOX_VALIDATION_ERROR.to_string());
+    }
+
+    let valid = validate_sandbox_support(binary_path, dot_path, deadline).is_ok();
+    sandbox_validation_cache()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(identity, valid);
+    valid
+        .then_some(())
+        .ok_or_else(|| SANDBOX_VALIDATION_ERROR.to_string())
+}
+
+fn validate_sandbox_support(
+    binary_path: &Path,
+    dot_path: Option<&PathBuf>,
+    deadline: Instant,
+) -> Result<(), ()> {
+    let version_output = run_external_command(
+        binary_path,
+        dot_path,
+        &["-version"],
+        None,
+        deadline,
+        MAX_VERSION_STDOUT_BYTES,
+    )
+    .map_err(|_| ())?;
+    if version_output.timed_out
+        || !version_output.status_success
+        || version_output.stdout.len() > MAX_VERSION_STDOUT_BYTES
+    {
+        return Err(());
+    }
+    let version_text = std::str::from_utf8(&version_output.stdout).map_err(|_| ())?;
+    let version = parse_plantuml_version(version_text).ok_or(())?;
+    if version < MIN_SANDBOX_VERSION {
+        return Err(());
+    }
+
+    let profile_output = run_plantuml_command(
+        binary_path,
+        dot_path,
+        SANDBOX_PROFILE_PROBE_SOURCE,
+        deadline,
+    )
+    .map_err(|_| ())?;
+    if profile_output.timed_out
+        || !profile_output.status_success
+        || profile_output.stdout.len() > MAX_STDOUT_BYTES
+    {
+        return Err(());
+    }
+    let profile_svg = std::str::from_utf8(&profile_output.stdout).map_err(|_| ())?;
+    if !looks_like_svg(profile_svg) || !profile_svg.contains(SANDBOX_PROFILE_PROBE_MARKER) {
+        return Err(());
+    }
+    Ok(())
+}
+
+fn sandbox_validation_cache() -> &'static Mutex<HashMap<String, bool>> {
+    SANDBOX_VALIDATION_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+#[cfg(test)]
+pub(crate) fn trust_external_plantuml_binary_for_test(binary_path: &Path) {
+    let identity = path_identity(binary_path).expect("test binary identity");
+    sandbox_validation_cache()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(identity, true);
+}
+
+fn parse_plantuml_version(output: &str) -> Option<PlantUmlVersion> {
+    let value = output.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("PlantUML version ")
+            .and_then(|suffix| suffix.split_ascii_whitespace().next())
+    })?;
+    let mut components = value.split('.');
+    let version = PlantUmlVersion {
+        major: components.next()?.parse().ok()?,
+        year: components.next()?.parse().ok()?,
+        release: components.next()?.parse().ok()?,
+    };
+    components.next().is_none().then_some(version)
+}
+
 fn run_plantuml_command(
     binary_path: &Path,
     dot_path: Option<&PathBuf>,
     source: &str,
-    timeout_ms: u64,
+    deadline: Instant,
+) -> Result<CommandOutput, String> {
+    run_external_command(
+        binary_path,
+        dot_path,
+        &["-tsvg", "-pipe"],
+        Some(source),
+        deadline,
+        MAX_STDOUT_BYTES,
+    )
+}
+
+fn run_external_command(
+    binary_path: &Path,
+    dot_path: Option<&PathBuf>,
+    args: &[&str],
+    source: Option<&str>,
+    deadline: Instant,
+    max_stdout_bytes: usize,
 ) -> Result<CommandOutput, String> {
     let mut command = Command::new(binary_path);
-    command.args(["-tsvg", "-pipe"]);
+    command.args(args);
+    command.env_clear();
+    command.env("PLANTUML_SECURITY_PROFILE", SANDBOX_PROFILE);
+    command.env("PLANTUML_LIMIT_SIZE", PLANTUML_LIMIT_SIZE);
     if let Some(dot_path) = dot_path {
         command.env("GRAPHVIZ_DOT", dot_path);
     }
@@ -173,40 +456,46 @@ fn run_plantuml_command(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    let mut child = command
-        .spawn()
-        .map_err(|_| "Failed to start external PlantUML binary.".to_string())?;
-    if let Some(mut stdin) = child.stdin.take() {
+    let mut process = spawn_external_process(&mut command)?;
+    if let (Some(mut stdin), Some(source)) = (process.child.stdin.take(), source) {
         let source = source.as_bytes().to_vec();
         thread::spawn(move || {
             let _ = stdin.write_all(&source);
         });
     }
 
-    let stdout = child.stdout.take();
-    let stderr = child.stderr.take();
-    let stdout_reader = spawn_limited_reader(stdout, MAX_STDOUT_BYTES + 1);
+    let stdout = process.child.stdout.take();
+    let stderr = process.child.stderr.take();
+    let stdout_reader = spawn_limited_reader(stdout, max_stdout_bytes + 1);
     let stderr_reader = spawn_limited_reader(stderr, MAX_STDERR_BYTES);
 
-    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
     let mut timed_out = false;
     let status_success = loop {
-        match child
+        match process
+            .child
             .try_wait()
             .map_err(|_| "Failed to wait for external PlantUML.".to_string())?
         {
             Some(status) => break status.success(),
             None if Instant::now() >= deadline => {
                 timed_out = true;
-                let _ = child.kill();
-                let _ = child.wait();
+                terminate_external_process_tree(&mut process)?;
+                let _ = process.child.wait();
                 break false;
             }
             None => thread::sleep(Duration::from_millis(10)),
         }
     };
 
-    let pipe_drain_deadline = Instant::now() + Duration::from_millis(PIPE_DRAIN_GRACE_MS);
+    // A wrapper or Graphviz descendant can retain inherited pipes after the direct
+    // PlantUML process exits. Always close the owned process tree before draining
+    // output so those descendants cannot outlive the request.
+    if !timed_out {
+        terminate_external_process_tree(&mut process)?;
+    }
+
+    let pipe_drain_deadline =
+        (Instant::now() + Duration::from_millis(PIPE_DRAIN_GRACE_MS)).min(deadline);
     let stdout = recv_limited_reader_until(stdout_reader, pipe_drain_deadline);
     let _stderr = recv_limited_reader_until(stderr_reader, pipe_drain_deadline);
 
@@ -304,7 +593,7 @@ fn path_identity(path: &Path) -> Result<String, String> {
         .modified()
         .ok()
         .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-        .map(|duration| duration.as_secs())
+        .map(|duration| duration.as_nanos())
         .unwrap_or(0);
     let mut hasher = Sha256::new();
     hasher.update(path.to_string_lossy().as_bytes());
@@ -355,5 +644,31 @@ fn error_result(
             cache_layer: Some("persistent".to_string()),
             external_version: Some(EXTERNAL_PLANTUML_CACHE_VERSION.to_string()),
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_only_strict_three_component_plantuml_versions() {
+        assert_eq!(
+            parse_plantuml_version("PlantUML version 1.2020.11 / test"),
+            Some(MIN_SANDBOX_VERSION)
+        );
+        assert!(
+            parse_plantuml_version("PlantUML version 1.2020.10 / test") < Some(MIN_SANDBOX_VERSION)
+        );
+        assert_eq!(
+            parse_plantuml_version("PlantUML version 1.2026.4 / test"),
+            Some(PlantUmlVersion {
+                major: 1,
+                year: 2026,
+                release: 4,
+            })
+        );
+        assert_eq!(parse_plantuml_version("PlantUML version current"), None);
+        assert_eq!(parse_plantuml_version("PlantUML version 1.2026.4.1"), None);
     }
 }

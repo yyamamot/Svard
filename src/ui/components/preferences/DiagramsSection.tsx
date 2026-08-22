@@ -112,8 +112,10 @@ export function DiagramsSection({
             </select>
             <span className="preference-help-text">
               Uses a user-provided PlantUML binary only after built-in local
-              rendering fails. The first uncached render can be slow because it
-              starts an external process.
+              rendering fails. Svard clears inherited environment values and
+              requires PlantUML 1.2020.11 or later to confirm the SANDBOX
+              profile before rendering. The selected executable itself remains
+              user-trusted and is not isolated by an OS sandbox.
             </span>
           </div>
           <PathControl
@@ -153,9 +155,9 @@ export function DiagramsSection({
               <div>
                 <strong>External PlantUML test</strong>
                 <p className="mode-help">
-                  Renders a small Alice/Bob sample through the configured
-                  binary. This confirms PlantUML startup, but not Graphviz dot
-                  availability.
+                  Checks startup and SANDBOX enforcement with a small Alice/Bob
+                  sample. This does not verify Graphviz dot availability or
+                  OS-level executable isolation.
                 </p>
               </div>
               <button

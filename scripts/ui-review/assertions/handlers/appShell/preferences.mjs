@@ -411,6 +411,9 @@ export async function buildAppShellPreferencesAssertions(context) {
           bodyText.includes("Advanced") &&
           bodyText.includes("PlantUML timeout") &&
           bodyText.includes("Graphviz / DOT timeout") &&
+          bodyText.includes("SANDBOX") &&
+          bodyText.includes("clears inherited environment") &&
+          bodyText.includes("not isolated by an OS sandbox") &&
           bodyText.includes(
             "Uses the endpoint configured in Kroki settings.",
           ) &&
