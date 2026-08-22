@@ -173,7 +173,7 @@ describe("DiagramPreviewPanel", () => {
     expect(container.querySelector("[onclick]")).toBeNull();
     expect(container.querySelector("foreignObject")).toBeNull();
     expect(container.querySelector("script")).toBeNull();
-    expect(before?.querySelector("image")?.getAttribute("href")).toBeNull();
+    expect(before?.querySelector("image")).toBeNull();
   });
 
   it("renders local SVG image previews as selectable sanitized inline SVG", async () => {
@@ -198,7 +198,7 @@ describe("DiagramPreviewPanel", () => {
     const text = content?.querySelector("text");
 
     expect(text?.textContent).toBe("Selectable label");
-    expect(content?.querySelector("image")?.getAttribute("href")).toBeNull();
+    expect(content?.querySelector("image")).toBeNull();
     expect(
       container.querySelector(".diagram-preview-content")?.className,
     ).toContain("selectable-svg");

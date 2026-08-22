@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const sourceBlockCss = readFileSync(
-  "src/ui/styles/viewer-markdown/base.css",
+  "src/ui/styles/viewer-markdown/shortcuts.css",
   "utf8",
 );
 

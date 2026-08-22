@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-const markdownViewerCss = readFileSync(
-  "src/ui/styles/viewer-markdown/base.css",
+const markdownShortcutCss = readFileSync(
+  "src/ui/styles/viewer-markdown/shortcuts.css",
   "utf8",
 );
 const markdownContentCss = readFileSync(
@@ -32,7 +32,7 @@ function ruleBlock(source: string, selector: string): string {
 describe("document image CSS", () => {
   it("does not height-limit normal viewer and rendered diff document images", () => {
     const markdownImageRule = ruleBlock(
-      markdownViewerCss,
+      markdownShortcutCss,
       ".document-body :where(img)",
     );
     const asciidocImageRule = ruleBlock(
@@ -53,7 +53,7 @@ describe("document image CSS", () => {
 
   it("keeps Markdown table layout on tables and scrolls with a wrapper", () => {
     const baseTableRule = ruleBlock(
-      markdownViewerCss,
+      markdownShortcutCss,
       ".document-body :where(table)",
     );
     const wrapperRule = ruleBlock(
