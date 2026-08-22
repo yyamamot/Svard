@@ -271,6 +271,21 @@ describe("manual render contract fixtures", () => {
     expect(doc.querySelector("[data-diagram-id='graphviz-1']")).toBeTruthy();
     expect(bodyText).not.toContain("@startuml");
     expect(bodyText).not.toContain("flowchart TD");
+    expect(bodyText).toContain("Static account label");
+    expect(bodyText).toContain("Static textarea text");
+    expect(bodyText).toContain("Static option text");
+    expect(bodyText).toContain("Static submit label");
+    expect(
+      doc.querySelector(
+        "form,input,textarea,select,option,map,area,[action],[formaction],[usemap],[ismap]",
+      ),
+    ).toBeNull();
+    expect(
+      Array.from(doc.querySelectorAll("button")).some(
+        (button) => button.textContent?.trim() === "Static submit label",
+      ),
+    ).toBe(false);
+    expect(doc.querySelector('img[alt="Image map source image"]')).toBeTruthy();
     expect(doc.querySelector("script, [onclick], iframe, object")).toBeNull();
   });
 
@@ -285,6 +300,34 @@ describe("manual render contract fixtures", () => {
     expect(doc.querySelector(".markdown-details")).toBeTruthy();
     expect(doc.querySelector(".markdown-details[open]")).toBeTruthy();
     expect(doc.querySelector(".footnotes")).toBeTruthy();
+    expect(doc.querySelector("details kbd")?.textContent).toBe(
+      "safe inline HTML",
+    );
+    expect(doc.querySelector("details mark")?.textContent).toBe("typed markup");
+
+    expect(doc.querySelectorAll(".markdown-safe-html-block").length).toBe(5);
+    expect(doc.querySelector(".author-layout,.author-table")).toBeNull();
+    expect(
+      doc.querySelector("table.markdown-safe-html-block caption")?.textContent,
+    ).toBe("Safe HTML table");
+    expect(
+      doc.querySelector('abbr[title="Application Programming Interface"]'),
+    ).toBeTruthy();
+    expect(doc.querySelectorAll("ruby > rt")).toHaveLength(2);
+    expect(doc.querySelector('a[href="#safe-html-target"]')).toBeTruthy();
+    expect(doc.querySelector('img[alt="Safe HTML local SVG"]')).toBeTruthy();
+    expect(
+      doc.querySelector(
+        'a[href="#safe-html-target"] img[alt="Linked Safe HTML PNG"]',
+      ),
+    ).toBeTruthy();
+    expect(
+      doc.querySelector('img[alt="External GitHub asset (opt-in)"]'),
+    ).toBeNull();
+    expect(bodyText).toContain("Image: External GitHub asset (opt-in)");
+    expect(bodyText).toContain("Blocked link label");
+    expect(bodyText).toContain("Image: Blocked image");
+    expect(doc.querySelector("#author-id-is-removed")).toBeNull();
 
     expect(doc.querySelector("table")).toBeTruthy();
     expect(doc.querySelector(".math-inline .katex")).toBeTruthy();
@@ -329,5 +372,8 @@ describe("manual render contract fixtures", () => {
     expect(doc.querySelector("[data-diagram-id='graphviz-1']")).toBeTruthy();
     expect(bodyText).toContain("window.__manualRenderUnsafe = true");
     expect(doc.querySelector("script, [onclick], iframe, object")).toBeNull();
+    expect(doc.body.innerHTML).not.toMatch(
+      /javascript:blocked|data:image\/svg\+xml,blocked/u,
+    );
   });
 });
