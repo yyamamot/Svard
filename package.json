@@ -44,6 +44,8 @@
     "smoke:agent-chat-native": "node scripts/agent-chat-native-regression.mjs",
     "smoke:cross-platform": "node scripts/cross-platform-smoke.mjs",
     "poc:plantuml-teavm": "node scripts/poc-plantuml-teavm.mjs",
+    "poc:mermaid:isolation": "node scripts/mermaid-isolation-probe.mjs",
+    "poc:mermaid:isolation:build": "node scripts/mermaid-isolation-probe.mjs --build-only",
     "update:plantuml-teavm-assets": "node scripts/update-plantuml-teavm-assets.mjs",
     "verify:ui-change": "node scripts/verify-ui-change.mjs",
     "verify:render-regression": "node scripts/render-regression-suite.mjs",
