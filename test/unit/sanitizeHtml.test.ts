@@ -91,6 +91,8 @@ describe("sanitizeHtml", () => {
     expect(doc.querySelector("img")?.getAttribute("src")).toBe(
       "https://example.test/logo.png",
     );
+    expect(doc.querySelector("img")?.getAttribute("width")).toBe("64");
+    expect(doc.querySelector("img")?.getAttribute("height")).toBe("32");
     expect(
       doc.querySelector("[download],[ping],[referrerpolicy],[srcset]"),
     ).toBeNull();

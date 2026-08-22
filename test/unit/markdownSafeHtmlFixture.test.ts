@@ -107,7 +107,9 @@ describe("Markdown Safe HTML UI fixture", () => {
     expect(
       doc.querySelector('a[href="https://example.test/svard"]'),
     ).not.toBeNull();
-    expect(doc.querySelector('img[alt="Local Svard sample"]')).not.toBeNull();
+    const localImage = doc.querySelector('img[alt="Local Svard sample"]');
+    expect(localImage?.getAttribute("width")).toBe("160");
+    expect(localImage?.hasAttribute("height")).toBe(false);
     expect(
       doc.querySelector(
         'a[href="#resource-target"] > img[alt="Linked Svard sample"]',

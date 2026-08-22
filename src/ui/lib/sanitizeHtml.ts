@@ -123,6 +123,7 @@ const asciiDocTableAttributes = [
 const markdownSafeHtmlAttributes = [
   "align",
   "colspan",
+  "height",
   "reversed",
   "rowspan",
   "scope",
@@ -131,6 +132,7 @@ const markdownSafeHtmlAttributes = [
   "title",
   "type",
   "value",
+  "width",
 ] as const;
 
 const asciiDocActiveContentTags = [
@@ -172,13 +174,36 @@ function sanitizeConfigForFormat(format: DocumentFormat | undefined): Config {
   };
 }
 
+function stripMarkdownNonImageDimensionsInPlace(root: ParentNode): void {
+  root.querySelectorAll<HTMLElement>("[width],[height]").forEach((element) => {
+    if (element.localName === "img") return;
+    element.removeAttribute("width");
+    element.removeAttribute("height");
+  });
+}
+
+function enforceMarkdownDimensionScope(
+  html: string,
+  format: DocumentFormat | undefined,
+): string {
+  if (format === "asciidoc" || !/\s(?:width|height)=/iu.test(html)) {
+    return html;
+  }
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  stripMarkdownNonImageDimensionsInPlace(doc.body);
+  return doc.body.innerHTML;
+}
+
 export function sanitizeDocumentHtml(
   html: string,
   options: SanitizeDocumentHtmlOptions = {},
 ): SafeHtml {
   return markSafeHtml(
-    restoreTaskListCheckboxes(
-      DOMPurify.sanitize(html, sanitizeConfigForFormat(options.format)),
+    enforceMarkdownDimensionScope(
+      restoreTaskListCheckboxes(
+        DOMPurify.sanitize(html, sanitizeConfigForFormat(options.format)),
+      ),
+      options.format,
     ),
   );
 }
@@ -191,6 +216,9 @@ export function sanitizeDocumentBodyInPlace(
     ...sanitizeConfigForFormat(options.format),
     IN_PLACE: true,
   });
+  if (options.format !== "asciidoc") {
+    stripMarkdownNonImageDimensionsInPlace(body);
+  }
   return markSafeHtml(restoreTaskListCheckboxes(body.innerHTML));
 }
 
@@ -204,6 +232,9 @@ export function sanitizeRenderedBlockHtml(
       FORBID_ATTR: [...privateRendererAttributes],
     });
     const doc = new DOMParser().parseFromString(sanitized, "text/html");
+    if (options.format !== "asciidoc") {
+      stripMarkdownNonImageDimensionsInPlace(doc.body);
+    }
     doc.body.querySelectorAll<HTMLElement>("[style]").forEach((element) => {
       if (!element.closest(".katex")) {
         element.removeAttribute("style");

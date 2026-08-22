@@ -1840,7 +1840,7 @@ This rendered Markdown paragraph changed in the working tree.
 `,
   "/workspace/docs/git-safe-html-blocks.md": `# Safe HTML Block Diff
 
-<div><p>Working tree block is ready.</p></div>
+<div align="sideways"><p>Working tree block is ready.</p></div>
 
 <hr>
 
@@ -2615,7 +2615,7 @@ Following Markdown keeps its source location.
 
 Open the <a href="./markdown-safe-html.md" title="Safe HTML guide">local guide</a> or the <a href="https://example.test/svard" title="External guide">external guide</a>.
 
-<img src="assets/svard-sample.svg" alt="Local Svard sample" title="Resolved locally" width="160" height="96" align="center">
+<img src="assets/svard-sample.svg" alt="Local Svard sample" title="Resolved locally" width="160px" height="auto" align="center">
 
 <a href="#resource-target"><img src="assets/svard-sample.svg" alt="Linked Svard sample" width="120"></a>
 

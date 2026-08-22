@@ -21,13 +21,13 @@ export function getRenderedDocumentGitDiffPreview(
   if (path.endsWith("/git-safe-html-blocks.md")) {
     const leftText = `# Safe HTML Block Diff
 
-<div><p>HEAD block is pending.</p></div>
+<div align="sideways"><p>HEAD block is pending.</p></div>
 
 <table><tbody><tr><th>Status</th><td>Pending</td></tr></tbody></table>
 `;
     const rightText = `# Safe HTML Block Diff
 
-<div><p>Working tree block is ready.</p></div>
+<div align="sideways"><p>Working tree block is ready.</p></div>
 
 <hr>
 

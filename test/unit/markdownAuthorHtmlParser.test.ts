@@ -8,6 +8,7 @@ import {
   parseMarkdownAuthorContainerOpeningTag,
   parseMarkdownAuthorHtmlBlockFragment,
   parseMarkdownAuthorHtmlFragment,
+  type MarkdownAuthorHtmlNode,
 } from "../../src/core/markdown/authorHtml";
 import {
   MARKDOWN_AUTHOR_HTML_INTEGRITY_ERROR,
@@ -18,6 +19,14 @@ import { MARKDOWN_RENDER_BUDGET_ERROR } from "../../src/core/markdown/placeholde
 import { afterEach, vi } from "vitest";
 
 afterEach(() => vi.unstubAllGlobals());
+
+function attributeNames(nodes: readonly MarkdownAuthorHtmlNode[]): string[] {
+  return nodes.flatMap((node) =>
+    node.type === "text"
+      ? []
+      : [...Object.keys(node.attributes), ...attributeNames(node.children)],
+  );
+}
 
 describe("parseMarkdownAuthorHtmlFragment", () => {
   it.each([
@@ -100,17 +109,22 @@ describe("parseMarkdownAuthorHtmlFragment", () => {
     expect(parseMarkdownAuthorHtmlFragment(beyondLimit).status).toBe("escape");
   });
 
-  it("accepts an abbr title at the UTF-8 byte limit and rejects one byte over", () => {
+  it("accepts an abbr title at the UTF-8 byte limit and drops one byte over", () => {
     const atLimit = "a".repeat(MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES);
     const overLimit = `${atLimit}a`;
     expect(
       parseMarkdownAuthorHtmlFragment(`<abbr title="${atLimit}">x</abbr>`)
         .status,
     ).toBe("pass");
+    const over = parseMarkdownAuthorHtmlFragment(
+      `<abbr title="${overLimit}">x</abbr>`,
+    );
+    expect(over.status).toBe("pass");
     expect(
-      parseMarkdownAuthorHtmlFragment(`<abbr title="${overLimit}">x</abbr>`)
-        .status,
-    ).toBe("escape");
+      over.status === "pass" && over.nodes[0].type === "element"
+        ? over.nodes[0].attributes
+        : null,
+    ).toEqual({});
   });
 
   it("parses links, images, and linked images without putting URLs in attributes", () => {
@@ -142,7 +156,7 @@ describe("parseMarkdownAuthorHtmlFragment", () => {
     ]);
   });
 
-  it("enforces resource URL, text, and dimension boundaries", () => {
+  it("enforces required resource boundaries and drops oversized optional text", () => {
     const urlAtLimit = `./${"a".repeat(MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_URL_BYTES - 2)}`;
     const textAtLimit = "a".repeat(
       MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_TEXT_BYTES,
@@ -156,16 +170,50 @@ describe("parseMarkdownAuthorHtmlFragment", () => {
       parseMarkdownAuthorHtmlFragment(`<img src="${urlAtLimit}a" alt="x">`)
         .status,
     ).toBe("escape");
+    const oversizedAlt = parseMarkdownAuthorHtmlFragment(
+      `<img src="./x" alt="${textAtLimit}a">`,
+    );
+    expect(oversizedAlt.status).toBe("pass");
     expect(
-      parseMarkdownAuthorHtmlFragment(`<img src="./x" alt="${textAtLimit}a">`)
-        .status,
-    ).toBe("escape");
+      oversizedAlt.status === "pass" && oversizedAlt.nodes[0].type === "element"
+        ? oversizedAlt.nodes[0].attributes
+        : null,
+    ).toEqual({});
+  });
+
+  it.each([
+    ['<img src="./x" width="800px">', "800"],
+    ['<img src="./x" width=500px>', "500"],
+    ['<img src="./x" width="800PX">', "800"],
+    ['<img src="./x" width="0800">', "800"],
+    ['<img src="./x" width=" \t800px ">', "800"],
+  ])("normalizes compatible pixel dimensions: %s", (source, width) => {
+    const result = parseMarkdownAuthorHtmlFragment(source);
+    expect(result.status).toBe("pass");
     expect(
-      parseMarkdownAuthorHtmlFragment('<img src="./x" width="0">').status,
-    ).toBe("escape");
+      result.status === "pass" && result.nodes[0].type === "element"
+        ? result.nodes[0].attributes.width
+        : null,
+    ).toBe(width);
+  });
+
+  it.each([
+    '<img src="./x" width="0">',
+    '<img src="./x" height="auto">',
+    '<img src="./x" width="100%">',
+    '<img src="./x" width="-1">',
+    '<img src="./x" width="1.5">',
+    '<img src="./x" height="4097">',
+    '<img src="./x" width="calc(100% - 1px)">',
+    '<img src="./x" align="middle">',
+  ])("drops invalid optional image attributes: %s", (source) => {
+    const result = parseMarkdownAuthorHtmlFragment(source);
+    expect(result.status).toBe("pass");
     expect(
-      parseMarkdownAuthorHtmlFragment('<img src="./x" height="4097">').status,
-    ).toBe("escape");
+      result.status === "pass" && result.nodes[0].type === "element"
+        ? result.nodes[0].attributes
+        : null,
+    ).toEqual({});
   });
 
   it.each([
@@ -175,7 +223,6 @@ describe("parseMarkdownAuthorHtmlFragment", () => {
     '<img src="./x"></img>',
     '<img src="./x">child',
     '<a href="./one" HREF="./two">duplicate</a>',
-    '<img src="./x" width="broken">',
   ])("escapes invalid resource element syntax: %s", (source) => {
     expect(parseMarkdownAuthorHtmlFragment(source).status).toBe("escape");
   });
@@ -239,6 +286,18 @@ describe("parseMarkdownAuthorHtmlBlockFragment", () => {
   });
 
   it.each([
+    '<div align="sideways">x</div>',
+    '<ol start="not-a-number" type="z"><li value="1.5">x</li></ol>',
+    '<table><colgroup><col span="0"></colgroup><tbody><tr><th scope="invalid">A</th><td colspan="101" rowspan="0">B</td></tr></tbody></table>',
+  ])("drops invalid optional block attributes: %s", (source) => {
+    const result = parseMarkdownAuthorHtmlBlockFragment(source);
+    expect(result.status).toBe("pass");
+    expect(
+      result.status === "pass" ? attributeNames(result.nodes) : [],
+    ).toEqual([]);
+  });
+
+  it.each([
     "<li>orphan</li>",
     "<div>a</div><p>b</p>",
     "<p><div>invalid</div></p>",
@@ -247,9 +306,6 @@ describe("parseMarkdownAuthorHtmlBlockFragment", () => {
     "<dl><dt>one</dt><dt>two</dt><dd>description</dd></dl>",
     "<table><tr><td>x</td></tr><tbody><tr><td>mixed</td></tr></tbody></table>",
     "<table><tbody><tr><td><table><tr><td>nested</td></tr></table></td></tr></tbody></table>",
-    '<table><tbody><tr><td colspan="101">x</td></tr></tbody></table>',
-    '<ol type="z"><li>x</li></ol>',
-    '<div align="sideways">x</div>',
     '<div class="a" CLASS="b">x</div>',
     '<div\nclass="x">x</div>',
   ])("escapes invalid block grammar: %s", (source) => {

@@ -154,6 +154,9 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
                 true &&
               right.querySelector("hr.markdown-safe-html-block") !== null &&
               combined.every(
+                (pane) => pane.querySelector("[align]") === null,
+              ) &&
+              combined.every(
                 (pane) =>
                   pane.querySelector("table") !== null &&
                   pane.querySelector(

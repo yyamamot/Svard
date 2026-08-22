@@ -203,7 +203,7 @@ export function readLabel() {
   it("keeps hydrated local image HTML while preserving diagram placeholders", () => {
     const blocks =
       blocksFromHtml(`<div class="diagram-slot" data-diagram-id="mermaid-1"></div>
-<p><img src="data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C%2Fsvg%3E" alt="Overview diagram" data-image-path="diagram.svg"></p>`);
+<p><img src="data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C%2Fsvg%3E" alt="Overview diagram" width="800" data-image-path="diagram.svg"></p>`);
 
     expect(blocks).toHaveLength(2);
     expect(blocks[0]).toMatchObject({
@@ -217,6 +217,7 @@ export function readLabel() {
     });
     expect(blocks[1]?.html).toContain("<img");
     expect(blocks[1]?.html).toContain("data:image/svg+xml");
+    expect(blocks[1]?.html).toContain('width="800"');
   });
 
   it("keeps diagram source as internal block metadata for the rendered side", () => {

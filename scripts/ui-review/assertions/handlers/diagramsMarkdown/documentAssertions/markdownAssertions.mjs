@@ -392,6 +392,12 @@ export async function buildMarkdownAssertions({
             return (
               body.querySelectorAll("a[href]").length >= 4 &&
               body.querySelectorAll("img[src]").length >= 4 &&
+              body
+                .querySelector('img[alt="Local Svard sample"]')
+                ?.getAttribute("width") === "160" &&
+              body
+                .querySelector('img[alt="Local Svard sample"]')
+                ?.hasAttribute("height") === false &&
               body.querySelector('img[alt="External image disabled"]') ===
                 null &&
               body.querySelector('img[alt="Blocked image"]') === null &&

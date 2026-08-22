@@ -7,6 +7,7 @@
 - Kept unsupported, malformed, and unsafe HTML as visible text or safe fallback content, without enabling arbitrary raw HTML, scripts, styles, forms, embedded resources, or custom URL schemes.
 - Preserved source references, copy actions, rendered diffs, link previews, and table comparisons around Safe HTML while preventing author metadata from gaining app-owned actions.
 - Fixed KaTeX selections so AI Chat, copy actions, and rendered change context preserve the original TeX exactly once.
+- Fixed Markdown Safe HTML images with integer or `px` dimensions, while dropping invalid optional attributes without hiding otherwise safe content.
 
 ## 1.0.6
 

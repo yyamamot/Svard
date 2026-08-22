@@ -189,11 +189,15 @@ function skipWhitespace(source: string, offset: number): number {
   return offset;
 }
 
-type NormalizedAttribute =
-  | { name: string; value: string }
-  | { resourceKind: MarkdownAuthorHtmlResource["kind"]; value: string }
-  | { name: null }
-  | null;
+type AttributeDecision =
+  | { kind: "accept"; name: string; value: string }
+  | {
+      kind: "resource";
+      resourceKind: MarkdownAuthorHtmlResource["kind"];
+      value: string;
+    }
+  | { kind: "drop" }
+  | { kind: "reject" };
 
 function boundedDecodedAttribute(
   value: string,
@@ -204,8 +208,10 @@ function boundedDecodedAttribute(
 }
 
 function boundedDimension(value: string): string | null {
-  if (!/^\d+$/u.test(value)) return null;
-  const parsed = Number(value);
+  const normalized = value.replace(/^[\t\f ]+|[\t\f ]+$/gu, "");
+  const match = /^(\d+)(?:px)?$/iu.exec(normalized);
+  if (!match) return null;
+  const parsed = Number(match[1]);
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4_096
     ? String(parsed)
     : null;
@@ -229,15 +235,15 @@ function normalizeAttribute(
   tagName: MarkdownAuthorHtmlTagName,
   attributeName: string,
   value: string,
-): NormalizedAttribute {
+): AttributeDecision {
   if (tagName === "a" && attributeName === "href") {
     const normalized = boundedDecodedAttribute(
       value,
       MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_URL_BYTES,
     );
     return normalized === null
-      ? null
-      : { resourceKind: "link", value: normalized };
+      ? { kind: "reject" }
+      : { kind: "resource", resourceKind: "link", value: normalized };
   }
   if (tagName === "img" && attributeName === "src") {
     const normalized = boundedDecodedAttribute(
@@ -245,8 +251,8 @@ function normalizeAttribute(
       MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_URL_BYTES,
     );
     return normalized === null
-      ? null
-      : { resourceKind: "image", value: normalized };
+      ? { kind: "reject" }
+      : { kind: "resource", resourceKind: "image", value: normalized };
   }
   if (
     (tagName === "a" && attributeName === "title") ||
@@ -258,8 +264,8 @@ function normalizeAttribute(
       MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_TEXT_BYTES,
     );
     return normalized === null
-      ? null
-      : { name: attributeName, value: normalized };
+      ? { kind: "drop" }
+      : { kind: "accept", name: attributeName, value: normalized };
   }
   if (
     tagName === "img" &&
@@ -267,14 +273,14 @@ function normalizeAttribute(
   ) {
     const normalized = boundedDimension(value);
     return normalized === null
-      ? null
-      : { name: attributeName, value: normalized };
+      ? { kind: "drop" }
+      : { kind: "accept", name: attributeName, value: normalized };
   }
   if (tagName === "img" && attributeName === "align") {
     const normalized = value.toLowerCase();
     return ["left", "center", "right"].includes(normalized)
-      ? { name: "align", value: normalized }
-      : null;
+      ? { kind: "accept", name: "align", value: normalized }
+      : { kind: "drop" };
   }
   if (tagName === "abbr" && attributeName === "title") {
     const normalizedTitle = decodeHtmlEntities(value);
@@ -284,9 +290,9 @@ function normalizeAttribute(
         MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES,
       ) > MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES
     ) {
-      return null;
+      return { kind: "drop" };
     }
-    return { name: "title", value: normalizedTitle };
+    return { kind: "accept", name: "title", value: normalizedTitle };
   }
   if (
     (tagName === "p" ||
@@ -299,24 +305,30 @@ function normalizeAttribute(
     return normalized === "left" ||
       normalized === "center" ||
       normalized === "right"
-      ? { name: "align", value: normalized }
-      : null;
+      ? { kind: "accept", name: "align", value: normalized }
+      : { kind: "drop" };
   }
   if (tagName === "ol") {
-    if (attributeName === "reversed") return { name: "reversed", value: "" };
+    if (attributeName === "reversed") {
+      return { kind: "accept", name: "reversed", value: "" };
+    }
     if (attributeName === "start") {
       const normalized = canonicalSafeInteger(value);
-      return normalized === null ? null : { name: "start", value: normalized };
+      return normalized === null
+        ? { kind: "drop" }
+        : { kind: "accept", name: "start", value: normalized };
     }
     if (attributeName === "type") {
       return ["1", "a", "A", "i", "I"].includes(value)
-        ? { name: "type", value }
-        : null;
+        ? { kind: "accept", name: "type", value }
+        : { kind: "drop" };
     }
   }
   if (tagName === "li" && attributeName === "value") {
     const normalized = canonicalSafeInteger(value);
-    return normalized === null ? null : { name: "value", value: normalized };
+    return normalized === null
+      ? { kind: "drop" }
+      : { kind: "accept", name: "value", value: normalized };
   }
   if (
     (tagName === "th" || tagName === "td") &&
@@ -324,23 +336,25 @@ function normalizeAttribute(
   ) {
     const normalized = boundedSpan(value);
     return normalized === null
-      ? null
-      : { name: attributeName, value: normalized };
+      ? { kind: "drop" }
+      : { kind: "accept", name: attributeName, value: normalized };
   }
   if (
     (tagName === "col" || tagName === "colgroup") &&
     attributeName === "span"
   ) {
     const normalized = boundedSpan(value);
-    return normalized === null ? null : { name: "span", value: normalized };
+    return normalized === null
+      ? { kind: "drop" }
+      : { kind: "accept", name: "span", value: normalized };
   }
   if (tagName === "th" && attributeName === "scope") {
     const normalized = value.toLowerCase();
     return ["row", "col", "rowgroup", "colgroup"].includes(normalized)
-      ? { name: "scope", value: normalized }
-      : null;
+      ? { kind: "accept", name: "scope", value: normalized }
+      : { kind: "drop" };
   }
-  return { name: null };
+  return { kind: "drop" };
 }
 
 export function parseMarkdownAuthorContainerOpeningTag(
@@ -465,10 +479,10 @@ function parseOpeningTag(
       }
     }
     const normalized = normalizeAttribute(tagName, attributeName, value);
-    if (normalized === null) return null;
-    if ("resourceKind" in normalized) {
+    if (normalized.kind === "reject") return null;
+    if (normalized.kind === "resource") {
       resource = { kind: normalized.resourceKind, value: normalized.value };
-    } else if (normalized.name !== null) {
+    } else if (normalized.kind === "accept") {
       attributes[normalized.name] = normalized.value;
     }
   }

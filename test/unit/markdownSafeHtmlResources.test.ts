@@ -90,6 +90,32 @@ describe("Markdown Safe HTML resource policy", () => {
     expect(doc.body.innerHTML).not.toContain("svard-markdown-author-html");
   });
 
+  it("normalizes px dimensions and drops optional sizing fallbacks", async () => {
+    const resolveLocalImage = vi.fn(async () => ({
+      status: "resolved" as const,
+      resolvedPath: "/private/workspace/docs/gemma4-kv-sharing.webp",
+      mediaType: "image/webp",
+      encoding: "base64" as const,
+      content: "UklGRg==",
+    }));
+    const source =
+      '<img src="gemma4-kv-sharing.webp" alt="Cross-layer KV sharing" width="800px" height="auto" style="width:100%" onerror="blocked">';
+    const doc = await renderPrepared(source, { resolveLocalImage });
+    const image = doc.querySelector('img[alt="Cross-layer KV sharing"]');
+
+    expect(resolveLocalImage).toHaveBeenCalledWith(
+      "gemma4-kv-sharing.webp",
+      "/workspace/docs/contract.md",
+      expect.objectContaining({ workspaceRoot: "/workspace" }),
+    );
+    expect(image?.getAttribute("src")).toBe("data:image/webp;base64,UklGRg==");
+    expect(image?.getAttribute("width")).toBe("800");
+    expect(image?.hasAttribute("height")).toBe(false);
+    expect(image?.hasAttribute("style")).toBe(false);
+    expect(image?.hasAttribute("onerror")).toBe(false);
+    expect(image?.hasAttribute("data-source-reference")).toBe(false);
+  });
+
   it("canonicalizes external resources only after policy approval", async () => {
     const source =
       '<a href=" https://EXAMPLE.test:443/a/../b ">External</a> <img src="https://EXAMPLE.test:443/a/../logo.svg" alt="Logo">';
