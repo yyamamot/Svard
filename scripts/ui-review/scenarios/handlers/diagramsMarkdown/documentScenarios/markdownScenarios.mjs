@@ -194,6 +194,25 @@ export async function applyMarkdownScenario(context) {
       .first()
       .waitFor({ state: "attached" });
     await page.locator(".markdown-details[open] pre").hover();
+  } else if (scenario === "viewer-markdown-safe-html") {
+    await page.locator("text=markdown-safe-html.md").click();
+    await page
+      .getByRole("heading", { name: "Markdown Safe HTML Sample" })
+      .waitFor();
+    await page
+      .locator(
+        '.document-body.format-markdown abbr[title="Application Programming Interface"]',
+      )
+      .waitFor();
+    await page
+      .locator(".document-body.format-markdown ruby rt")
+      .first()
+      .waitFor();
+    await page
+      .locator('[data-review-id="markdown-details"]')
+      .filter({ has: page.getByText("More context", { exact: true }) })
+      .waitFor();
+    await page.getByText("<kbd>Unclosed fragment", { exact: true }).waitFor();
   } else if (scenario === "viewer-markdown-diagrams") {
     await page.locator("text=markdown-diagrams.md").click();
     await page

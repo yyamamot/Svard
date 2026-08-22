@@ -83,6 +83,7 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("File Diff AsciiDoc Fixture") ||
       bodyText.includes("File Diff Table Fixture") ||
       bodyText.includes("Markdown Diagram Sample") ||
+      bodyText.includes("Markdown Safe HTML Sample") ||
       bodyText.includes("Markdown 日本語確認") ||
       bodyText.includes("Obsidian Index") ||
       bodyText.includes("Wikilink Disabled") ||

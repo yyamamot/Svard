@@ -6,6 +6,8 @@ import {
   changedRenderedBlocks,
   compareRenderedBlocks,
 } from "../../src/ui/lib/gitRenderedDiff";
+import { extractRenderedBlocksFromRoot } from "../../src/ui/lib/gitRenderedDiff/extraction";
+import { normalizeRenderResultHtml } from "../../src/ui/lib/renderResultHtml";
 import { sanitizeRenderedBlockHtml } from "../../src/ui/lib/sanitizeHtml";
 import { blocksFromHtml } from "./helpers/gitRenderedDiffFixtures";
 
@@ -106,6 +108,31 @@ export function readLabel() {
     expect(rendered.html).toContain("data-source-renderer-id");
     expect(sanitized).not.toContain("data-source-renderer-id");
     expect(sanitized).toContain("Rendered diff paragraph.");
+  });
+
+  it("keeps Safe HTML visible text without using provenance in pathless block signatures", () => {
+    const source = "Status: <kbd>Ctrl</kbd> and <mark>Ready</mark>.";
+    const rendered = renderMarkdownCore(source);
+    const normalized = normalizeRenderResultHtml("markdown", source, rendered);
+    const blocks = extractRenderedBlocksFromRoot(normalized.body);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({
+      kind: "paragraph",
+      text: "Status: Ctrl and Ready.",
+    });
+    expect(blocks[0]?.html).toContain("<kbd>Ctrl</kbd>");
+    expect(JSON.stringify(blocks)).not.toMatch(
+      /svard-markdown-author-html|data-svard-markdown-author-html-id|svard-author-/u,
+    );
+    expect(blocks[0]?.signature ?? "").not.toMatch(
+      /svard-markdown-author-html|svard-author-/u,
+    );
+    expect(
+      normalized.body.querySelector(
+        "[data-source-reference],[data-source-selection-block-id]",
+      ),
+    ).toBeNull();
   });
 
   it("keeps hydrated local image HTML while preserving diagram placeholders", () => {

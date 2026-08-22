@@ -14,29 +14,58 @@ import {
 } from "./rendererProvenance";
 import type { MarkdownOriginalSourceMap } from "./sourceSpans";
 import type { MarkdownDetailsBlock } from "./types";
+import { parseMarkdownAuthorContainerOpeningTag } from "./authorHtml";
+import {
+  scanMarkdownAuthorHtml,
+  type MarkdownAuthorHtmlRegistry,
+} from "./authorHtmlRuntime";
 
-const detailsOpenPattern = /^<details(?:\s+open)?\s*>$/i;
-const compactDetailsOpenPattern =
-  /^<details(\s+open)?\s*>\s*<summary>(.*)<\/summary>\s*$/i;
 const detailsClosePattern = /^<\/details>\s*$/i;
-const summaryPattern = /^<summary>(.*)<\/summary>\s*$/i;
 interface MarkdownDetailsOpening {
   bodyStartIndex: number;
   open: boolean;
   summary: string;
+  summaryLineIndex: number;
+  summaryStartInLine: number;
+}
+
+function parseSummaryLine(
+  source: string,
+): { startOffset: number; summary: string } | null {
+  const leadingWhitespace = source.match(/^\s*/u)?.[0].length ?? 0;
+  const trimmedStart = source.slice(leadingWhitespace);
+  const opening = parseMarkdownAuthorContainerOpeningTag(
+    trimmedStart,
+    "summary",
+  );
+  if (!opening) return null;
+  const remainder = trimmedStart.slice(opening.endOffset);
+  const closing = remainder.match(/<\/summary>\s*$/iu);
+  if (!closing || closing.index === undefined) return null;
+  return {
+    startOffset: leadingWhitespace + opening.endOffset,
+    summary: remainder.slice(0, closing.index),
+  };
 }
 
 function renderMarkdownDetailsToWriter(
   block: MarkdownDetailsBlock,
   writer: Utf8ChunkWriter,
   rendererId?: string,
+  authorHtmlRegistry?: MarkdownAuthorHtmlRegistry,
 ): void {
   writer.append(
     `<details class="markdown-details"${block.open ? " open" : ""} data-review-id="markdown-details"${rendererId ? ` ${MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE}="${rendererId}"` : ""}><summary>`,
   );
-  renderMarkdownInlineToWriter(block.summary.trim(), writer);
+  renderMarkdownInlineToWriter(
+    block.summary.trim(),
+    writer,
+    authorHtmlRegistry,
+  );
   writer.append('</summary><div class="markdown-details-body">');
-  renderMarkdownFragmentToWriter(block.body, writer);
+  renderMarkdownFragmentToWriter(block.body, writer, {
+    authorHtmlRegistry,
+  });
   writer.append("</div></details>");
 }
 
@@ -44,30 +73,49 @@ export interface MarkdownDetailsProvenanceContext {
   originalBodyLineOffset: number;
   registry: MarkdownRendererProvenanceRegistry;
   sourceMap: MarkdownOriginalSourceMap;
+  authorHtmlRegistry?: MarkdownAuthorHtmlRegistry;
 }
 
 function parseMarkdownDetailsAt(
   lines: string[],
   startIndex: number,
-): { block: MarkdownDetailsBlock; endIndex: number } | null {
+): {
+  block: MarkdownDetailsBlock;
+  endIndex: number;
+  opening: MarkdownDetailsOpening;
+} | null {
   const opening = lines[startIndex].replace(/\r$/, "").trim();
   let parsedOpening: MarkdownDetailsOpening | null = null;
-  const compactMatch = opening.match(compactDetailsOpenPattern);
-  if (compactMatch) {
-    parsedOpening = {
-      bodyStartIndex: startIndex + 1,
-      open: Boolean(compactMatch[1]),
-      summary: compactMatch[2],
-    };
-  } else if (detailsOpenPattern.test(opening)) {
-    const summaryLine = lines[startIndex + 1]?.replace(/\r$/, "").trim();
-    const summaryMatch = summaryLine?.match(summaryPattern);
-    if (summaryMatch) {
+  const detailsOpening = parseMarkdownAuthorContainerOpeningTag(
+    opening,
+    "details",
+  );
+  if (detailsOpening) {
+    const remainder = opening.slice(detailsOpening.endOffset);
+    const compactSummary = parseSummaryLine(remainder);
+    if (compactSummary) {
       parsedOpening = {
-        bodyStartIndex: startIndex + 2,
-        open: /\sopen\s*>$/i.test(opening),
-        summary: summaryMatch[1],
+        bodyStartIndex: startIndex + 1,
+        open: detailsOpening.open,
+        summary: compactSummary.summary,
+        summaryLineIndex: startIndex,
+        summaryStartInLine:
+          lines[startIndex].toLowerCase().indexOf("<details") +
+          detailsOpening.endOffset +
+          compactSummary.startOffset,
       };
+    } else if (remainder.trim() === "") {
+      const summarySource = lines[startIndex + 1]?.replace(/\r$/, "");
+      const summary = summarySource ? parseSummaryLine(summarySource) : null;
+      if (summary) {
+        parsedOpening = {
+          bodyStartIndex: startIndex + 2,
+          open: detailsOpening.open,
+          summary: summary.summary,
+          summaryLineIndex: startIndex + 1,
+          summaryStartInLine: summary.startOffset,
+        };
+      }
     }
   }
 
@@ -111,6 +159,7 @@ function parseMarkdownDetailsAt(
       body: bodyLines.join("\n"),
     },
     endIndex: closeIndex,
+    opening: parsedOpening,
   };
 }
 
@@ -164,6 +213,30 @@ export function extractMarkdownDetails(
       throw new Error(MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR);
     }
     placeholders.assertCanAdd();
+    let block = parsed.block;
+    if (provenance?.authorHtmlRegistry) {
+      const opening = parsed.opening;
+      const summaryLineStart = provenance.sourceMap.startOffsetForLine(
+        provenance.originalBodyLineOffset + opening.summaryLineIndex,
+      );
+      const bodyLineStart = provenance.sourceMap.startOffsetForLine(
+        provenance.originalBodyLineOffset + opening.bodyStartIndex,
+      );
+      if (summaryLineStart === null || bodyLineStart === null) {
+        throw new Error(MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR);
+      }
+      const summary = scanMarkdownAuthorHtml(
+        block.summary,
+        summaryLineStart + opening.summaryStartInLine,
+        provenance.authorHtmlRegistry,
+      ).source;
+      const body = scanMarkdownAuthorHtml(
+        block.body,
+        bodyLineStart,
+        provenance.authorHtmlRegistry,
+      ).source;
+      block = { ...block, summary, body };
+    }
     const rendererId =
       provenance && sourceSpan
         ? provenance.registry.add({
@@ -173,7 +246,12 @@ export function extractMarkdownDetails(
           })
         : undefined;
     const marker = placeholders.add(index, (writer) =>
-      renderMarkdownDetailsToWriter(parsed.block, writer, rendererId),
+      renderMarkdownDetailsToWriter(
+        block,
+        writer,
+        rendererId,
+        provenance?.authorHtmlRegistry,
+      ),
     );
     count += 1;
     transformed.push(marker);

@@ -273,6 +273,61 @@ describe("document render worker wrappers", () => {
     });
   });
 
+  it("reuses the Markdown worker after author HTML crypto rejects without leaking source", async () => {
+    const originalCrypto = globalThis.crypto;
+    const responses: RenderWorkerResponse<RenderResult>[] = [];
+    const workerScope = {
+      onmessage: null as
+        | ((
+            event: MessageEvent<RenderWorkerRequest<{ source: string }>>,
+          ) => void)
+        | null,
+      postMessage(response: RenderWorkerResponse<RenderResult>) {
+        responses.push(response);
+      },
+    };
+    vi.stubGlobal("self", workerScope);
+    vi.stubGlobal("crypto", {
+      getRandomValues(bytes: Uint8Array) {
+        void bytes;
+        throw new Error("private author entropy failure");
+      },
+    });
+    vi.resetModules();
+    await import("../../src/core/markdown.worker");
+
+    workerScope.onmessage?.({
+      data: {
+        requestId: "markdown-author-html-crypto",
+        diagnostic: false,
+        payload: { source: "<kbd>private-token-123</kbd>" },
+      },
+    } as MessageEvent<RenderWorkerRequest<{ source: string }>>);
+
+    expect(responses[0]).toEqual({
+      requestId: "markdown-author-html-crypto",
+      ok: false,
+      message:
+        "Markdown rendering stopped because author HTML provenance integrity validation failed.",
+    });
+    expect(JSON.stringify(responses[0])).not.toContain("private-token-123");
+
+    vi.stubGlobal("crypto", originalCrypto);
+    workerScope.onmessage?.({
+      data: {
+        requestId: "markdown-author-html-retry",
+        diagnostic: false,
+        payload: { source: "# Safe retry" },
+      },
+    } as MessageEvent<RenderWorkerRequest<{ source: string }>>);
+
+    expect(responses[1]).toMatchObject({
+      requestId: "markdown-author-html-retry",
+      ok: true,
+      result: { html: expect.stringContaining("Safe retry") },
+    });
+  });
+
   it("preserves optional Markdown author HTML provenance in worker results", async () => {
     vi.stubGlobal("Worker", StubBrowserWorker);
     const { disposeMarkdownRenderWorkers, renderMarkdown } =

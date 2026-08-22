@@ -25,6 +25,26 @@ function sourceSpan(source: string, value: string) {
 }
 
 describe("normalizeMarkdownAuthorHtmlInPlace", () => {
+  it("constructs allowed nested elements and normalized attributes without an HTML sink", () => {
+    const source =
+      '<AbBr TITLE="term" onclick="alert(1)"><mark>API</mark></AbBr>';
+    const body = parseBody(marker("inline", "safe-1", "fallback"));
+
+    const result = normalizeMarkdownAuthorHtmlInPlace(body, source, [
+      {
+        id: "safe-1",
+        kind: "inline",
+        sourceSpan: { startOffset: 0, endOffset: source.length },
+      },
+    ]);
+
+    expect(result.passedCount).toBe(1);
+    expect(body.querySelector("abbr")?.getAttributeNames()).toEqual(["title"]);
+    expect(body.querySelector("abbr")?.title).toBe("term");
+    expect(body.querySelector("mark")?.textContent).toBe("API");
+    expect(body.innerHTML).not.toContain("onclick");
+  });
+
   it("restores valid inline and block fragments from the authoritative source", () => {
     const inline = "<kbd>Ctrl</kbd>";
     const block = "<section>Block</section>";
@@ -48,10 +68,10 @@ describe("normalizeMarkdownAuthorHtmlInPlace", () => {
     normalizeMarkdownAuthorHtmlInPlace(body, source, fragments);
 
     expect(body.querySelector(markerSelector)).toBeNull();
-    expect(body.querySelector("kbd, section")).toBeNull();
-    expect(body.textContent).toContain(`Before ${inline} after.`);
+    expect(body.querySelector("kbd")?.textContent).toBe("Ctrl");
+    expect(body.querySelector("section")).toBeNull();
+    expect(body.textContent).toContain("Before Ctrl after.");
     expect(body.textContent).toContain(block);
-    expect(body.innerHTML).toContain("&lt;kbd&gt;Ctrl&lt;/kbd&gt;");
     expect(body.innerHTML).toContain("&lt;section&gt;Block&lt;/section&gt;");
     expect(body.textContent).not.toContain("tampered");
   });
@@ -330,6 +350,31 @@ describe("normalizeMarkdownAuthorHtmlInPlace", () => {
 
     expect(body.querySelector(markerSelector)).toBeNull();
     expect(body.textContent).toBe("second fallbackfirst fallback");
+  });
+
+  it("rejects all markers when one marker fails integrity validation", () => {
+    const source = "<kbd>Safe</kbd><mark>Second</mark>";
+    const body = parseBody(
+      `${marker("inline", "safe", "safe fallback")}${marker("inline", "unknown", "unknown fallback")}`,
+    );
+
+    const result = normalizeMarkdownAuthorHtmlInPlace(body, source, [
+      {
+        id: "safe",
+        kind: "inline",
+        sourceSpan: { startOffset: 0, endOffset: 16 },
+      },
+    ]);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        passedCount: 0,
+        escapedCount: 0,
+        rejectedCount: 2,
+      }),
+    );
+    expect(body.querySelector("kbd,mark")).toBeNull();
+    expect(body.textContent).toBe("safe fallbackunknown fallback");
   });
 
   it("textifies an identity attribute attached to an unknown marker element", () => {

@@ -42,6 +42,45 @@
   white-space: pre;
 }
 
+.document-body.format-markdown kbd {
+  display: inline-block;
+  border: 1px solid var(--reader-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--reader-text);
+  background: var(--reader-surface);
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
+    monospace;
+  font-size: 0.85em;
+  line-height: 1.45;
+  vertical-align: baseline;
+}
+
+.document-body.format-markdown mark {
+  border-radius: 2px;
+  padding: 0 2px;
+  color: var(--reader-text);
+  background: color-mix(in srgb, #ffd33d 48%, var(--reader-bg));
+}
+
+.document-body.format-markdown abbr[title] {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.document-body.format-markdown ruby {
+  ruby-position: over;
+}
+
+.document-body.format-markdown rt,
+.document-body.format-markdown rp {
+  color: var(--reader-muted);
+  font-size: 0.72em;
+}
+
 .document-body.format-markdown .markdown-table-scroll {
   max-width: 100%;
   overflow-x: auto;

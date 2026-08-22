@@ -9,6 +9,7 @@ import {
   type MarkdownRendererProvenanceRegistry,
 } from "./rendererProvenance";
 import type { MarkdownOriginalSourceMap } from "./sourceSpans";
+import type { MarkdownAuthorHtmlRegistry } from "./authorHtmlRuntime";
 
 function isSingleLineHtmlComment(trimmed: string): boolean {
   return /^<!--[\s\S]*-->$/.test(trimmed);
@@ -52,6 +53,7 @@ function renderCompatPipeTableToWriter(
   lines: string[],
   writer: Utf8ChunkWriter,
   rendererId?: string,
+  authorHtmlRegistry?: MarkdownAuthorHtmlRegistry,
 ): void {
   const rows = lines
     .slice(1)
@@ -64,7 +66,7 @@ function renderCompatPipeTableToWriter(
     writer.append("<tr>");
     for (const cell of cells) {
       writer.append("<td>");
-      renderMarkdownInlineToWriter(cell, writer);
+      renderMarkdownInlineToWriter(cell, writer, authorHtmlRegistry);
       writer.append("</td>");
     }
     writer.append("</tr>");
@@ -76,6 +78,7 @@ export interface MarkdownCompatibilityProvenanceContext {
   originalBodyLineOffset: number;
   registry: MarkdownRendererProvenanceRegistry;
   sourceMap: MarkdownOriginalSourceMap;
+  authorHtmlRegistry?: MarkdownAuthorHtmlRegistry;
 }
 
 export function extractMarkdownCompatibility(
@@ -144,7 +147,12 @@ export function extractMarkdownCompatibility(
               })
             : undefined;
         const marker = placeholders.add(index, (writer) =>
-          renderCompatPipeTableToWriter(tableLines, writer, rendererId),
+          renderCompatPipeTableToWriter(
+            tableLines,
+            writer,
+            rendererId,
+            provenance?.authorHtmlRegistry,
+          ),
         );
         count += 1;
         transformed.push(marker);

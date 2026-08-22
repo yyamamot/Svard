@@ -258,7 +258,7 @@ export async function buildMarkdownAssertions({
           bodyText.includes("Unsafe attributes stay escaped") &&
           (await page
             .locator('[data-review-id="markdown-details"]')
-            .count()) === 3 &&
+            .count()) === 4 &&
           (await page.locator(".markdown-details[open]").count()) === 2 &&
           (await page
             .locator(".markdown-details .math-inline .katex")
@@ -270,6 +270,62 @@ export async function buildMarkdownAssertions({
             1 &&
           (await page.locator(".document-body script").count()) === 0 &&
           !(await page.evaluate(() => Boolean(window.__SVARD_UNSAFE_DETAILS__)))
+        : true,
+    hasMarkdownSafeHtml:
+      scenario === "viewer-markdown-safe-html"
+        ? bodyText.includes("Markdown Safe HTML Sample") &&
+          bodyText.includes("<kbd>Unclosed fragment") &&
+          (await page.evaluate(() => {
+            const body = document.querySelector(
+              '[data-review-id="document-body"].format-markdown',
+            );
+            if (!body) {
+              return false;
+            }
+            const count = (selector) => body.querySelectorAll(selector).length;
+            const authorElements = body.querySelectorAll(
+              "kbd, br, sub, sup, mark, ins, s, del, small, abbr, ruby, rt, rp",
+            );
+            const inlineParagraphs = Array.from(
+              body.querySelectorAll("p"),
+            ).filter((paragraph) =>
+              paragraph.querySelector("kbd, mark, abbr, ruby"),
+            );
+            return (
+              count("kbd") === 2 &&
+              count("br") === 1 &&
+              count("sub") === 1 &&
+              count("sup") === 1 &&
+              count("mark") === 3 &&
+              count("ins") === 1 &&
+              count("s") === 1 &&
+              count("del") === 1 &&
+              count("small") === 1 &&
+              count('abbr[title="Application Programming Interface"]') === 1 &&
+              count("ruby") === 1 &&
+              count("ruby > rt") === 2 &&
+              count("ruby > rp") === 2 &&
+              count('[data-review-id="markdown-details"][open]') === 1 &&
+              count(".markdown-details.author-style") === 0 &&
+              count('mark[class="author-style"]') === 0 &&
+              !Array.from(authorElements).some((element) =>
+                Array.from(element.attributes).some(
+                  (attribute) =>
+                    attribute.name !== "title" && attribute.name !== "open",
+                ),
+              ) &&
+              inlineParagraphs.length >= 3 &&
+              inlineParagraphs.every(
+                (paragraph) =>
+                  !paragraph.hasAttribute("data-source-reference") &&
+                  !paragraph.hasAttribute("data-source-selection-block-id"),
+              ) &&
+              count("svard-markdown-author-html-inline") === 0 &&
+              count("svard-markdown-author-html-block") === 0 &&
+              count("[data-svard-markdown-author-html-id]") === 0 &&
+              count("script, style, iframe, form, svg, math") === 0
+            );
+          }))
         : true,
     hasMarkdownDiagrams:
       scenario === "viewer-markdown-diagrams"

@@ -7,6 +7,7 @@ import { MARKDOWN_RENDERER_ID_ATTRIBUTE } from "./markdownRendererProvenance";
 
 export interface RenderResultHtmlNormalizationStatus {
   status: "invoked" | "skipped";
+  passedCount: number;
   escapedCount: number;
   rejectedCount: number;
 }
@@ -15,6 +16,7 @@ export interface NormalizedRenderResultHtml {
   document: Document;
   body: HTMLElement;
   authorHtml: RenderResultHtmlNormalizationStatus;
+  authorHtmlSourceActionExcludedElements: Set<Element>;
 }
 
 interface NormalizeRenderResultHtmlOptions {
@@ -49,7 +51,12 @@ export function normalizeRenderResultHtml(
       containsMarkdownAuthorHtmlMarkerMarkup(renderResult.html));
   const counts = shouldNormalizeAuthorHtml
     ? normalizeMarkdownAuthorHtmlInPlace(document.body, source, fragments)
-    : { escapedCount: 0, rejectedCount: 0 };
+    : {
+        passedCount: 0,
+        escapedCount: 0,
+        rejectedCount: 0,
+        sourceActionExcludedElements: new Set<Element>(),
+      };
 
   if (options.rendererIdentity !== "preserve-for-validation") {
     stripRendererIdentityInPlace(document.body);
@@ -60,7 +67,10 @@ export function normalizeRenderResultHtml(
     body: document.body,
     authorHtml: {
       status: shouldNormalizeAuthorHtml ? "invoked" : "skipped",
-      ...counts,
+      passedCount: counts.passedCount,
+      escapedCount: counts.escapedCount,
+      rejectedCount: counts.rejectedCount,
     },
+    authorHtmlSourceActionExcludedElements: counts.sourceActionExcludedElements,
   };
 }

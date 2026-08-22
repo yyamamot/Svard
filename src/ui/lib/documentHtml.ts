@@ -291,7 +291,7 @@ export async function prepareDocumentHtml(
 ): Promise<SafeHtml> {
   const basename = perfBasename(document.path);
   const parseStartedAt = perfNow();
-  const { document: doc } = normalizeRenderResultHtml(
+  const normalizedRenderResult = normalizeRenderResultHtml(
     document.format,
     document.source,
     {
@@ -300,6 +300,9 @@ export async function prepareDocumentHtml(
     },
     { rendererIdentity: "preserve-for-validation" },
   );
+  const doc = normalizedRenderResult.document;
+  const authorHtmlSourceActionExcludedElements =
+    normalizedRenderResult.authorHtmlSourceActionExcludedElements;
   tracePerf("render.prepareDocumentHtml.domParse", {
     basename,
     format: document.format,
@@ -307,7 +310,7 @@ export async function prepareDocumentHtml(
     durationMs: perfDuration(parseStartedAt),
   });
 
-  const markdownRendererValidation =
+  const rendererProvenanceValidation =
     document.format === "markdown"
       ? validateMarkdownRendererProvenance(
           doc.body,
@@ -322,6 +325,10 @@ export async function prepareDocumentHtml(
           },
         )
       : { status: "absent" as const, entries: [] };
+  const markdownRendererValidation =
+    normalizedRenderResult.authorHtml.rejectedCount > 0
+      ? ({ status: "rejected", entries: [] } as const)
+      : rendererProvenanceValidation;
   if (document.format === "markdown") {
     [
       ...(doc.body.hasAttribute(MARKDOWN_RENDERER_ID_ATTRIBUTE)
@@ -346,14 +353,22 @@ export async function prepareDocumentHtml(
       switch (provenance.kind) {
         case "heading":
           markdownHeadingElements.set(provenance.headingId, element);
-          markdownSelectionElements.set(
-            provenance.sourceSelectionBlockId,
-            element,
-          );
+          if (!authorHtmlSourceActionExcludedElements.has(element)) {
+            markdownSelectionElements.set(
+              provenance.sourceSelectionBlockId,
+              element,
+            );
+          }
           break;
         case "paragraph":
-          markdownSourceTextElements.set(provenance.sourceTextBlockId, element);
+          if (!authorHtmlSourceActionExcludedElements.has(element)) {
+            markdownSourceTextElements.set(
+              provenance.sourceTextBlockId,
+              element,
+            );
+          }
           if (
+            !authorHtmlSourceActionExcludedElements.has(element) &&
             "sourceSelectionBlockId" in provenance &&
             provenance.sourceSelectionBlockId
           ) {
@@ -369,6 +384,7 @@ export async function prepareDocumentHtml(
             markdownTableElements.add(element);
           }
           if (
+            !authorHtmlSourceActionExcludedElements.has(element) &&
             "sourceSelectionBlockId" in provenance &&
             provenance.sourceSelectionBlockId
           ) {
@@ -380,20 +396,56 @@ export async function prepareDocumentHtml(
           break;
         case "source":
           markdownSourceElements.set(provenance.sourceBlockId, element);
-          markdownSelectionElements.set(
-            provenance.sourceSelectionBlockId,
-            element,
-          );
+          if (!authorHtmlSourceActionExcludedElements.has(element)) {
+            markdownSelectionElements.set(
+              provenance.sourceSelectionBlockId,
+              element,
+            );
+          }
           break;
         case "diagram":
-          markdownSelectionElements.set(
-            provenance.sourceSelectionBlockId,
-            element,
-          );
+          if (!authorHtmlSourceActionExcludedElements.has(element)) {
+            markdownSelectionElements.set(
+              provenance.sourceSelectionBlockId,
+              element,
+            );
+          }
           break;
         case "frontmatter":
         case "details":
           break;
+      }
+    }
+  }
+  if (markdownRendererValidation.status !== "rejected") {
+    const headingMetadataCounts = new Map<string, number>();
+    for (const heading of renderResult?.headings ?? []) {
+      headingMetadataCounts.set(
+        heading.id,
+        (headingMetadataCounts.get(heading.id) ?? 0) + 1,
+      );
+    }
+    const publicIdCounts = new Map<string, number>();
+    for (const element of doc.body.querySelectorAll<HTMLElement>("[id]")) {
+      publicIdCounts.set(element.id, (publicIdCounts.get(element.id) ?? 0) + 1);
+    }
+    for (const element of authorHtmlSourceActionExcludedElements) {
+      if (
+        !(element instanceof HTMLElement) ||
+        !/^h[1-6]$/u.test(element.localName)
+      ) {
+        continue;
+      }
+      const heading = (renderResult?.headings ?? []).find(
+        (candidate) => candidate.id === element.id,
+      );
+      if (
+        heading &&
+        headingMetadataCounts.get(heading.id) === 1 &&
+        publicIdCounts.get(heading.id) === 1 &&
+        element.localName === `h${heading.level}`
+      ) {
+        markdownHeadingElements.set(heading.id, element);
       }
     }
   }
@@ -439,7 +491,7 @@ export async function prepareDocumentHtml(
       document.format === "markdown"
         ? markdownHeadingElements.get(heading.id)
         : doc.getElementById(heading.id);
-    if (!element) {
+    if (!element || element.localName !== `h${heading.level}`) {
       return;
     }
     element.setAttribute("data-section-collapse-heading", "true");
@@ -458,7 +510,7 @@ export async function prepareDocumentHtml(
       element.prepend(collapseButton);
     }
     const line = heading.sourceLocation?.line;
-    if (line) {
+    if (line && !authorHtmlSourceActionExcludedElements.has(element)) {
       element.setAttribute("data-source-line", String(line));
       element.setAttribute(
         "data-source-reference",

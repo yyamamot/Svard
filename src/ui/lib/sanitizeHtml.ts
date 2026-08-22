@@ -8,7 +8,10 @@ const DOMPurify = createDOMPurify(window);
 
 const allowedUriPattern =
   /^(?:(?:(?:https?|mailto|data|asset|file):)|(?:[A-Za-z]:[\\/])|(?:[./#])|(?:\/(?!\/)))/i;
-const privateRendererAttributes = ["data-source-renderer-id"] as const;
+const privateRendererAttributes = [
+  "data-source-renderer-id",
+  "data-svard-markdown-author-html-id",
+] as const;
 
 const commonConfig = {
   ALLOW_ARIA_ATTR: true,

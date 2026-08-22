@@ -28,6 +28,17 @@ export class MarkdownOriginalSourceMap {
     return this.#lineStarts.length;
   }
 
+  startOffsetForLine(line: number): number | null {
+    if (
+      !Number.isSafeInteger(line) ||
+      line < 0 ||
+      line >= this.#lineStarts.length
+    ) {
+      return null;
+    }
+    return this.#lineStarts[line];
+  }
+
   trimBlankBoundaryLines(
     range: MarkdownOriginalLineRange,
   ): MarkdownOriginalLineRange | null {

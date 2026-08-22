@@ -39,12 +39,6 @@ describe("renderMarkdownCore", () => {
 
   it.each([
     {
-      name: "safe-looking inline HTML",
-      source: "Press <kbd>Ctrl</kbd> to continue.",
-      literal: "<kbd>Ctrl</kbd>",
-      activeSelector: "kbd",
-    },
-    {
       name: "active HTML",
       source: '<img src="./private.png" onerror="alert(1)">',
       literal: '<img src="./private.png" onerror="alert(1)">',
@@ -68,6 +62,116 @@ describe("renderMarkdownCore", () => {
       expect(doc.body.textContent).toContain(literal);
     },
   );
+
+  it("emits inert provenance markers for resource-free inline HTML", () => {
+    const source = "Press <kbd>Ctrl</kbd> and <mark>Enter</mark>.";
+    const result = renderMarkdownCore(source);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(result.markdownAuthorHtmlFragments).toHaveLength(2);
+    expect(
+      result.markdownAuthorHtmlFragments?.map(({ sourceSpan }) =>
+        source.slice(sourceSpan.startOffset, sourceSpan.endOffset),
+      ),
+    ).toEqual(["<kbd>Ctrl</kbd>", "<mark>Enter</mark>"]);
+    expect(
+      doc.querySelectorAll("svard-markdown-author-html-inline"),
+    ).toHaveLength(2);
+    expect(doc.querySelector("kbd, mark")).toBeNull();
+  });
+
+  it("consumes adjacent author markers followed directly by ordinary text", () => {
+    const source = "Line<br>notation<kbd>Ctrl</kbd>adjacent";
+    const result = renderMarkdownCore(source);
+
+    expect(result.markdownAuthorHtmlFragments).toHaveLength(2);
+    expect(result.html).toContain("notation");
+    expect(result.html).toContain("adjacent");
+  });
+
+  it("uses visible safe HTML text for heading metadata and omits source provenance", () => {
+    const result = renderMarkdownCore("# Use <kbd>Ctrl</kbd> safely");
+
+    expect(result.headings).toMatchObject([
+      {
+        id: "use-ctrl-safely",
+        text: "Use Ctrl safely",
+        rawText: "Use <kbd>Ctrl</kbd> safely",
+      },
+    ]);
+    expect(result.markdownRendererProvenance).toBeUndefined();
+    expect(result.markdownAuthorHtmlFragments).toHaveLength(1);
+  });
+
+  it("uses the same author HTML registry in details summary and body", () => {
+    const source = `<details open>
+<summary>Press <kbd>Ctrl</kbd></summary>
+
+Body <mark>marked</mark>.
+</details>`;
+    const result = renderMarkdownCore(source);
+
+    expect(result.markdownAuthorHtmlFragments).toHaveLength(2);
+    expect(
+      result.markdownAuthorHtmlFragments?.map(({ sourceSpan }) =>
+        source.slice(sourceSpan.startOffset, sourceSpan.endOffset),
+      ),
+    ).toEqual(["<kbd>Ctrl</kbd>", "<mark>marked</mark>"]);
+    expect(result.html).toContain("markdown-details");
+    expect(
+      result.html.match(/svard-markdown-author-html-inline/g),
+    ).toHaveLength(4);
+  });
+
+  it("drops valid author attributes from details and summary while preserving open", () => {
+    const result =
+      renderMarkdownCore(`<DETAILS OPEN class="outer" id="author-id">
+<SUMMARY class="inner" data-private="value">Title</SUMMARY>
+
+Body.
+</details>`);
+
+    expect(result.html).toContain('<details class="markdown-details" open');
+    expect(result.html).toContain("<summary>Title</summary>");
+    expect(result.html).not.toContain("outer");
+    expect(result.html).not.toContain("author-id");
+    expect(result.html).not.toContain("data-private");
+  });
+
+  it.each([
+    '<details open OPEN="x">\n<summary>Title</summary>\n\n<kbd>literal</kbd>\n</details>',
+    '<details>\n<summary class="broken>Title</summary>\n\n<kbd>literal</kbd>\n</details>',
+  ])(
+    "escapes the whole malformed details block without partial activation",
+    (source) => {
+      const result = renderMarkdownCore(source);
+
+      expect(result.html).not.toContain("markdown-details");
+      expect(result.markdownAuthorHtmlFragments).toBeUndefined();
+      expect(result.html).toContain("&lt;kbd&gt;literal&lt;/kbd&gt;");
+    },
+  );
+
+  it("drops standalone multiline comments but preserves inline and fenced comments", () => {
+    const result = renderMarkdownCore(`Before.
+
+<!--
+hidden
+-->
+
+Inline <!-- visible --> text.
+
+\`\`\`html
+<!-- fenced -->
+\`\`\``);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(doc.body.textContent).not.toContain("hidden");
+    expect(doc.body.textContent).toContain("<!-- visible -->");
+    expect(doc.querySelector("pre code")?.textContent).toContain(
+      "<!-- fenced -->",
+    );
+  });
 
   it("keeps the existing HTML comment drop behavior without creating comment nodes", () => {
     const result = renderMarkdownCore(`Before.
@@ -107,6 +211,31 @@ After.`);
     expect(doc.querySelector("p code")?.textContent).toBe("<kbd>code</kbd>");
     expect(doc.querySelector("pre code")?.textContent).toContain(
       "<script>alert(1)</script>",
+    );
+  });
+
+  it("does not activate allowlisted HTML inside an inline comment", () => {
+    const source = "Text <!-- <kbd>blocked</kbd> --> tail";
+    const result = renderMarkdownCore(source);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(result.markdownAuthorHtmlFragments).toBeUndefined();
+    expect(result.html).not.toContain("svard-markdown-author-html-inline");
+    expect(doc.body.textContent).toContain("<!-- <kbd>blocked</kbd> -->");
+  });
+
+  it("keeps a shorter backtick run inside a four-backtick fence", () => {
+    const source = `\`\`\`\`html
+\`\`\`not-a-close
+<kbd>blocked</kbd>
+\`\`\`\``;
+    const result = renderMarkdownCore(source);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(result.markdownAuthorHtmlFragments).toBeUndefined();
+    expect(result.html).not.toContain("svard-markdown-author-html-inline");
+    expect(doc.querySelector("pre code")?.textContent).toContain(
+      "<kbd>blocked</kbd>",
     );
   });
 
@@ -1061,13 +1190,6 @@ body
 
   it("keeps unsupported Markdown details syntax escaped", () => {
     const invalidCases = [
-      `<details onclick="alert(1)">
-<summary>Unsafe</summary>
-body
-</details>`,
-      `<details onclick="alert(1)"><summary>Compact unsafe</summary>
-body
-</details>`,
       `<details>
 No summary
 </details>`,

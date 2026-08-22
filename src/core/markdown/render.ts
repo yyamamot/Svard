@@ -49,6 +49,12 @@ import {
   originalLineRangeForTokenMap,
   type MarkdownOriginalLineRange,
 } from "./sourceSpans";
+import {
+  attachMarkdownAuthorHtmlRegistry,
+  containsMarkdownAuthorHtmlToken,
+  MarkdownAuthorHtmlRegistry,
+  scanMarkdownAuthorHtml,
+} from "./authorHtmlRuntime";
 
 function perfNow(): number {
   return globalThis.performance?.now?.() ?? Date.now();
@@ -127,12 +133,32 @@ export function renderMarkdownDocument(source: string): RenderResult {
     bytes: sourceBytes,
   });
 
-  const detailsStartedAt = perfNow();
-  const details = extractMarkdownDetails(body, placeholders, {
-    originalBodyLineOffset: lineOffset,
-    registry: provenance,
-    sourceMap,
+  const authorHtmlRegistry = source.includes("<")
+    ? new MarkdownAuthorHtmlRegistry(source)
+    : undefined;
+  const authorHtmlStartedAt = perfNow();
+  const scannedAuthorHtml = authorHtmlRegistry
+    ? scanMarkdownAuthorHtml(
+        body,
+        source.length - body.length,
+        authorHtmlRegistry,
+      )
+    : { count: 0, source: body };
+  recordPerf("markdown.authorHtml", authorHtmlStartedAt, {
+    count: scannedAuthorHtml.count,
   });
+
+  const detailsStartedAt = perfNow();
+  const details = extractMarkdownDetails(
+    scannedAuthorHtml.source,
+    placeholders,
+    {
+      originalBodyLineOffset: lineOffset,
+      registry: provenance,
+      sourceMap,
+      ...(authorHtmlRegistry ? { authorHtmlRegistry } : {}),
+    },
+  );
   recordPerf("markdown.details", detailsStartedAt, {
     count: details.count,
   });
@@ -145,6 +171,7 @@ export function renderMarkdownDocument(source: string): RenderResult {
       originalBodyLineOffset: lineOffset,
       registry: provenance,
       sourceMap,
+      ...(authorHtmlRegistry ? { authorHtmlRegistry } : {}),
     },
   );
   recordPerf("markdown.compatibility", compatStartedAt, {
@@ -160,6 +187,9 @@ export function renderMarkdownDocument(source: string): RenderResult {
   recordPerf("markdown.transformSimpleAdmonitions", transformStartedAt);
 
   const parseStartedAt = perfNow();
+  if (authorHtmlRegistry) {
+    attachMarkdownAuthorHtmlRegistry(env, authorHtmlRegistry);
+  }
   const tokens = markdown.parse(transformedSource, env);
   bindMarkdownPlaceholderTokens(tokens, transformedSource, placeholders);
   attachMarkdownPlaceholderRegistry(env, placeholders);
@@ -199,6 +229,11 @@ export function renderMarkdownDocument(source: string): RenderResult {
       : null;
 
     if (token.type === "paragraph_open" && token.level === 0 && token.map) {
+      const containsAuthorHtml = containsMarkdownAuthorHtmlToken(
+        tokens[index + 1]?.type === "inline"
+          ? tokens[index + 1].children
+          : undefined,
+      );
       const metadataRange = originalRange ?? {
         startLine: token.map[0] + lineOffset,
         endLine: token.map[1] + lineOffset,
@@ -210,7 +245,7 @@ export function renderMarkdownDocument(source: string): RenderResult {
         endLine: metadataRange.endLine,
       };
       sourceTextBlocks.push(block);
-      if (originalRange) {
+      if (originalRange && !containsAuthorHtml) {
         const sourceSelectionBlockId = sourceSelectionBlockIdForRange(
           sourceSelectionBlocksByRange,
           originalRange,
@@ -231,9 +266,20 @@ export function renderMarkdownDocument(source: string): RenderResult {
     if (token.type === "heading_open") {
       const level = Number(token.tag.replace(/^h/, ""));
       const inline = tokens[index + 1];
-      const rawText = inline?.type === "inline" ? inline.content : "";
+      const containsAuthorHtml = containsMarkdownAuthorHtmlToken(
+        inline?.children,
+      );
+      const rawText =
+        inline?.type === "inline"
+          ? containsAuthorHtml && authorHtmlRegistry
+            ? authorHtmlRegistry.restoreMarkers(inline.content)
+            : inline.content
+          : "";
       const headingMetadata = headingInlineMetadata(inline?.children);
-      const id = slugifyHeading(rawText, usedHeadingIds);
+      const id = slugifyHeading(
+        containsAuthorHtml ? headingMetadata.text : rawText,
+        usedHeadingIds,
+      );
       token.attrSet("id", id);
       const sourceLocation = originalRange
         ? { line: originalRange.startLine + 1, column: 1 }
@@ -248,7 +294,7 @@ export function renderMarkdownDocument(source: string): RenderResult {
         ...(headingMetadata.inline ? { inline: headingMetadata.inline } : {}),
         ...(sourceLocation ? { sourceLocation } : {}),
       });
-      if (token.level === 0 && originalRange) {
+      if (token.level === 0 && originalRange && !containsAuthorHtml) {
         const sourceSelectionBlockId = sourceSelectionBlockIdForRange(
           sourceSelectionBlocksByRange,
           originalRange,
@@ -414,8 +460,10 @@ export function renderMarkdownDocument(source: string): RenderResult {
     htmlWriter,
   );
   placeholders.assertAllRendered();
+  authorHtmlRegistry?.assertAllConsumed();
   const html = htmlWriter.toString();
   const markdownRendererProvenance = provenance.records();
+  const markdownAuthorHtmlFragments = authorHtmlRegistry?.fragments() ?? [];
   recordPerf("markdown.htmlRender", htmlStartedAt, {
     bytes: htmlWriter.byteLength,
   });
@@ -440,6 +488,9 @@ export function renderMarkdownDocument(source: string): RenderResult {
     perf,
     ...(markdownRendererProvenance.length > 0
       ? { markdownRendererProvenance: [...markdownRendererProvenance] }
+      : {}),
+    ...(markdownAuthorHtmlFragments.length > 0
+      ? { markdownAuthorHtmlFragments: [...markdownAuthorHtmlFragments] }
       : {}),
     ...buildDiagramResults(markdownDiagramSlots),
   };

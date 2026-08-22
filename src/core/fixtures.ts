@@ -172,6 +172,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "markdown-safe-html.md",
+      path: "/workspace/docs/markdown-safe-html.md",
+      kind: "file",
+    },
+    {
       name: "git-modified.md",
       path: "/workspace/docs/git-modified.md",
       kind: "file",
@@ -551,6 +556,11 @@ export const fixtureEntries: DirectoryEntry[] = [
   {
     name: "markdown-details.md",
     path: "/workspace/docs/markdown-details.md",
+    kind: "file",
+  },
+  {
+    name: "markdown-safe-html.md",
+    path: "/workspace/docs/markdown-safe-html.md",
     kind: "file",
   },
   {
@@ -2475,6 +2485,33 @@ print("visible inside open details")
 
 <script>window.__SVARD_UNSAFE_DETAILS__ = true</script>
 </details>
+`,
+  "/workspace/docs/markdown-safe-html.md": `# Markdown Safe HTML Sample
+
+## Resource-free inline elements
+
+Keyboard <kbd>Command</kbd><br>notation H<sub>2</sub>O and x<sup>2</sup>.
+
+Review <mark>highlighted</mark>, <ins>inserted</ins>, <s>obsolete</s>, <del>removed</del>, and <small>supporting</small> text.
+
+The <abbr title="Application Programming Interface">API</abbr> label has a local title, and <ruby>漢<rt>かん</rt><rp>(</rp><rt>kan</rt><rp>)</rp></ruby> keeps its annotation.
+
+## Details integration
+
+<details open class="author-style">
+<summary>More <kbd>context</kbd></summary>
+
+The details body keeps <mark>safe inline markup</mark> without resource actions.
+
+</details>
+
+## Rejected author metadata
+
+<mark class="author-style">Attribute-free mark</mark>
+
+## Literal fallback
+
+<kbd>Unclosed fragment
 `,
   "/workspace/docs/markdown-diagrams.md": `# Markdown Diagram Sample
 

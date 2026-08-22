@@ -4,9 +4,11 @@ import {
   changedTableMarkers,
   compareRenderedTable,
   extractRenderedTablesFromHtml,
+  extractRenderedTablesFromRoot,
 } from "../../src/ui/lib/gitTableDiff";
 import type { GitDiffPreview } from "../../src/core/types";
 import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
+import { normalizeRenderResultHtml } from "../../src/ui/lib/renderResultHtml";
 
 describe("git table diff", () => {
   it("extracts rendered Markdown table matrices from HTML", () => {
@@ -34,6 +36,20 @@ describe("git table diff", () => {
     expect(rendered.html).toContain("data-source-renderer-id");
     expect(JSON.stringify(tables)).not.toContain("svard-renderer-");
     expect(tables[0]?.rows[1]).toEqual(["Boundary", "Safe"]);
+  });
+
+  it("keeps Safe HTML cell text without retaining author provenance", () => {
+    const source =
+      "| Shortcut | Status |\n| --- | --- |\n| <kbd>Ctrl</kbd> | <mark>Ready</mark> |";
+    const rendered = renderMarkdownCore(source);
+    const normalized = normalizeRenderResultHtml("markdown", source, rendered);
+    const tables = extractRenderedTablesFromRoot(normalized.body);
+
+    expect(tables[0]?.rows[1]).toEqual(["Ctrl", "Ready"]);
+    expect(JSON.stringify(tables)).not.toMatch(
+      /svard-markdown-author-html|data-svard-markdown-author-html-id|svard-author-/u,
+    );
+    expect(normalized.body.querySelector("[data-source-reference]")).toBeNull();
   });
 
   it("extracts rendered AsciiDoc table matrices from HTML", () => {

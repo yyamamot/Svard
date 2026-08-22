@@ -4,6 +4,7 @@ import type {
   DocumentPayload,
   RenderResult,
 } from "../../src/core/types";
+import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
 
 vi.mock("../../src/core/renderDocument", () => ({
   renderDocument: vi.fn(async (document: DocumentPayload) => ({
@@ -168,6 +169,40 @@ describe("link preview", () => {
       snippet: "Private identity is not state.",
     });
     expect(JSON.stringify(preview)).not.toContain("svard-renderer-");
+  });
+
+  it("keeps Safe HTML visible text without leaking author provenance into preview state", async () => {
+    const source = "# <kbd>Next</kbd>\n\nPreview <mark>visible</mark> text.";
+    vi.mocked(renderDocument).mockResolvedValueOnce(renderMarkdownCore(source));
+    const resolveDocumentLink = vi.fn(async () =>
+      resolved("/workspace/docs/next.md"),
+    );
+    const loadDocument = vi.fn(async () =>
+      markdownDocument("/workspace/docs/next.md", source),
+    );
+
+    const preview = await buildLinkPreview({
+      href: "./next.md",
+      currentDocument,
+      renderResult: currentRenderResult,
+      article: articleFrom('<h1 id="current">Current</h1>'),
+      x: 10,
+      y: 20,
+      resolveDocumentLink,
+      loadDocument,
+    });
+
+    expect(preview).toMatchObject({
+      status: "ready",
+      title: "Next",
+      heading: "Next",
+      snippet: "Preview visible text.",
+    });
+    expect(resolveDocumentLink).toHaveBeenCalledTimes(1);
+    expect(loadDocument).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(preview)).not.toMatch(
+      /svard-markdown-author-html|data-svard-markdown-author-html-id|svard-author-/u,
+    );
   });
 
   it("matches a formatted Markdown heading by its raw source text", async () => {

@@ -1,6 +1,10 @@
 import type Token from "markdown-it/lib/token.mjs";
 
 import { markdown } from "./markdownIt";
+import {
+  attachMarkdownAuthorHtmlRegistry,
+  type MarkdownAuthorHtmlRegistry,
+} from "./authorHtmlRuntime";
 import { renderMarkdownTokensToWriter, Utf8ChunkWriter } from "./placeholders";
 
 const githubAlertPattern =
@@ -261,8 +265,12 @@ export function renderMarkdownFragmentHtml(
 export function renderMarkdownInlineToWriter(
   source: string,
   writer: Utf8ChunkWriter,
+  authorHtmlRegistry?: MarkdownAuthorHtmlRegistry,
 ): void {
   const env = {};
+  if (authorHtmlRegistry) {
+    attachMarkdownAuthorHtmlRegistry(env, authorHtmlRegistry);
+  }
   const tokens = markdown.parseInline(source, env);
   renderMarkdownTokensToWriter(
     tokens,
@@ -276,13 +284,19 @@ export function renderMarkdownInlineToWriter(
 export function renderMarkdownFragmentToWriter(
   source: string,
   writer: Utf8ChunkWriter,
-  options: { images?: "render" | "altText" } = {},
+  options: {
+    images?: "render" | "altText";
+    authorHtmlRegistry?: MarkdownAuthorHtmlRegistry;
+  } = {},
 ): void {
   if (!source.trim()) {
     return;
   }
 
   const env = {};
+  if (options.authorHtmlRegistry) {
+    attachMarkdownAuthorHtmlRegistry(env, options.authorHtmlRegistry);
+  }
   const tokens = markdown.parse(transformSimpleAdmonitions(source), env);
   enhanceGithubAlerts(tokens);
   enhanceTaskLists(tokens);

@@ -9,6 +9,61 @@ import {
 } from "./helpers/documentHtml";
 
 describe("prepareDocumentHtml", () => {
+  it("keeps heading collapse while omitting source actions for passed author HTML", async () => {
+    const source = "# Use <kbd>Ctrl</kbd> safely";
+    const result = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      result.html,
+      {
+        ...documentPayload,
+        path: "/workspace/docs/example.md",
+        format: "markdown",
+        source,
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const heading = doc.querySelector("h1");
+
+    expect(heading?.querySelector("kbd")?.textContent).toBe("Ctrl");
+    expect(
+      heading?.querySelector("[data-section-collapse-toggle]"),
+    ).not.toBeNull();
+    expect(heading?.hasAttribute("data-source-reference")).toBe(false);
+    expect(heading?.hasAttribute("data-source-selection-block-id")).toBe(false);
+    expect(
+      doc.querySelector("[data-svard-markdown-author-html-id]"),
+    ).toBeNull();
+  });
+
+  it("omits source selection actions from list and table ancestors containing passed author HTML", async () => {
+    const source = `- Press <kbd>Ctrl</kbd>
+
+| Key | Meaning |
+| --- | --- |
+| <mark>Ctrl</mark> | Control |`;
+    const result = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      result.html,
+      { ...documentPayload, format: "markdown", source },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("ul kbd")?.textContent).toBe("Ctrl");
+    expect(doc.querySelector("table mark")?.textContent).toBe("Ctrl");
+    expect(
+      doc.querySelector("ul")?.hasAttribute("data-source-selection-block-id"),
+    ).toBe(false);
+    expect(
+      doc
+        .querySelector("table")
+        ?.hasAttribute("data-source-selection-block-id"),
+    ).toBe(false);
+  });
+
   it("attaches source references to headings and source blocks", async () => {
     const html = await prepareDocumentHtml(
       '<h2 id="overview">Overview</h2><pre>const product = "Svard";</pre>',

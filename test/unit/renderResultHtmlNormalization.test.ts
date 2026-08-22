@@ -47,11 +47,13 @@ describe("normalizeRenderResultHtml", () => {
 
     expect(result.authorHtml).toEqual({
       status: "invoked",
-      escapedCount: 2,
+      passedCount: 1,
+      escapedCount: 1,
       rejectedCount: 0,
     });
-    expect(result.body.textContent).toBe(`${inline}${block}`);
-    expect(result.body.querySelector("kbd,section")).toBeNull();
+    expect(result.body.textContent).toBe(`😀${block}`);
+    expect(result.body.querySelector("kbd")?.textContent).toBe("😀");
+    expect(result.body.querySelector("section")).toBeNull();
     expect(result.body.innerHTML).not.toContain("svard-markdown-author-html");
   });
 
@@ -154,6 +156,7 @@ describe("normalizeRenderResultHtml", () => {
 
     expect(result.authorHtml).toEqual({
       status: "invoked",
+      passedCount: 0,
       escapedCount: 0,
       rejectedCount: 2,
     });
@@ -167,6 +170,7 @@ describe("normalizeRenderResultHtml", () => {
 
     expect(result.authorHtml).toEqual({
       status: "invoked",
+      passedCount: 0,
       escapedCount: 0,
       rejectedCount: 1,
     });

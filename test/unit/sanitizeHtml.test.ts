@@ -45,6 +45,39 @@ describe("sanitizeHtml", () => {
     ).not.toContain("data-source-renderer-id");
   });
 
+  it("never retains private Markdown author identities in sanitizer consumers", () => {
+    const input =
+      '<kbd data-svard-markdown-author-html-id="private">Ctrl</kbd><svard-markdown-author-html-inline data-svard-markdown-author-html-id="private">fallback</svard-markdown-author-html-inline>';
+    const body = new DOMParser().parseFromString(input, "text/html").body;
+
+    expect(sanitizeDocumentHtml(input)).not.toContain(
+      "data-svard-markdown-author-html-id",
+    );
+    expect(sanitizeDocumentBodyInPlace(body)).not.toContain(
+      "data-svard-markdown-author-html-id",
+    );
+    expect(sanitizeRenderedBlockHtml(input)).not.toContain(
+      "data-svard-markdown-author-html-id",
+    );
+  });
+
+  it("preserves the resource-free Markdown author element set", () => {
+    const html = sanitizeDocumentHtml(
+      '<kbd>Ctrl</kbd><sub>2</sub><sup>3</sup><mark>mark</mark><ins>ins</ins><s>s</s><del>del</del><small>small</small><abbr title="Application programming interface">API</abbr><ruby>漢<rp>(</rp><rt>kan</rt><rp>)</rp></ruby><br>',
+      { format: "markdown" },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(
+      doc.body.querySelectorAll(
+        "kbd,sub,sup,mark,ins,s,del,small,abbr,ruby,rt,rp,br",
+      ),
+    ).toHaveLength(14);
+    expect(doc.querySelector("abbr")?.getAttribute("title")).toBe(
+      "Application programming interface",
+    );
+  });
+
   it("preserves AsciiDoc structural table and admonition markup", () => {
     const html = sanitizeDocumentHtml(
       '<div class="admonitionblock warning"><table><tr><td class="icon"><i class="fa icon-warning" title="Warning"></i></td><td class="content">Be careful</td></tr></table></div><table class="tableblock frame-all grid-all stretch"><caption class="title">Table 1. Feature Matrix</caption><colgroup><col style="width: 30%"><col width="70%"></colgroup><tbody><tr><td class="tableblock halign-left valign-top" rowspan="2" width="30%" valign="top"><p class="tableblock">Group</p></td><td class="tableblock halign-center valign-middle" colspan="2" align="center"><p class="tableblock">Cell</p></td></tr></tbody></table>',

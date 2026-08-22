@@ -9,6 +9,11 @@ import {
   renderMarkdownPlaceholderToken,
 } from "./placeholders";
 import {
+  markdownAuthorHtmlTokenType,
+  parseMarkdownAuthorHtmlInlineToken,
+  renderMarkdownAuthorHtmlToken,
+} from "./authorHtmlRuntime";
+import {
   MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE,
   MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR,
 } from "./rendererProvenance";
@@ -51,6 +56,11 @@ export const markdown = new MarkdownIt({
 markdown.use(markdownItFootnote);
 registerMathRules(markdown);
 registerWikilinkRule(markdown);
+markdown.inline.ruler.before(
+  "text",
+  markdownAuthorHtmlTokenType,
+  parseMarkdownAuthorHtmlInlineToken,
+);
 
 const defaultFenceRenderer = markdown.renderer.rules.fence;
 markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
@@ -95,3 +105,5 @@ markdown.renderer.rules.footnote_anchor = (tokens, index) => {
 markdown.renderer.rules.diagram_slot = (tokens, index) => tokens[index].content;
 markdown.renderer.rules[markdownPlaceholderTokenType] =
   renderMarkdownPlaceholderToken;
+markdown.renderer.rules[markdownAuthorHtmlTokenType] =
+  renderMarkdownAuthorHtmlToken;

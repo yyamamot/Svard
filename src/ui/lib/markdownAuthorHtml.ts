@@ -1,21 +1,51 @@
+import {
+  parseMarkdownAuthorHtmlFragment,
+  type MarkdownAuthorHtmlNode,
+} from "../../core/markdown/authorHtml";
 import type { MarkdownAuthorHtmlFragment } from "../../core/types";
 
 const INLINE_MARKER_NAME = "svard-markdown-author-html-inline";
 const BLOCK_MARKER_NAME = "svard-markdown-author-html-block";
 const IDENTITY_ATTRIBUTE_NAME = "data-svard-markdown-author-html-id";
+const RENDERER_IDENTITY_ATTRIBUTE_NAME = "data-source-renderer-id";
 const MARKER_SELECTOR = `${INLINE_MARKER_NAME},${BLOCK_MARKER_NAME},[${IDENTITY_ATTRIBUTE_NAME}]`;
 const MARKER_MARKUP_PATTERN =
   /<\s*svard-markdown-author-html-(?:inline|block)\b|data-svard-markdown-author-html-id\b/iu;
 const TEXT_NODE_TYPE = 3;
+const SAFE_ELEMENT_NAMES = new Set([
+  "abbr",
+  "br",
+  "del",
+  "ins",
+  "kbd",
+  "mark",
+  "rp",
+  "rt",
+  "ruby",
+  "s",
+  "small",
+  "sub",
+  "sup",
+]);
 
 interface MatchedMarker {
   marker: Element;
   fragment: MarkdownAuthorHtmlFragment;
 }
 
+interface PreparedMarker extends MatchedMarker {
+  replacement: DocumentFragment | Text;
+  outcome: "pass" | "escape";
+}
+
 export interface MarkdownAuthorHtmlNormalizationCounts {
+  passedCount: number;
   escapedCount: number;
   rejectedCount: number;
+}
+
+export interface MarkdownAuthorHtmlNormalizationResult extends MarkdownAuthorHtmlNormalizationCounts {
+  sourceActionExcludedElements: Set<Element>;
 }
 
 function markerMatchesKind(
@@ -29,10 +59,7 @@ function markerMatchesKind(
 }
 
 function splitsSurrogatePair(source: string, offset: number): boolean {
-  if (offset <= 0 || offset >= source.length) {
-    return false;
-  }
-
+  if (offset <= 0 || offset >= source.length) return false;
   const previous = source.charCodeAt(offset - 1);
   const current = source.charCodeAt(offset);
   return (
@@ -48,10 +75,7 @@ function hasValidSourceSpan(
   source: string,
 ): boolean {
   const sourceSpan = fragment.sourceSpan;
-  if (!sourceSpan) {
-    return false;
-  }
-
+  if (!sourceSpan) return false;
   const { startOffset, endOffset } = sourceSpan;
   return (
     Number.isInteger(startOffset) &&
@@ -77,6 +101,47 @@ function flattenMarker(marker: Element): void {
   );
 }
 
+function appendSafeNodes(
+  document: Document,
+  parent: DocumentFragment | Element,
+  nodes: readonly MarkdownAuthorHtmlNode[],
+): boolean {
+  for (const node of nodes) {
+    if (node.type === "text") {
+      parent.append(document.createTextNode(node.value));
+      continue;
+    }
+    if (!SAFE_ELEMENT_NAMES.has(node.tagName)) return false;
+    const attributeEntries = Object.entries(node.attributes);
+    if (
+      attributeEntries.some(
+        ([name]) => name !== "title" || node.tagName !== "abbr",
+      )
+    ) {
+      return false;
+    }
+    const element = document.createElement(node.tagName);
+    for (const [name, value] of attributeEntries) {
+      element.setAttribute(name, value);
+    }
+    if (!appendSafeNodes(document, element, node.children)) return false;
+    parent.append(element);
+  }
+  return true;
+}
+
+function rejectedResult(
+  markers: readonly Element[],
+): MarkdownAuthorHtmlNormalizationResult {
+  for (const marker of markers) flattenMarker(marker);
+  return {
+    passedCount: 0,
+    escapedCount: 0,
+    rejectedCount: markers.length,
+    sourceActionExcludedElements: new Set<Element>(),
+  };
+}
+
 export function containsMarkdownAuthorHtmlMarkerMarkup(html: string): boolean {
   return MARKER_MARKUP_PATTERN.test(html);
 }
@@ -85,26 +150,27 @@ export function normalizeMarkdownAuthorHtmlInPlace(
   body: HTMLElement,
   source: string,
   fragments: readonly MarkdownAuthorHtmlFragment[],
-): MarkdownAuthorHtmlNormalizationCounts {
+): MarkdownAuthorHtmlNormalizationResult {
   const markers = Array.from(body.querySelectorAll(MARKER_SELECTOR));
   if (markers.length === 0) {
-    return { escapedCount: 0, rejectedCount: 0 };
+    return {
+      passedCount: 0,
+      escapedCount: 0,
+      rejectedCount: 0,
+      sourceActionExcludedElements: new Set<Element>(),
+    };
   }
 
   const markerIdCounts = new Map<string, number>();
   for (const marker of markers) {
     const id = marker.getAttribute(IDENTITY_ATTRIBUTE_NAME);
-    if (id !== null) {
-      markerIdCounts.set(id, (markerIdCounts.get(id) ?? 0) + 1);
-    }
+    if (id !== null) markerIdCounts.set(id, (markerIdCounts.get(id) ?? 0) + 1);
   }
 
   const fragmentIdCounts = new Map<string, number>();
   const fragmentsById = new Map<string, MarkdownAuthorHtmlFragment>();
   for (const fragment of fragments) {
-    if (typeof fragment?.id !== "string") {
-      continue;
-    }
+    if (typeof fragment?.id !== "string") continue;
     fragmentIdCounts.set(
       fragment.id,
       (fragmentIdCounts.get(fragment.id) ?? 0) + 1,
@@ -113,72 +179,84 @@ export function normalizeMarkdownAuthorHtmlInPlace(
   }
 
   const matched: MatchedMarker[] = [];
-  const invalidMarkers = new Set<Element>();
-
   for (const marker of markers) {
     const id = marker.getAttribute(IDENTITY_ATTRIBUTE_NAME);
     const fragment = id === null ? undefined : fragmentsById.get(id);
-    const hasOneToOneId =
-      id !== null &&
-      id.length > 0 &&
-      markerIdCounts.get(id) === 1 &&
-      fragmentIdCounts.get(id) === 1;
-    const hasExpectedShape =
-      marker.attributes.length === 1 &&
-      marker.hasAttribute(IDENTITY_ATTRIBUTE_NAME) &&
-      hasSingleTextChild(marker);
-    const hasExpectedKind =
-      fragment !== undefined && markerMatchesKind(marker, fragment.kind);
-
     if (
       !fragment ||
-      !hasOneToOneId ||
-      !hasExpectedShape ||
-      !hasExpectedKind ||
+      id === null ||
+      id.length === 0 ||
+      markerIdCounts.get(id) !== 1 ||
+      fragmentIdCounts.get(id) !== 1 ||
+      marker.attributes.length !== 1 ||
+      !marker.hasAttribute(IDENTITY_ATTRIBUTE_NAME) ||
+      !hasSingleTextChild(marker) ||
+      !markerMatchesKind(marker, fragment.kind) ||
       !hasValidSourceSpan(fragment, source)
     ) {
-      invalidMarkers.add(marker);
-      continue;
+      return rejectedResult(markers);
     }
-
     matched.push({ marker, fragment });
   }
 
   let previousEndOffset = -1;
-  let sourceOrderIsValid = true;
   for (const { fragment } of matched) {
     if (fragment.sourceSpan.startOffset < previousEndOffset) {
-      sourceOrderIsValid = false;
-      break;
+      return rejectedResult(markers);
     }
     previousEndOffset = fragment.sourceSpan.endOffset;
   }
 
-  if (!sourceOrderIsValid) {
-    for (const { marker } of matched) {
-      invalidMarkers.add(marker);
-    }
-  }
-
-  const matchedByMarker = new Map(
-    matched.map(({ marker, fragment }) => [marker, fragment]),
-  );
-  let escapedCount = 0;
-  let rejectedCount = 0;
-  for (const marker of markers) {
-    const fragment = matchedByMarker.get(marker);
-    if (!fragment || invalidMarkers.has(marker)) {
-      flattenMarker(marker);
-      rejectedCount += 1;
+  const prepared: PreparedMarker[] = [];
+  for (const match of matched) {
+    const { startOffset, endOffset } = match.fragment.sourceSpan;
+    const fragmentSource = source.slice(startOffset, endOffset);
+    const parsed = parseMarkdownAuthorHtmlFragment(fragmentSource);
+    if (parsed.status !== "pass" || match.fragment.kind !== "inline") {
+      prepared.push({
+        ...match,
+        replacement: match.marker.ownerDocument.createTextNode(fragmentSource),
+        outcome: "escape",
+      });
       continue;
     }
-
-    const { startOffset, endOffset } = fragment.sourceSpan;
-    marker.replaceWith(
-      marker.ownerDocument.createTextNode(source.slice(startOffset, endOffset)),
-    );
-    escapedCount += 1;
+    const replacement = match.marker.ownerDocument.createDocumentFragment();
+    if (
+      !appendSafeNodes(match.marker.ownerDocument, replacement, parsed.nodes)
+    ) {
+      return rejectedResult(markers);
+    }
+    prepared.push({ ...match, replacement, outcome: "pass" });
   }
 
-  return { escapedCount, rejectedCount };
+  const sourceActionExcludedElements = new Set<Element>();
+  let passedCount = 0;
+  let escapedCount = 0;
+  for (const item of prepared) {
+    if (item.outcome === "pass") {
+      passedCount += 1;
+      for (
+        let ancestor = item.marker.parentElement;
+        ancestor && ancestor !== body;
+        ancestor = ancestor.parentElement
+      ) {
+        if (
+          ancestor.hasAttribute(RENDERER_IDENTITY_ATTRIBUTE_NAME) ||
+          ancestor.matches("h1,h2,h3,h4,h5,h6,p,ul,ol,table,pre")
+        ) {
+          sourceActionExcludedElements.add(ancestor);
+        }
+      }
+    } else {
+      escapedCount += 1;
+    }
+    item.marker.replaceWith(item.replacement);
+  }
+
+  return {
+    passedCount,
+    escapedCount,
+    rejectedCount: 0,
+    sourceActionExcludedElements,
+  };
 }
