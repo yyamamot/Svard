@@ -325,6 +325,24 @@ export async function buildGitDiffSourceControlAssertions(context) {
             );
           })
         : true,
+    hasAllDiffsFailClosedDocumentLinks:
+      scenario === "viewer-all-diffs"
+        ? await page.evaluate(() => {
+            const sample = window.__SVARD_ALL_DIFFS_LINK_BOUNDARY_CHECK__;
+            return (
+              sample?.blockedPrevented === true &&
+              sample?.externalConfirmationCancelled === true &&
+              sample?.hostOpenCountUnchanged === true &&
+              sample?.fragmentPrevented === true &&
+              sample?.fragmentScoped === true &&
+              sample?.middlePrevented === true &&
+              sample?.modifierPrevented === true &&
+              sample?.navigationUnchanged === true &&
+              sample?.requestCountUnchanged === true &&
+              sample?.popupCountUnchanged === true
+            );
+          })
+        : true,
     hasSourceControlAllDiffsSelection:
       scenario === "viewer-source-control-all-diffs-selection"
         ? await page.evaluate(() => {

@@ -135,6 +135,7 @@ describe("ViewerPane post-diff git markers", () => {
         searchHits={[]}
         searchIndex={0}
         onArticleClick={noop}
+        onArticleLinkCapture={noop}
         onArticleContextMenu={noop}
         onArticleDoubleClick={noop}
         onArticleBlur={noop}

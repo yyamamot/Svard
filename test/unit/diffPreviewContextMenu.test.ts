@@ -6,6 +6,7 @@ import {
   diffPreviewDocumentPath,
   openDiffLinkElement,
 } from "../../src/ui/components/gitDiffPreview/contextMenu";
+import { diffContextForTarget } from "../../src/ui/components/gitDiffPreview/diffContext";
 import type { DiagramPreviewState } from "../../src/ui/types";
 
 const basePreview: DocumentDiffPreview = {
@@ -18,6 +19,20 @@ const basePreview: DocumentDiffPreview = {
   rightLabel: "Working Tree",
   hunks: [],
 };
+
+describe("diff pane identity boundary", () => {
+  it("ignores author-like pane classes and uses the app-owned pane identity", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `<div class="git-rendered-pane" data-review-id="diff-stream-left-pane"><div class="git-rendered-pane" data-review-id="git-rendered-right-pane"><a href="#inside">Link</a></div></div>`;
+    const link = root.querySelector("a")!;
+
+    expect(diffContextForTarget(link)).toMatchObject({
+      side: "left",
+      surface: "rendered",
+      container: root.firstElementChild,
+    });
+  });
+});
 
 function menuLabelsFor(
   html: string,
@@ -797,5 +812,62 @@ describe("diff preview context menu", () => {
       "https://example.test/docs",
     );
     expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+
+  it("keeps fragment navigation inside the rendered pane", async () => {
+    const outside = document.createElement("h2");
+    outside.id = "usage";
+    const pane = document.createElement("div");
+    pane.className = "git-rendered-pane";
+    pane.innerHTML = '<a href="#usage">Usage</a><h2 id="usage">Inside</h2>';
+    document.body.append(outside, pane);
+    const inside = pane.querySelector("h2")!;
+    const outsideScroll = vi.fn();
+    const insideScroll = vi.fn();
+    outside.scrollIntoView = outsideScroll;
+    inside.scrollIntoView = insideScroll;
+
+    try {
+      await openDiffLinkElement({
+        link: pane.querySelector("a")!,
+        documentPath: "/workspace/docs/guide.md",
+        fragmentRoot: pane,
+        confirmExternalLink: vi.fn(),
+        openDocument: vi.fn(),
+        openExternalUrl: vi.fn(),
+        resolveDocumentLink: vi.fn(),
+        showInlineNotice: vi.fn(),
+      });
+
+      expect(insideScroll).toHaveBeenCalledOnce();
+      expect(outsideScroll).not.toHaveBeenCalled();
+    } finally {
+      outside.remove();
+      pane.remove();
+    }
+  });
+
+  it("does not invoke diff actions for unsupported schemes", async () => {
+    const link = document.createElement("a");
+    link.setAttribute("href", "mailto:user@example.test");
+    const confirmExternalLink = vi.fn();
+    const openExternalUrl = vi.fn();
+    const openDocument = vi.fn();
+    const resolveDocumentLink = vi.fn();
+
+    await openDiffLinkElement({
+      link,
+      documentPath: "/workspace/docs/guide.md",
+      confirmExternalLink,
+      openDocument,
+      openExternalUrl,
+      resolveDocumentLink,
+      showInlineNotice: vi.fn(),
+    });
+
+    expect(confirmExternalLink).not.toHaveBeenCalled();
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    expect(resolveDocumentLink).not.toHaveBeenCalled();
+    expect(openDocument).not.toHaveBeenCalled();
   });
 });

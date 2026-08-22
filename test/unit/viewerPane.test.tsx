@@ -146,6 +146,7 @@ describe("ViewerPane", () => {
         searchHits={searchHits}
         searchIndex={searchIndex}
         onArticleClick={noop}
+        onArticleLinkCapture={noop}
         onArticleContextMenu={noop}
         onArticleDoubleClick={noop}
         onArticleBlur={noop}

@@ -9,14 +9,18 @@ import type {
   SourceSelectionBlock,
   SourceTextBlock,
 } from "../../core/types";
-import { isSupportedDocumentPath } from "../../core/documentFormat";
 import { highlightCodeContent } from "../../core/markdown/highlight";
 import { resolveLocalImageSource } from "./localImage";
 import {
   renderAsciiDocStemMath,
   renderMarkdownMath,
 } from "./documentHtml/mathPostProcess";
-import { isExternalUrl, splitPathAndHash } from "./path";
+import { isExternalUrl } from "./path";
+import {
+  canonicalDocumentLinkHref,
+  classifyDocumentLinkHref,
+  relativeResolvedDocumentHref,
+} from "./documentLinkNavigation";
 import { perfBasename, perfDuration, perfNow, tracePerf } from "./perfTrace";
 import {
   MARKDOWN_RENDERER_ID_ATTRIBUTE,
@@ -219,10 +223,6 @@ function clearMarkdownSourceActionsInPlace(body: HTMLElement): void {
 
 function encodeLocalSvgImage(svg: string): string {
   return encodeURIComponent(svg.replaceAll("&nbsp;", "&#160;"));
-}
-
-function isUnsafeLinkHref(href: string): boolean {
-  return /^\s*(?:javascript|vbscript|data):/i.test(href);
 }
 
 function markdownHasMathPlaceholders(doc: Document): boolean {
@@ -958,29 +958,30 @@ export async function prepareDocumentHtml(
   });
 
   const linksStartedAt = perfNow();
-  const shouldProcessLinks =
-    Boolean(options.resolveDocumentLink) && htmlMayContainElement(html, "a");
+  const shouldProcessLinks = htmlMayContainElement(html, "a");
   const links = shouldProcessLinks
     ? Array.from(doc.querySelectorAll("a[href]"))
     : [];
   if (shouldProcessLinks) {
     for (const link of links) {
+      link.removeAttribute("target");
+      link.removeAttribute("download");
+      link.removeAttribute("ping");
+      link.removeAttribute("referrerpolicy");
       const href = link.getAttribute("href");
       if (!href) {
         continue;
       }
-      if (isUnsafeLinkHref(href)) {
-        link.removeAttribute("href");
-        continue;
-      }
-      if (href.startsWith("#") || isExternalUrl(href)) {
-        continue;
-      }
-      if (!options.resolveDocumentLink) {
-        continue;
-      }
       const wikilinkTarget = link.getAttribute("data-wikilink-target");
       if (wikilinkTarget !== null) {
+        if (!options.resolveDocumentLink) {
+          link.replaceWith(
+            doc.createTextNode(
+              link.getAttribute("data-wikilink-raw") ?? link.textContent ?? "",
+            ),
+          );
+          continue;
+        }
         const resolved = await options.resolveDocumentLink(
           href,
           document.path,
@@ -999,31 +1000,47 @@ export async function prepareDocumentHtml(
           );
           continue;
         }
-        link.setAttribute(
-          "href",
-          resolved.hash ? `${resolved.path}#${resolved.hash}` : resolved.path,
+        const navigationHref = relativeResolvedDocumentHref(
+          document.path,
+          resolved.path,
+          resolved.hash,
         );
+        if (!navigationHref) {
+          link.replaceWith(
+            doc.createTextNode(
+              link.getAttribute("data-wikilink-raw") ?? link.textContent ?? "",
+            ),
+          );
+          continue;
+        }
+        link.setAttribute("href", navigationHref);
         link.removeAttribute("data-wikilink-target");
         link.removeAttribute("data-wikilink-label");
         link.removeAttribute("data-wikilink-raw");
         continue;
       }
-      const { path } = splitPathAndHash(href);
-      if (!isSupportedDocumentPath(path)) {
+      const intent = classifyDocumentLinkHref(href);
+      if (intent.kind === "blocked") {
+        link.removeAttribute("href");
         continue;
       }
-      const resolved = await options.resolveDocumentLink(href, document.path);
+      if (intent.kind === "fragment" || intent.kind === "external") {
+        link.setAttribute("href", canonicalDocumentLinkHref(intent));
+        continue;
+      }
+      if (!options.resolveDocumentLink) {
+        link.removeAttribute("href");
+        continue;
+      }
+      const resolved = await options.resolveDocumentLink(
+        intent.href,
+        document.path,
+      );
       if (resolved.status !== "resolved" || !resolved.path) {
         link.removeAttribute("href");
-        if (resolved.message) {
-          link.setAttribute("title", resolved.message);
-        }
         continue;
       }
-      link.setAttribute(
-        "href",
-        resolved.hash ? `${resolved.path}#${resolved.hash}` : resolved.path,
-      );
+      link.setAttribute("href", canonicalDocumentLinkHref(intent));
     }
   }
   tracePerf("render.prepareDocumentHtml.links", {

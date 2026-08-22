@@ -158,6 +158,7 @@ export async function buildCoreAssertions(context) {
         : true,
     hasKrokiDiagnostic: true,
     hasDirectoryOpen:
+      scenario === "viewer-all-diffs" ||
       scenario === "viewer-many-tabs-horizontal" ||
       scenario === "viewer-command-automation" ||
       scenario === "viewer-context-menu-navigation" ||

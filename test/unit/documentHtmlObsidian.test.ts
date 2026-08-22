@@ -43,13 +43,10 @@ describe("prepareDocumentHtml Obsidian wikilinks", () => {
     const links = Array.from(doc.querySelectorAll("a"));
 
     expect(links[0]?.textContent).toBe("the guide");
-    expect(links[0]?.getAttribute("href")).toBe(
-      "/workspace/obsidian-vault/Guide.md",
-    );
-    expect(links[1]?.getAttribute("href")).toBe(
-      "/workspace/obsidian-vault/Guide.md#Intro",
-    );
+    expect(links[0]?.getAttribute("href")).toBe("./Guide.md");
+    expect(links[1]?.getAttribute("href")).toBe("./Guide.md#Intro");
     expect(links[0]?.hasAttribute("data-wikilink-target")).toBe(false);
+    expect(doc.body.innerHTML).not.toContain("/workspace/obsidian-vault");
   });
 
   it("leaves Obsidian wikilinks as plain text when the vault resolver blocks them", async () => {

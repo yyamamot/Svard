@@ -1,7 +1,9 @@
-import { isExternalUrl, splitPathAndHash } from "../../lib/path";
 import { expandCollapsedSectionsContaining } from "../../lib/sectionCollapse";
+import {
+  activateDocumentLinkIntent,
+  classifyDocumentLinkHref,
+} from "../../lib/documentLinkNavigation";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
-import { isSupportedDocumentHref } from "./shared";
 
 export function createNavigationActions({
   activeHeadingId,
@@ -87,55 +89,21 @@ export function createNavigationActions({
   }
 
   async function openLinkElement(link: HTMLAnchorElement) {
-    const href = link.getAttribute("href") ?? "";
-    if (!href) {
-      return;
-    }
-
-    if (href.startsWith("#")) {
-      navigateToHeading(decodeURIComponent(href.slice(1)));
-      return;
-    }
-
-    if (isExternalUrl(href)) {
-      if (await confirmExternalLink(href)) {
-        try {
-          await openExternalUrl(href);
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "External link open failed";
-          showInlineNotice(message, { tone: "error" });
-        }
-      }
-      return;
-    }
-
-    if (isSupportedDocumentHref(href)) {
-      const target = splitPathAndHash(href);
-      const resolved = documentPayload
-        ? await resolveDocumentLink(href, documentPayload.path)
-        : {
-            status: "resolved" as const,
-            path: target.path,
-            hash: target.hash,
-          };
-      if (resolved.status !== "resolved" || !resolved.path) {
-        showInlineNotice(resolved.message ?? "Document link is not available", {
-          tone: "warning",
-        });
-        return;
-      }
-      await openDocument(resolved.path);
-      const hash = resolved.hash ?? target.hash;
-      if (hash) {
-        window.setTimeout(
-          () => navigateToHeading(hash, { recordNavigation: false }),
-          50,
-        );
-      }
-    }
+    await activateDocumentLinkIntent(
+      classifyDocumentLinkHref(link.getAttribute("href") ?? ""),
+      {
+        documentPath: documentPayload?.path ?? null,
+        confirmExternalLink,
+        openDocument,
+        openExternalUrl,
+        resolveDocumentLink,
+        navigateFragment: (fragment, context) =>
+          navigateToHeading(fragment, {
+            recordNavigation: !context.afterDocumentOpen,
+          }),
+        showInlineNotice,
+      },
+    );
   }
 
   async function openFocusedLink() {

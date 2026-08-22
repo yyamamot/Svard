@@ -9,7 +9,10 @@ import {
   shouldPreviewLinkHref,
   type LinkPreviewState,
 } from "../lib/linkPreview";
-import { createArticleClickHandler } from "./documentLinks/articleClick";
+import {
+  createArticleClickHandler,
+  createArticleLinkCaptureHandler,
+} from "./documentLinks/articleClick";
 import { createArticleContextMenuHandler } from "./documentLinks/contextMenu";
 import { createDiagramActions } from "./documentLinks/diagramActions";
 import { createNavigationActions } from "./documentLinks/navigation";
@@ -187,8 +190,10 @@ export function useDocumentLinks({
     onOpenPreferences,
     onSelectDiagram,
     onTryKrokiFallback,
-    openLinkElement,
     copyText,
+  });
+  const handleArticleLinkCapture = createArticleLinkCaptureHandler({
+    openLinkElement,
   });
   const handleArticleDoubleClick = createArticleDoubleClickHandler({
     openDiagramPreview,
@@ -334,6 +339,7 @@ export function useDocumentLinks({
     copyCaptureArea,
     handleArticleContextMenu,
     handleArticleClick,
+    handleArticleLinkCapture,
     handleArticleDoubleClick,
     handleArticleBlur,
     handleArticleFocus,

@@ -6,7 +6,7 @@ import {
   locationReferenceForSelection,
   locationReferenceTargetLabel,
 } from "../../lib/locationReference";
-import { isExternalUrl } from "../../lib/path";
+import { classifyDocumentLinkHref } from "../../lib/documentLinkNavigation";
 import {
   copyImageToClipboard,
   copyImageWithReferenceToClipboard,
@@ -444,7 +444,12 @@ function addRenderedSurfaceItems(
   }
   const linkHref =
     target.closest<HTMLAnchorElement>("a[href]")?.getAttribute("href") ?? "";
-  if (!linkHref || documentPayload || isExternalUrl(linkHref)) {
+  const linkIntent = classifyDocumentLinkHref(linkHref);
+  if (
+    !linkHref ||
+    (linkIntent.kind !== "blocked" &&
+      (documentPayload || linkIntent.kind === "external"))
+  ) {
     addLinkItems(items, target, {
       copyText,
       documentPayload,

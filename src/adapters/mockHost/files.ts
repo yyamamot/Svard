@@ -750,6 +750,11 @@ export async function openExternalUrl(url: string): Promise<void> {
   if (!isSafeExternalUrlToOpen(url)) {
     throw new Error("Unsafe external URL blocked");
   }
+  const target = window as Window & {
+    __SVARD_EXTERNAL_URL_OPEN_COUNT__?: number;
+  };
+  target.__SVARD_EXTERNAL_URL_OPEN_COUNT__ =
+    (target.__SVARD_EXTERNAL_URL_OPEN_COUNT__ ?? 0) + 1;
   window.open(url, "_blank", "noopener,noreferrer");
 }
 

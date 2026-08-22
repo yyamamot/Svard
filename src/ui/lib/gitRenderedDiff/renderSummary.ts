@@ -24,6 +24,7 @@ import type {
 import { applyInlineDiagramsToHtml } from "../diagramHtml";
 import { prepareDocumentHtml } from "../documentHtml";
 import { normalizeRenderResultHtml } from "../renderResultHtml";
+import { deactivateUnresolvedDocumentLinksInPlace } from "../documentLinkNavigation";
 import {
   perfDuration,
   perfNow,
@@ -330,6 +331,7 @@ async function renderBlocksFromSource(
   if (!documentPath) {
     return measureBlockParsePhase(phaseMetrics, () => {
       const { body } = normalizeRenderResultHtml(format, source, result);
+      deactivateUnresolvedDocumentLinksInPlace(body);
       return extractRenderedBlocksFromRoot(body, {
         diagramSignatures: diagramMetadata.signatures,
         diagramSources: diagramMetadata.sources,

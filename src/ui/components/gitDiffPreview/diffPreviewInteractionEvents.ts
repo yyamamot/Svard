@@ -3,11 +3,8 @@ import type {
   DocumentDiffPreview,
   DocumentLinkResolution,
 } from "../../../core/types";
-import {
-  documentSelectionAtPoint,
-  isSupportedDocumentHref,
-} from "../../hooks/documentLinks/shared";
-import { isExternalUrl } from "../../lib/path";
+import { documentSelectionAtPoint } from "../../hooks/documentLinks/shared";
+import { captureDocumentLinkActivation } from "../../lib/documentLinkNavigation";
 import { diffPreviewDocumentPath, openDiffLinkElement } from "./contextMenu";
 import type { createDiffPreviewContextMenuHandler } from "./contextMenu";
 import { diffContextForTarget } from "./diffContext";
@@ -95,35 +92,23 @@ export function handleDiffPanelClick({
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
 }) {
-  if (event.defaultPrevented) {
+  const activation = captureDocumentLinkActivation(event);
+  if (!activation || activation.intent.kind === "blocked") {
     return;
   }
   const target = event.target as HTMLElement;
-  const link = target.closest<HTMLAnchorElement>("a[href]");
-  if (!link) {
-    return;
-  }
   const context = diffContextForTarget(target);
   if (!context) {
     return;
   }
-  const href = link.getAttribute("href") ?? "";
-  if (
-    !href ||
-    (!href.startsWith("#") &&
-      !isExternalUrl(href) &&
-      !isSupportedDocumentHref(href))
-  ) {
-    return;
-  }
-  event.preventDefault();
   void openDiffLinkElement({
-    link,
+    link: activation.link,
     documentPath: diffPreviewDocumentPath(preview, context.side),
     confirmExternalLink,
     openDocument,
     openExternalUrl,
     resolveDocumentLink,
     showInlineNotice,
+    fragmentRoot: context.container,
   });
 }

@@ -25,6 +25,7 @@ import type { DiffStreamViewMode } from "./types";
 import type { CaptureAreaVariant } from "../../lib/captureArea";
 import { diffPreviewDocumentPath } from "../gitDiffPreview/contextMenuDocument";
 import { renderedDiffDiagramForTarget } from "../../lib/documentMedia";
+import { handleDiffPanelClick } from "../gitDiffPreview/diffPreviewInteractionEvents";
 
 export const DiffStreamRenderedSection = memo(
   function DiffStreamRenderedSection({
@@ -212,6 +213,18 @@ export const DiffStreamRenderedSection = memo(
       }
     }
 
+    function handleRenderedLinkCapture(event: MouseEvent<HTMLElement>) {
+      handleDiffPanelClick({
+        event,
+        preview,
+        confirmExternalLink,
+        openDocument,
+        openExternalUrl,
+        resolveDocumentLink,
+        showInlineNotice,
+      });
+    }
+
     if (summary.fallbackMessage && changedEntries.length === 0) {
       return (
         <p className="diff-stream-blocker-message">{summary.fallbackMessage}</p>
@@ -228,6 +241,8 @@ export const DiffStreamRenderedSection = memo(
         data-review-id="diff-stream-rendered-body"
         onContextMenuCapture={handleRenderedContextMenuCapture}
         onMouseUpCapture={handleRenderedMouseUpCapture}
+        onClickCapture={handleRenderedLinkCapture}
+        onAuxClickCapture={handleRenderedLinkCapture}
       >
         <RenderedDiffPane
           label={preview.leftLabel}

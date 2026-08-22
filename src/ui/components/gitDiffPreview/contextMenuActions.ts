@@ -5,7 +5,10 @@ import {
   imageSizeFromElement,
   svgSourceFromImageSrc,
 } from "../../lib/imagePreview";
-import { isExternalUrl, splitPathAndHash } from "../../lib/path";
+import {
+  activateDocumentLinkIntent,
+  classifyDocumentLinkHref,
+} from "../../lib/documentLinkNavigation";
 import type { DiagramPreviewState } from "../../types";
 import { diagramSvgFileName } from "../../lib/diagramFileName";
 
@@ -17,6 +20,7 @@ export async function openDiffLinkElement({
   openExternalUrl,
   resolveDocumentLink,
   showInlineNotice,
+  fragmentRoot,
 }: {
   link: HTMLAnchorElement;
   documentPath: string | null;
@@ -31,46 +35,26 @@ export async function openDiffLinkElement({
     message: string,
     options?: { tone?: "info" | "success" | "warning" | "error" },
   ) => void;
+  fragmentRoot?: ParentNode | null;
 }) {
-  const href = link.getAttribute("href") ?? "";
-  if (!href) {
-    return;
-  }
-  if (isExternalUrl(href)) {
-    if (await confirmExternalLink(href)) {
-      try {
-        await openExternalUrl(href);
-      } catch (error) {
-        showInlineNotice(
-          error instanceof Error ? error.message : "External link open failed",
-          { tone: "error" },
-        );
-      }
-    }
-    return;
-  }
-  if (!documentPath) {
-    showInlineNotice("Document link is not available", { tone: "warning" });
-    return;
-  }
-  const target = splitPathAndHash(href);
-  const resolved = await resolveDocumentLink(href, documentPath);
-  if (resolved.status !== "resolved" || !resolved.path) {
-    showInlineNotice(resolved.message ?? "Document link is not available", {
-      tone: "warning",
-    });
-    return;
-  }
-  await openDocument(resolved.path);
-  const hash = resolved.hash ?? target.hash;
-  if (hash) {
-    window.setTimeout(() => {
-      document.getElementById(hash)?.scrollIntoView({
-        block: "start",
-        behavior: "smooth",
-      });
-    }, 50);
-  }
+  await activateDocumentLinkIntent(
+    classifyDocumentLinkHref(link.getAttribute("href") ?? ""),
+    {
+      documentPath,
+      confirmExternalLink,
+      openDocument,
+      openExternalUrl,
+      resolveDocumentLink,
+      navigateFragment: (fragment) => {
+        const root = fragmentRoot ?? link.closest(".git-rendered-pane");
+        const target = Array.from(
+          root?.querySelectorAll<HTMLElement>("[id]") ?? [],
+        ).find((element) => element.id === fragment);
+        target?.scrollIntoView({ block: "start", behavior: "smooth" });
+      },
+      showInlineNotice,
+    },
+  );
 }
 
 export function openDiffDiagramPreview({

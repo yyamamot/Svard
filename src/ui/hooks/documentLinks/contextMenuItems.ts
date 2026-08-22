@@ -18,9 +18,10 @@ import type {
   RenderResult,
 } from "../../../core/types";
 import { sectionSourceForHeading } from "../../lib/sectionCopy";
-import { isExternalUrl, splitPathAndHash } from "../../lib/path";
+import { splitPathAndHash } from "../../lib/path";
+import { classifyDocumentLinkHref } from "../../lib/documentLinkNavigation";
 import type { ContextMenuItem, DiagramPreviewState } from "../../types";
-import { isSupportedDocumentHref, menuIcon } from "./shared";
+import { menuIcon } from "./shared";
 import { addTableItems } from "./tableActions";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
 
@@ -240,7 +241,8 @@ export function addLinkItems(
   if (items.length !== 0 || !link || !href) {
     return;
   }
-  if (isSupportedDocumentHref(href)) {
+  const intent = classifyDocumentLinkHref(href);
+  if (intent.kind === "document") {
     const resolveContextLink = async () => {
       const targetPath = splitPathAndHash(href);
       if (!actions.documentPayload) {
@@ -303,7 +305,7 @@ export function addLinkItems(
         }
       },
     });
-  } else if (isExternalUrl(href)) {
+  } else if (intent.kind === "external") {
     items.push({
       id: "open-link",
       label: "Open Link",
@@ -314,7 +316,7 @@ export function addLinkItems(
       id: "copy-link",
       label: "Copy Link",
       icon: menuIcon(Copy),
-      onSelect: () => actions.copyText("Link", href),
+      onSelect: () => actions.copyText("Link", intent.url),
     });
   }
 }

@@ -98,6 +98,7 @@ interface ViewerPaneProps {
   searchIndex: number;
   viewerRef?: RefObject<HTMLElement | null>;
   onArticleClick: (event: MouseEvent<HTMLElement>) => void;
+  onArticleLinkCapture: (event: MouseEvent<HTMLElement>) => void;
   onArticleContextMenu: (event: MouseEvent<HTMLElement>) => void;
   onArticleDoubleClick: (event: MouseEvent<HTMLElement>) => void;
   onArticleBlur: (event: ReactFocusEvent<HTMLElement>) => void;
@@ -159,6 +160,7 @@ export function ViewerPane({
   searchIndex,
   viewerRef,
   onArticleClick,
+  onArticleLinkCapture,
   onArticleContextMenu,
   onArticleDoubleClick,
   onArticleBlur,
@@ -512,6 +514,23 @@ export function ViewerPane({
     setCaptureAreaActive(true);
   }, [captureAreaRequest, isFocused, payload, result]);
 
+  function handlePaneArticleLinkCapture(event: MouseEvent<HTMLElement>) {
+    if (isFocused) {
+      onArticleLinkCapture(event);
+      return;
+    }
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest("a[href]") &&
+      event.currentTarget.contains(target)
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      onFocusPane(paneId);
+    }
+  }
+
   return (
     <section
       ref={isFocused ? viewerRef : undefined}
@@ -738,6 +757,8 @@ export function ViewerPane({
               : {}),
           }}
           onClick={isFocused ? onArticleClick : undefined}
+          onClickCapture={handlePaneArticleLinkCapture}
+          onAuxClickCapture={handlePaneArticleLinkCapture}
           onDoubleClick={isFocused ? onArticleDoubleClick : undefined}
           onBlur={isFocused ? onArticleBlur : undefined}
           onFocus={isFocused ? onArticleFocus : undefined}

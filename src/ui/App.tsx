@@ -792,6 +792,7 @@ export function App() {
         postDiffGitMarkers: activePostDiffGitMarkers,
         resolveRevisionLensTargets, query, searchHits, searchIndex, viewerRef,
         onArticleClick: documentLinks.handleArticleClick,
+        onArticleLinkCapture: documentLinks.handleArticleLinkCapture,
         onArticleContextMenu: documentLinks.handleArticleContextMenu,
         onArticleDoubleClick: documentLinks.handleArticleDoubleClick,
         onArticleBlur: documentLinks.handleArticleBlur,

@@ -1,14 +1,8 @@
 import { createElement } from "react";
 import type { LucideIcon } from "lucide-react";
-import { isSupportedDocumentPath } from "../../../core/documentFormat";
-import { splitPathAndHash } from "../../lib/path";
 
 export function menuIcon(Icon: LucideIcon) {
   return createElement(Icon, { size: 14 });
-}
-
-export function isSupportedDocumentHref(href: string): boolean {
-  return isSupportedDocumentPath(splitPathAndHash(href).path);
 }
 
 export function documentSelectionAtPoint(

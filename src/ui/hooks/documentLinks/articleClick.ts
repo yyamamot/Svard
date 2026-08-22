@@ -1,15 +1,27 @@
 import type { MouseEvent } from "react";
-import { isExternalUrl } from "../../lib/path";
+import { captureDocumentLinkActivation } from "../../lib/documentLinkNavigation";
 import { toggleSectionCollapse } from "../../lib/sectionCollapse";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
-import { isSupportedDocumentHref } from "./shared";
+
+export function createArticleLinkCaptureHandler({
+  openLinkElement,
+}: {
+  openLinkElement: (link: HTMLAnchorElement) => Promise<void>;
+}) {
+  return function handleArticleLinkCapture(event: MouseEvent<HTMLElement>) {
+    const activation = captureDocumentLinkActivation(event);
+    if (!activation || activation.intent.kind === "blocked") {
+      return;
+    }
+    void openLinkElement(activation.link);
+  };
+}
 
 export function createArticleClickHandler({
   onConfirmKrokiRender,
   onOpenPreferences,
   onSelectDiagram,
   onTryKrokiFallback,
-  openLinkElement,
   copyText,
 }: Pick<
   UseDocumentLinksOptions,
@@ -17,10 +29,7 @@ export function createArticleClickHandler({
   | "onOpenPreferences"
   | "onSelectDiagram"
   | "onTryKrokiFallback"
-> & {
-  openLinkElement: (link: HTMLAnchorElement) => Promise<void>;
-  copyText: CopyText;
-}) {
+> & { copyText: CopyText }) {
   return function handleArticleClick(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement;
     const diagram = target.closest<HTMLElement>("[data-diagram-id]");
@@ -109,21 +118,6 @@ export function createArticleClickHandler({
         ? "Expand source block"
         : "Collapse source block";
       return;
-    }
-
-    const link = target.closest("a[href]") as HTMLAnchorElement | null;
-    if (!link) {
-      return;
-    }
-
-    const href = link.getAttribute("href") ?? "";
-    if (
-      isExternalUrl(href) ||
-      isSupportedDocumentHref(href) ||
-      href.startsWith("#")
-    ) {
-      event.preventDefault();
-      void openLinkElement(link);
     }
   };
 }

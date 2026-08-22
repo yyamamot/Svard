@@ -53,18 +53,16 @@ describe("Markdown links and assets render contract", () => {
       "assets/missing%20image.svg",
     ]);
     expect(
-      doc.querySelector('a[href="/workspace/docs/./Guide%20File.md#Intro"]')
-        ?.textContent,
+      doc.querySelector('a[href="./Guide%20File.md#Intro"]')?.textContent,
     ).toBe("Relative Doc");
     expect(
       doc.querySelector(
-        'a[href="/workspace/docs/./%E6%97%A5%E6%9C%AC%E8%AA%9E%20%E3%82%AC%E3%82%A4%E3%83%89.md"]',
+        'a[href="./%E6%97%A5%E6%9C%AC%E8%AA%9E%20%E3%82%AC%E3%82%A4%E3%83%89.md"]',
       )?.textContent,
     ).toBe("Japanese Doc");
     expect(
-      doc.querySelector(
-        'a[href="/workspace/docs/./reference%20target.md#Details"]',
-      )?.textContent,
+      doc.querySelector('a[href="./reference%20target.md#Details"]')
+        ?.textContent,
     ).toBe("Reference Link");
     expect(
       doc.querySelector('a[href="https://example.com/path"]'),

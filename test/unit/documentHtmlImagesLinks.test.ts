@@ -237,8 +237,9 @@ describe("prepareDocumentHtml image and link hydration", () => {
     const doc = new DOMParser().parseFromString(html, "text/html");
 
     expect(doc.querySelector("a")?.getAttribute("href")).toBe(
-      "C:\\Users\\developer\\docs\\next.md#usage",
+      "./next.md#usage",
     );
+    expect(doc.body.innerHTML).not.toContain("C:\\Users\\developer");
   });
 
   it("removes unavailable local document links without resolving paths in the frontend", async () => {
@@ -261,8 +262,50 @@ describe("prepareDocumentHtml image and link hydration", () => {
     const doc = new DOMParser().parseFromString(html, "text/html");
 
     expect(doc.querySelector("a")?.getAttribute("href")).toBeNull();
-    expect(doc.querySelector("a")?.getAttribute("title")).toBe(
-      "Document link is outside the current workspace.",
+    expect(doc.querySelector("a")?.getAttribute("title")).toBeNull();
+  });
+
+  it("removes unclassified navigation and independent navigation attributes", async () => {
+    const html = await prepareDocumentHtml(
+      '<p><a href="mailto:user@example.test" target="_blank" download ping="https://example.test/ping">Mail</a><a href="//example.test/docs">Protocol relative</a><a href="javascript:alert(1)">Script</a></p>',
+      documentPayload,
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      { headings: [], sourceBlocks: [] },
     );
+    const links = Array.from(
+      new DOMParser().parseFromString(html, "text/html").querySelectorAll("a"),
+    );
+
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      null,
+      null,
+      null,
+    ]);
+    expect(
+      links.some(
+        (link) =>
+          link.hasAttribute("target") ||
+          link.hasAttribute("download") ||
+          link.hasAttribute("ping"),
+      ),
+    ).toBe(false);
+  });
+
+  it("deactivates unresolved document links while retaining safe display text", async () => {
+    const html = await prepareDocumentHtml(
+      '<p><a href="next.md#usage">Next</a> <a href="#local">Local</a> <a href=" https://example.test/docs ">Web</a></p>',
+      documentPayload,
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      { headings: [], sourceBlocks: [] },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const links = Array.from(doc.querySelectorAll("a"));
+
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      null,
+      "#local",
+      "https://example.test/docs",
+    ]);
+    expect(doc.body.textContent).toContain("Next Local Web");
   });
 });

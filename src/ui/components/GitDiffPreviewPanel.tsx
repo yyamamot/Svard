@@ -517,6 +517,7 @@ export function DocumentDiffPreviewPanel({
         }
         onContextMenuCapture={handleContextMenuCapture}
         onClickCapture={handlePanelClick}
+        onAuxClickCapture={handlePanelClick}
         onPointerDown={handlePointerDown}
         onPointerMove={handleMouseGesturePointerMove}
         onPointerUp={handlePointerUp}

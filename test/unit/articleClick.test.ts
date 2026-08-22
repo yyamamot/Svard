@@ -1,7 +1,10 @@
 import type { MouseEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { createArticleClickHandler } from "../../src/ui/hooks/documentLinks/articleClick";
+import {
+  createArticleClickHandler,
+  createArticleLinkCaptureHandler,
+} from "../../src/ui/hooks/documentLinks/articleClick";
 
 function clickHandler(copyText = vi.fn()) {
   return {
@@ -11,7 +14,6 @@ function clickHandler(copyText = vi.fn()) {
       onOpenPreferences: vi.fn(),
       onSelectDiagram: vi.fn(),
       onTryKrokiFallback: vi.fn(),
-      openLinkElement: vi.fn(),
       copyText,
     }),
   };
@@ -86,7 +88,6 @@ describe("createArticleClickHandler source block actions", () => {
       onOpenPreferences: vi.fn(),
       onSelectDiagram,
       onTryKrokiFallback: vi.fn(),
-      openLinkElement: vi.fn(),
       copyText: vi.fn(),
     });
     document.body.innerHTML = `<div data-diagram-id="plantuml-1"><svg><g></g></svg></div>`;
@@ -96,5 +97,59 @@ describe("createArticleClickHandler source block actions", () => {
     );
 
     expect(onSelectDiagram).toHaveBeenCalledWith("plantuml-1");
+  });
+});
+
+describe("createArticleLinkCaptureHandler", () => {
+  it("captures allowed links before delegating their action", () => {
+    const root = document.createElement("article");
+    root.innerHTML = '<a href="next.md"><span>Next</span></a>';
+    const openLinkElement = vi.fn().mockResolvedValue(undefined);
+    const handler = createArticleLinkCaptureHandler({ openLinkElement });
+    const event = {
+      target: root.querySelector("span"),
+      currentTarget: root,
+      button: 0,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as MouseEvent<HTMLElement>;
+
+    handler(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+    expect(openLinkElement).toHaveBeenCalledWith(root.querySelector("a"));
+  });
+
+  it("captures unsupported and modifier links without opening them", () => {
+    const openLinkElement = vi.fn();
+    const handler = createArticleLinkCaptureHandler({ openLinkElement });
+    for (const [href, metaKey] of [
+      ["mailto:user@example.test", false],
+      ["https://example.test/docs", true],
+    ] as const) {
+      const root = document.createElement("article");
+      root.innerHTML = `<a href="${href}">Link</a>`;
+      const event = {
+        target: root.querySelector("a"),
+        currentTarget: root,
+        button: 0,
+        altKey: false,
+        ctrlKey: false,
+        metaKey,
+        shiftKey: false,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      } as unknown as MouseEvent<HTMLElement>;
+
+      handler(event);
+      expect(event.preventDefault).toHaveBeenCalledOnce();
+      expect(event.stopPropagation).toHaveBeenCalledOnce();
+    }
+    expect(openLinkElement).not.toHaveBeenCalled();
   });
 });

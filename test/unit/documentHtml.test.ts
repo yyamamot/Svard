@@ -1099,7 +1099,7 @@ $not rendered in source$
     ).toBe("12");
   });
 
-  it("skips document link processing without a resolver while keeping sanitizer URL safety", async () => {
+  it("deactivates unresolved document links without a resolver", async () => {
     const events: Array<Record<string, unknown>> = [];
     localStorage.setItem("SVARD_PERF_TRACE", "1");
     const infoSpy = vi
@@ -1120,7 +1120,7 @@ $not rendered in source$
       const doc = new DOMParser().parseFromString(html, "text/html");
       const links = Array.from(doc.querySelectorAll("a"));
 
-      expect(links[0]?.getAttribute("href")).toBe("./next.md");
+      expect(links[0]?.getAttribute("href")).toBeNull();
       expect(links[1]?.getAttribute("href")).toBeNull();
       expect(
         events.find(
@@ -1128,8 +1128,8 @@ $not rendered in source$
         ),
       ).toEqual(
         expect.objectContaining({
-          skipped: true,
-          count: 0,
+          skipped: false,
+          count: 2,
         }),
       );
     } finally {
