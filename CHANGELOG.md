@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added Safe HTML support for Markdown with an explicit allowlist of inline formatting, details, resource-free block layout, lists, definition lists, and tables.
+- Added Safe HTML links and images through the existing document navigation and image policies, including local assets, linked images, and opt-in external images.
+- Kept unsupported, malformed, and unsafe HTML as visible text or safe fallback content, without enabling arbitrary raw HTML, scripts, styles, forms, embedded resources, or custom URL schemes.
+- Preserved source references, copy actions, rendered diffs, link previews, and table comparisons around Safe HTML while preventing author metadata from gaining app-owned actions.
+
 ## 1.0.6
 
 - Added workspace-native Codex AI Chat with Markdown answers, interactive Visualize output, provider setup, and configurable model, reasoning, personality, access, network, and web-search settings.
