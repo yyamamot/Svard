@@ -8,6 +8,7 @@ import {
   perfTraceEnabled,
   tracePerf,
 } from "./perfTrace";
+import { normalizeRenderResultHtml } from "./renderResultHtml";
 
 export type TableCellDiffKind = "unchanged" | "added" | "removed" | "changed";
 
@@ -184,19 +185,27 @@ function labelForTable(table: HTMLTableElement, index: number): string {
 
 export function extractRenderedTablesFromHtml(html: string): RenderedTable[] {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  return Array.from(doc.querySelectorAll("table")).map((table, index) => {
-    const complex =
-      table.querySelector("table") !== null ||
-      Array.from(table.querySelectorAll("th,td")).some((cell) => {
-        const colSpan = Number(cell.getAttribute("colspan") ?? "1");
-        const rowSpan = Number(cell.getAttribute("rowspan") ?? "1");
-        return colSpan > 1 || rowSpan > 1;
-      });
-    const rows = Array.from(table.rows).map((row) =>
-      Array.from(row.cells).map((cell) => normalizedText(cell.textContent)),
-    );
-    return { label: labelForTable(table, index), rows, complex };
-  });
+  return extractRenderedTablesFromRoot(doc.body);
+}
+
+export function extractRenderedTablesFromRoot(
+  root: ParentNode,
+): RenderedTable[] {
+  return Array.from(root.querySelectorAll<HTMLTableElement>("table")).map(
+    (table, index) => {
+      const complex =
+        table.querySelector("table") !== null ||
+        Array.from(table.querySelectorAll("th,td")).some((cell) => {
+          const colSpan = Number(cell.getAttribute("colspan") ?? "1");
+          const rowSpan = Number(cell.getAttribute("rowspan") ?? "1");
+          return colSpan > 1 || rowSpan > 1;
+        });
+      const rows = Array.from(table.rows).map((row) =>
+        Array.from(row.cells).map((cell) => normalizedText(cell.textContent)),
+      );
+      return { label: labelForTable(table, index), rows, complex };
+    },
+  );
 }
 
 export interface RenderedTableCompareResult {
@@ -571,7 +580,8 @@ async function renderTablesFromSource(
   }
   if (!metrics) {
     const result = await renderDocument({ format, source });
-    return extractRenderedTablesFromHtml(result.html);
+    const { body } = normalizeRenderResultHtml(format, source, result);
+    return extractRenderedTablesFromRoot(body);
   }
   metrics.renderCount += 1;
   const renderStartedAt = perfNow();
@@ -594,7 +604,8 @@ async function renderTablesFromSource(
     parseStartedAt,
   );
   try {
-    return extractRenderedTablesFromHtml(result.html);
+    const { body } = normalizeRenderResultHtml(format, source, result);
+    return extractRenderedTablesFromRoot(body);
   } finally {
     const parseEndedAt = perfNow();
     metrics.blockParseDurationMs += phaseDurationMs(

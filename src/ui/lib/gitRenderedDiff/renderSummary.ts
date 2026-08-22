@@ -23,13 +23,17 @@ import type {
 } from "../../../core/types";
 import { applyInlineDiagramsToHtml } from "../diagramHtml";
 import { prepareDocumentHtml } from "../documentHtml";
+import { normalizeRenderResultHtml } from "../renderResultHtml";
 import {
   perfDuration,
   perfNow,
   perfTraceEnabled,
   tracePerf,
 } from "../perfTrace";
-import { extractRenderedBlocksFromHtml } from "./extraction";
+import {
+  extractRenderedBlocksFromHtml,
+  extractRenderedBlocksFromRoot,
+} from "./extraction";
 import { compareRenderedBlocks } from "./matching";
 import type {
   GitRenderedDiffSummary,
@@ -324,13 +328,14 @@ async function renderBlocksFromSource(
   const showExternalImages = (options.config ?? defaultConfig).security
     .showExternalImages;
   if (!documentPath) {
-    return measureBlockParsePhase(phaseMetrics, () =>
-      extractRenderedBlocksFromHtml(result.html, {
+    return measureBlockParsePhase(phaseMetrics, () => {
+      const { body } = normalizeRenderResultHtml(format, source, result);
+      return extractRenderedBlocksFromRoot(body, {
         diagramSignatures: diagramMetadata.signatures,
         diagramSources: diagramMetadata.sources,
         showExternalImages,
-      }),
-    );
+      });
+    });
   }
   const document: DocumentPayload = {
     path: documentPath,

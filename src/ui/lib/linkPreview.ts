@@ -7,6 +7,7 @@ import type {
   RenderResult,
 } from "../../core/types";
 import { fileName, isExternalUrl, splitPathAndHash } from "./path";
+import { normalizeRenderResultHtml } from "./renderResultHtml";
 
 export const linkPreviewDelayMs = 250;
 export const linkPreviewCacheLimit = 20;
@@ -122,8 +123,11 @@ export async function buildLinkPreview({
     const hash = resolved.hash ?? target.hash ?? undefined;
     try {
       const result = await renderDocument(document, { timeoutMs: 1500 });
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(result.html, "text/html");
+      const { body } = normalizeRenderResultHtml(
+        document.format,
+        document.source,
+        result,
+      );
       const sourceTitleHeadings = extractSourceHeadings(document.source).filter(
         (heading) => heading.level === 1,
       );
@@ -137,7 +141,7 @@ export async function buildLinkPreview({
         documentPath: document.path,
         hash,
         headings,
-        article: doc.body,
+        article: body,
       });
     } catch {
       return previewFromSource({

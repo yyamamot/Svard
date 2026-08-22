@@ -19,13 +19,10 @@ import {
 import { isExternalUrl, splitPathAndHash } from "./path";
 import { perfBasename, perfDuration, perfNow, tracePerf } from "./perfTrace";
 import {
-  containsMarkdownAuthorHtmlMarkerMarkup,
-  normalizeMarkdownAuthorHtmlInPlace,
-} from "./markdownAuthorHtml";
-import {
   MARKDOWN_RENDERER_ID_ATTRIBUTE,
   validateMarkdownRendererProvenance,
 } from "./markdownRendererProvenance";
+import { normalizeRenderResultHtml } from "./renderResultHtml";
 import { sanitizeDocumentBodyInPlace } from "./sanitizeHtml";
 import { markSafeHtml, unwrapSafeHtml } from "./safeHtml";
 import type { SafeHtml } from "./safeHtml";
@@ -293,29 +290,22 @@ export async function prepareDocumentHtml(
   options: PrepareDocumentHtmlOptions = {},
 ): Promise<SafeHtml> {
   const basename = perfBasename(document.path);
-  const parser = new DOMParser();
   const parseStartedAt = perfNow();
-  const doc = parser.parseFromString(html, "text/html");
+  const { document: doc } = normalizeRenderResultHtml(
+    document.format,
+    document.source,
+    {
+      html,
+      markdownAuthorHtmlFragments: renderResult?.markdownAuthorHtmlFragments,
+    },
+    { rendererIdentity: "preserve-for-validation" },
+  );
   tracePerf("render.prepareDocumentHtml.domParse", {
     basename,
     format: document.format,
     bytes: html.length,
     durationMs: perfDuration(parseStartedAt),
   });
-
-  const markdownAuthorHtmlFragments =
-    renderResult?.markdownAuthorHtmlFragments ?? [];
-  if (
-    document.format === "markdown" &&
-    (markdownAuthorHtmlFragments.length > 0 ||
-      containsMarkdownAuthorHtmlMarkerMarkup(html))
-  ) {
-    normalizeMarkdownAuthorHtmlInPlace(
-      doc.body,
-      document.source,
-      markdownAuthorHtmlFragments,
-    );
-  }
 
   const markdownRendererValidation =
     document.format === "markdown"
@@ -1022,7 +1012,7 @@ export async function prepareDocumentHtml(
   }
 
   const sanitizedParseStartedAt = perfNow();
-  const sanitizedDoc = parser.parseFromString(
+  const sanitizedDoc = new DOMParser().parseFromString(
     unwrapSafeHtml(sanitized),
     "text/html",
   );

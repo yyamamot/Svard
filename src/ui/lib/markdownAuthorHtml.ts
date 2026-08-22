@@ -13,6 +13,11 @@ interface MatchedMarker {
   fragment: MarkdownAuthorHtmlFragment;
 }
 
+export interface MarkdownAuthorHtmlNormalizationCounts {
+  escapedCount: number;
+  rejectedCount: number;
+}
+
 function markerMatchesKind(
   marker: Element,
   kind: MarkdownAuthorHtmlFragment["kind"],
@@ -80,10 +85,10 @@ export function normalizeMarkdownAuthorHtmlInPlace(
   body: HTMLElement,
   source: string,
   fragments: readonly MarkdownAuthorHtmlFragment[],
-): void {
+): MarkdownAuthorHtmlNormalizationCounts {
   const markers = Array.from(body.querySelectorAll(MARKER_SELECTOR));
   if (markers.length === 0) {
-    return;
+    return { escapedCount: 0, rejectedCount: 0 };
   }
 
   const markerIdCounts = new Map<string, number>();
@@ -158,10 +163,13 @@ export function normalizeMarkdownAuthorHtmlInPlace(
   const matchedByMarker = new Map(
     matched.map(({ marker, fragment }) => [marker, fragment]),
   );
+  let escapedCount = 0;
+  let rejectedCount = 0;
   for (const marker of markers) {
     const fragment = matchedByMarker.get(marker);
     if (!fragment || invalidMarkers.has(marker)) {
       flattenMarker(marker);
+      rejectedCount += 1;
       continue;
     }
 
@@ -169,5 +177,8 @@ export function normalizeMarkdownAuthorHtmlInPlace(
     marker.replaceWith(
       marker.ownerDocument.createTextNode(source.slice(startOffset, endOffset)),
     );
+    escapedCount += 1;
   }
+
+  return { escapedCount, rejectedCount };
 }

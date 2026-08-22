@@ -457,8 +457,15 @@ export function extractRenderedBlocksFromHtml(
   options: RenderedBlockExtractionOptions = {},
 ): RenderedBlock[] {
   const doc = new DOMParser().parseFromString(html, "text/html");
+  return extractRenderedBlocksFromRoot(doc.body, options);
+}
+
+export function extractRenderedBlocksFromRoot(
+  root: ParentNode,
+  options: RenderedBlockExtractionOptions = {},
+): RenderedBlock[] {
   const candidates = Array.from(
-    doc.body.querySelectorAll(
+    root.querySelectorAll(
       "h1,h2,h3,h4,h5,h6,p,ul,ol,dl,.dlist,table,pre,blockquote,.admonitionblock,.markdown-alert,.imageblock,.diagram-slot,.diagram-inline,img,.math-block",
     ),
   );
