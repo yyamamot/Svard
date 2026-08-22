@@ -215,7 +215,7 @@ describe("sanitizeHtml", () => {
 
   it("removes unsafe SVG content while preserving diagram geometry", () => {
     const svg = sanitizeSvg(
-      '<svg viewBox="0 0 100 50" width="100" height="50" onclick="alert(1)"><foreignObject><script>alert(1)</script></foreignObject><text x="4" y="10">Safe</text></svg>',
+      '<svg viewBox="0 0 100 50" width="100" height="50" onclick="alert(1)"><foreignObject><script>alert(1)</script></foreignObject><image href="https://attacker.invalid/pixel.png"></image><text x="4" y="10">Safe</text></svg>',
     );
 
     expect(svg).toContain('viewBox="0 0 100 50"');
@@ -224,6 +224,8 @@ describe("sanitizeHtml", () => {
     expect(svg).not.toContain("onclick");
     expect(svg).not.toContain("foreignObject");
     expect(svg).not.toContain("script");
+    expect(svg).not.toContain("image");
+    expect(svg).not.toContain("attacker.invalid");
   });
 
   it("keeps sanitized SVG valid when draw.io text contains non-breaking spaces", () => {

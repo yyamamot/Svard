@@ -167,6 +167,7 @@ export function usePostDiffGitMarkerState({
   );
   const initialPostDiffGitMarkerGenerationRef = useRef(0);
   const closePostDiffGitMarkerGenerationRef = useRef(0);
+  const revisionLensAbortControllerRef = useRef<AbortController | null>(null);
   const pendingPostDiffGitMarkerRefreshPathsRef = useRef<Map<string, string>>(
     new Map(),
   );
@@ -179,6 +180,14 @@ export function usePostDiffGitMarkerState({
 
   activeDocumentPathRef.current = documentPayload?.path ?? null;
 
+  useEffect(
+    () => () => {
+      revisionLensAbortControllerRef.current?.abort();
+      revisionLensAbortControllerRef.current = null;
+    },
+    [documentPayload?.path],
+  );
+
   const activePostDiffGitMarkers = useMemo(() => {
     const path = documentPayload?.path ?? null;
     return path ? (postDiffGitMarkersByPath[path] ?? null) : null;
@@ -186,6 +195,9 @@ export function usePostDiffGitMarkerState({
 
   const resolveRevisionLensTargets = useCallback<ResolveRevisionLensTargets>(
     async (targets) => {
+      revisionLensAbortControllerRef.current?.abort();
+      const controller = new AbortController();
+      revisionLensAbortControllerRef.current = controller;
       const activePath = documentPayload?.path ?? null;
       const unavailable = (): RevisionLensResolvedTarget[] =>
         targets.map((target) => ({ ...target, status: "unavailable" }));
@@ -217,8 +229,12 @@ export function usePostDiffGitMarkerState({
           confirmedRemoteDiagramKeys: new Set<string>(),
           krokiFallbackDiagramKeys: new Set<string>(),
           perfOwner: "normal-viewer-marker",
+          signal: controller.signal,
         });
-        if (activeDocumentPathRef.current !== activePath) {
+        if (
+          controller.signal.aborted ||
+          activeDocumentPathRef.current !== activePath
+        ) {
           return unavailable();
         }
         const blocks = new Map(
@@ -608,6 +624,7 @@ export function usePostDiffGitMarkerState({
     const generation = initialPostDiffGitMarkerGenerationRef.current + 1;
     initialPostDiffGitMarkerGenerationRef.current = generation;
     let cancelled = false;
+    const controller = new AbortController();
 
     async function buildInitialMarkerContext() {
       try {
@@ -643,6 +660,7 @@ export function usePostDiffGitMarkerState({
           confirmedRemoteDiagramKeys,
           krokiFallbackDiagramKeys,
           perfOwner: "normal-viewer-marker",
+          signal: controller.signal,
         });
         if (
           cancelled ||
@@ -744,6 +762,7 @@ export function usePostDiffGitMarkerState({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [
     clearPostDiffGitMarkers,

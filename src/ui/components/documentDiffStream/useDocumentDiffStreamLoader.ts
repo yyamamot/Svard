@@ -29,6 +29,7 @@ import type { DiffStreamLoadReason, SectionLoadState } from "./types";
 import type { DocumentDiffStreamGitPreviewLoader } from "./gitPreviewLoader";
 
 interface PendingDocumentLoad {
+  controller: AbortController;
   documentPath: string;
   inFlightToken: string;
   item: DocumentDiffStreamPreview["items"][number];
@@ -75,6 +76,9 @@ export function useDocumentDiffStreamLoader({
   const requestIds = useRef<Record<string, number>>({});
   const loadQueueRef = useRef<string[]>([]);
   const inFlightLoadsRef = useRef<Set<string>>(new Set());
+  const inFlightAbortControllersRef = useRef<Map<string, AbortController>>(
+    new Map(),
+  );
   const loadStatesRef = useRef<Record<string, SectionLoadState>>({});
   const generationRef = useRef(0);
   const queuedAtRef = useRef<Record<string, number>>({});
@@ -97,6 +101,10 @@ export function useDocumentDiffStreamLoader({
     previewItemsRef.current = preview.items;
     previewIdentityRef.current = identity;
     generationRef.current += 1;
+    for (const controller of inFlightAbortControllersRef.current.values()) {
+      controller.abort();
+    }
+    inFlightAbortControllersRef.current.clear();
     requestIds.current = {};
     loadQueueRef.current = [];
     inFlightLoadsRef.current.clear();
@@ -108,6 +116,10 @@ export function useDocumentDiffStreamLoader({
   useEffect(
     () => () => {
       generationRef.current += 1;
+      for (const controller of inFlightAbortControllersRef.current.values()) {
+        controller.abort();
+      }
+      inFlightAbortControllersRef.current.clear();
       loadQueueRef.current = [];
       inFlightLoadsRef.current.clear();
       queuedAtRef.current = {};
@@ -152,8 +164,14 @@ export function useDocumentDiffStreamLoader({
       generation: number,
       items: DocumentDiffStreamPreview["items"],
     ) => {
-      const { documentPath, inFlightToken, key, perfEntryIndex, requestId } =
-        load;
+      const {
+        controller,
+        documentPath,
+        inFlightToken,
+        key,
+        perfEntryIndex,
+        requestId,
+      } = load;
       try {
         if (result.status === "error") {
           throw new Error(result.message);
@@ -196,6 +214,7 @@ export function useDocumentDiffStreamLoader({
           krokiFallbackDiagramKeys,
           perfOwner: "all-diffs",
           perfEntryIndex,
+          signal: controller.signal,
         });
         if (measurement.enabled) {
           measurement.record({
@@ -237,6 +256,7 @@ export function useDocumentDiffStreamLoader({
         }));
       } finally {
         inFlightLoadsRef.current.delete(inFlightToken);
+        inFlightAbortControllersRef.current.delete(inFlightToken);
         pumpLoadQueueRef.current();
       }
     },
@@ -307,6 +327,7 @@ export function useDocumentDiffStreamLoader({
       }
       delete queuedAtRef.current[key];
       pending.push({
+        controller: new AbortController(),
         documentPath,
         inFlightToken,
         item,
@@ -320,6 +341,10 @@ export function useDocumentDiffStreamLoader({
     }
     for (const load of pending) {
       inFlightLoadsRef.current.add(load.inFlightToken);
+      inFlightAbortControllersRef.current.set(
+        load.inFlightToken,
+        load.controller,
+      );
     }
     if (
       !commitLoadStates(generation, items, (current) => ({
@@ -331,6 +356,8 @@ export function useDocumentDiffStreamLoader({
     ) {
       for (const load of pending) {
         inFlightLoadsRef.current.delete(load.inFlightToken);
+        inFlightAbortControllersRef.current.delete(load.inFlightToken);
+        load.controller.abort();
       }
       return;
     }

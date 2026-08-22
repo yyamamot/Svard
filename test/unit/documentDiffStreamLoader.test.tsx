@@ -132,6 +132,54 @@ describe("DocumentDiffStreamPanel loader", () => {
     );
   });
 
+  it("aborts an in-flight rendered summary when the stream generation changes", async () => {
+    let firstSignal: AbortSignal | undefined;
+    deriveGitRenderedDiffSummaryMock
+      .mockImplementationOnce((_preview, options) => {
+        firstSignal = options?.signal;
+        return new Promise((_, reject) => {
+          options?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Operation aborted", "AbortError")),
+            { once: true },
+          );
+        });
+      })
+      .mockResolvedValue({ blocks: [] });
+    const getGitDiffPreview = vi
+      .fn()
+      .mockResolvedValue(diffPreview("/workspace/docs/one.md"));
+    const baseProps = {
+      config: null,
+      getGitDiffPreview,
+      ...requiredDiffStreamProps(),
+      onClose: vi.fn(),
+    };
+
+    await test.render({
+      ...baseProps,
+      preview: {
+        source: "git-changes-stream" as const,
+        items: [documentStreamItem("docs/one.md")],
+      },
+    });
+    await flushPreviewLoad();
+
+    expect(firstSignal).toBeInstanceOf(AbortSignal);
+    expect(firstSignal?.aborted).toBe(false);
+
+    await test.render({
+      ...baseProps,
+      preview: {
+        source: "git-changes-stream" as const,
+        items: [documentStreamItem("docs/two.md")],
+      },
+    });
+    await flushPreviewLoad();
+
+    expect(firstSignal?.aborted).toBe(true);
+  });
+
   it("hydrates sections when they enter the stream viewport", async () => {
     const intersection = installMockIntersectionObserver();
     const getGitDiffPreview = vi

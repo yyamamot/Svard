@@ -1,7 +1,10 @@
 import { documentFormatForPath } from "../../../core/documentFormat";
 import { defaultConfig } from "../../../core/defaultConfig";
 import { renderGraphvizDiagrams } from "../../../core/renderGraphviz";
-import { renderMermaidDiagrams } from "../../../core/renderMermaid";
+import {
+  createMermaidRenderSession,
+  renderMermaidDiagrams,
+} from "../../../core/renderMermaid";
 import {
   normalizePlantUmlRenderSource,
   renderPlantUmlDiagrams,
@@ -303,12 +306,17 @@ async function renderBlocksFromSource(
   format: DocumentFormat,
   documentPath: string | null,
   options: GitRenderedDiffSummaryOptions,
-  resourceContext?: {
-    repositoryRoot: string;
-    source: GitDiffResourceSource;
-  } | null,
-  phaseMetrics: DiffSidePhaseMetrics | null = null,
+  resourceContext:
+    | {
+        repositoryRoot: string;
+        source: GitDiffResourceSource;
+      }
+    | null
+    | undefined,
+  phaseMetrics: DiffSidePhaseMetrics | null,
+  mermaidSession: ReturnType<typeof createMermaidRenderSession>,
 ): Promise<RenderedBlock[]> {
+  throwIfAborted(options.signal);
   if (!source) {
     return [];
   }
@@ -317,15 +325,19 @@ async function renderBlocksFromSource(
       ? await loadDiffDocumentContext(documentPath, options)
       : null;
   const result = await measureRenderPhase(phaseMetrics, () =>
-    renderDocument({
-      format,
-      source,
-      path: documentPath ?? undefined,
-      includeFiles: documentContext?.includeFiles,
-      resourceContext: documentContext?.resourceContext,
-      asciidocContext: documentContext?.asciidocContext,
-    }),
+    renderDocument(
+      {
+        format,
+        source,
+        path: documentPath ?? undefined,
+        includeFiles: documentContext?.includeFiles,
+        resourceContext: documentContext?.resourceContext,
+        asciidocContext: documentContext?.asciidocContext,
+      },
+      { signal: options.signal },
+    ),
   );
+  throwIfAborted(options.signal);
   const diagramMetadata = diagramMetadataForRenderResult(result);
   const showExternalImages = (options.config ?? defaultConfig).security
     .showExternalImages;
@@ -364,7 +376,9 @@ async function renderBlocksFromSource(
     options,
     resourceContext,
     phaseMetrics,
+    mermaidSession,
   });
+  throwIfAborted(options.signal);
   return measureBlockParsePhase(phaseMetrics, () =>
     extractRenderedBlocksFromHtml(htmlWithDiagrams, {
       diagramSignatures: diagramMetadata.signatures,
@@ -394,6 +408,7 @@ async function renderDiffDocumentHtml({
   options,
   resourceContext,
   phaseMetrics,
+  mermaidSession,
 }: {
   document: DocumentPayload;
   result: RenderResult;
@@ -403,6 +418,7 @@ async function renderDiffDocumentHtml({
     source: GitDiffResourceSource;
   } | null;
   phaseMetrics: DiffSidePhaseMetrics | null;
+  mermaidSession: ReturnType<typeof createMermaidRenderSession>;
 }): Promise<string> {
   const effectiveConfig = options.config ?? defaultConfig;
   const resolveLocalImage = options.resolveLocalImage;
@@ -427,11 +443,14 @@ async function renderDiffDocumentHtml({
         : {},
     ),
   );
+  throwIfAborted(options.signal);
   const renderedDiagrams = await renderDiffDiagrams({
     document,
     result,
     options,
+    mermaidSession,
   });
+  throwIfAborted(options.signal);
   return applyInlineDiagramsToHtml({
     html,
     document,
@@ -469,10 +488,12 @@ async function renderDiffDiagrams({
   document,
   result,
   options,
+  mermaidSession,
 }: {
   document: DocumentPayload;
   result: RenderResult;
   options: GitRenderedDiffSummaryOptions;
+  mermaidSession: ReturnType<typeof createMermaidRenderSession>;
 }): Promise<{
   mermaid: Array<MermaidDiagram & { svg?: string; error?: string }>;
   plantUml: Array<
@@ -511,19 +532,26 @@ async function renderDiffDiagrams({
   const mermaidPromise = renderMermaidDiagrams(
     result.mermaidDiagrams,
     config.theme,
+    mermaidSession,
   )
     .then((rendered) =>
       rendered.map((diagram) => ({
         ...result.mermaidDiagrams.find((item) => item.id === diagram.id)!,
-        svg: diagram.svg,
+        ...(diagram.svg ? { svg: diagram.svg } : {}),
+        ...("error" in diagram && typeof diagram.error === "string"
+          ? { error: diagram.error }
+          : {}),
       })),
     )
-    .catch((error) =>
-      result.mermaidDiagrams.map((diagram) => ({
+    .catch((error) => {
+      if (isAbortError(error)) {
+        throw error;
+      }
+      return result.mermaidDiagrams.map((diagram) => ({
         ...diagram,
-        error: error instanceof Error ? error.message : "Mermaid render failed",
-      })),
-    );
+        error: "Mermaid render failed.",
+      }));
+    });
 
   const localGraphvizResultsPromise =
     config.diagram.graphvizRenderer === "local"
@@ -631,7 +659,11 @@ export async function deriveGitRenderedDiffSummary(
   preview: DocumentDiffPreview,
   options: GitRenderedDiffSummaryOptions = {},
 ): Promise<GitRenderedDiffSummary> {
+  throwIfAborted(options.signal);
   const format = documentFormatForPath(preview.relativePath ?? "");
+  const mermaidSession = createMermaidRenderSession({
+    signal: options.signal,
+  });
   let perfMetrics: DiffArtifactPerfMetrics | null = null;
   if (options.perfOwner && perfTraceEnabled()) {
     const startedAt = perfNow();
@@ -659,6 +691,7 @@ export async function deriveGitRenderedDiffSummary(
       options,
       leftResourceContext,
       perfMetrics?.left ?? null,
+      mermaidSession,
     );
     const rightBlocksPromise = renderBlocksFromSource(
       preview.rightText,
@@ -667,6 +700,7 @@ export async function deriveGitRenderedDiffSummary(
       options,
       rightResourceContext,
       perfMetrics?.right ?? null,
+      mermaidSession,
     );
     let leftBlocks: RenderedBlock[];
     let rightBlocks: RenderedBlock[];
@@ -679,6 +713,15 @@ export async function deriveGitRenderedDiffSummary(
         leftResult.status === "rejected" ||
         rightResult.status === "rejected"
       ) {
+        const rejectedReason =
+          leftResult.status === "rejected"
+            ? leftResult.reason
+            : rightResult.status === "rejected"
+              ? rightResult.reason
+              : null;
+        if (isAbortError(rejectedReason)) {
+          throw rejectedReason;
+        }
         traceDiffArtifactReady(perfMetrics, "fallback", 0, 0, 0);
         return {
           blocks: [],
@@ -694,6 +737,7 @@ export async function deriveGitRenderedDiffSummary(
         rightBlocksPromise,
       ]);
     }
+    throwIfAborted(options.signal);
     const blocks = compareRenderedBlocks(leftBlocks, rightBlocks);
     traceDiffArtifactReady(
       perfMetrics,
@@ -709,7 +753,10 @@ export async function deriveGitRenderedDiffSummary(
           ? "No rendered document preview is available."
           : undefined,
     };
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
     traceDiffArtifactReady(perfMetrics, "fallback", 0, 0, 0);
     return {
       blocks: [],
@@ -717,6 +764,20 @@ export async function deriveGitRenderedDiffSummary(
         "Rendered document diff is not available. Use Source view.",
     };
   }
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) {
+    return;
+  }
+  if (signal.reason instanceof Error) {
+    throw signal.reason;
+  }
+  throw new DOMException("Operation aborted", "AbortError");
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function diffPreviewDocumentPath(

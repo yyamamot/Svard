@@ -4,7 +4,10 @@ import {
   renderGraphvizDiagrams,
   warmGraphvizRenderer,
 } from "../../core/renderGraphviz";
-import { renderMermaidDiagrams } from "../../core/renderMermaid";
+import {
+  createMermaidRenderSession,
+  renderMermaidDiagrams,
+} from "../../core/renderMermaid";
 import {
   normalizePlantUmlRenderSource,
   renderPlantUmlDiagrams,
@@ -335,27 +338,40 @@ export function useDocumentRender({
         }
 
         const mermaidStartedAt = perfNow();
+        const mermaidSession = createMermaidRenderSession({
+          signal: controller.signal,
+        });
         const renderedMermaid =
           result.mermaidDiagrams.length === 0
             ? []
-            : await Promise.all(
-                (
-                  await renderMermaidDiagrams(result.mermaidDiagrams, theme)
-                ).map((diagram) => ({
-                  ...result.mermaidDiagrams.find(
-                    (item) => item.id === diagram.id,
-                  )!,
-                  svg: diagram.svg,
-                })),
-              ).catch((mermaidError) =>
-                result.mermaidDiagrams.map((diagram) => ({
-                  ...diagram,
-                  error:
-                    mermaidError instanceof Error
-                      ? mermaidError.message
-                      : "Mermaid render failed",
-                })),
-              );
+            : await renderMermaidDiagrams(
+                result.mermaidDiagrams,
+                theme,
+                mermaidSession,
+              )
+                .then((rendered) =>
+                  rendered.map((diagram) => ({
+                    ...result.mermaidDiagrams.find(
+                      (item) => item.id === diagram.id,
+                    )!,
+                    ...(diagram.svg ? { svg: diagram.svg } : {}),
+                    ...("error" in diagram && typeof diagram.error === "string"
+                      ? { error: diagram.error }
+                      : {}),
+                  })),
+                )
+                .catch((mermaidError) => {
+                  if (
+                    mermaidError instanceof Error &&
+                    mermaidError.name === "AbortError"
+                  ) {
+                    throw mermaidError;
+                  }
+                  return result.mermaidDiagrams.map((diagram) => ({
+                    ...diagram,
+                    error: "Mermaid render failed.",
+                  }));
+                });
         tracePerf("render.renderMermaidDiagrams", {
           basename,
           format: documentPayload.format,

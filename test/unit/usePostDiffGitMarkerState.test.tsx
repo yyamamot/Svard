@@ -409,10 +409,18 @@ describe("usePostDiffGitMarkerState", () => {
       expect.anything(),
       expect.objectContaining({
         perfOwner: "normal-viewer-marker",
+        signal: expect.any(AbortSignal),
       }),
     );
 
+    const firstCall = deriveRenderedDiffSummary.mock.calls[0] as unknown as
+      | [DocumentDiffPreview, { signal?: AbortSignal }]
+      | undefined;
+    const signal = firstCall?.[1].signal;
+    expect(signal?.aborted).toBe(false);
+
     cleanup();
+    expect(signal?.aborted).toBe(true);
   });
 
   it("clears the current context when handoff does not match the active document", async () => {

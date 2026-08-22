@@ -199,7 +199,14 @@ export function sanitizeSvg(svg: string): SafeHtml {
       ALLOW_DATA_ATTR: true,
       USE_PROFILES: { svg: true, svgFilters: true },
       FORBID_ATTR: [...privateRendererAttributes],
-      FORBID_TAGS: ["foreignObject", "iframe", "object", "embed", "script"],
+      FORBID_TAGS: [
+        "foreignObject",
+        "iframe",
+        "object",
+        "embed",
+        "script",
+        "image",
+      ],
       ADD_ATTR: [
         "aria-label",
         "role",

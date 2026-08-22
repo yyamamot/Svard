@@ -310,6 +310,7 @@ export type GitDiffPerfOwner =
   | "all-diffs";
 
 export interface GitRenderedDiffSummaryOptions {
+  signal?: AbortSignal;
   config?: AppConfig | null;
   loadDocumentContext?: (
     documentPath: string,

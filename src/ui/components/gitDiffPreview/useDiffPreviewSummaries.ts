@@ -135,6 +135,7 @@ export function useDiffPreviewSummaries({
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setRenderedSummary(emptyRenderedSummary);
     setRenderedSummaryLoading(true);
     deriveGitRenderedDiffSummary(preview, {
@@ -145,6 +146,7 @@ export function useDiffPreviewSummaries({
       confirmedRemoteDiagramKeys,
       krokiFallbackDiagramKeys,
       perfOwner: "single-preview",
+      signal: controller.signal,
     })
       .then((summary) => {
         if (!cancelled) {
@@ -167,6 +169,7 @@ export function useDiffPreviewSummaries({
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [
     config,
