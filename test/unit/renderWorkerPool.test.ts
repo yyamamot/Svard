@@ -47,6 +47,17 @@ class FakeRenderWorker implements RenderWorkerLike {
     this.onmessage?.({ data: payload } as MessageEvent<unknown>);
   }
 
+  respondWithError(message: string, requestIndex = 0): void {
+    const request = this.messages[requestIndex];
+    this.onmessage?.({
+      data: {
+        requestId: request.requestId,
+        ok: false,
+        message,
+      } satisfies RenderWorkerResponse<string>,
+    } as MessageEvent<unknown>);
+  }
+
   fail(message = "worker crashed"): void {
     this.onerror?.({ message } as ErrorEvent);
   }
@@ -83,6 +94,39 @@ describe("RenderWorkerPool", () => {
     worker.respond("second-result", 1);
     await expect(second).resolves.toBe("second-result");
   });
+
+  it.each([
+    "Markdown rendering stopped because the safe HTML output budget was exceeded.",
+    "Markdown rendering stopped because renderer placeholder integrity validation failed.",
+  ])(
+    "reuses the same worker after a privacy-safe render failure: %s",
+    async (message) => {
+      const pool = createPool(1);
+      const privatePayload = "private source /workspace/secret.md";
+
+      const failed = pool.render(privatePayload);
+      expect(FakeRenderWorker.instances).toHaveLength(1);
+      const worker = FakeRenderWorker.instances[0];
+      worker.respondWithError(message);
+
+      const error = await failed.then(
+        () => null,
+        (reason: unknown) => reason,
+      );
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(message);
+      expect((error as Error).message).not.toContain(privatePayload);
+      expect(worker.terminated).toBe(false);
+
+      const next = pool.render("next");
+      expect(FakeRenderWorker.instances).toHaveLength(1);
+      expect(worker.messages[1].payload).toBe("next");
+      worker.respond("next-result", 1);
+
+      await expect(next).resolves.toBe("next-result");
+      expect(worker.terminated).toBe(false);
+    },
+  );
 
   it("routes concurrent responses by request id across the pool", async () => {
     const pool = createPool(2);

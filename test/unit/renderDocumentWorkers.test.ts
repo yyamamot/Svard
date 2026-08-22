@@ -41,6 +41,17 @@ class StubBrowserWorker implements RenderWorkerLike {
       } satisfies RenderWorkerResponse<RenderResult>,
     } as MessageEvent<unknown>);
   }
+
+  respondWithError(message: string, requestIndex = 0): void {
+    const request = this.messages[requestIndex];
+    this.onmessage?.({
+      data: {
+        requestId: request.requestId,
+        ok: false,
+        message,
+      } satisfies RenderWorkerResponse<RenderResult>,
+    } as MessageEvent<unknown>);
+  }
 }
 
 const emptyRenderResult: RenderResult = {
@@ -119,6 +130,89 @@ describe("document render worker wrappers", () => {
     expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
 
     disposeMarkdownRenderWorkers();
+  });
+
+  it("keeps the Markdown worker reusable after a budget failure response", async () => {
+    vi.stubGlobal("Worker", StubBrowserWorker);
+    const { disposeMarkdownRenderWorkers, renderMarkdown } =
+      await import("../../src/core/renderMarkdown");
+    const message =
+      "Markdown rendering stopped because the safe HTML output budget was exceeded.";
+
+    const failed = renderMarkdown("private source /workspace/secret.md");
+    expect(StubBrowserWorker.instances).toHaveLength(1);
+    const worker = StubBrowserWorker.instances[0];
+    worker.respondWithError(message);
+
+    const error = await failed.then(
+      () => null,
+      (reason: unknown) => reason,
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(message);
+    expect(worker.terminated).toBe(false);
+
+    const next = renderMarkdown("# Safe retry");
+    expect(StubBrowserWorker.instances).toHaveLength(1);
+    expect(worker.messages[1].payload).toEqual({ source: "# Safe retry" });
+    worker.respond(emptyRenderResult, 1);
+
+    await expect(next).resolves.toBe(emptyRenderResult);
+    expect(worker.terminated).toBe(false);
+
+    disposeMarkdownRenderWorkers();
+  });
+
+  it("renders normally in the same Markdown worker handler after a real block-budget rejection", async () => {
+    const responses: RenderWorkerResponse<RenderResult>[] = [];
+    const workerScope = {
+      onmessage: null as
+        | ((
+            event: MessageEvent<RenderWorkerRequest<{ source: string }>>,
+          ) => void)
+        | null,
+      postMessage(response: RenderWorkerResponse<RenderResult>) {
+        responses.push(response);
+      },
+    };
+    vi.stubGlobal("self", workerScope);
+    vi.resetModules();
+    await import("../../src/core/markdown.worker");
+
+    const privateSource = Array.from(
+      { length: 4_097 },
+      (_, index) =>
+        `<details><summary>Block ${index}</summary>\n\nprivate-token-123\n</details>`,
+    ).join("\n\n");
+    workerScope.onmessage?.({
+      data: {
+        requestId: "markdown-budget",
+        diagnostic: false,
+        payload: { source: privateSource },
+      },
+    } as MessageEvent<RenderWorkerRequest<{ source: string }>>);
+
+    expect(responses[0]).toEqual({
+      requestId: "markdown-budget",
+      ok: false,
+      message:
+        "Markdown rendering stopped because the safe HTML output budget was exceeded.",
+    });
+    expect(JSON.stringify(responses[0])).not.toContain("private-token-123");
+
+    workerScope.onmessage?.({
+      data: {
+        requestId: "markdown-retry",
+        diagnostic: false,
+        payload: { source: "# Safe retry" },
+      },
+    } as MessageEvent<RenderWorkerRequest<{ source: string }>>);
+
+    expect(responses[1]).toMatchObject({
+      requestId: "markdown-retry",
+      ok: true,
+      result: { html: expect.stringContaining("Safe retry") },
+    });
   });
 
   it("preserves optional Markdown author HTML provenance in worker results", async () => {

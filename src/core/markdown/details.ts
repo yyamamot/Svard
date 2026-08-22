@@ -1,6 +1,12 @@
-import { escapeHtml } from "./escape";
-import { isFenceBoundary, renderMarkdownFragmentHtml } from "./enhancements";
-import { markdown } from "./markdownIt";
+import {
+  isFenceBoundary,
+  renderMarkdownFragmentToWriter,
+  renderMarkdownInlineToWriter,
+} from "./enhancements";
+import type {
+  MarkdownPlaceholderRegistry,
+  Utf8ChunkWriter,
+} from "./placeholders";
 import type { MarkdownDetailsBlock } from "./types";
 
 const detailsOpenPattern = /^<details(?:\s+open)?\s*>$/i;
@@ -8,24 +14,29 @@ const compactDetailsOpenPattern =
   /^<details(\s+open)?\s*>\s*<summary>(.*)<\/summary>\s*$/i;
 const detailsClosePattern = /^<\/details>\s*$/i;
 const summaryPattern = /^<summary>(.*)<\/summary>\s*$/i;
-const detailsPlaceholderPrefix = "SVARD_MARKDOWN_DETAILS_PLACEHOLDER";
-
 interface MarkdownDetailsOpening {
   bodyStartIndex: number;
   open: boolean;
   summary: string;
 }
 
-function renderMarkdownDetailsHtml(block: MarkdownDetailsBlock): string {
-  const summaryHtml = markdown.renderInline(block.summary.trim());
-  const bodyHtml = renderMarkdownFragmentHtml(block.body);
-  return `<details class="markdown-details"${block.open ? " open" : ""} data-review-id="markdown-details"><summary>${summaryHtml}</summary><div class="markdown-details-body">${bodyHtml}</div></details>`;
+function renderMarkdownDetailsToWriter(
+  block: MarkdownDetailsBlock,
+  writer: Utf8ChunkWriter,
+): void {
+  writer.append(
+    `<details class="markdown-details"${block.open ? " open" : ""} data-review-id="markdown-details"><summary>`,
+  );
+  renderMarkdownInlineToWriter(block.summary.trim(), writer);
+  writer.append('</summary><div class="markdown-details-body">');
+  renderMarkdownFragmentToWriter(block.body, writer);
+  writer.append("</div></details>");
 }
 
 function parseMarkdownDetailsAt(
   lines: string[],
   startIndex: number,
-): { endIndex: number; html: string } | null {
+): { block: MarkdownDetailsBlock; endIndex: number } | null {
   const opening = lines[startIndex].replace(/\r$/, "").trim();
   let parsedOpening: MarkdownDetailsOpening | null = null;
   const compactMatch = opening.match(compactDetailsOpenPattern);
@@ -81,22 +92,25 @@ function parseMarkdownDetailsAt(
   }
 
   return {
-    endIndex: closeIndex,
-    html: renderMarkdownDetailsHtml({
+    block: {
       open: parsedOpening.open,
       summary: parsedOpening.summary,
       body: bodyLines.join("\n"),
-    }),
+    },
+    endIndex: closeIndex,
   };
 }
 
-export function extractMarkdownDetails(source: string): {
+export function extractMarkdownDetails(
+  source: string,
+  placeholders: MarkdownPlaceholderRegistry,
+): {
+  count: number;
   source: string;
-  replacements: Map<string, string>;
 } {
   const lines = source.split("\n");
-  const replacements = new Map<string, string>();
   const transformed: string[] = [];
+  let count = 0;
   let inFence = false;
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -128,8 +142,10 @@ export function extractMarkdownDetails(source: string): {
       continue;
     }
 
-    const marker = `${detailsPlaceholderPrefix}_${replacements.size}`;
-    replacements.set(marker, parsed.html);
+    const marker = placeholders.add(index, (writer) =>
+      renderMarkdownDetailsToWriter(parsed.block, writer),
+    );
+    count += 1;
     transformed.push(marker);
     for (
       let blankIndex = index + 1;
@@ -141,20 +157,5 @@ export function extractMarkdownDetails(source: string): {
     index = parsed.endIndex;
   }
 
-  return { source: transformed.join("\n"), replacements };
-}
-
-export function replaceMarkdownDetailsPlaceholders(
-  html: string,
-  replacements: Map<string, string>,
-): string {
-  let rendered = html;
-  for (const [marker, replacement] of replacements) {
-    const escapedMarker = escapeHtml(marker);
-    rendered = rendered
-      .replaceAll(`<p>${escapedMarker}</p>\n`, `${replacement}\n`)
-      .replaceAll(`<p>${escapedMarker}</p>`, replacement)
-      .replaceAll(escapedMarker, replacement);
-  }
-  return rendered;
+  return { source: transformed.join("\n"), count };
 }

@@ -112,4 +112,41 @@ describe("markdown perf probe script", () => {
     expect(budgetBody).not.toContain("absolute");
     expect(budgetBody).not.toContain("html");
   });
+
+  it("measures adversarial placeholder chains with a privacy-safe fixed schema", () => {
+    expect(source).toContain("placeholderChainDepths = [5, 10, 15]");
+    expect(source).toContain("createPlaceholderChainSource");
+    expect(source).toContain("derivePlaceholderMeasurements");
+    expect(source).toContain("placeholderMeasurementsGrowLinearly");
+    expect(source).toContain("withoutPlaceholderMeasurementDocuments");
+    expect(source).toContain("placeholderMeasurements");
+    expect(source).toContain("depth5.count === 10");
+    expect(source).toContain("depth10.count === 20");
+    expect(source).toContain("depth15.count === 30");
+
+    const measurementBody = source.slice(
+      source.indexOf("function derivePlaceholderMeasurements"),
+      source.indexOf("function placeholderMeasurementsGrowLinearly"),
+    );
+    for (const field of [
+      "stage",
+      "count",
+      "inputBytes",
+      "outputBytes",
+      "durationMs",
+    ]) {
+      expect(measurementBody).toContain(field);
+    }
+    expect(measurementBody).not.toContain("source");
+    expect(measurementBody).not.toContain("path");
+    expect(measurementBody).not.toContain("marker");
+    expect(measurementBody).not.toContain("html");
+
+    const mainBody = source.slice(
+      source.indexOf("async function main"),
+      source.indexOf("await main();"),
+    );
+    expect(mainBody).toContain("...artifactReportData");
+    expect(mainBody).not.toContain("...reportData,");
+  });
 });

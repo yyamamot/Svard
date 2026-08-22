@@ -1,8 +1,8 @@
-import { escapeHtml } from "./escape";
-import { isFenceBoundary } from "./enhancements";
-import { markdown } from "./markdownIt";
-
-const compatPlaceholderPrefix = "SVARD_MARKDOWN_COMPAT_PLACEHOLDER";
+import { isFenceBoundary, renderMarkdownInlineToWriter } from "./enhancements";
+import type {
+  MarkdownPlaceholderRegistry,
+  Utf8ChunkWriter,
+} from "./placeholders";
 
 function isSingleLineHtmlComment(trimmed: string): boolean {
   return /^<!--[\s\S]*-->$/.test(trimmed);
@@ -42,29 +42,37 @@ function isPreviousLinePipeRow(lines: string[], index: number): boolean {
   return isPipeRow(lines[index - 1]);
 }
 
-function renderCompatPipeTable(lines: string[]): string {
+function renderCompatPipeTableToWriter(
+  lines: string[],
+  writer: Utf8ChunkWriter,
+): void {
   const rows = lines
     .slice(1)
     .map((line) => parsePipeCells(line))
     .filter((cells): cells is string[] => Boolean(cells));
-  const body = rows
-    .map(
-      (cells) =>
-        `<tr>${cells
-          .map((cell) => `<td>${markdown.renderInline(cell)}</td>`)
-          .join("")}</tr>`,
-    )
-    .join("");
-  return `<table><tbody>${body}</tbody></table>`;
+  writer.append("<table><tbody>");
+  for (const cells of rows) {
+    writer.append("<tr>");
+    for (const cell of cells) {
+      writer.append("<td>");
+      renderMarkdownInlineToWriter(cell, writer);
+      writer.append("</td>");
+    }
+    writer.append("</tr>");
+  }
+  writer.append("</tbody></table>");
 }
 
-export function extractMarkdownCompatibility(source: string): {
+export function extractMarkdownCompatibility(
+  source: string,
+  placeholders: MarkdownPlaceholderRegistry,
+): {
+  count: number;
   source: string;
-  replacements: Map<string, string>;
 } {
   const lines = source.split("\n");
   const transformed: string[] = [];
-  const replacements = new Map<string, string>();
+  let count = 0;
   let inFence = false;
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -98,8 +106,10 @@ export function extractMarkdownCompatibility(source: string): {
       }
 
       if (tableLines.length > 1) {
-        const marker = `${compatPlaceholderPrefix}_${replacements.size}`;
-        replacements.set(marker, renderCompatPipeTable(tableLines));
+        const marker = placeholders.add(index, (writer) =>
+          renderCompatPipeTableToWriter(tableLines, writer),
+        );
+        count += 1;
         transformed.push(marker);
         for (
           let blankIndex = index + 1;
@@ -116,20 +126,5 @@ export function extractMarkdownCompatibility(source: string): {
     transformed.push(line);
   }
 
-  return { source: transformed.join("\n"), replacements };
-}
-
-export function replaceMarkdownCompatibilityPlaceholders(
-  html: string,
-  replacements: Map<string, string>,
-): string {
-  let rendered = html;
-  for (const [marker, replacement] of replacements) {
-    const escapedMarker = escapeHtml(marker);
-    rendered = rendered
-      .replaceAll(`<p>${escapedMarker}</p>\n`, `${replacement}\n`)
-      .replaceAll(`<p>${escapedMarker}</p>`, replacement)
-      .replaceAll(escapedMarker, replacement);
-  }
-  return rendered;
+  return { source: transformed.join("\n"), count };
 }

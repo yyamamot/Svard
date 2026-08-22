@@ -211,6 +211,11 @@ Footnote.[^one]
 
 [^one]: Footnote body.
 
+<!-- compatibility comment is intentionally omitted -->
+
+| --- | --- |
+| Compatibility | table |
+
 | Item | Formula |
 | --- | --- |
 | Valid | $a + b$ |
@@ -229,6 +234,8 @@ Inside details.
 
 \`\`\`python
 print("covered")
+<!-- keep comment source in a fence -->
+SVARD_MARKDOWN_DETAILS_PLACEHOLDER_0
 \`\`\`
 
 \`\`\`mermaid
@@ -268,6 +275,11 @@ flowchart LR
     expect(doc.querySelector(".markdown-alert-warning strong")).toBeTruthy();
     expect(doc.querySelector(".task-list-item-checkbox")).toBeTruthy();
     expect(doc.querySelector(".footnotes")).toBeTruthy();
+    expect(doc.querySelectorAll("table")).toHaveLength(3);
+    expect(doc.body.textContent).toContain("Compatibility");
+    expect(doc.body.textContent).not.toContain(
+      "compatibility comment is intentionally omitted",
+    );
     expect(doc.querySelector(".math-inline")).toBeTruthy();
     expect(doc.body.textContent).toContain("$12.00");
     expect(doc.querySelector(".markdown-details[open] strong")).toBeTruthy();
@@ -278,6 +290,12 @@ flowchart LR
     expect(
       doc.querySelector("pre.language-python, pre .language-python"),
     ).toBeTruthy();
+    expect(doc.querySelector("pre")?.textContent).toContain(
+      "<!-- keep comment source in a fence -->",
+    );
+    expect(doc.querySelector("pre")?.textContent).toContain(
+      "SVARD_MARKDOWN_DETAILS_PLACEHOLDER_0",
+    );
     expect(result.diagramSlots[0]).toMatchObject({
       id: "mermaid-1",
       renderer: "mermaid",
@@ -285,6 +303,7 @@ flowchart LR
     expect(doc.querySelector("[data-diagram-id='mermaid-1']")).toBeTruthy();
     expect(doc.querySelector("script")).toBeNull();
     expect(doc.body.innerHTML).toContain("&lt;script&gt;");
+    expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
     expect(doc.querySelector("td[rowspan], td[colspan]")).toBeNull();
     expect(
       doc.querySelector('img[data-image-path="/images/coverage/root.svg"]'),

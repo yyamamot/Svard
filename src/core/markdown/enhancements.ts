@@ -1,6 +1,7 @@
 import type Token from "markdown-it/lib/token.mjs";
 
 import { markdown } from "./markdownIt";
+import { renderMarkdownTokensToWriter, Utf8ChunkWriter } from "./placeholders";
 
 const githubAlertPattern =
   /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:\n)?/i;
@@ -14,14 +15,23 @@ export function isFenceBoundary(line: string): boolean {
   return /^(```|~~~)/.test(line.trim());
 }
 
-export function transformSimpleAdmonitions(source: string): string {
+export interface MarkdownSourceTransform {
+  outputLineForInputLine: number[];
+  source: string;
+}
+
+export function transformSimpleAdmonitionsWithLineMap(
+  source: string,
+): MarkdownSourceTransform {
   const lines = source.split("\n");
   const transformed: string[] = [];
+  const outputLineForInputLine: number[] = [];
   let inFence = false;
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const trimmed = line.replace(/\r$/, "").trim();
+    outputLineForInputLine[index] = transformed.length;
 
     if (isFenceBoundary(trimmed)) {
       inFence = !inFence;
@@ -44,6 +54,7 @@ export function transformSimpleAdmonitions(source: string): string {
       while (index < lines.length) {
         const bodyLine = lines[index].replace(/\r$/, "");
         if (bodyLine.trim() === "") {
+          outputLineForInputLine[index] = transformed.length;
           let nextContentIndex = index + 1;
           while (
             nextContentIndex < lines.length &&
@@ -63,6 +74,7 @@ export function transformSimpleAdmonitions(source: string): string {
           continue;
         }
         if (/^( {4}|\t)/.test(bodyLine)) {
+          outputLineForInputLine[index] = transformed.length;
           transformed.push(`> ${bodyLine.replace(/^( {4}|\t)/, "")}`);
           index += 1;
           continue;
@@ -84,6 +96,7 @@ export function transformSimpleAdmonitions(source: string): string {
 
     while (index < lines.length) {
       const bodyLine = lines[index];
+      outputLineForInputLine[index] = transformed.length;
       if (bodyLine.replace(/\r$/, "").trim() === "") {
         transformed.push(bodyLine);
         break;
@@ -93,7 +106,14 @@ export function transformSimpleAdmonitions(source: string): string {
     }
   }
 
-  return transformed.join("\n");
+  return {
+    source: transformed.join("\n"),
+    outputLineForInputLine,
+  };
+}
+
+export function transformSimpleAdmonitions(source: string): string {
+  return transformSimpleAdmonitionsWithLineMap(source).source;
 }
 
 function newInlineHtmlToken(parentToken: Token, content: string): Token {
@@ -224,8 +244,33 @@ export function renderMarkdownFragmentHtml(
   source: string,
   options: { images?: "render" | "altText" } = {},
 ): string {
+  const writer = new Utf8ChunkWriter(Number.MAX_SAFE_INTEGER);
+  renderMarkdownFragmentToWriter(source, writer, options);
+  return writer.toString();
+}
+
+export function renderMarkdownInlineToWriter(
+  source: string,
+  writer: Utf8ChunkWriter,
+): void {
+  const env = {};
+  const tokens = markdown.parseInline(source, env);
+  renderMarkdownTokensToWriter(
+    tokens,
+    markdown.options,
+    env,
+    markdown.renderer,
+    writer,
+  );
+}
+
+export function renderMarkdownFragmentToWriter(
+  source: string,
+  writer: Utf8ChunkWriter,
+  options: { images?: "render" | "altText" } = {},
+): void {
   if (!source.trim()) {
-    return "";
+    return;
   }
 
   const env = {};
@@ -235,5 +280,11 @@ export function renderMarkdownFragmentHtml(
   if (options.images === "altText") {
     replaceMarkdownImagesWithAltText(tokens);
   }
-  return markdown.renderer.render(tokens, markdown.options, env);
+  renderMarkdownTokensToWriter(
+    tokens,
+    markdown.options,
+    env,
+    markdown.renderer,
+    writer,
+  );
 }

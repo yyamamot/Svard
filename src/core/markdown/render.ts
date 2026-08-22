@@ -6,18 +6,12 @@ import {
   rendererForType,
   slotIdForRenderer,
 } from "./diagrams";
-import {
-  extractMarkdownDetails,
-  replaceMarkdownDetailsPlaceholders,
-} from "./details";
-import {
-  extractMarkdownCompatibility,
-  replaceMarkdownCompatibilityPlaceholders,
-} from "./compat";
+import { extractMarkdownDetails } from "./details";
+import { extractMarkdownCompatibility } from "./compat";
 import {
   enhanceGithubAlerts,
   enhanceTaskLists,
-  transformSimpleAdmonitions,
+  transformSimpleAdmonitionsWithLineMap,
 } from "./enhancements";
 import { splitFrontmatter } from "./frontmatter";
 import { extractSourceSelectionBlocks } from "../sourceSelectionBlocks";
@@ -38,6 +32,16 @@ import type {
   SourceBlock,
   SourceTextBlock,
 } from "../types";
+import {
+  attachMarkdownPlaceholderRegistry,
+  bindMarkdownPlaceholderTokens,
+  markdownFinalHtmlBudgetForSourceBytes,
+  markdownReplacementBudgetForSourceBytes,
+  MarkdownPlaceholderRegistry,
+  renderMarkdownTokensToWriter,
+  utf8ByteLength,
+  Utf8ChunkWriter,
+} from "./placeholders";
 
 function perfNow(): number {
   return globalThis.performance?.now?.() ?? Date.now();
@@ -60,29 +64,43 @@ export function renderMarkdownDocument(source: string): RenderResult {
 
   const frontmatterStartedAt = perfNow();
   const env = {};
+  const sourceBytes = utf8ByteLength(source);
+  const placeholders = new MarkdownPlaceholderRegistry(
+    source,
+    markdownReplacementBudgetForSourceBytes(sourceBytes),
+  );
   const { body, htmlPrefix, lineOffset } = splitFrontmatter(source);
   recordPerf("markdown.frontmatter", frontmatterStartedAt, {
-    bytes: source.length,
+    bytes: sourceBytes,
   });
 
   const detailsStartedAt = perfNow();
-  const details = extractMarkdownDetails(body);
+  const details = extractMarkdownDetails(body, placeholders);
   recordPerf("markdown.details", detailsStartedAt, {
-    count: details.replacements.size,
+    count: details.count,
   });
 
   const compatStartedAt = perfNow();
-  const compatibility = extractMarkdownCompatibility(details.source);
+  const compatibility = extractMarkdownCompatibility(
+    details.source,
+    placeholders,
+  );
   recordPerf("markdown.compatibility", compatStartedAt, {
-    count: compatibility.replacements.size,
+    count: compatibility.count,
   });
 
   const transformStartedAt = perfNow();
-  const transformedSource = transformSimpleAdmonitions(compatibility.source);
+  const transformed = transformSimpleAdmonitionsWithLineMap(
+    compatibility.source,
+  );
+  placeholders.remapExpectedLines(transformed.outputLineForInputLine);
+  const transformedSource = transformed.source;
   recordPerf("markdown.transformSimpleAdmonitions", transformStartedAt);
 
   const parseStartedAt = perfNow();
   const tokens = markdown.parse(transformedSource, env);
+  bindMarkdownPlaceholderTokens(tokens, transformedSource, placeholders);
+  attachMarkdownPlaceholderRegistry(env, placeholders);
   recordPerf("markdown.parse", parseStartedAt, { count: tokens.length });
 
   const enhanceStartedAt = perfNow();
@@ -191,23 +209,32 @@ export function renderMarkdownDocument(source: string): RenderResult {
     count: headings.length + sourceBlocks.length + diagramSlots.length,
   });
 
+  const detailsReplaceStartedAt = perfNow();
   const htmlStartedAt = perfNow();
-  const renderedHtml = markdown.renderer.render(tokens, markdown.options, env);
+  const htmlWriter = new Utf8ChunkWriter(
+    markdownFinalHtmlBudgetForSourceBytes(sourceBytes),
+  );
+  htmlWriter.append(htmlPrefix);
+  renderMarkdownTokensToWriter(
+    tokens,
+    markdown.options,
+    env,
+    markdown.renderer,
+    htmlWriter,
+  );
+  placeholders.assertAllRendered();
+  const html = htmlWriter.toString();
   recordPerf("markdown.htmlRender", htmlStartedAt, {
-    bytes: renderedHtml.length,
+    bytes: htmlWriter.byteLength,
   });
 
-  const detailsReplaceStartedAt = perfNow();
-  const html = `${htmlPrefix}${replaceMarkdownCompatibilityPlaceholders(
-    replaceMarkdownDetailsPlaceholders(renderedHtml, details.replacements),
-    compatibility.replacements,
-  )}`;
   recordPerf("markdown.replaceDetails", detailsReplaceStartedAt, {
-    count: details.replacements.size + compatibility.replacements.size,
+    bytes: placeholders.replacementBytes,
+    count: details.count + compatibility.count,
   });
 
   recordPerf("markdown.total", totalStartedAt, {
-    bytes: source.length,
+    bytes: sourceBytes,
   });
 
   return {

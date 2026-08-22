@@ -8,6 +8,28 @@ const defaultDocumentFiles = [
   "docs/01-specification.md",
 ];
 
+const placeholderChainDepths = [5, 10, 15];
+const legacyDetailsMarkerPrefix = "SVARD_MARKDOWN_DETAILS_PLACEHOLDER";
+const legacyCompatibilityMarkerPrefix = "SVARD_MARKDOWN_COMPAT_PLACEHOLDER";
+
+function createPlaceholderChainSource(depth) {
+  const details = Array.from({ length: depth }, (_, index) => {
+    const nextMarker =
+      index + 1 < depth
+        ? `${legacyDetailsMarkerPrefix}_${index + 1}`
+        : "chain leaf";
+    return `<details><summary>Level ${index}</summary>\n\n${nextMarker}\n\n${nextMarker}\n</details>`;
+  }).join("\n\n");
+  const compatibility = Array.from({ length: depth }, (_, index) => {
+    const nextMarker =
+      index + 1 < depth
+        ? `${legacyCompatibilityMarkerPrefix}_${index + 1}`
+        : "chain leaf";
+    return `| --- | --- |\n| Level ${index} | ${nextMarker} ${nextMarker} |`;
+  }).join("\n\n");
+  return `# Placeholder chain depth ${depth}\n\n${details}\n\n${compatibility}\n`;
+}
+
 const syntheticDocuments = [
   {
     path: "/perf/plain-small.md",
@@ -48,6 +70,15 @@ select id, title from documents where format = 'markdown';
 `,
   },
 ];
+
+const placeholderChainDocuments = placeholderChainDepths.map(
+  (placeholderDepth) => ({
+    path: `/perf/placeholder-chain-${placeholderDepth}.md`,
+    basename: `placeholder-chain-${placeholderDepth}.md`,
+    placeholderDepth,
+    source: createPlaceholderChainSource(placeholderDepth),
+  }),
+);
 
 const defaultBudgets = {
   bootWarmPlainWorkerCoreMs: 5,
@@ -144,7 +175,7 @@ async function startServer(port) {
   };
 }
 
-async function readDocuments(documentArgs) {
+async function readDocuments(documentArgs, includePlaceholderChains) {
   const cwd = process.cwd();
   const documentPaths =
     documentArgs.length > 0 ? documentArgs : defaultDocumentFiles;
@@ -160,16 +191,14 @@ async function readDocuments(documentArgs) {
       };
     }),
   );
-  if (documentArgs.length > 0) {
-    return fileDocuments;
-  }
-  return [
-    ...syntheticDocuments.map((document) => ({
-      ...document,
-      bytes: Buffer.byteLength(document.source),
-    })),
-    ...fileDocuments,
-  ];
+  const synthetic = [
+    ...(documentArgs.length === 0 ? syntheticDocuments : []),
+    ...(includePlaceholderChains ? placeholderChainDocuments : []),
+  ].map((document) => ({
+    ...document,
+    bytes: Buffer.byteLength(document.source),
+  }));
+  return [...synthetic, ...fileDocuments];
 }
 
 function summarizePerfEvents(events) {
@@ -416,6 +445,7 @@ function deriveBudgetSummary(phases, summary, budgets = defaultBudgets) {
   const repeatedWarmSpec = phases
     .find((phase) => phase.phase === "repeatedWarm")
     ?.documents.find((document) => document.basename === "01-specification.md");
+  const placeholderMeasurements = derivePlaceholderMeasurements(phases);
   const budgetResults = [
     budgetResult({
       actual: summary.firstOpenPenaltyMs,
@@ -466,11 +496,74 @@ function deriveBudgetSummary(phases, summary, budgets = defaultBudgets) {
       limit: budgets.bootWarmPlainWorkerCoreMs,
       metric: "bootWarmBeforeOpen.plainSmall.workerCoreMs",
     }),
+    budgetEqualsResult({
+      actual: placeholderMeasurementsGrowLinearly(placeholderMeasurements),
+      expected: true,
+      label: "repeatedWarm placeholder chain output growth",
+      metric: "placeholderMeasurements.outputBytes",
+    }),
   ];
   return {
     budgetPassed: budgetResults.every((result) => result.passed),
     budgetResults,
     budgets,
+  };
+}
+
+function derivePlaceholderMeasurements(phases) {
+  const repeatedWarm = phases.find((phase) => phase.phase === "repeatedWarm");
+  return (repeatedWarm?.documents ?? [])
+    .filter((document) => Number.isSafeInteger(document.placeholderDepth))
+    .map((document) => {
+      const event = lastEvent(
+        document.events,
+        "render.markdown.replaceDetails",
+      );
+      return {
+        stage: "markdown.replaceDetails",
+        count: event?.count ?? null,
+        inputBytes: document.bytes,
+        outputBytes: document.outputBytes,
+        durationMs:
+          typeof event?.durationMs === "number" ? event.durationMs : null,
+      };
+    });
+}
+
+function placeholderMeasurementsGrowLinearly(measurements) {
+  if (
+    measurements.length !== placeholderChainDepths.length ||
+    measurements.some(
+      (measurement) =>
+        !Number.isFinite(measurement.inputBytes) ||
+        !Number.isFinite(measurement.outputBytes) ||
+        !Number.isFinite(measurement.durationMs) ||
+        !Number.isSafeInteger(measurement.count),
+    )
+  ) {
+    return false;
+  }
+  const [depth5, depth10, depth15] = measurements;
+  const firstGrowth = depth10.outputBytes - depth5.outputBytes;
+  const secondGrowth = depth15.outputBytes - depth10.outputBytes;
+  return (
+    depth5.count === 10 &&
+    depth10.count === 20 &&
+    depth15.count === 30 &&
+    secondGrowth <= firstGrowth + 2048 &&
+    depth15.outputBytes < depth5.outputBytes * 4
+  );
+}
+
+function withoutPlaceholderMeasurementDocuments(reportData) {
+  return {
+    ...reportData,
+    phases: reportData.phases.map((phase) => ({
+      ...phase,
+      documents: phase.documents.filter(
+        (document) => !Number.isSafeInteger(document.placeholderDepth),
+      ),
+    })),
   };
 }
 
@@ -548,6 +641,16 @@ async function openDocument(page, document) {
         .renderedDocumentPath === documentPath,
     document.path,
   );
+  const isPlaceholderMeasurement = Number.isSafeInteger(
+    document.placeholderDepth,
+  );
+  const outputBytes = isPlaceholderMeasurement
+    ? await page
+        .locator('[data-review-id="document-body"]')
+        .evaluate(
+          (element) => new TextEncoder().encode(element.innerHTML).byteLength,
+        )
+    : null;
   const domReadyMs = Number((performance.now() - nodeStartedAt).toFixed(2));
   await page.evaluate((durationMs) => {
     window.__SVARD_PERF_EVENTS__?.push({
@@ -578,6 +681,9 @@ async function openDocument(page, document) {
     basename: document.basename,
     format: "markdown",
     bytes: document.bytes,
+    ...(isPlaceholderMeasurement
+      ? { outputBytes, placeholderDepth: document.placeholderDepth }
+      : {}),
     domReadyMs,
     ...frameTimings,
     longTasks,
@@ -765,11 +871,14 @@ async function runDiagnosticSequence(page, documents) {
 }
 
 async function runProbe({ diagnostic, url, documents }) {
+  const standardDocuments = documents.filter(
+    (document) => !Number.isSafeInteger(document.placeholderDepth),
+  );
   const phaseDocuments = [
-    ...documents.map((document, index) =>
+    ...standardDocuments.map((document, index) =>
       cloneDocumentForPhase(document, "cold-no-warm", index),
     ),
-    ...documents.map((document, index) =>
+    ...standardDocuments.map((document, index) =>
       cloneDocumentForPhase(document, "boot-warm-before-open", index),
     ),
     ...documents.map((document, index) =>
@@ -845,7 +954,7 @@ async function runProbe({ diagnostic, url, documents }) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const documents = await readDocuments(args.documents);
+  const documents = await readDocuments(args.documents, args.budget);
   let server = null;
   const url = args.url ?? (server = await startServer(args.port)).url;
   try {
@@ -854,6 +963,11 @@ async function main() {
       documents,
       url,
     });
+    const placeholderMeasurements = derivePlaceholderMeasurements(
+      reportData.phases,
+    );
+    const artifactReportData =
+      withoutPlaceholderMeasurementDocuments(reportData);
     const report = {
       ...(args.budget
         ? deriveBudgetSummary(
@@ -865,7 +979,8 @@ async function main() {
       diagnostic: args.diagnostic,
       schemaVersion: 2,
       generatedAt: new Date().toISOString(),
-      ...reportData,
+      placeholderMeasurements,
+      ...artifactReportData,
     };
     const output = `${JSON.stringify(report, null, 2)}\n`;
     if (args.out) {
