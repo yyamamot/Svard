@@ -5,7 +5,7 @@ import { renderMarkdownContract } from "./renderContractTestUtils";
 
 describe("sanitizer boundary render contract", () => {
   it("keeps unsafe HTML and URL payloads out of executable document DOM", async () => {
-    const { doc } = await renderMarkdownContract({
+    const { doc, preparedHtml, renderResult } = await renderMarkdownContract({
       source: `# Sanitizer Boundary
 
 <div style="color:red" onclick="window.__unsafe = true">unsafe div</div>
@@ -22,7 +22,13 @@ describe("sanitizer boundary render contract", () => {
     });
     const bodyText = doc.body.textContent ?? "";
 
+    expect(renderResult).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(preparedHtml).not.toContain("svard-markdown-author-html-");
     expect(bodyText).toContain("unsafe div");
+    expect(bodyText).toContain('<div style="color:red"');
+    expect(bodyText).toContain('<a href="javascript:alert(1)"');
+    expect(bodyText).toContain('<iframe srcdoc="<script>');
+    expect(bodyText).toContain("<svg><script>alert(1)</script>");
     expect(doc.querySelector("script, iframe, object, embed")).toBeNull();
     expect(doc.querySelector("[onclick], [style], [srcdoc]")).toBeNull();
     expect(doc.querySelector('a[href^="javascript:"]')).toBeNull();

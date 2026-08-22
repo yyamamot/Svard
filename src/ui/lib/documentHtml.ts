@@ -18,6 +18,10 @@ import {
 } from "./documentHtml/mathPostProcess";
 import { isExternalUrl, splitPathAndHash } from "./path";
 import { perfBasename, perfDuration, perfNow, tracePerf } from "./perfTrace";
+import {
+  containsMarkdownAuthorHtmlMarkerMarkup,
+  normalizeMarkdownAuthorHtmlInPlace,
+} from "./markdownAuthorHtml";
 import { sanitizeDocumentBodyInPlace } from "./sanitizeHtml";
 import { markSafeHtml, unwrapSafeHtml } from "./safeHtml";
 import type { SafeHtml } from "./safeHtml";
@@ -237,7 +241,11 @@ export async function prepareDocumentHtml(
   config: DocumentHtmlConfig,
   renderResult?: Pick<
     RenderResult,
-    "headings" | "sourceBlocks" | "sourceTextBlocks" | "sourceSelectionBlocks"
+    | "headings"
+    | "sourceBlocks"
+    | "sourceTextBlocks"
+    | "sourceSelectionBlocks"
+    | "markdownAuthorHtmlFragments"
   > &
     Partial<Pick<RenderResult, "diagnostics">>,
   options: PrepareDocumentHtmlOptions = {},
@@ -252,6 +260,20 @@ export async function prepareDocumentHtml(
     bytes: html.length,
     durationMs: perfDuration(parseStartedAt),
   });
+
+  const markdownAuthorHtmlFragments =
+    renderResult?.markdownAuthorHtmlFragments ?? [];
+  if (
+    document.format === "markdown" &&
+    (markdownAuthorHtmlFragments.length > 0 ||
+      containsMarkdownAuthorHtmlMarkerMarkup(html))
+  ) {
+    normalizeMarkdownAuthorHtmlInPlace(
+      doc.body,
+      document.source,
+      markdownAuthorHtmlFragments,
+    );
+  }
 
   const diagnosticsStartedAt = perfNow();
   const includeDiagnostics =

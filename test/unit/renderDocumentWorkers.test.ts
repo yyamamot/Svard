@@ -114,8 +114,34 @@ describe("document render worker wrappers", () => {
     });
 
     worker.respond(emptyRenderResult);
-    await expect(rendered).resolves.toBe(emptyRenderResult);
+    const result = await rendered;
+    expect(result).toBe(emptyRenderResult);
+    expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
 
+    disposeMarkdownRenderWorkers();
+  });
+
+  it("preserves optional Markdown author HTML provenance in worker results", async () => {
+    vi.stubGlobal("Worker", StubBrowserWorker);
+    const { disposeMarkdownRenderWorkers, renderMarkdown } =
+      await import("../../src/core/renderMarkdown");
+    const source = "<kbd>Ctrl</kbd>";
+    const rendered = renderMarkdown(source);
+    const worker = StubBrowserWorker.instances[0];
+    const resultWithProvenance: RenderResult = {
+      ...emptyRenderResult,
+      markdownAuthorHtmlFragments: [
+        {
+          id: "markdown-author-html-1",
+          kind: "inline",
+          sourceSpan: { startOffset: 0, endOffset: source.length },
+        },
+      ],
+    };
+
+    worker.respond(resultWithProvenance);
+
+    await expect(rendered).resolves.toEqual(resultWithProvenance);
     disposeMarkdownRenderWorkers();
   });
 

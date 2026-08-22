@@ -3,6 +3,86 @@ import { describe, expect, it } from "vitest";
 import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
 
 describe("renderMarkdownCore", () => {
+  it("omits inactive author HTML provenance from normal Markdown output", () => {
+    const result = renderMarkdownCore("# Title\n\nPlain Markdown.\n");
+
+    expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(result.html).not.toContain("svard-markdown-author-html-");
+  });
+
+  it.each([
+    {
+      name: "safe-looking inline HTML",
+      source: "Press <kbd>Ctrl</kbd> to continue.",
+      literal: "<kbd>Ctrl</kbd>",
+      activeSelector: "kbd",
+    },
+    {
+      name: "active HTML",
+      source: '<img src="./private.png" onerror="alert(1)">',
+      literal: '<img src="./private.png" onerror="alert(1)">',
+      activeSelector: "img",
+    },
+    {
+      name: "malformed unbalanced HTML",
+      source: '<div class="open">unterminated',
+      literal: '<div class="open">unterminated',
+      activeSelector: "div",
+    },
+  ])(
+    "keeps $name literal without activating the provenance producer",
+    ({ source, literal, activeSelector }) => {
+      const result = renderMarkdownCore(source);
+      const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+      expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
+      expect(result.html).not.toContain("svard-markdown-author-html-");
+      expect(doc.querySelector(activeSelector)).toBeNull();
+      expect(doc.body.textContent).toContain(literal);
+    },
+  );
+
+  it("keeps the existing HTML comment drop behavior without creating comment nodes", () => {
+    const result = renderMarkdownCore(`Before.
+
+<!-- author comment -->
+
+After.`);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    const comments: Comment[] = [];
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_COMMENT);
+    let current = walker.nextNode();
+    while (current) {
+      comments.push(current as Comment);
+      current = walker.nextNode();
+    }
+
+    expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(result.html).not.toContain("svard-markdown-author-html-");
+    expect(comments).toEqual([]);
+    expect(doc.body.textContent).toContain("Before.");
+    expect(doc.body.textContent).toContain("After.");
+    expect(doc.body.textContent).not.toContain("author comment");
+  });
+
+  it("keeps raw HTML inside inline and fenced code as code source text", () => {
+    const result = renderMarkdownCore(`Inline \`<kbd>code</kbd>\`.
+
+\`\`\`html
+<script>alert(1)</script>
+\`\`\`
+`);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(result.html).not.toContain("svard-markdown-author-html-");
+    expect(doc.querySelector("kbd, script")).toBeNull();
+    expect(doc.querySelector("p code")?.textContent).toBe("<kbd>code</kbd>");
+    expect(doc.querySelector("pre code")?.textContent).toContain(
+      "<script>alert(1)</script>",
+    );
+  });
+
   it("renders Obsidian wikilinks as internal anchors and leaves embeds untouched", () => {
     const result = renderMarkdownCore(
       "Open [[Guide|the guide]] but not ![[Embed]].",
@@ -691,6 +771,8 @@ print("inside details")
     expect(result.html).toContain("inside details");
     expect(result.headings).toEqual([]);
     expect(result.sourceBlocks).toEqual([]);
+    expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(result.html).not.toContain("svard-markdown-author-html-");
   });
 
   it("renders open Markdown details and body Markdown features", () => {
@@ -767,6 +849,8 @@ body
     expect(result.html).toContain("&lt;script&gt;");
     expect(result.html).not.toContain("<img src=x");
     expect(result.html).not.toContain("<script>");
+    expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(result.html).not.toContain("svard-markdown-author-html-");
   });
 
   it("keeps unsupported Markdown details syntax escaped", () => {

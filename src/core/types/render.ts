@@ -47,6 +47,15 @@ export interface Heading {
   sourceLocation?: SourceLocation;
 }
 
+export interface MarkdownAuthorHtmlFragment {
+  id: string;
+  kind: "inline" | "block";
+  sourceSpan: {
+    startOffset: number;
+    endOffset: number;
+  };
+}
+
 export interface RenderResult {
   html: string;
   headings: Heading[];
@@ -60,6 +69,7 @@ export interface RenderResult {
   plantUmlDiagrams: PlantUmlDiagram[];
   graphvizDiagrams: GraphvizDiagram[];
   krokiDiagrams: KrokiDiagram[];
+  markdownAuthorHtmlFragments?: MarkdownAuthorHtmlFragment[];
   perf?: RenderPerfStage[];
 }
 

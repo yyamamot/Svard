@@ -3,12 +3,31 @@ import { describe, expect, it } from "vitest";
 import type { AsciiDocIncludeFile } from "../../src/core/types";
 import {
   renderAsciiDocContract,
+  renderMarkdownContract,
   svgImageResult,
 } from "./renderContractTestUtils";
 
 const documentPath = "/workspace/docs/source-map.adoc";
 
 describe("source map render contract", () => {
+  it("does not map literal Markdown author HTML onto source actions", async () => {
+    const source = `<pre data-source-reference="/private/source.md:1">author pre</pre>
+
+<table data-source-line="1"><tr><td>author table</td></tr></table>`;
+    const { doc, renderResult } = await renderMarkdownContract({ source });
+
+    expect(renderResult).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(renderResult.sourceBlocks).toEqual([]);
+    expect(doc.querySelector("pre, table, .source-block-frame")).toBeNull();
+    expect(
+      doc.querySelector(
+        "[data-source-reference],[data-source-line],[data-copy-source-button]",
+      ),
+    ).toBeNull();
+    expect(doc.body.textContent).toContain('<pre data-source-reference="');
+    expect(doc.body.textContent).toContain('<table data-source-line="1">');
+  });
+
   it("keeps heading, include, source block, table, and image source metadata stable", async () => {
     const includeFiles: AsciiDocIncludeFile[] = [
       {
@@ -49,6 +68,7 @@ image::images/root.svg[Root Source Image]`,
       resolveLocalImage: () => svgImageResult("root image"),
     });
 
+    expect(renderResult).not.toHaveProperty("markdownAuthorHtmlFragments");
     const rootHeading = renderResult.headings.find(
       (heading) => heading.text === "Root Heading",
     );
