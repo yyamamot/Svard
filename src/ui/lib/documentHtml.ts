@@ -281,6 +281,28 @@ function htmlMayContainElement(html: string, tagName: string): boolean {
   return new RegExp(`<\\s*${tagName}(?:\\s|>|/)`, "i").test(html);
 }
 
+function stripUnmanagedResourceAttributes(body: HTMLElement): void {
+  body
+    .querySelectorAll<HTMLElement>(
+      "[src], [poster], [background], object[data], [href], [xlink\\:href]",
+    )
+    .forEach((element) => {
+      if (element.localName !== "img") {
+        element.removeAttribute("src");
+      }
+      element.removeAttribute("poster");
+      element.removeAttribute("background");
+      if (element.localName === "object") {
+        element.removeAttribute("data");
+      }
+      if (element.localName !== "a") {
+        element.removeAttribute("href");
+        element.removeAttribute("xlink:href");
+        element.removeAttributeNS("http://www.w3.org/1999/xlink", "href");
+      }
+    });
+}
+
 export async function prepareDocumentHtml(
   html: string,
   document: DocumentPayload,
@@ -309,6 +331,7 @@ export async function prepareDocumentHtml(
     { rendererIdentity: "preserve-for-validation" },
   );
   const doc = normalizedRenderResult.document;
+  stripUnmanagedResourceAttributes(doc.body);
   const authorHtmlSourceActionExcludedElements =
     normalizedRenderResult.authorHtmlSourceActionExcludedElements;
   const authorHtmlBlockRootElements =

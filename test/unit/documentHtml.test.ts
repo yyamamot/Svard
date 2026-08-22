@@ -737,6 +737,28 @@ $not rendered in source$
     );
   });
 
+  it("keeps standard Markdown external images when explicitly enabled", async () => {
+    const source = "![Grid editor](https://example.test/readme-table-grid.png)";
+    const result = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      result.html,
+      { ...documentPayload, format: "markdown", source },
+      {
+        security: {
+          allowLocalImages: true,
+          showExternalImages: true,
+          confirmExternalLinks: true,
+        },
+      },
+      result,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.test/readme-table-grid.png",
+    );
+  });
+
   it("attaches source references to rendered tables", async () => {
     const html = await prepareDocumentHtml(
       "<table><tbody><tr><td>Item</td><td>Status</td></tr></tbody></table>",

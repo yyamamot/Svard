@@ -126,6 +126,27 @@ describe("resolveLocalImageSource", () => {
     });
   });
 
+  it("canonicalizes valid external URLs and blocks malformed encoding", () => {
+    expect(
+      resolveLocalImageSource(" https://EXAMPLE.test:443/a/../logo.svg ", {
+        allowLocalImages: true,
+        showExternalImages: true,
+      }),
+    ).toEqual({
+      status: "passthrough",
+      src: "https://example.test/logo.svg",
+    });
+    expect(
+      resolveLocalImageSource("https://example.test/%ZZ.png", {
+        allowLocalImages: true,
+        showExternalImages: true,
+      }),
+    ).toEqual({
+      status: "blocked",
+      placeholderText: "External image blocked",
+    });
+  });
+
   it("passes document-provided asset and file URLs to the backend boundary", () => {
     expect(
       resolveLocalImageSource("asset://localhost/a.svg", {

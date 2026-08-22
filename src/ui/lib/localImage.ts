@@ -92,9 +92,17 @@ export function resolveLocalImageSource(
     };
   }
 
-  if (externalImagePattern.test(source)) {
+  const normalizedSource = source.replace(asciiEdgeWhitespace, "");
+  if (externalImagePattern.test(normalizedSource)) {
+    const intent = classifyMarkdownAuthorImageSource(normalizedSource);
+    if (intent.kind !== "external") {
+      return {
+        status: "blocked",
+        placeholderText: "External image blocked",
+      };
+    }
     return options.showExternalImages
-      ? { status: "passthrough", src: source }
+      ? { status: "passthrough", src: intent.url }
       : { status: "external-blocked" };
   }
 

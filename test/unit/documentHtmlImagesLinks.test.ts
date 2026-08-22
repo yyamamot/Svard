@@ -4,6 +4,40 @@ import { prepareDocumentHtml } from "../../src/ui/lib/documentHtml";
 import { documentPayload } from "./helpers/documentHtml";
 
 describe("prepareDocumentHtml image and link hydration", () => {
+  it("removes image-loading attributes from elements outside the image policy", async () => {
+    const html = await prepareDocumentHtml(
+      `<input type="image" src="https://example.test/input.png">
+<video src="https://example.test/video.mp4" poster="https://example.test/poster.png"></video>
+<object data="https://example.test/object.svg"></object>
+<table background="https://example.test/background.png"><tbody><tr><td>Cell</td></tr></tbody></table>
+<svg>
+  <image href="https://example.test/svg.png"></image>
+  <image xlink:href="https://example.test/xlink.png"></image>
+  <feImage href="https://example.test/filter.png"></feImage>
+</svg>`,
+      documentPayload,
+      {
+        security: {
+          allowLocalImages: true,
+          showExternalImages: true,
+          confirmExternalLinks: true,
+        },
+      },
+      { headings: [], sourceBlocks: [] },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("input")?.hasAttribute("src")).toBe(false);
+    expect(doc.querySelector("video")?.hasAttribute("src")).toBe(false);
+    expect(doc.querySelector("video")?.hasAttribute("poster")).toBe(false);
+    expect(doc.querySelector("object")?.hasAttribute("data")).not.toBe(true);
+    expect(doc.querySelector("table")?.hasAttribute("background")).toBe(false);
+    expect(doc.querySelector("image")?.hasAttribute("href")).not.toBe(true);
+    expect(doc.querySelector("image[xlink\\:href]")).toBeNull();
+    expect(doc.querySelector("feImage")?.hasAttribute("href")).not.toBe(true);
+    expect(html).not.toContain("https://example.test/");
+  });
+
   it("hydrates local SVG images through the backend resolver as image data", async () => {
     const html = await prepareDocumentHtml(
       '<p><img src="./assets/sample.svg" alt="Sample"></p>',
