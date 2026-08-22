@@ -168,16 +168,18 @@ export function createArticleContextMenuHandler({
       if (items.length === 0 && table) {
         addTableItems(items, table, copyText);
       }
-      addLinkItems(items, linkTarget ?? target, {
-        copyText,
-        documentPayload,
-        openDocumentInNewWindow,
-        openLinkElement,
-        openPathInEditor,
-        resolveDocumentLink,
-        showInlineNotice,
-      });
       const image = target.closest<HTMLImageElement>("img");
+      if (!image) {
+        addLinkItems(items, linkTarget ?? target, {
+          copyText,
+          documentPayload,
+          openDocumentInNewWindow,
+          openLinkElement,
+          openPathInEditor,
+          resolveDocumentLink,
+          showInlineNotice,
+        });
+      }
       addImageItems(
         items,
         target,

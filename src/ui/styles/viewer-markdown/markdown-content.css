@@ -81,6 +81,26 @@
   font-size: 0.72em;
 }
 
+.document-body.format-markdown img[class*="markdown-safe-html-image-align-"] {
+  max-width: 100%;
+  height: auto;
+}
+
+.document-body.format-markdown img.markdown-safe-html-image-align-left {
+  float: left;
+  margin: 0 12px 8px 0;
+}
+
+.document-body.format-markdown img.markdown-safe-html-image-align-right {
+  float: right;
+  margin: 0 0 8px 12px;
+}
+
+.document-body.format-markdown img.markdown-safe-html-image-align-center {
+  display: block;
+  margin-inline: auto;
+}
+
 .document-body.format-markdown .markdown-table-scroll {
   max-width: 100%;
   overflow-x: auto;

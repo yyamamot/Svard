@@ -374,6 +374,54 @@ describe("document render worker wrappers", () => {
     });
   });
 
+  it("reuses the Markdown worker after a resource element-budget rejection", async () => {
+    const responses: RenderWorkerResponse<RenderResult>[] = [];
+    const workerScope = {
+      onmessage: null as
+        | ((
+            event: MessageEvent<RenderWorkerRequest<{ source: string }>>,
+          ) => void)
+        | null,
+      postMessage(response: RenderWorkerResponse<RenderResult>) {
+        responses.push(response);
+      },
+    };
+    vi.stubGlobal("self", workerScope);
+    vi.resetModules();
+    await import("../../src/core/markdown.worker");
+
+    workerScope.onmessage?.({
+      data: {
+        requestId: "markdown-author-resource-budget",
+        diagnostic: false,
+        payload: {
+          source: '<img src="./safe.svg">'.repeat(4_097),
+        },
+      },
+    } as MessageEvent<RenderWorkerRequest<{ source: string }>>);
+
+    expect(responses[0]).toEqual({
+      requestId: "markdown-author-resource-budget",
+      ok: false,
+      message:
+        "Markdown rendering stopped because the safe HTML output budget was exceeded.",
+    });
+
+    workerScope.onmessage?.({
+      data: {
+        requestId: "markdown-author-resource-retry",
+        diagnostic: false,
+        payload: { source: "# Safe retry" },
+      },
+    } as MessageEvent<RenderWorkerRequest<{ source: string }>>);
+
+    expect(responses[1]).toMatchObject({
+      requestId: "markdown-author-resource-retry",
+      ok: true,
+      result: { html: expect.stringContaining("Safe retry") },
+    });
+  });
+
   it("preserves optional Markdown author HTML provenance in worker results", async () => {
     vi.stubGlobal("Worker", StubBrowserWorker);
     const { disposeMarkdownRenderWorkers, renderMarkdown } =

@@ -78,6 +78,24 @@ describe("sanitizeHtml", () => {
     );
   });
 
+  it("keeps approved resource elements while removing independent navigation attributes", () => {
+    const html = sanitizeDocumentHtml(
+      '<a href="https://example.test/guide" title="Guide" download ping="https://example.test/ping" referrerpolicy="unsafe-url">Guide</a><img src="https://example.test/logo.png" srcset="https://example.test/large.png 2x" alt="Logo" title="Logo" width="64" height="32">',
+      { format: "markdown" },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("a")?.getAttribute("href")).toBe(
+      "https://example.test/guide",
+    );
+    expect(doc.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.test/logo.png",
+    );
+    expect(
+      doc.querySelector("[download],[ping],[referrerpolicy],[srcset]"),
+    ).toBeNull();
+  });
+
   it("preserves AsciiDoc structural table and admonition markup", () => {
     const html = sanitizeDocumentHtml(
       '<div class="admonitionblock warning"><table><tr><td class="icon"><i class="fa icon-warning" title="Warning"></i></td><td class="content">Be careful</td></tr></table></div><table class="tableblock frame-all grid-all stretch"><caption class="title">Table 1. Feature Matrix</caption><colgroup><col style="width: 30%"><col width="70%"></colgroup><tbody><tr><td class="tableblock halign-left valign-top" rowspan="2" width="30%" valign="top"><p class="tableblock">Group</p></td><td class="tableblock halign-center valign-middle" colspan="2" align="center"><p class="tableblock">Cell</p></td></tr></tbody></table>',

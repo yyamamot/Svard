@@ -2,6 +2,7 @@ import type { DocumentFormat, RenderResult } from "../../core/types";
 import {
   containsMarkdownAuthorHtmlMarkerMarkup,
   normalizeMarkdownAuthorHtmlInPlace,
+  type MarkdownAuthorHtmlResourceCandidate,
 } from "./markdownAuthorHtml";
 import { MARKDOWN_RENDERER_ID_ATTRIBUTE } from "./markdownRendererProvenance";
 
@@ -17,6 +18,10 @@ export interface NormalizedRenderResultHtml {
   body: HTMLElement;
   authorHtml: RenderResultHtmlNormalizationStatus;
   authorHtmlBlockRootElements: Set<Element>;
+  authorHtmlResourceCandidates: Map<
+    Element,
+    MarkdownAuthorHtmlResourceCandidate
+  >;
   authorHtmlSourceActionExcludedElements: Set<Element>;
 }
 
@@ -57,6 +62,10 @@ export function normalizeRenderResultHtml(
         escapedCount: 0,
         rejectedCount: 0,
         blockRootElements: new Set<Element>(),
+        resourceCandidates: new Map<
+          Element,
+          MarkdownAuthorHtmlResourceCandidate
+        >(),
         sourceActionExcludedElements: new Set<Element>(),
       };
 
@@ -74,6 +83,7 @@ export function normalizeRenderResultHtml(
       rejectedCount: counts.rejectedCount,
     },
     authorHtmlBlockRootElements: counts.blockRootElements,
+    authorHtmlResourceCandidates: counts.resourceCandidates,
     authorHtmlSourceActionExcludedElements: counts.sourceActionExcludedElements,
   };
 }

@@ -7,6 +7,7 @@ import type {
   RenderResult,
 } from "../../core/types";
 import { fileName, isExternalUrl, splitPathAndHash } from "./path";
+import { semanticizeMarkdownAuthorResourcesInPlace } from "./markdownAuthorResources";
 import { normalizeRenderResultHtml } from "./renderResultHtml";
 
 export const linkPreviewDelayMs = 250;
@@ -123,11 +124,12 @@ export async function buildLinkPreview({
     const hash = resolved.hash ?? target.hash ?? undefined;
     try {
       const result = await renderDocument(document, { timeoutMs: 1500 });
-      const { body } = normalizeRenderResultHtml(
+      const { body, authorHtmlResourceCandidates } = normalizeRenderResultHtml(
         document.format,
         document.source,
         result,
       );
+      semanticizeMarkdownAuthorResourcesInPlace(authorHtmlResourceCandidates);
       const sourceTitleHeadings = extractSourceHeadings(document.source).filter(
         (heading) => heading.level === 1,
       );

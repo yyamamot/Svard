@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES,
   MAX_MARKDOWN_AUTHOR_HTML_NESTING,
+  MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_TEXT_BYTES,
+  MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_URL_BYTES,
   parseMarkdownAuthorContainerOpeningTag,
   parseMarkdownAuthorHtmlBlockFragment,
   parseMarkdownAuthorHtmlFragment,
@@ -109,6 +111,82 @@ describe("parseMarkdownAuthorHtmlFragment", () => {
       parseMarkdownAuthorHtmlFragment(`<abbr title="${overLimit}">x</abbr>`)
         .status,
     ).toBe("escape");
+  });
+
+  it("parses links, images, and linked images without putting URLs in attributes", () => {
+    const source =
+      '<A href="./Guide%20File.md" title="Guide" class="discard"><IMG src="./logo.svg" alt="Logo &amp; mark" width="64" height="32" align="RIGHT" data-x="discard"></A>';
+    const result = parseMarkdownAuthorHtmlFragment(source);
+
+    expect(result.status).toBe("pass");
+    if (result.status !== "pass") return;
+    expect(result.visibleText).toBe("Logo & mark");
+    expect(result.nodes).toEqual([
+      expect.objectContaining({
+        tagName: "a",
+        attributes: { title: "Guide" },
+        resource: { kind: "link", value: "./Guide%20File.md" },
+        children: [
+          expect.objectContaining({
+            tagName: "img",
+            attributes: {
+              alt: "Logo & mark",
+              width: "64",
+              height: "32",
+              align: "right",
+            },
+            resource: { kind: "image", value: "./logo.svg" },
+          }),
+        ],
+      }),
+    ]);
+  });
+
+  it("enforces resource URL, text, and dimension boundaries", () => {
+    const urlAtLimit = `./${"a".repeat(MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_URL_BYTES - 2)}`;
+    const textAtLimit = "a".repeat(
+      MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_TEXT_BYTES,
+    );
+    expect(
+      parseMarkdownAuthorHtmlFragment(
+        `<img src="${urlAtLimit}" alt="${textAtLimit}" width="1" height="4096">`,
+      ).status,
+    ).toBe("pass");
+    expect(
+      parseMarkdownAuthorHtmlFragment(`<img src="${urlAtLimit}a" alt="x">`)
+        .status,
+    ).toBe("escape");
+    expect(
+      parseMarkdownAuthorHtmlFragment(`<img src="./x" alt="${textAtLimit}a">`)
+        .status,
+    ).toBe("escape");
+    expect(
+      parseMarkdownAuthorHtmlFragment('<img src="./x" width="0">').status,
+    ).toBe("escape");
+    expect(
+      parseMarkdownAuthorHtmlFragment('<img src="./x" height="4097">').status,
+    ).toBe("escape");
+  });
+
+  it.each([
+    "<a>missing</a>",
+    '<img alt="missing source">',
+    '<a href="./one"><a href="./two">nested</a></a>',
+    '<img src="./x"></img>',
+    '<img src="./x">child',
+    '<a href="./one" HREF="./two">duplicate</a>',
+    '<img src="./x" width="broken">',
+  ])("escapes invalid resource element syntax: %s", (source) => {
+    expect(parseMarkdownAuthorHtmlFragment(source).status).toBe("escape");
+  });
+
+  it("does not partially activate an image with an invalid closing tag", () => {
+    const source = '<img src="./x">child</img>';
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const scanned = scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(scanned.source).toBe(source);
+    expect(registry.fragments()).toEqual([]);
   });
 
   it.each([
@@ -321,6 +399,25 @@ After`;
     const result = scanMarkdownAuthorHtml(source, 0, registry);
 
     expect(performance.now() - startedAt).toBeLessThan(1_500);
+    expect(result).toEqual({ count: 0, source });
+  });
+
+  it("preserves a deeply nested unsupported inline root after ordinary text", () => {
+    const source = `prefix ${"<x>".repeat(MAX_MARKDOWN_AUTHOR_HTML_NESTING + 1)}content${"</x>".repeat(MAX_MARKDOWN_AUTHOR_HTML_NESTING + 1)} suffix`;
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const result = scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(result).toEqual({ count: 0, source });
+  });
+
+  it("fails closed for discovery work beyond the typed nesting budget", () => {
+    const source = `<div>${"<x>".repeat(MAX_MARKDOWN_AUTHOR_HTML_NESTING + 1)}
+
+<kbd>must remain literal</kbd>
+${"</x>".repeat(MAX_MARKDOWN_AUTHOR_HTML_NESTING + 1)}</div>`;
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const result = scanMarkdownAuthorHtml(source, 0, registry);
+
     expect(result).toEqual({ count: 0, source });
   });
 

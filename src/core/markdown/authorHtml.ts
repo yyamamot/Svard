@@ -5,6 +5,8 @@ import { utf8ByteLength } from "./placeholders";
 export const MAX_MARKDOWN_AUTHOR_HTML_ITEMS = 4_096;
 export const MAX_MARKDOWN_AUTHOR_HTML_NESTING = 32;
 export const MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES = 1_024;
+export const MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_URL_BYTES = 4_096;
+export const MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_TEXT_BYTES = 1_024;
 
 export interface MarkdownAuthorHtmlSourceSpan {
   startOffset: number;
@@ -21,9 +23,14 @@ export type MarkdownAuthorHtmlNode =
       type: "element";
       tagName: MarkdownAuthorHtmlTagName;
       attributes: Readonly<Record<string, string>>;
+      resource?: MarkdownAuthorHtmlResource;
       children: MarkdownAuthorHtmlNode[];
       sourceSpan: MarkdownAuthorHtmlSourceSpan;
     };
+
+export type MarkdownAuthorHtmlResource =
+  | { kind: "link"; value: string }
+  | { kind: "image"; value: string };
 
 export type MarkdownAuthorHtmlParseResult =
   | {
@@ -35,6 +42,7 @@ export type MarkdownAuthorHtmlParseResult =
   | { status: "escape" };
 
 export type MarkdownAuthorHtmlTagName =
+  | "a"
   | "abbr"
   | "blockquote"
   | "br"
@@ -48,6 +56,7 @@ export type MarkdownAuthorHtmlTagName =
   | "dt"
   | "hr"
   | "ins"
+  | "img"
   | "kbd"
   | "li"
   | "mark"
@@ -70,6 +79,7 @@ export type MarkdownAuthorHtmlTagName =
   | "ul";
 
 const allowedTags = new Set<MarkdownAuthorHtmlTagName>([
+  "a",
   "abbr",
   "blockquote",
   "br",
@@ -83,6 +93,7 @@ const allowedTags = new Set<MarkdownAuthorHtmlTagName>([
   "dt",
   "hr",
   "ins",
+  "img",
   "kbd",
   "li",
   "mark",
@@ -105,10 +116,12 @@ const allowedTags = new Set<MarkdownAuthorHtmlTagName>([
   "ul",
 ]);
 const inlineTags = new Set<MarkdownAuthorHtmlTagName>([
+  "a",
   "abbr",
   "br",
   "del",
   "ins",
+  "img",
   "kbd",
   "mark",
   "rp",
@@ -130,13 +143,14 @@ const blockRootTags = new Set<MarkdownAuthorHtmlTagName>([
   "ul",
 ]);
 const rubyChildTags = new Set<MarkdownAuthorHtmlTagName>(["rp", "rt"]);
-const voidTags = new Set<MarkdownAuthorHtmlTagName>(["br", "col", "hr"]);
+const voidTags = new Set<MarkdownAuthorHtmlTagName>(["br", "col", "hr", "img"]);
 const asciiNamePattern = /^[A-Za-z][A-Za-z0-9-]*$/u;
 const whitespacePattern = /[\t\f ]/u;
 
 interface ParsedOpeningTag {
   attributes: Record<string, string>;
   endOffset: number;
+  resource?: MarkdownAuthorHtmlResource;
   selfClosing: boolean;
   tagName: MarkdownAuthorHtmlTagName;
 }
@@ -177,8 +191,25 @@ function skipWhitespace(source: string, offset: number): number {
 
 type NormalizedAttribute =
   | { name: string; value: string }
+  | { resourceKind: MarkdownAuthorHtmlResource["kind"]; value: string }
   | { name: null }
   | null;
+
+function boundedDecodedAttribute(
+  value: string,
+  maxBytes: number,
+): string | null {
+  const normalized = decodeHtmlEntities(value);
+  return utf8ByteLength(normalized, maxBytes) <= maxBytes ? normalized : null;
+}
+
+function boundedDimension(value: string): string | null {
+  if (!/^\d+$/u.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4_096
+    ? String(parsed)
+    : null;
+}
 
 function canonicalSafeInteger(value: string): string | null {
   if (!/^[+-]?\d+$/u.test(value)) return null;
@@ -199,6 +230,52 @@ function normalizeAttribute(
   attributeName: string,
   value: string,
 ): NormalizedAttribute {
+  if (tagName === "a" && attributeName === "href") {
+    const normalized = boundedDecodedAttribute(
+      value,
+      MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_URL_BYTES,
+    );
+    return normalized === null
+      ? null
+      : { resourceKind: "link", value: normalized };
+  }
+  if (tagName === "img" && attributeName === "src") {
+    const normalized = boundedDecodedAttribute(
+      value,
+      MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_URL_BYTES,
+    );
+    return normalized === null
+      ? null
+      : { resourceKind: "image", value: normalized };
+  }
+  if (
+    (tagName === "a" && attributeName === "title") ||
+    (tagName === "img" &&
+      (attributeName === "alt" || attributeName === "title"))
+  ) {
+    const normalized = boundedDecodedAttribute(
+      value,
+      MAX_MARKDOWN_AUTHOR_HTML_RESOURCE_TEXT_BYTES,
+    );
+    return normalized === null
+      ? null
+      : { name: attributeName, value: normalized };
+  }
+  if (
+    tagName === "img" &&
+    (attributeName === "width" || attributeName === "height")
+  ) {
+    const normalized = boundedDimension(value);
+    return normalized === null
+      ? null
+      : { name: attributeName, value: normalized };
+  }
+  if (tagName === "img" && attributeName === "align") {
+    const normalized = value.toLowerCase();
+    return ["left", "center", "right"].includes(normalized)
+      ? { name: "align", value: normalized }
+      : null;
+  }
   if (tagName === "abbr" && attributeName === "title") {
     const normalizedTitle = decodeHtmlEntities(value);
     if (
@@ -332,16 +409,22 @@ function parseOpeningTag(
   }
   const tagName = parsedName[0] as MarkdownAuthorHtmlTagName;
   const attributes: Record<string, string> = {};
+  let resource: MarkdownAuthorHtmlResource | undefined;
   const seenAttributes = new Set<string>();
   let offset = parsedName[1];
   while (offset < source.length) {
     offset = skipWhitespace(source, offset);
     if (source[offset] === "\n" || source[offset] === "\r") return null;
-    if (source.startsWith("/>", offset)) {
-      return { attributes, endOffset: offset + 2, selfClosing: true, tagName };
-    }
-    if (source[offset] === ">") {
-      return { attributes, endOffset: offset + 1, selfClosing: false, tagName };
+    if (source.startsWith("/>", offset) || source[offset] === ">") {
+      if ((tagName === "a" || tagName === "img") && !resource) return null;
+      const selfClosing = source.startsWith("/>", offset);
+      return {
+        attributes,
+        endOffset: offset + (selfClosing ? 2 : 1),
+        resource,
+        selfClosing,
+        tagName,
+      };
     }
     const attributeNameResult = readAsciiName(source, offset);
     if (!attributeNameResult) return null;
@@ -383,7 +466,9 @@ function parseOpeningTag(
     }
     const normalized = normalizeAttribute(tagName, attributeName, value);
     if (normalized === null) return null;
-    if (normalized.name !== null) {
+    if ("resourceKind" in normalized) {
+      resource = { kind: normalized.resourceKind, value: normalized.value };
+    } else if (normalized.name !== null) {
       attributes[normalized.name] = normalized.value;
     }
   }
@@ -393,7 +478,11 @@ function parseOpeningTag(
 function visibleText(nodes: readonly MarkdownAuthorHtmlNode[]): string {
   return nodes
     .map((node) =>
-      node.type === "text" ? node.value : visibleText(node.children),
+      node.type === "text"
+        ? node.value
+        : node.tagName === "img"
+          ? (node.attributes.alt ?? "")
+          : visibleText(node.children),
     )
     .join("");
 }
@@ -454,6 +543,9 @@ function parentAllowsChild(
   child: MarkdownAuthorHtmlTagName,
   ancestors: readonly MarkdownAuthorHtmlTagName[],
 ): boolean {
+  if (child === "a" && (parent === "a" || ancestors.includes("a"))) {
+    return false;
+  }
   if (parent === "ul" || parent === "ol") return child === "li";
   if (parent === "dl") return child === "dt" || child === "dd";
   if (parent === "table") {
@@ -469,12 +561,24 @@ function parentAllowsChild(
   if (parent === "p" || parent === "caption" || parent === "dt") {
     return inlineTags.has(child);
   }
-  if (parent === "ruby") return inlineTags.has(child) && child !== "ruby";
-  if (rubyChildTags.has(parent)) {
+  if (parent === "ruby") {
     return (
-      inlineTags.has(child) && child !== "ruby" && !rubyChildTags.has(child)
+      inlineTags.has(child) &&
+      child !== "ruby" &&
+      child !== "a" &&
+      child !== "img"
     );
   }
+  if (rubyChildTags.has(parent)) {
+    return (
+      inlineTags.has(child) &&
+      child !== "ruby" &&
+      child !== "a" &&
+      child !== "img" &&
+      !rubyChildTags.has(child)
+    );
+  }
+  if (parent === "a") return inlineTags.has(child) && child !== "a";
   if (inlineTags.has(parent)) return inlineTags.has(child);
   if (
     parent === "div" ||
@@ -525,11 +629,7 @@ function parseElement(
   if (!opening) return null;
   const { tagName } = opening;
   if (state.mode === "inline" && !inlineTags.has(tagName)) return null;
-  if (
-    state.mode === "block" &&
-    parentTagName &&
-    !parentAllowsChild(parentTagName, tagName, ancestors)
-  ) {
+  if (parentTagName && !parentAllowsChild(parentTagName, tagName, ancestors)) {
     return null;
   }
   if (rubyChildTags.has(tagName) && parentTagName !== "ruby") return null;
@@ -549,6 +649,7 @@ function parseElement(
         type: "element",
         tagName,
         attributes: opening.attributes,
+        resource: opening.resource,
         children: [],
         sourceSpan: { startOffset, endOffset: opening.endOffset },
       },
@@ -582,6 +683,7 @@ function parseElement(
         type: "element",
         tagName,
         attributes: opening.attributes,
+        resource: opening.resource,
         children,
         sourceSpan: { startOffset, endOffset },
       };

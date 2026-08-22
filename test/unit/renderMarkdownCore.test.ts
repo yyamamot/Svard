@@ -40,9 +40,9 @@ describe("renderMarkdownCore", () => {
   it.each([
     {
       name: "active HTML",
-      source: '<img src="./private.png" onerror="alert(1)">',
-      literal: '<img src="./private.png" onerror="alert(1)">',
-      activeSelector: "img",
+      source: '<script src="./private.js"></script>',
+      literal: '<script src="./private.js"></script>',
+      activeSelector: "script",
     },
     {
       name: "malformed unbalanced HTML",
@@ -1254,16 +1254,16 @@ body
 
   it("escapes raw HTML inside Markdown details summary and body", () => {
     const result = renderMarkdownCore(`<details>
-<summary><img src=x onerror=alert(1)> Summary</summary>
+<summary><img onerror=alert(1)> Summary</summary>
 
 <script>window.unsafeDetails = true</script>
 </details>
 `);
 
     expect(result.html).toContain('class="markdown-details"');
-    expect(result.html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(result.html).toContain("&lt;img onerror=alert(1)&gt;");
     expect(result.html).toContain("&lt;script&gt;");
-    expect(result.html).not.toContain("<img src=x");
+    expect(result.html).not.toContain("<img onerror");
     expect(result.html).not.toContain("<script>");
     expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
     expect(result.html).not.toContain("svard-markdown-author-html-");

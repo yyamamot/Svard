@@ -25,6 +25,35 @@ function sourceSpan(source: string, value: string) {
 }
 
 describe("normalizeMarkdownAuthorHtmlInPlace", () => {
+  it("creates resource elements without URL attributes and returns ephemeral candidates", () => {
+    const source =
+      '<a href="./guide.md"><img src="./logo.svg" alt="Logo" align="center"></a>';
+    const body = parseBody(marker("inline", "resource-1", "fallback"));
+
+    const result = normalizeMarkdownAuthorHtmlInPlace(body, source, [
+      {
+        id: "resource-1",
+        kind: "inline",
+        sourceSpan: { startOffset: 0, endOffset: source.length },
+      },
+    ]);
+    const link = body.querySelector("a");
+    const image = body.querySelector("img");
+
+    expect(link?.hasAttribute("href")).toBe(false);
+    expect(image?.hasAttribute("src")).toBe(false);
+    expect(image?.className).toBe("markdown-safe-html-image-align-center");
+    expect(result.resourceCandidates.get(link!)).toEqual({
+      kind: "link",
+      value: "./guide.md",
+    });
+    expect(result.resourceCandidates.get(image!)).toEqual({
+      kind: "image",
+      value: "./logo.svg",
+    });
+    expect(result.sourceActionExcludedElements.has(link!)).toBe(true);
+    expect(result.sourceActionExcludedElements.has(image!)).toBe(true);
+  });
   it("constructs a typed block tree and records only app-owned block roots", () => {
     const source = `<table class="author"><tbody><tr><th scope="COL">A</th><td colspan="2"><kbd>B</kbd></td></tr></tbody></table>`;
     const body = parseBody(marker("block", "block-1", "fallback"));

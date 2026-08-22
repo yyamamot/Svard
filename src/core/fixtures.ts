@@ -182,6 +182,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "markdown-safe-html-links-assets.md",
+      path: "/workspace/docs/markdown-safe-html-links-assets.md",
+      kind: "file",
+    },
+    {
       name: "git-modified.md",
       path: "/workspace/docs/git-modified.md",
       kind: "file",
@@ -576,6 +581,11 @@ export const fixtureEntries: DirectoryEntry[] = [
   {
     name: "markdown-safe-html-blocks.md",
     path: "/workspace/docs/markdown-safe-html-blocks.md",
+    kind: "file",
+  },
+  {
+    name: "markdown-safe-html-links-assets.md",
+    path: "/workspace/docs/markdown-safe-html-links-assets.md",
     kind: "file",
   },
   {
@@ -2564,6 +2574,33 @@ The details body keeps <mark>safe inline markup</mark> without resource actions.
 ## Following Markdown heading
 
 Following Markdown keeps its source location.
+`,
+  "/workspace/docs/markdown-safe-html-links-assets.md": `# Markdown Safe HTML Links and Assets
+
+## Typed resources
+
+Open the <a href="./markdown-safe-html.md" title="Safe HTML guide">local guide</a> or the <a href="https://example.test/svard" title="External guide">external guide</a>.
+
+<img src="assets/svard-sample.svg" alt="Local Svard sample" title="Resolved locally" width="160" height="96" align="center">
+
+<a href="#resource-target"><img src="assets/svard-sample.svg" alt="Linked Svard sample" width="120"></a>
+
+External image policy: <img src="https://example.test/external.svg" alt="External image disabled">
+
+Blocked candidates: <a href="javascript:blocked">Blocked link label</a> <img src="data:image/svg+xml,blocked" alt="Blocked image">
+
+<details open>
+<summary>Details <a href="#resource-target">jump</a></summary>
+
+Details image <img src="assets/svard-sample.svg" alt="Details sample" width="72">.
+
+</details>
+
+<table><tbody><tr><th>Resource</th><td><a href="#resource-target">Table link</a> <img src="assets/svard-sample.svg" alt="Table sample" width="64"></td></tr></tbody></table>
+
+## Resource target
+
+Resource-bearing blocks keep visible text and omit source actions.
 `,
   "/workspace/docs/markdown-diagrams.md": `# Markdown Diagram Sample
 

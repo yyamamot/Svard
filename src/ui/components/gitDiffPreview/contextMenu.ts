@@ -445,10 +445,12 @@ function addRenderedSurfaceItems(
   const linkHref =
     target.closest<HTMLAnchorElement>("a[href]")?.getAttribute("href") ?? "";
   const linkIntent = classifyDocumentLinkHref(linkHref);
+  const image = target.closest<HTMLImageElement>("img");
   if (
-    !linkHref ||
-    (linkIntent.kind !== "blocked" &&
-      (documentPayload || linkIntent.kind === "external"))
+    !image &&
+    (!linkHref ||
+      (linkIntent.kind !== "blocked" &&
+        (documentPayload || linkIntent.kind === "external")))
   ) {
     addLinkItems(items, target, {
       copyText,
@@ -468,7 +470,6 @@ function addRenderedSurfaceItems(
       showInlineNotice,
     });
   }
-  const image = target.closest<HTMLImageElement>("img");
   addImageItems(
     items,
     target,

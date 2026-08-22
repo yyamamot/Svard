@@ -25,6 +25,7 @@ import { applyInlineDiagramsToHtml } from "../diagramHtml";
 import { prepareDocumentHtml } from "../documentHtml";
 import { normalizeRenderResultHtml } from "../renderResultHtml";
 import { deactivateUnresolvedDocumentLinksInPlace } from "../documentLinkNavigation";
+import { applyPathlessMarkdownAuthorResourcePolicyInPlace } from "../markdownAuthorResources";
 import {
   perfDuration,
   perfNow,
@@ -330,7 +331,15 @@ async function renderBlocksFromSource(
     .showExternalImages;
   if (!documentPath) {
     return measureBlockParsePhase(phaseMetrics, () => {
-      const { body } = normalizeRenderResultHtml(format, source, result);
+      const { body, authorHtmlResourceCandidates } = normalizeRenderResultHtml(
+        format,
+        source,
+        result,
+      );
+      applyPathlessMarkdownAuthorResourcePolicyInPlace(
+        authorHtmlResourceCandidates,
+        { showExternalImages },
+      );
       deactivateUnresolvedDocumentLinksInPlace(body);
       return extractRenderedBlocksFromRoot(body, {
         diagramSignatures: diagramMetadata.signatures,
@@ -396,26 +405,13 @@ async function renderDiffDocumentHtml({
   phaseMetrics: DiffSidePhaseMetrics | null;
 }): Promise<string> {
   const effectiveConfig = options.config ?? defaultConfig;
-  // Keep external image src in the in-memory diff HTML so signature comparison
-  // can detect URL changes. extractRenderedBlocksFromHtml() still applies the
-  // user-facing display policy before any diff HTML reaches the UI.
-  const diffPreparationConfig =
-    effectiveConfig.security.showExternalImages === true
-      ? effectiveConfig
-      : {
-          ...effectiveConfig,
-          security: {
-            ...effectiveConfig.security,
-            showExternalImages: true,
-          },
-        };
   const resolveLocalImage = options.resolveLocalImage;
 
   const html = await measurePreparePhase(phaseMetrics, () =>
     prepareDocumentHtml(
       result.html,
       document,
-      diffPreparationConfig,
+      effectiveConfig,
       result,
       resolveLocalImage
         ? {

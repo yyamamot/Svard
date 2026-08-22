@@ -1,6 +1,43 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveLocalImageSource } from "../../src/ui/lib/localImage";
+import {
+  classifyMarkdownAuthorImageSource,
+  resolveLocalImageSource,
+} from "../../src/ui/lib/localImage";
+
+describe("classifyMarkdownAuthorImageSource", () => {
+  it("canonicalizes HTTP(S) and preserves local/root-relative candidates", () => {
+    expect(
+      classifyMarkdownAuthorImageSource(
+        " https://EXAMPLE.test:443/a/../image.png ",
+      ),
+    ).toEqual({ kind: "external", url: "https://example.test/image.png" });
+    expect(classifyMarkdownAuthorImageSource("./assets/image.png")).toEqual({
+      kind: "local",
+      source: "./assets/image.png",
+    });
+    expect(classifyMarkdownAuthorImageSource("/images/image.png")).toEqual({
+      kind: "local",
+      source: "/images/image.png",
+    });
+  });
+
+  it.each([
+    "",
+    "//example.test/image.png",
+    "\\\\server\\share\\image.png",
+    "C:\\private\\image.png",
+    "javascript:alert(1)",
+    "data:image/png;base64,AA==",
+    "file:///private/image.png",
+    "asset://localhost/image.png",
+    "./bad%ZZ.png",
+    "java\tscript:image.png",
+    "image\u0000.png",
+  ])("blocks unsafe author image sources: %s", (source) => {
+    expect(classifyMarkdownAuthorImageSource(source).kind).toBe("blocked");
+  });
+});
 
 describe("resolveLocalImageSource", () => {
   it("keeps relative local images as raw sources for backend resolution", () => {

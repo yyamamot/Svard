@@ -2,6 +2,7 @@ import {
   parseMarkdownAuthorHtmlBlockFragment,
   parseMarkdownAuthorHtmlFragment,
   type MarkdownAuthorHtmlNode,
+  type MarkdownAuthorHtmlResource,
 } from "../../core/markdown/authorHtml";
 import type { MarkdownAuthorHtmlFragment } from "../../core/types";
 
@@ -14,6 +15,7 @@ const MARKER_MARKUP_PATTERN =
   /<\s*svard-markdown-author-html-(?:inline|block)\b|data-svard-markdown-author-html-id\b/iu;
 const TEXT_NODE_TYPE = 3;
 const SAFE_ELEMENT_NAMES = new Set([
+  "a",
   "abbr",
   "blockquote",
   "br",
@@ -27,6 +29,7 @@ const SAFE_ELEMENT_NAMES = new Set([
   "dt",
   "hr",
   "ins",
+  "img",
   "kbd",
   "li",
   "mark",
@@ -49,6 +52,10 @@ const SAFE_ELEMENT_NAMES = new Set([
   "ul",
 ]);
 export const MARKDOWN_SAFE_HTML_BLOCK_CLASS = "markdown-safe-html-block";
+export const MARKDOWN_SAFE_HTML_IMAGE_ALIGN_CLASS_PREFIX =
+  "markdown-safe-html-image-align-";
+
+export type MarkdownAuthorHtmlResourceCandidate = MarkdownAuthorHtmlResource;
 
 interface MatchedMarker {
   marker: Element;
@@ -57,6 +64,7 @@ interface MatchedMarker {
 
 interface PreparedMarker extends MatchedMarker {
   blockRoots: Element[];
+  resourceCandidates: Map<Element, MarkdownAuthorHtmlResourceCandidate>;
   replacement: DocumentFragment | Text;
   outcome: "pass" | "escape";
 }
@@ -69,6 +77,7 @@ export interface MarkdownAuthorHtmlNormalizationCounts {
 
 export interface MarkdownAuthorHtmlNormalizationResult extends MarkdownAuthorHtmlNormalizationCounts {
   blockRootElements: Set<Element>;
+  resourceCandidates: Map<Element, MarkdownAuthorHtmlResourceCandidate>;
   sourceActionExcludedElements: Set<Element>;
 }
 
@@ -130,6 +139,16 @@ function isAllowedAttribute(
   name: string,
   value: string,
 ): boolean {
+  if (tagName === "a") return name === "title";
+  if (tagName === "img") {
+    return (
+      name === "alt" ||
+      name === "title" ||
+      name === "width" ||
+      name === "height" ||
+      (name === "align" && ["left", "center", "right"].includes(value))
+    );
+  }
   if (tagName === "abbr") return name === "title";
   if (["p", "div", "th", "td"].includes(tagName) && name === "align") {
     return ["left", "center", "right"].includes(value);
@@ -159,6 +178,7 @@ function appendSafeNodes(
   document: Document,
   parent: DocumentFragment | Element,
   nodes: readonly MarkdownAuthorHtmlNode[],
+  resourceCandidates: Map<Element, MarkdownAuthorHtmlResourceCandidate>,
 ): boolean {
   for (const node of nodes) {
     if (node.type === "text") {
@@ -166,6 +186,13 @@ function appendSafeNodes(
       continue;
     }
     if (!SAFE_ELEMENT_NAMES.has(node.tagName)) return false;
+    if (
+      (node.tagName === "a" && node.resource?.kind !== "link") ||
+      (node.tagName === "img" && node.resource?.kind !== "image") ||
+      (node.tagName !== "a" && node.tagName !== "img" && node.resource)
+    ) {
+      return false;
+    }
     const attributeEntries = Object.entries(node.attributes);
     if (
       attributeEntries.some(
@@ -176,9 +203,17 @@ function appendSafeNodes(
     }
     const element = document.createElement(node.tagName);
     for (const [name, value] of attributeEntries) {
-      element.setAttribute(name, value);
+      if (node.tagName === "img" && name === "align") {
+        element.classList.add(
+          `${MARKDOWN_SAFE_HTML_IMAGE_ALIGN_CLASS_PREFIX}${value}`,
+        );
+      } else {
+        element.setAttribute(name, value);
+      }
     }
-    if (!appendSafeNodes(document, element, node.children)) return false;
+    if (node.resource) resourceCandidates.set(element, node.resource);
+    if (!appendSafeNodes(document, element, node.children, resourceCandidates))
+      return false;
     parent.append(element);
   }
   return true;
@@ -193,6 +228,7 @@ function rejectedResult(
     escapedCount: 0,
     rejectedCount: markers.length,
     blockRootElements: new Set<Element>(),
+    resourceCandidates: new Map<Element, MarkdownAuthorHtmlResourceCandidate>(),
     sourceActionExcludedElements: new Set<Element>(),
   };
 }
@@ -213,6 +249,10 @@ export function normalizeMarkdownAuthorHtmlInPlace(
       escapedCount: 0,
       rejectedCount: 0,
       blockRootElements: new Set<Element>(),
+      resourceCandidates: new Map<
+        Element,
+        MarkdownAuthorHtmlResourceCandidate
+      >(),
       sourceActionExcludedElements: new Set<Element>(),
     };
   }
@@ -275,14 +315,27 @@ export function normalizeMarkdownAuthorHtmlInPlace(
       prepared.push({
         ...match,
         blockRoots: [],
+        resourceCandidates: new Map<
+          Element,
+          MarkdownAuthorHtmlResourceCandidate
+        >(),
         replacement: match.marker.ownerDocument.createTextNode(fragmentSource),
         outcome: "escape",
       });
       continue;
     }
     const replacement = match.marker.ownerDocument.createDocumentFragment();
+    const resourceCandidates = new Map<
+      Element,
+      MarkdownAuthorHtmlResourceCandidate
+    >();
     if (
-      !appendSafeNodes(match.marker.ownerDocument, replacement, parsed.nodes)
+      !appendSafeNodes(
+        match.marker.ownerDocument,
+        replacement,
+        parsed.nodes,
+        resourceCandidates,
+      )
     ) {
       return rejectedResult(markers);
     }
@@ -294,11 +347,21 @@ export function normalizeMarkdownAuthorHtmlInPlace(
     blockRoots.forEach((root) =>
       root.classList.add(MARKDOWN_SAFE_HTML_BLOCK_CLASS),
     );
-    prepared.push({ ...match, blockRoots, replacement, outcome: "pass" });
+    prepared.push({
+      ...match,
+      blockRoots,
+      replacement,
+      resourceCandidates,
+      outcome: "pass",
+    });
   }
 
   const sourceActionExcludedElements = new Set<Element>();
   const blockRootElements = new Set<Element>();
+  const resourceCandidates = new Map<
+    Element,
+    MarkdownAuthorHtmlResourceCandidate
+  >();
   let passedCount = 0;
   let escapedCount = 0;
   for (const item of prepared) {
@@ -310,6 +373,10 @@ export function normalizeMarkdownAuthorHtmlInPlace(
         root
           .querySelectorAll("h1,h2,h3,h4,h5,h6,p,ul,ol,dl,table,pre,blockquote")
           .forEach((element) => sourceActionExcludedElements.add(element));
+      }
+      for (const [element, resource] of item.resourceCandidates) {
+        resourceCandidates.set(element, resource);
+        sourceActionExcludedElements.add(element);
       }
       for (
         let ancestor = item.marker.parentElement;
@@ -334,6 +401,7 @@ export function normalizeMarkdownAuthorHtmlInPlace(
     escapedCount,
     rejectedCount: 0,
     blockRootElements,
+    resourceCandidates,
     sourceActionExcludedElements,
   };
 }

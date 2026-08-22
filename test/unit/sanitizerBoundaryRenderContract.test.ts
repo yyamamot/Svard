@@ -24,6 +24,7 @@ describe("sanitizer boundary render contract", () => {
 
     expect(renderResult.markdownAuthorHtmlFragments).toEqual([
       expect.objectContaining({ kind: "block" }),
+      expect.objectContaining({ kind: "inline" }),
     ]);
     expect(preparedHtml).not.toContain("svard-markdown-author-html-");
     expect(bodyText).toContain("unsafe div");
@@ -31,7 +32,8 @@ describe("sanitizer boundary render contract", () => {
       "unsafe div",
     );
     expect(bodyText).not.toContain('<div style="color:red"');
-    expect(bodyText).toContain('<a href="javascript:alert(1)"');
+    expect(bodyText).toContain("unsafe link");
+    expect(bodyText).not.toContain("javascript:alert(1)");
     expect(bodyText).toContain('<iframe srcdoc="<script>');
     expect(bodyText).toContain("<svg><script>alert(1)</script>");
     expect(doc.querySelector("script, iframe, object, embed")).toBeNull();

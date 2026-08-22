@@ -17,7 +17,14 @@ const commonConfig = {
   ALLOW_ARIA_ATTR: true,
   ALLOW_DATA_ATTR: true,
   ALLOWED_URI_REGEXP: allowedUriPattern,
-  FORBID_ATTR: ["style", ...privateRendererAttributes],
+  FORBID_ATTR: [
+    "style",
+    "srcset",
+    "download",
+    "ping",
+    "referrerpolicy",
+    ...privateRendererAttributes,
+  ],
 } satisfies Config;
 
 export interface SanitizeDocumentHtmlOptions {

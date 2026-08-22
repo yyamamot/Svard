@@ -9,6 +9,7 @@ import {
 import type { GitDiffPreview } from "../../src/core/types";
 import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
 import { normalizeRenderResultHtml } from "../../src/ui/lib/renderResultHtml";
+import { semanticizeMarkdownAuthorResourcesInPlace } from "../../src/ui/lib/markdownAuthorResources";
 
 describe("git table diff", () => {
   it("extracts rendered Markdown table matrices from HTML", () => {
@@ -50,6 +51,19 @@ describe("git table diff", () => {
       /svard-markdown-author-html|data-svard-markdown-author-html-id|svard-author-/u,
     );
     expect(normalized.body.querySelector("[data-source-reference]")).toBeNull();
+  });
+
+  it("reduces Safe HTML resources in table cells to semantic label and alt text", () => {
+    const source = `<table><tbody><tr><th>Resource</th><td><a href="https://example.test/private">Guide</a> <img src="./private.svg" alt="Logo"></td></tr></tbody></table>`;
+    const rendered = renderMarkdownCore(source);
+    const normalized = normalizeRenderResultHtml("markdown", source, rendered);
+    semanticizeMarkdownAuthorResourcesInPlace(
+      normalized.authorHtmlResourceCandidates,
+    );
+    const tables = extractRenderedTablesFromRoot(normalized.body);
+
+    expect(tables[0]?.rows[0]).toEqual(["Resource", "Guide Image: Logo"]);
+    expect(JSON.stringify(tables)).not.toMatch(/example\.test|private\.svg/u);
   });
 
   it("extracts typed author HTML tables and keeps spans on the complex fallback", () => {

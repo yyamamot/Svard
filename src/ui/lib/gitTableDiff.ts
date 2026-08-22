@@ -9,6 +9,7 @@ import {
   tracePerf,
 } from "./perfTrace";
 import { normalizeRenderResultHtml } from "./renderResultHtml";
+import { semanticizeMarkdownAuthorResourcesInPlace } from "./markdownAuthorResources";
 
 export type TableCellDiffKind = "unchanged" | "added" | "removed" | "changed";
 
@@ -580,7 +581,12 @@ async function renderTablesFromSource(
   }
   if (!metrics) {
     const result = await renderDocument({ format, source });
-    const { body } = normalizeRenderResultHtml(format, source, result);
+    const { body, authorHtmlResourceCandidates } = normalizeRenderResultHtml(
+      format,
+      source,
+      result,
+    );
+    semanticizeMarkdownAuthorResourcesInPlace(authorHtmlResourceCandidates);
     return extractRenderedTablesFromRoot(body);
   }
   metrics.renderCount += 1;
@@ -604,7 +610,12 @@ async function renderTablesFromSource(
     parseStartedAt,
   );
   try {
-    const { body } = normalizeRenderResultHtml(format, source, result);
+    const { body, authorHtmlResourceCandidates } = normalizeRenderResultHtml(
+      format,
+      source,
+      result,
+    );
+    semanticizeMarkdownAuthorResourcesInPlace(authorHtmlResourceCandidates);
     return extractRenderedTablesFromRoot(body);
   } finally {
     const parseEndedAt = perfNow();

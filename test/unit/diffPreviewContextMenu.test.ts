@@ -314,6 +314,20 @@ describe("diff preview context menu", () => {
     ]);
   });
 
+  it("prioritizes image actions when a rendered image is inside a link", () => {
+    expect(
+      menuLabelsFor(
+        `<a href="https://example.test/guide"><img src="https://example.test/image.png" data-image-path="https://example.test/image.png" data-image-url="https://example.test/image.png" alt="Linked image"></a>`,
+        { selector: "img" },
+      ),
+    ).toEqual([
+      "Open Preview",
+      "Copy Image",
+      "Copy Image with Reference",
+      "Copy Image URL",
+    ]);
+  });
+
   it("resolves rendered diagram source while building its Ask AI action", () => {
     const resolveAgentMediaDiagram = vi.fn().mockReturnValue({
       type: "mermaid",

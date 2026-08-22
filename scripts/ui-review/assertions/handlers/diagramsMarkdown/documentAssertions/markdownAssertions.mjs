@@ -379,6 +379,34 @@ export async function buildMarkdownAssertions({
             );
           }))
         : true,
+    hasMarkdownSafeHtmlLinksAssets:
+      scenario === "viewer-markdown-safe-html-links-assets"
+        ? bodyText.includes("Markdown Safe HTML Links and Assets") &&
+          bodyText.includes("Blocked link label") &&
+          bodyText.includes("Image: Blocked image") &&
+          (await page.evaluate(() => {
+            const body = document.querySelector(
+              '[data-review-id="document-body"].format-markdown',
+            );
+            if (!body) return false;
+            return (
+              body.querySelectorAll("a[href]").length >= 4 &&
+              body.querySelectorAll("img[src]").length >= 4 &&
+              body.querySelector('img[alt="External image disabled"]') ===
+                null &&
+              body.querySelector('img[alt="Blocked image"]') === null &&
+              body.querySelector('a[href^="javascript:"]') === null &&
+              body.querySelector('img[src^="data:image/svg+xml,blocked"]') ===
+                null &&
+              body.querySelector(
+                "svard-markdown-author-html-inline,svard-markdown-author-html-block,[data-svard-markdown-author-html-id],[data-source-renderer-id]",
+              ) === null &&
+              body.querySelector(
+                "script,style,iframe,form,svg,math,source,picture",
+              ) === null
+            );
+          }))
+        : true,
     hasMarkdownDiagrams:
       scenario === "viewer-markdown-diagrams"
         ? bodyText.includes("Markdown Diagram Sample") &&

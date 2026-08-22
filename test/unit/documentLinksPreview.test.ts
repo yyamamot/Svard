@@ -206,6 +206,41 @@ describe("link preview", () => {
     );
   });
 
+  it("reduces Safe HTML links and images to label and alt text without resolving resources", async () => {
+    const source =
+      '# <a href="https://example.test/next">Next</a>\n\n<p>Preview <img src="./private-logo.svg" alt="Logo"> text.</p>';
+    vi.mocked(renderDocument).mockResolvedValueOnce(renderMarkdownCore(source));
+    const resolveDocumentLink = vi.fn(async () =>
+      resolved("/workspace/docs/next.md"),
+    );
+    const loadDocument = vi.fn(async () =>
+      markdownDocument("/workspace/docs/next.md", source),
+    );
+
+    const preview = await buildLinkPreview({
+      href: "./next.md",
+      currentDocument,
+      renderResult: currentRenderResult,
+      article: articleFrom('<h1 id="current">Current</h1>'),
+      x: 10,
+      y: 20,
+      resolveDocumentLink,
+      loadDocument,
+    });
+
+    expect(preview).toMatchObject({
+      status: "ready",
+      title: "Next",
+      heading: "Next",
+      snippet: "Preview Image: Logo text.",
+    });
+    expect(resolveDocumentLink).toHaveBeenCalledTimes(1);
+    expect(loadDocument).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(preview)).not.toMatch(
+      /example\.test|private-logo|svard-markdown-author-html|svard-author-/u,
+    );
+  });
+
   it("matches a formatted Markdown heading by its raw source text", async () => {
     vi.mocked(renderDocument).mockResolvedValueOnce({
       html: `<h1 id="next">Next</h1><h2 id="hugging-face-conv1d">Hugging Face <code>Conv1D</code></h2><p>Formatted heading preview.</p>`,

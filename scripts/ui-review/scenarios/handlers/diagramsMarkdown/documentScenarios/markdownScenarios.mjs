@@ -232,6 +232,17 @@ export async function applyMarkdownScenario(context) {
     await page
       .getByRole("heading", { name: "Following Markdown heading" })
       .waitFor();
+  } else if (scenario === "viewer-markdown-safe-html-links-assets") {
+    await page.locator("text=markdown-safe-html-links-assets.md").click();
+    await page
+      .getByRole("heading", { name: "Markdown Safe HTML Links and Assets" })
+      .waitFor();
+    await page.locator('img[alt="Local Svard sample"]').waitFor();
+    await page.locator('img[alt="Linked Svard sample"]').waitFor();
+    await page
+      .getByText("Image: External image disabled", { exact: true })
+      .waitFor();
+    await page.getByRole("heading", { name: "Resource target" }).waitFor();
   } else if (scenario === "viewer-markdown-diagrams") {
     await page.locator("text=markdown-diagrams.md").click();
     await page

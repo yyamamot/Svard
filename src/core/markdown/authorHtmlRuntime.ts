@@ -7,6 +7,7 @@ import type Token from "markdown-it/lib/token.mjs";
 import type { MarkdownAuthorHtmlFragment } from "../types";
 import {
   MAX_MARKDOWN_AUTHOR_HTML_ITEMS,
+  MAX_MARKDOWN_AUTHOR_HTML_NESTING,
   isMarkdownAuthorHtmlBlockRootTag,
   parseMarkdownAuthorHtmlBlockFragment,
   parseMarkdownAuthorHtmlFragment,
@@ -28,10 +29,12 @@ const authorRegistryKey: unique symbol = Symbol(
   "svardMarkdownAuthorHtmlRegistry",
 );
 const allowedTags = new Set<MarkdownAuthorHtmlTagName>([
+  "a",
   "abbr",
   "br",
   "del",
   "ins",
+  "img",
   "kbd",
   "mark",
   "rp",
@@ -385,24 +388,22 @@ function tagEndOffset(
 
 type HtmlLikeRootResult =
   | { status: "complete"; endOffset: number }
-  | { status: "malformed" };
+  | { status: "malformed" }
+  | { status: "budget-exceeded" };
+
+const MAX_HTML_LIKE_ROOT_TAGS = MAX_MARKDOWN_AUTHOR_HTML_ITEMS * 2;
 
 function htmlLikeRoot(
   source: string,
   startOffset: number,
-  cache?: Map<number, HtmlLikeRootResult>,
   limit = source.length,
 ): HtmlLikeRootResult {
-  const cached = cache?.get(startOffset);
-  if (cached) return cached;
   const rootName = openingTagNameAt(source, startOffset);
   if (!rootName) return { status: "malformed" };
-  const stack: { name: string; startOffset: number }[] = [];
+  const stack: string[] = [];
+  let tagCount = 0;
   const malformed = (): HtmlLikeRootResult => {
-    const result = { status: "malformed" } as const;
-    for (const entry of stack) cache?.set(entry.startOffset, result);
-    cache?.set(startOffset, result);
-    return result;
+    return { status: "malformed" };
   };
   let offset = startOffset;
   while (offset < limit) {
@@ -410,15 +411,21 @@ function htmlLikeRoot(
     if (nextTagOffset < 0 || nextTagOffset >= limit) return malformed();
     const endOffset = tagEndOffset(source, nextTagOffset, limit);
     if (endOffset === null) return malformed();
+    tagCount += 1;
+    if (
+      tagCount > MAX_HTML_LIKE_ROOT_TAGS ||
+      stack.length > MAX_MARKDOWN_AUTHOR_HTML_NESTING
+    ) {
+      return { status: "budget-exceeded" };
+    }
     const rawTag = source.slice(nextTagOffset, endOffset);
     const closing = rawTag.match(/^<\/\s*([A-Za-z][A-Za-z0-9-]*)\s*>$/u);
     if (closing) {
-      if (stack.at(-1)?.name !== closing[1].toLowerCase()) {
+      if (stack.at(-1) !== closing[1].toLowerCase()) {
         return malformed();
       }
-      const closed = stack.pop();
+      stack.pop();
       const result = { status: "complete", endOffset } as const;
-      if (closed) cache?.set(closed.startOffset, result);
       if (stack.length === 0) return result;
       offset = endOffset;
       continue;
@@ -430,11 +437,15 @@ function htmlLikeRoot(
       tagName === "br" ||
       tagName === "hr" ||
       tagName === "col" ||
+      tagName === "img" ||
       /\/\s*>$/u.test(rawTag);
-    if (!isVoid) stack.push({ name: tagName, startOffset: nextTagOffset });
-    else {
+    if (!isVoid) {
+      if (stack.length >= MAX_MARKDOWN_AUTHOR_HTML_NESTING) {
+        return { status: "budget-exceeded" };
+      }
+      stack.push(tagName);
+    } else {
       const result = { status: "complete", endOffset } as const;
-      cache?.set(nextTagOffset, result);
       if (stack.length === 0) return result;
     }
     offset = endOffset;
@@ -508,11 +519,23 @@ function scanAuthorHtmlLine(
       continue;
     }
     const root = htmlLikeRoot(line, offset);
-    if (root.status === "malformed") {
+    if (root.status !== "complete") {
       output += line.slice(offset);
       break;
     }
     const candidate = line.slice(offset, root.endOffset);
+    if (tagName === "img") {
+      const invalidClosing = line
+        .slice(root.endOffset)
+        .match(/<\/\s*img\s*>/iu);
+      if (invalidClosing?.index !== undefined) {
+        const invalidEndOffset =
+          root.endOffset + invalidClosing.index + invalidClosing[0].length;
+        output += line.slice(offset, invalidEndOffset);
+        offset = invalidEndOffset;
+        continue;
+      }
+    }
     if (allowedTags.has(tagName as MarkdownAuthorHtmlTagName)) {
       const parsed = parseMarkdownAuthorHtmlFragment(candidate);
       if (parsed.status === "pass") {
@@ -645,7 +668,6 @@ function scanAuthorHtmlBlockAtLine(
   lineIndex: number,
   absoluteLineOffset: number,
   registry: MarkdownAuthorHtmlRegistry,
-  rootCache: Map<number, HtmlLikeRootResult>,
 ): ScannedAuthorHtmlBlock | null {
   const firstLine = lines[lineIndex].replace(/\r$/u, "");
   const opening = /^( {0,3})<([A-Za-z][A-Za-z0-9-]*)\b/u.exec(firstLine);
@@ -670,7 +692,13 @@ function scanAuthorHtmlBlockAtLine(
   if (openingEnd === null || openingEnd > firstLineEndOffset) {
     return literalBlock();
   }
-  const root = htmlLikeRoot(source, rootStartOffset, rootCache);
+  const root = htmlLikeRoot(source, rootStartOffset);
+  if (root.status === "budget-exceeded") {
+    return {
+      consumedLines: lines.length - lineIndex,
+      lines: [...lines.slice(lineIndex)],
+    };
+  }
   if (root.status === "malformed") {
     return literalBlock();
   }
@@ -748,7 +776,6 @@ export function scanMarkdownAuthorHtml(
   }
   let fence: MarkdownFenceState | null = null;
   let inInlineComment = false;
-  const blockRootCache = new Map<number, HtmlLikeRootResult>();
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const absoluteLineOffset = absoluteStartOffset + lineOffsets[index];
@@ -785,7 +812,6 @@ export function scanMarkdownAuthorHtml(
               index,
               absoluteLineOffset,
               registry,
-              blockRootCache,
             );
       if (block) {
         transformed.push(...block.lines);

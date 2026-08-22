@@ -10,7 +10,10 @@ import type {
   SourceTextBlock,
 } from "../../core/types";
 import { highlightCodeContent } from "../../core/markdown/highlight";
-import { resolveLocalImageSource } from "./localImage";
+import {
+  classifyMarkdownAuthorImageSource,
+  resolveLocalImageSource,
+} from "./localImage";
 import {
   renderAsciiDocStemMath,
   renderMarkdownMath,
@@ -27,6 +30,11 @@ import {
   validateMarkdownRendererProvenance,
 } from "./markdownRendererProvenance";
 import { normalizeRenderResultHtml } from "./renderResultHtml";
+import {
+  blockMarkdownAuthorImage,
+  blockMarkdownAuthorLink,
+  classifyMarkdownAuthorLinkCandidate,
+} from "./markdownAuthorResources";
 import { sanitizeDocumentBodyInPlace } from "./sanitizeHtml";
 import { markSafeHtml, unwrapSafeHtml } from "./safeHtml";
 import type { SafeHtml } from "./safeHtml";
@@ -305,6 +313,8 @@ export async function prepareDocumentHtml(
     normalizedRenderResult.authorHtmlSourceActionExcludedElements;
   const authorHtmlBlockRootElements =
     normalizedRenderResult.authorHtmlBlockRootElements;
+  const authorHtmlResourceCandidates =
+    normalizedRenderResult.authorHtmlResourceCandidates;
   tracePerf("render.prepareDocumentHtml.domParse", {
     basename,
     format: document.format,
@@ -870,23 +880,57 @@ export async function prepareDocumentHtml(
   });
 
   const imagesStartedAt = perfNow();
-  const shouldProcessImages = htmlMayContainElement(html, "img");
+  const hasAuthorImages = Array.from(
+    authorHtmlResourceCandidates.values(),
+  ).some((candidate) => candidate.kind === "image");
+  const shouldProcessImages =
+    htmlMayContainElement(html, "img") || hasAuthorImages;
   const images = shouldProcessImages
     ? Array.from(doc.querySelectorAll("img"))
     : [];
   if (shouldProcessImages) {
     for (const image of images) {
-      const source = image.getAttribute("src");
+      const authorCandidate = authorHtmlResourceCandidates.get(image);
+      if (authorCandidate && authorCandidate.kind !== "image") {
+        blockMarkdownAuthorImage(image);
+        continue;
+      }
+      const source =
+        authorCandidate?.kind === "image"
+          ? authorCandidate.value
+          : image.getAttribute("src");
       if (!source) {
         continue;
       }
 
-      const resolvedImage = resolveLocalImageSource(source, {
-        allowLocalImages: config.security.allowLocalImages,
-        showExternalImages: config.security.showExternalImages ?? false,
-      });
+      const authorIntent = authorCandidate
+        ? classifyMarkdownAuthorImageSource(source)
+        : null;
+      if (authorIntent?.kind === "blocked") {
+        blockMarkdownAuthorImage(image);
+        continue;
+      }
+      const resolvedImage = authorIntent
+        ? authorIntent.kind === "external"
+          ? config.security.showExternalImages === true
+            ? ({ status: "passthrough", src: authorIntent.url } as const)
+            : ({ status: "external-blocked" } as const)
+          : config.security.allowLocalImages
+            ? ({ status: "local", source: authorIntent.source } as const)
+            : ({
+                status: "blocked",
+                placeholderText: "Local image blocked",
+              } as const)
+        : resolveLocalImageSource(source, {
+            allowLocalImages: config.security.allowLocalImages,
+            showExternalImages: config.security.showExternalImages ?? false,
+          });
 
       if (resolvedImage.status === "external-blocked") {
+        if (authorCandidate) {
+          blockMarkdownAuthorImage(image);
+          continue;
+        }
         const placeholder = doc.createElement("span");
         placeholder.className = "image-placeholder";
         const alt = image.getAttribute("alt")?.trim();
@@ -898,6 +942,10 @@ export async function prepareDocumentHtml(
       }
 
       if (resolvedImage.status === "blocked") {
+        if (authorCandidate) {
+          blockMarkdownAuthorImage(image);
+          continue;
+        }
         const placeholder = doc.createElement("span");
         placeholder.className = "image-placeholder";
         placeholder.textContent = resolvedImage.placeholderText;
@@ -917,6 +965,10 @@ export async function prepareDocumentHtml(
               placeholderText: `Local image: ${source}`,
             };
         if (backendResult.status !== "resolved" || !backendResult.content) {
+          if (authorCandidate) {
+            blockMarkdownAuthorImage(image);
+            continue;
+          }
           const placeholder = doc.createElement("span");
           placeholder.className = "image-placeholder";
           placeholder.textContent =
@@ -936,14 +988,14 @@ export async function prepareDocumentHtml(
         if (backendResult.resolvedPath) {
           image.setAttribute(
             "data-image-resolved-path",
-            backendResult.resolvedPath,
+            authorCandidate ? resolvedImage.source : backendResult.resolvedPath,
           );
         }
       } else {
         image.setAttribute("src", resolvedImage.src);
-        image.setAttribute("data-image-path", source);
-        if (isExternalUrl(source)) {
-          image.setAttribute("data-image-url", source);
+        image.setAttribute("data-image-path", resolvedImage.src);
+        if (isExternalUrl(resolvedImage.src)) {
+          image.setAttribute("data-image-url", resolvedImage.src);
         }
       }
       image.setAttribute("data-image-reference", sourceReference(document));
@@ -958,18 +1010,30 @@ export async function prepareDocumentHtml(
   });
 
   const linksStartedAt = perfNow();
-  const shouldProcessLinks = htmlMayContainElement(html, "a");
+  const hasAuthorLinks = Array.from(authorHtmlResourceCandidates.values()).some(
+    (candidate) => candidate.kind === "link",
+  );
+  const shouldProcessLinks = htmlMayContainElement(html, "a") || hasAuthorLinks;
   const links = shouldProcessLinks
-    ? Array.from(doc.querySelectorAll("a[href]"))
+    ? Array.from(doc.querySelectorAll(hasAuthorLinks ? "a" : "a[href]"))
     : [];
   if (shouldProcessLinks) {
     for (const link of links) {
+      const authorCandidate = authorHtmlResourceCandidates.get(link);
+      if (authorCandidate && authorCandidate.kind !== "link") {
+        blockMarkdownAuthorLink(link);
+        continue;
+      }
       link.removeAttribute("target");
       link.removeAttribute("download");
       link.removeAttribute("ping");
       link.removeAttribute("referrerpolicy");
-      const href = link.getAttribute("href");
+      const href =
+        authorCandidate?.kind === "link"
+          ? authorCandidate.value
+          : link.getAttribute("href");
       if (!href) {
+        if (authorCandidate) blockMarkdownAuthorLink(link);
         continue;
       }
       const wikilinkTarget = link.getAttribute("data-wikilink-target");
@@ -1019,9 +1083,12 @@ export async function prepareDocumentHtml(
         link.removeAttribute("data-wikilink-raw");
         continue;
       }
-      const intent = classifyDocumentLinkHref(href);
+      const intent = authorCandidate
+        ? classifyMarkdownAuthorLinkCandidate(href)
+        : classifyDocumentLinkHref(href);
       if (intent.kind === "blocked") {
-        link.removeAttribute("href");
+        if (authorCandidate) blockMarkdownAuthorLink(link);
+        else link.removeAttribute("href");
         continue;
       }
       if (intent.kind === "fragment" || intent.kind === "external") {
@@ -1029,7 +1096,8 @@ export async function prepareDocumentHtml(
         continue;
       }
       if (!options.resolveDocumentLink) {
-        link.removeAttribute("href");
+        if (authorCandidate) blockMarkdownAuthorLink(link);
+        else link.removeAttribute("href");
         continue;
       }
       const resolved = await options.resolveDocumentLink(
@@ -1037,7 +1105,8 @@ export async function prepareDocumentHtml(
         document.path,
       );
       if (resolved.status !== "resolved" || !resolved.path) {
-        link.removeAttribute("href");
+        if (authorCandidate) blockMarkdownAuthorLink(link);
+        else link.removeAttribute("href");
         continue;
       }
       link.setAttribute("href", canonicalDocumentLinkHref(intent));
