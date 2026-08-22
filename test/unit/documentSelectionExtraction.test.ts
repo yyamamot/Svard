@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocumentPayload } from "../../src/core/types";
+import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
+import { prepareDocumentHtml } from "../../src/ui/lib/documentHtml";
 import {
   cloneViewerSelectionRange,
   extractDocumentSelection,
@@ -430,33 +432,109 @@ describe("document selection extraction", () => {
     );
   });
 
-  it("uses one TeX representation instead of duplicated KaTeX DOM", async () => {
-    document.body.innerHTML = `
-      <article><p data-source-selection-block-id="math-1">Value:
-        <span class="katex">
-          <span class="katex-mathml"><math><semantics><mrow><mi>x</mi><mo>+</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">x+1</annotation></semantics></math></span>
-          <span class="katex-html" aria-hidden="true">x + 1</span>
-        </span>
-      </p></article>
-    `;
+  it("uses one TeX representation from the actual Markdown render", async () => {
+    const source =
+      "本章は単一ヘッドなので、$D_{\\mathrm{head}}=D_{\\mathrm{model}}=3$です。第4章では$D_{\\mathrm{model}}$を複数の$D_{\\mathrm{head}}$へ分けます。";
+    const result = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      result.html,
+      { ...payload, source },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+    );
+    document.body.innerHTML = `<article>${html}</article>`;
     const article = document.querySelector("article")!;
     const paragraph = article.querySelector("p")!;
     const range = document.createRange();
     range.selectNodeContents(paragraph);
     const snapshot = await extractDocumentSelection({
       article,
-      document: payload,
+      document: { ...payload, source },
       range,
-      renderResult: {
-        headings: [],
-        sourceSelectionBlocks: [
-          { id: "math-1", kind: "paragraph", startLine: 1, endLine: 1 },
-        ],
-      },
+      renderResult: result,
     });
 
-    expect(snapshot.plainText.match(/x\+1/gu)).toHaveLength(1);
-    expect(selectionSnapshotText(snapshot)).toContain("$x+1$");
-    expect(selectionSnapshotText(snapshot)).not.toContain("x + 1");
+    expect(snapshot.plainText.match(/D_\{\\mathrm\{head\}\}/gu)).toHaveLength(
+      2,
+    );
+    expect(snapshot.plainText.match(/D_\{\\mathrm\{model\}\}/gu)).toHaveLength(
+      2,
+    );
+    expect(selectionSnapshotText(snapshot)).toBe(source);
+    expect(selectionPlainCopy(snapshot)).toBe(snapshot.plainText);
+    expect(selectionTextReference(snapshot)).toContain(source);
+    expect(selectionSnapshotText(snapshot)).not.toContain("katex-html");
+  });
+
+  it("keeps display TeX delimiters and drops unowned KaTeX internals", async () => {
+    const source = `Before.
+
+$$
+\\begin{bmatrix}
+1 & 2 \\\\
+3 & 4
+\\end{bmatrix}
+$$
+
+After.`;
+    const result = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      result.html,
+      { ...payload, source },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+    );
+    document.body.innerHTML = `<article>${html}<p id="unowned"><span class="katex"><span class="katex-html" aria-hidden="true">hidden visual math</span></span></p></article>`;
+    const article = document.querySelector("article")!;
+    const range = document.createRange();
+    range.selectNodeContents(article);
+    const snapshot = await extractDocumentSelection({
+      article,
+      document: { ...payload, source },
+      range,
+      renderResult: result,
+    });
+
+    expect(selectionSnapshotText(snapshot)).toContain(
+      "$$\n\\begin{bmatrix}\n1 & 2 \\\\\n3 & 4\n\\end{bmatrix}\n$$",
+    );
+    expect(selectionSnapshotText(snapshot)).not.toContain("hidden visual math");
+    expect(snapshot.plainText).not.toContain("hidden visual math");
+  });
+
+  it("serializes actual AsciiDoc inline and display math once", async () => {
+    const source = `= Math
+
+Inline stem:[E = mc^2].
+
+[stem]
+++++
+\\begin{bmatrix}
+1 & 2 \\\\
+3 & 4
+\\end{bmatrix}
+++++`;
+    const html = await prepareDocumentHtml(
+      '<div class="paragraph"><p>Inline \\$E = mc^2\\$.</p></div><div class="stemblock"><div class="content">\\$\\begin{bmatrix}\n1 &amp; 2 \\\\$ \n\\$3 &amp; 4\n\\end{bmatrix}\\$</div></div>',
+      { ...payload, format: "asciidoc", source },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      { headings: [], sourceBlocks: [] },
+    );
+    document.body.innerHTML = `<article>${html}</article>`;
+    const article = document.querySelector("article")!;
+    const range = document.createRange();
+    range.selectNodeContents(article);
+    const snapshot = await extractDocumentSelection({
+      article,
+      document: { ...payload, format: "asciidoc", source },
+      range,
+    });
+
+    expect(selectionSnapshotText(snapshot)).toContain("$E = mc^2$");
+    expect(selectionSnapshotText(snapshot)).toContain(
+      "$$\n\\begin{bmatrix}\n1 & 2 \\\\\n3 & 4\n\\end{bmatrix}\n$$",
+    );
+    expect(snapshot.plainText.match(/E = mc\^2/gu)).toHaveLength(1);
+    expect(snapshot.plainText.match(/\\begin\{bmatrix\}/gu)).toHaveLength(1);
   });
 });

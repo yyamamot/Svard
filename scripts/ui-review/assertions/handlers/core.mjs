@@ -47,6 +47,8 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("Include Diagnostics") ||
       bodyText.includes("AsciiDoc Comprehensive Visual Sample") ||
       bodyText.includes("Math Rendering Sample") ||
+      bodyText.includes("Selection Math") ||
+      bodyText.includes("Agent Math") ||
       bodyText.includes("Quick Start") ||
       bodyText.includes("Markdown Sample") ||
       bodyText.includes("Markdown TOC Inline Formatting") ||

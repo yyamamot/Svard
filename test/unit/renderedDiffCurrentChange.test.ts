@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DocumentDiffPreview } from "../../src/core/types";
+import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
+import { prepareDocumentHtml } from "../../src/ui/lib/documentHtml";
 import {
   buildRenderedDiffPresentation,
   type RenderedBlockDiff,
@@ -74,6 +76,24 @@ function rootFor(
   return root;
 }
 
+async function renderedMarkdownParagraph(source: string) {
+  const result = renderMarkdownCore(source);
+  const html = await prepareDocumentHtml(
+    result.html,
+    {
+      path: "/workspace/docs/example.md",
+      basePath: "/workspace/docs",
+      format: "markdown",
+      source,
+      updatedAt: "revision",
+    },
+    { security: { allowLocalImages: true, confirmExternalLinks: true } },
+    result,
+  );
+  return new DOMParser().parseFromString(html, "text/html").querySelector("p")!
+    .outerHTML;
+}
+
 describe("extractRenderedDiffCurrentChange", () => {
   it("resolves the nearest exact semantic target and rejects context", () => {
     const root = document.createElement("div");
@@ -130,6 +150,41 @@ describe("extractRenderedDiffCurrentChange", () => {
     expect(snapshot.diagnostics).not.toContainEqual(
       expect.objectContaining({ severity: "blocking" }),
     );
+  });
+
+  it("keeps renderer-owned math in paired current-change context", async () => {
+    const beforeHtml = await renderedMarkdownParagraph(
+      "Before $D_{\\mathrm{head}}=2$",
+    );
+    const afterHtml = await renderedMarkdownParagraph(
+      "After $D_{\\mathrm{head}}=3$",
+    );
+    const presentation = buildRenderedDiffPresentation([
+      renderedBlock(
+        "math-paragraph",
+        "changed",
+        "paragraph",
+        { html: beforeHtml, text: "Before math" },
+        { html: afterHtml, text: "After math" },
+      ),
+    ]);
+    const target = presentation.navigationTargets[0]!;
+    const root = rootFor(target.index, beforeHtml, afterHtml);
+
+    const snapshot = await extractRenderedDiffCurrentChange({
+      presentation,
+      preview,
+      root,
+      target,
+    });
+
+    expect(selectionSnapshotText(snapshot.before!)).toContain(
+      "$D_{\\mathrm{head}}=2$",
+    );
+    expect(selectionSnapshotText(snapshot.after!)).toContain(
+      "$D_{\\mathrm{head}}=3$",
+    );
+    expect(selectionSnapshotText(snapshot.after!)).not.toContain("katex-html");
   });
 
   it("captures every block in a one-sided rendered group", async () => {

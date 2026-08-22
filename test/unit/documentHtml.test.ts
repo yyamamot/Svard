@@ -409,8 +409,28 @@ describe("prepareDocumentHtml", () => {
 
     expect(doc.querySelector(".math-inline .katex")).toBeTruthy();
     expect(
+      doc
+        .querySelector(".math-inline .katex")
+        ?.getAttribute("data-math-source"),
+    ).toBe("E = mc^2");
+    expect(
+      doc
+        .querySelector(".math-inline .katex")
+        ?.getAttribute("data-math-display"),
+    ).toBe("inline");
+    expect(
       doc.querySelector('[data-review-id="math-block"] .katex'),
     ).toBeTruthy();
+    expect(
+      doc
+        .querySelector('[data-review-id="math-block"] .katex')
+        ?.getAttribute("data-math-source"),
+    ).toContain("\\begin{bmatrix}");
+    expect(
+      doc
+        .querySelector('[data-review-id="math-block"] .katex')
+        ?.getAttribute("data-math-display"),
+    ).toBe("block");
     expect(
       doc.querySelector('[data-review-id="math-block"]')?.textContent,
     ).not.toContain("$");
@@ -644,8 +664,28 @@ $not rendered in source$
 
     expect(doc.querySelector(".math-inline .katex")).toBeTruthy();
     expect(
+      doc
+        .querySelector(".math-inline .katex")
+        ?.getAttribute("data-math-source"),
+    ).toBe("a + b = c");
+    expect(
+      doc
+        .querySelector(".math-inline .katex")
+        ?.getAttribute("data-math-display"),
+    ).toBe("inline");
+    expect(
       doc.querySelector('[data-review-id="math-block"] .katex'),
     ).toBeTruthy();
+    expect(
+      doc
+        .querySelector('[data-review-id="math-block"] .katex')
+        ?.getAttribute("data-math-source"),
+    ).toBe("\\int_0^1 x^2 dx = \\frac{1}{3}");
+    expect(
+      doc
+        .querySelector('[data-review-id="math-block"] .katex')
+        ?.getAttribute("data-math-display"),
+    ).toBe("block");
     expect(
       doc.querySelector('[data-review-id="math-block"] [style]'),
     ).toBeTruthy();

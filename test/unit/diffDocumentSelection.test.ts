@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DocumentDiffPreview } from "../../src/core/types";
+import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
+import { prepareDocumentHtml } from "../../src/ui/lib/documentHtml";
 import {
   extractRenderedDiffSelection,
   renderedDiffReference,
   revealRenderedDiffSelection,
 } from "../../src/ui/lib/diffDocumentSelection";
-import { selectionTextReference } from "../../src/ui/lib/documentSelection";
+import {
+  selectionSnapshotText,
+  selectionTextReference,
+} from "../../src/ui/lib/documentSelection";
+import { sanitizeRenderedBlockHtml } from "../../src/ui/lib/sanitizeHtml";
 
 const preview: DocumentDiffPreview = {
   source: "git",
@@ -119,5 +125,46 @@ describe("rendered diff document selections", () => {
     window.getSelection()?.removeAllRanges();
     expect(revealRenderedDiffSelection(root, snapshot)).toBe(true);
     expect(window.getSelection()?.toString()).toBe("After text");
+  });
+
+  it("keeps rendered math through the diff sanitizer and selection", async () => {
+    const source = "After $D_{\\mathrm{head}}=D_{\\mathrm{model}}=3$ text";
+    const result = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      result.html,
+      {
+        path: "/workspace/docs/guide.md",
+        basePath: "/workspace/docs",
+        format: "markdown",
+        source,
+        updatedAt: "revision-2",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+    );
+    const rendered = new DOMParser().parseFromString(html, "text/html");
+    const paragraph = rendered.querySelector("p")!;
+    const pane = document.querySelector<HTMLElement>(".git-rendered-pane")!;
+    pane.querySelector("article")!.innerHTML = sanitizeRenderedBlockHtml(
+      paragraph.outerHTML,
+      { format: "markdown" },
+    );
+    const selectedParagraph = pane.querySelector("p")!;
+    const range = document.createRange();
+    range.selectNodeContents(selectedParagraph);
+
+    const snapshot = await extractRenderedDiffSelection({
+      pane,
+      preview: { ...preview, rightText: source },
+      range,
+      side: "right",
+    });
+
+    expect(selectionSnapshotText(snapshot)).toContain(
+      "$D_{\\mathrm{head}}=D_{\\mathrm{model}}=3$",
+    );
+    expect(snapshot.plainText).toContain(
+      "D_{\\mathrm{head}}=D_{\\mathrm{model}}=3",
+    );
   });
 });

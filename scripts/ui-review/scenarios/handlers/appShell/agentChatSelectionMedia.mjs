@@ -24,6 +24,12 @@ export async function recordAgentSelectionMediaChecks({ page, scenario }) {
             parts
               .slice(imageIndex + 1)
               .some((part) => part.type === "text" && part.text.trim())),
+        mathSerialized: parts.some(
+          (part) =>
+            part.type === "text" &&
+            part.text.includes("$D_{\\mathrm{head}}=D_{\\mathrm{model}}=3$") &&
+            !part.text.includes("katex-html"),
+        ),
       };
     }, submittedTurn);
   }

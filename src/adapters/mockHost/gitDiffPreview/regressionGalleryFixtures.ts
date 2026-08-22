@@ -8,7 +8,7 @@ export function getRegressionGalleryGitDiffPreview(
   if (path.endsWith("/diff-regression-gallery.md")) {
     const leftText = `# Diff Preview Regression Gallery
 
-This paragraph was stable in HEAD and should keep visible inline highlight.
+This paragraph was stable in HEAD with $D_{\\mathrm{head}}=2$ and should keep visible inline highlight.
 
 This paragraph exists only in HEAD and should be removed as a whole block.
 
@@ -97,7 +97,7 @@ The eighth shared detail is unchanged and remains available in both panes.
 `;
     const rightText = `# Diff Preview Regression Gallery
 
-This paragraph changed in the working tree and should keep visible inline highlight.
+This paragraph changed in the working tree with $D_{\\mathrm{head}}=3$ and should keep visible inline highlight.
 
 This paragraph exists only in the working tree and should be added as a whole block.
 

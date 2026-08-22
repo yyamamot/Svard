@@ -188,17 +188,27 @@ export async function applyAppShellBasicsScenario(context) {
   } else if (scenario === "viewer-selection-extraction") {
     await page.evaluate(() => {
       history.replaceState(null, "", "?scenario=viewer-selection-extraction");
+      window.__SVARD_DOCUMENT_OVERRIDES__ = {
+        ...(window.__SVARD_DOCUMENT_OVERRIDES__ ?? {}),
+        "/workspace/docs/preferences.adoc": {
+          source: String.raw`= Selection Math
+
+本章は単一ヘッドなので、stem:[D_{\mathrm{head}}=D_{\mathrm{model}}=3]です。`,
+        },
+      };
     });
-    await page.locator('[data-review-id="document-body"] p').first().waitFor();
+    await page
+      .locator(
+        '[data-review-id="tree-file"][data-path="/workspace/docs/preferences.adoc"]',
+      )
+      .click();
+    await page.locator('[data-review-id="document-body"] p .katex').waitFor();
     await page
       .locator('[data-review-id="document-body"] p')
       .first()
       .evaluate((paragraph) => {
-        const text = paragraph.firstChild;
-        if (!(text instanceof Text)) return;
         const range = document.createRange();
-        range.setStart(text, 0);
-        range.setEnd(text, Math.min(text.data.length, 80));
+        range.selectNodeContents(paragraph);
         const selection = window.getSelection();
         selection?.removeAllRanges();
         selection?.addRange(range);
@@ -225,8 +235,13 @@ export async function applyAppShellBasicsScenario(context) {
     await page.getByRole("button", { name: "More selection actions" }).click();
     await page.getByRole("menuitem", { name: "Inspect Selection" }).click();
     await page.locator('[data-review-id="selection-inspector"]').waitFor();
+    const inspector = page.locator('[data-review-id="selection-inspector"]');
+    const visibleText =
+      (await inspector.locator("details pre").nth(0).textContent()) ?? "";
+    const modelText =
+      (await inspector.locator("details pre").nth(1).textContent()) ?? "";
     await page.evaluate(
-      ({ toolbarAvoidsSelection }) => {
+      ({ modelText, toolbarAvoidsSelection, visibleText }) => {
         window.__SVARD_SELECTION_EXTRACTION_CHECK__ = {
           inspectorVisible:
             document.querySelector('[data-review-id="selection-inspector"]') !==
@@ -236,9 +251,14 @@ export async function applyAppShellBasicsScenario(context) {
               '[data-review-id="selection-mini-toolbar"]',
             ) !== null,
           toolbarAvoidsSelection,
+          mathVisibleOnce:
+            visibleText.match(/D_\{\\mathrm\{head\}\}/gu)?.length === 1 &&
+            modelText.match(/D_\{\\mathrm\{head\}\}/gu)?.length === 1 &&
+            modelText.includes("$D_{\\mathrm{head}}=D_{\\mathrm{model}}=3$") &&
+            !modelText.includes("katex-html"),
         };
       },
-      { toolbarAvoidsSelection },
+      { modelText, toolbarAvoidsSelection, visibleText },
     );
   } else {
     return false;

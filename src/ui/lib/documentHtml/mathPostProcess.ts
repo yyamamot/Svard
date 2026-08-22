@@ -7,6 +7,17 @@ function htmlFragment(doc: Document, html: SafeHtml): DocumentFragment {
   return template.content;
 }
 
+function markRenderedMath(
+  container: ParentNode,
+  source: string,
+  display: "inline" | "block",
+) {
+  const katex = container.querySelector<HTMLElement>(".katex");
+  if (!katex) return;
+  katex.setAttribute("data-math-source", source);
+  katex.setAttribute("data-math-display", display);
+}
+
 function replaceAsciiDocInlineStemMath(doc: Document) {
   const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
   const textNodes: Text[] = [];
@@ -41,6 +52,7 @@ function replaceAsciiDocInlineStemMath(doc: Document) {
       wrapper.append(
         htmlFragment(doc, markSafeHtml(renderMathInline(match[1].trim()))),
       );
+      markRenderedMath(wrapper, match[1].trim(), "inline");
       fragment.append(wrapper);
       cursor = index + match[0].length;
     }
@@ -64,6 +76,7 @@ function replaceAsciiDocStemBlocks(doc: Document) {
     content.replaceChildren(
       htmlFragment(doc, markSafeHtml(renderMathBlock(mathSource))),
     );
+    markRenderedMath(content, mathSource, "block");
     content.classList.add("math-block");
     content.setAttribute("data-review-id", "math-block");
   });
@@ -85,6 +98,7 @@ export function renderMarkdownMath(doc: Document) {
       element.replaceChildren(
         htmlFragment(doc, markSafeHtml(renderMathInline(source))),
       );
+      markRenderedMath(element, source, "inline");
     });
 
   doc
@@ -97,5 +111,6 @@ export function renderMarkdownMath(doc: Document) {
       element.replaceChildren(
         htmlFragment(doc, markSafeHtml(renderMathBlock(source))),
       );
+      markRenderedMath(element, source, "block");
     });
 }

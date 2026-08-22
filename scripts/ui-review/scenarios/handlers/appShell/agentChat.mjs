@@ -177,35 +177,34 @@ Capture unresolved items before publishing the release notes.
         .getByRole("button", { name: "Ask AI" })
         .click();
     } else if (scenario === "viewer-agent-chat-selection") {
+      await page.evaluate(() => {
+        window.__SVARD_DOCUMENT_OVERRIDES__ = {
+          ...(window.__SVARD_DOCUMENT_OVERRIDES__ ?? {}),
+          "/workspace/docs/preferences.adoc": {
+            source: String.raw`= Agent Math
+
+本章は単一ヘッドなので、stem:[D_{\mathrm{head}}=D_{\mathrm{model}}=3]です。`,
+          },
+        };
+      });
+      await page
+        .locator(
+          '[data-review-id="tree-file"][data-path="/workspace/docs/preferences.adoc"]',
+        )
+        .click();
       const paragraph = page
         .locator('[data-review-id="document-body"] p')
         .first();
       await paragraph.waitFor();
-      const points = await paragraph.evaluate((element) => {
-        const text = Array.from(element.childNodes).find(
-          (node) => node instanceof Text && node.data.trim().length > 12,
-        );
-        if (!(text instanceof Text)) {
-          throw new Error("No selectable viewer text");
-        }
-        const endOffset = Math.min(text.data.length, 12);
-        const startRange = document.createRange();
-        startRange.setStart(text, 0);
-        startRange.collapse(true);
-        const endRange = document.createRange();
-        endRange.setStart(text, endOffset);
-        endRange.collapse(true);
-        const start = startRange.getBoundingClientRect();
-        const end = endRange.getBoundingClientRect();
-        return {
-          start: { x: start.left + 1, y: start.top + start.height / 2 },
-          end: { x: end.left - 1, y: end.top + end.height / 2 },
-        };
+      await paragraph.evaluate((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        element.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+        element.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
       });
-      await page.mouse.move(points.end.x, points.end.y);
-      await page.mouse.down();
-      await page.mouse.move(points.start.x, points.start.y, { steps: 6 });
-      await page.mouse.up();
       await page.locator('[data-review-id="selection-mini-toolbar"]').waitFor();
       await page
         .locator('[data-review-id="selection-mini-toolbar"]')

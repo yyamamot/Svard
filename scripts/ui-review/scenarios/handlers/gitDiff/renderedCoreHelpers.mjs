@@ -4,36 +4,58 @@ export async function exerciseRenderedDiffAgentSelection(
 ) {
   const pane = page.locator(`[data-review-id="${paneReviewId}"]`).first();
   await pane.waitFor();
-  const reverseSelectionPoints = await pane.evaluate((element) => {
-    const text = Array.from(element.querySelectorAll("p,li,pre"))
-      .flatMap((candidate) => Array.from(candidate.childNodes))
-      .find((node) => node instanceof Text && node.data.trim().length > 12);
-    if (!(text instanceof Text)) throw new Error("No selectable diff text");
-    const endOffset = Math.min(text.data.length, 12);
-    const startRange = document.createRange();
-    startRange.setStart(text, 0);
-    startRange.collapse(true);
-    const endRange = document.createRange();
-    endRange.setStart(text, endOffset);
-    endRange.collapse(true);
-    const start = startRange.getBoundingClientRect();
-    const end = endRange.getBoundingClientRect();
-    return {
-      start: { x: start.left + 1, y: start.top + start.height / 2 },
-      end: { x: end.left - 1, y: end.top + end.height / 2 },
-    };
+  const selectedProgrammatically = await pane.evaluate((element) => {
+    const mathParagraph = Array.from(element.querySelectorAll("p")).find(
+      (candidate) => candidate.querySelector(".katex") !== null,
+    );
+    if (!mathParagraph) return false;
+    const range = document.createRange();
+    range.selectNodeContents(mathParagraph);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    mathParagraph.dispatchEvent(
+      new Event("selectionchange", { bubbles: true }),
+    );
+    mathParagraph.dispatchEvent(
+      new PointerEvent("pointerup", { bubbles: true }),
+    );
+    return true;
   });
-  await page.mouse.move(
-    reverseSelectionPoints.end.x,
-    reverseSelectionPoints.end.y,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    reverseSelectionPoints.start.x,
-    reverseSelectionPoints.start.y,
-    { steps: 6 },
-  );
-  await page.mouse.up();
+  const reverseSelectionPoints = selectedProgrammatically
+    ? null
+    : await pane.evaluate((element) => {
+        const text = Array.from(element.querySelectorAll("p,li,pre"))
+          .flatMap((candidate) => Array.from(candidate.childNodes))
+          .find((node) => node instanceof Text && node.data.trim().length > 12);
+        if (!(text instanceof Text)) throw new Error("No selectable diff text");
+        const endOffset = Math.min(text.data.length, 12);
+        const startRange = document.createRange();
+        startRange.setStart(text, 0);
+        startRange.collapse(true);
+        const endRange = document.createRange();
+        endRange.setStart(text, endOffset);
+        endRange.collapse(true);
+        const start = startRange.getBoundingClientRect();
+        const end = endRange.getBoundingClientRect();
+        return {
+          start: { x: start.left + 1, y: start.top + start.height / 2 },
+          end: { x: end.left - 1, y: end.top + end.height / 2 },
+        };
+      });
+  if (reverseSelectionPoints) {
+    await page.mouse.move(
+      reverseSelectionPoints.end.x,
+      reverseSelectionPoints.end.y,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      reverseSelectionPoints.start.x,
+      reverseSelectionPoints.start.y,
+      { steps: 6 },
+    );
+    await page.mouse.up();
+  }
   await page.locator('[data-review-id="selection-mini-toolbar"]').waitFor();
   await page
     .locator('[data-review-id="selection-mini-toolbar"]')
@@ -43,6 +65,7 @@ export async function exerciseRenderedDiffAgentSelection(
   await dock.waitFor();
   const card = dock.locator(".agent-selection-card");
   await card.waitFor();
+  const cardText = (await card.textContent()) ?? "";
   const questionBlank = (await dock.locator("textarea").inputValue()) === "";
   const revisionVisible = await page
     .locator('[data-review-id="git-diff-agent-dock"] .agent-selection-card')
@@ -54,12 +77,15 @@ export async function exerciseRenderedDiffAgentSelection(
   await page.locator(`[data-review-id="${restoredPanelReviewId}"]`).waitFor();
   await dock.waitFor();
   await page.evaluate(
-    ({ questionBlank, resultKey, revisionVisible }) => {
+    ({ cardText, questionBlank, resultKey, revisionVisible }) => {
       window[resultKey] = {
         dockVisible: true,
         overlayMaintained: true,
         questionBlank,
         revisionVisible: revisionVisible > 0,
+        mathVisible:
+          cardText.includes("D_{\\mathrm{head}}=3") &&
+          !cardText.includes("katex-html"),
         toolbarOpaque:
           getComputedStyle(
             document.querySelector(
@@ -68,7 +94,7 @@ export async function exerciseRenderedDiffAgentSelection(
           ).backgroundColor !== "rgba(0, 0, 0, 0)",
       };
     },
-    { questionBlank, resultKey, revisionVisible },
+    { cardText, questionBlank, resultKey, revisionVisible },
   );
 }
 

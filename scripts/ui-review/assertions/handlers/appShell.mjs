@@ -264,7 +264,8 @@ export async function buildAppShellAssertions(context) {
             return (
               result?.inspectorVisible === true &&
               result?.toolbarVisible === true &&
-              result?.toolbarAvoidsSelection === true
+              result?.toolbarAvoidsSelection === true &&
+              result?.mathVisibleOnce === true
             );
           })
         : true,
@@ -352,14 +353,16 @@ export async function buildAppShellAssertions(context) {
       scenario === "viewer-site-ai-chat-main" ||
       scenario === "viewer-agent-chat-selection" ||
       scenario === "viewer-agent-chat-selection-image"
-        ? await page.evaluate(() => {
+        ? await page.evaluate((activeScenario) => {
             const result = window.__SVARD_AGENT_SELECTION_CHECK__;
             return (
               result?.historySelections === 1 &&
               result?.pendingSelections === 0 &&
-              result?.mixedContentOrder === true
+              result?.mixedContentOrder === true &&
+              (activeScenario !== "viewer-agent-chat-selection" ||
+                result?.mathSerialized === true)
             );
-          })
+          }, scenario)
         : true,
     hasPublicSiteAiChat:
       scenario === "viewer-site-ai-chat-main"

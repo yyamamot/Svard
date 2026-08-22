@@ -783,12 +783,8 @@ function visibleFragmentText(root: DocumentFragment, fallback: string) {
   const fragment = root.cloneNode(true) as DocumentFragment;
   removeExcluded(fragment);
   fragment.querySelectorAll(".katex").forEach((element) => {
-    const tex = element
-      .querySelector('annotation[encoding="application/x-tex"]')
-      ?.textContent?.trim();
-    element.replaceWith(
-      document.createTextNode(tex || element.textContent || ""),
-    );
+    const tex = renderedMathSource(element);
+    element.replaceWith(document.createTextNode(tex ?? ""));
   });
   return normalizeVisibleText(fragment.textContent ?? fallback);
 }
@@ -801,10 +797,11 @@ function serializeNode(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
   if (!(node instanceof Element) || node.matches(excludedSelector)) return "";
   if (node.matches(".katex")) {
-    const tex = node
-      .querySelector('annotation[encoding="application/x-tex"]')
-      ?.textContent?.trim();
-    return tex ? `$${tex}$` : serializeChildren(node);
+    const tex = renderedMathSource(node);
+    if (!tex) return "";
+    return node.getAttribute("data-math-display") === "block"
+      ? `$$\n${tex}\n$$`
+      : `$${tex}$`;
   }
   const content = serializeChildren(node);
   if (node.matches("br")) return "\n";
@@ -830,6 +827,15 @@ function serializeNode(node: Node): string {
   if (node.matches("dd")) return `${content.trim()}\n`;
   if (node.matches("p,div,section,article,ul,ol,dl")) return `${content}\n`;
   return content;
+}
+
+function renderedMathSource(element: Element): string | undefined {
+  const source = element.getAttribute("data-math-source")?.trim();
+  const display = element.getAttribute("data-math-display");
+  if (!source || (display !== "inline" && display !== "block")) {
+    return undefined;
+  }
+  return source;
 }
 
 function isSafeReferenceHref(href: string) {

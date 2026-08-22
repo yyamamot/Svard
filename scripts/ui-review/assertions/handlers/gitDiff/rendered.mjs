@@ -76,7 +76,8 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
               result?.dockVisible === true &&
               result?.overlayMaintained === true &&
               result?.questionBlank === true &&
-              result?.revisionVisible === true
+              result?.revisionVisible === true &&
+              result?.mathVisible === true
             );
           })
         : true,
