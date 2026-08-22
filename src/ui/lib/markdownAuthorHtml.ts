@@ -1,4 +1,5 @@
 import {
+  parseMarkdownAuthorHtmlBlockFragment,
   parseMarkdownAuthorHtmlFragment,
   type MarkdownAuthorHtmlNode,
 } from "../../core/markdown/authorHtml";
@@ -14,11 +15,23 @@ const MARKER_MARKUP_PATTERN =
 const TEXT_NODE_TYPE = 3;
 const SAFE_ELEMENT_NAMES = new Set([
   "abbr",
+  "blockquote",
   "br",
+  "caption",
+  "col",
+  "colgroup",
+  "dd",
   "del",
+  "div",
+  "dl",
+  "dt",
+  "hr",
   "ins",
   "kbd",
+  "li",
   "mark",
+  "ol",
+  "p",
   "rp",
   "rt",
   "ruby",
@@ -26,7 +39,16 @@ const SAFE_ELEMENT_NAMES = new Set([
   "small",
   "sub",
   "sup",
+  "table",
+  "tbody",
+  "td",
+  "tfoot",
+  "th",
+  "thead",
+  "tr",
+  "ul",
 ]);
+export const MARKDOWN_SAFE_HTML_BLOCK_CLASS = "markdown-safe-html-block";
 
 interface MatchedMarker {
   marker: Element;
@@ -34,6 +56,7 @@ interface MatchedMarker {
 }
 
 interface PreparedMarker extends MatchedMarker {
+  blockRoots: Element[];
   replacement: DocumentFragment | Text;
   outcome: "pass" | "escape";
 }
@@ -45,6 +68,7 @@ export interface MarkdownAuthorHtmlNormalizationCounts {
 }
 
 export interface MarkdownAuthorHtmlNormalizationResult extends MarkdownAuthorHtmlNormalizationCounts {
+  blockRootElements: Set<Element>;
   sourceActionExcludedElements: Set<Element>;
 }
 
@@ -101,6 +125,36 @@ function flattenMarker(marker: Element): void {
   );
 }
 
+function isAllowedAttribute(
+  tagName: string,
+  name: string,
+  value: string,
+): boolean {
+  if (tagName === "abbr") return name === "title";
+  if (["p", "div", "th", "td"].includes(tagName) && name === "align") {
+    return ["left", "center", "right"].includes(value);
+  }
+  if (tagName === "ol") {
+    return (
+      name === "start" ||
+      name === "reversed" ||
+      (name === "type" && ["1", "a", "A", "i", "I"].includes(value))
+    );
+  }
+  if (tagName === "li") return name === "value";
+  if (
+    ["th", "td"].includes(tagName) &&
+    (name === "rowspan" || name === "colspan")
+  ) {
+    return true;
+  }
+  if (["col", "colgroup"].includes(tagName) && name === "span") return true;
+  if (tagName === "th" && name === "scope") {
+    return ["row", "col", "rowgroup", "colgroup"].includes(value);
+  }
+  return false;
+}
+
 function appendSafeNodes(
   document: Document,
   parent: DocumentFragment | Element,
@@ -115,7 +169,7 @@ function appendSafeNodes(
     const attributeEntries = Object.entries(node.attributes);
     if (
       attributeEntries.some(
-        ([name]) => name !== "title" || node.tagName !== "abbr",
+        ([name, value]) => !isAllowedAttribute(node.tagName, name, value),
       )
     ) {
       return false;
@@ -138,6 +192,7 @@ function rejectedResult(
     passedCount: 0,
     escapedCount: 0,
     rejectedCount: markers.length,
+    blockRootElements: new Set<Element>(),
     sourceActionExcludedElements: new Set<Element>(),
   };
 }
@@ -157,6 +212,7 @@ export function normalizeMarkdownAuthorHtmlInPlace(
       passedCount: 0,
       escapedCount: 0,
       rejectedCount: 0,
+      blockRootElements: new Set<Element>(),
       sourceActionExcludedElements: new Set<Element>(),
     };
   }
@@ -211,10 +267,14 @@ export function normalizeMarkdownAuthorHtmlInPlace(
   for (const match of matched) {
     const { startOffset, endOffset } = match.fragment.sourceSpan;
     const fragmentSource = source.slice(startOffset, endOffset);
-    const parsed = parseMarkdownAuthorHtmlFragment(fragmentSource);
-    if (parsed.status !== "pass" || match.fragment.kind !== "inline") {
+    const parsed =
+      match.fragment.kind === "block"
+        ? parseMarkdownAuthorHtmlBlockFragment(fragmentSource)
+        : parseMarkdownAuthorHtmlFragment(fragmentSource);
+    if (parsed.status !== "pass") {
       prepared.push({
         ...match,
+        blockRoots: [],
         replacement: match.marker.ownerDocument.createTextNode(fragmentSource),
         outcome: "escape",
       });
@@ -226,15 +286,31 @@ export function normalizeMarkdownAuthorHtmlInPlace(
     ) {
       return rejectedResult(markers);
     }
-    prepared.push({ ...match, replacement, outcome: "pass" });
+    const blockRoots =
+      match.fragment.kind === "block" ? Array.from(replacement.children) : [];
+    if (match.fragment.kind === "block" && blockRoots.length !== 1) {
+      return rejectedResult(markers);
+    }
+    blockRoots.forEach((root) =>
+      root.classList.add(MARKDOWN_SAFE_HTML_BLOCK_CLASS),
+    );
+    prepared.push({ ...match, blockRoots, replacement, outcome: "pass" });
   }
 
   const sourceActionExcludedElements = new Set<Element>();
+  const blockRootElements = new Set<Element>();
   let passedCount = 0;
   let escapedCount = 0;
   for (const item of prepared) {
     if (item.outcome === "pass") {
       passedCount += 1;
+      for (const root of item.blockRoots) {
+        blockRootElements.add(root);
+        sourceActionExcludedElements.add(root);
+        root
+          .querySelectorAll("h1,h2,h3,h4,h5,h6,p,ul,ol,dl,table,pre,blockquote")
+          .forEach((element) => sourceActionExcludedElements.add(element));
+      }
       for (
         let ancestor = item.marker.parentElement;
         ancestor && ancestor !== body;
@@ -257,6 +333,7 @@ export function normalizeMarkdownAuthorHtmlInPlace(
     passedCount,
     escapedCount,
     rejectedCount: 0,
+    blockRootElements,
     sourceActionExcludedElements,
   };
 }

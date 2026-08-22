@@ -191,7 +191,7 @@ image::../images/sample.svg[]
   });
 
   it("keeps Markdown render extensions and safety boundaries stable", async () => {
-    const result = renderMarkdownCore(`---
+    const source = `---
 title: Coverage
 tags:
   - markdown
@@ -221,6 +221,10 @@ Footnote.[^one]
 | Valid | $a + b$ |
 | Currency | $12.00 |
 
+<div><p>Typed <kbd>block</kbd> content.</p></div>
+
+<table><tbody><tr><th scope="row">Safe HTML</th><td>Table</td></tr></tbody></table>
+
 <details open>
 <summary>More **details**</summary>
 
@@ -246,12 +250,13 @@ flowchart LR
 <script>alert(1)</script>
 
 ![Root relative image](/images/coverage/root.svg)
-`);
+`;
+    const result = renderMarkdownCore(source);
     const document: DocumentPayload = {
       path: "/workspace/docs/coverage.md",
       basePath: "/workspace/docs",
       format: "markdown",
-      source: result.html,
+      source,
       updatedAt: "2026-05-20T00:00:00.000Z",
     };
     const html = await prepareDocumentHtml(
@@ -275,7 +280,15 @@ flowchart LR
     expect(doc.querySelector(".markdown-alert-warning strong")).toBeTruthy();
     expect(doc.querySelector(".task-list-item-checkbox")).toBeTruthy();
     expect(doc.querySelector(".footnotes")).toBeTruthy();
-    expect(doc.querySelectorAll("table")).toHaveLength(3);
+    expect(doc.querySelectorAll("table")).toHaveLength(4);
+    expect(
+      doc.querySelector("div.markdown-safe-html-block kbd")?.textContent,
+    ).toBe("block");
+    expect(
+      doc
+        .querySelector("table.markdown-safe-html-block th")
+        ?.getAttribute("scope"),
+    ).toBe("row");
     expect(doc.body.textContent).toContain("Compatibility");
     expect(doc.body.textContent).not.toContain(
       "compatibility comment is intentionally omitted",
@@ -303,7 +316,10 @@ flowchart LR
     expect(doc.querySelector("[data-diagram-id='mermaid-1']")).toBeTruthy();
     expect(doc.querySelector("script")).toBeNull();
     expect(doc.body.innerHTML).toContain("&lt;script&gt;");
-    expect(result).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(result.markdownAuthorHtmlFragments).toEqual([
+      expect.objectContaining({ kind: "block" }),
+      expect.objectContaining({ kind: "block" }),
+    ]);
     expect(doc.querySelector("td[rowspan], td[colspan]")).toBeNull();
     expect(
       doc.querySelector('img[data-image-path="/images/coverage/root.svg"]'),

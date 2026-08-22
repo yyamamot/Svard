@@ -172,7 +172,8 @@ describe("link preview", () => {
   });
 
   it("keeps Safe HTML visible text without leaking author provenance into preview state", async () => {
-    const source = "# <kbd>Next</kbd>\n\nPreview <mark>visible</mark> text.";
+    const source =
+      "# <kbd>Next</kbd>\n\n<div><p>Preview <mark>visible</mark> text.</p></div>";
     vi.mocked(renderDocument).mockResolvedValueOnce(renderMarkdownCore(source));
     const resolveDocumentLink = vi.fn(async () =>
       resolved("/workspace/docs/next.md"),

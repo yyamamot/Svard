@@ -177,6 +177,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "markdown-safe-html-blocks.md",
+      path: "/workspace/docs/markdown-safe-html-blocks.md",
+      kind: "file",
+    },
+    {
       name: "git-modified.md",
       path: "/workspace/docs/git-modified.md",
       kind: "file",
@@ -219,6 +224,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
     {
       name: "git-rendered-markdown.md",
       path: "/workspace/docs/git-rendered-markdown.md",
+      kind: "file",
+    },
+    {
+      name: "git-safe-html-blocks.md",
+      path: "/workspace/docs/git-safe-html-blocks.md",
       kind: "file",
     },
     {
@@ -564,6 +574,11 @@ export const fixtureEntries: DirectoryEntry[] = [
     kind: "file",
   },
   {
+    name: "markdown-safe-html-blocks.md",
+    path: "/workspace/docs/markdown-safe-html-blocks.md",
+    kind: "file",
+  },
+  {
     name: "git-modified.md",
     path: "/workspace/docs/git-modified.md",
     kind: "file",
@@ -606,6 +621,11 @@ export const fixtureEntries: DirectoryEntry[] = [
   {
     name: "git-rendered-markdown.md",
     path: "/workspace/docs/git-rendered-markdown.md",
+    kind: "file",
+  },
+  {
+    name: "git-safe-html-blocks.md",
+    path: "/workspace/docs/git-safe-html-blocks.md",
     kind: "file",
   },
   {
@@ -1776,6 +1796,14 @@ This rendered Markdown paragraph changed in the working tree.
 > [!NOTE]
 > Rendered alerts are compared as blocks.
 `,
+  "/workspace/docs/git-safe-html-blocks.md": `# Safe HTML Block Diff
+
+<div><p>Working tree block is ready.</p></div>
+
+<hr>
+
+<table><tbody><tr><th>Status</th><td>Stable</td></tr></tbody></table>
+`,
   "/workspace/docs/git-rendered-list-reorder.md": `# Git Rendered List Reorder Fixture
 
 - Beta stable item
@@ -2512,6 +2540,30 @@ The details body keeps <mark>safe inline markup</mark> without resource actions.
 ## Literal fallback
 
 <kbd>Unclosed fragment
+`,
+  "/workspace/docs/markdown-safe-html-blocks.md": `# Markdown Safe HTML Blocks
+
+<div align="center" class="author-layout">
+<p>Typed <kbd>block content</kbd> keeps only safe attributes.</p>
+<blockquote><p>Nested block structure stays resource-free.</p></blockquote>
+</div>
+
+<ol start="2" reversed type="A"><li value="4">Ordered item</li><li>Next item</li></ol>
+
+<dl><dt>Boundary</dt><dd>Typed AST only</dd></dl>
+
+<hr>
+
+<table class="author-table">
+<caption>Safe table matrix</caption>
+<colgroup><col span="2"></colgroup>
+<thead><tr><th scope="col">Feature</th><th scope="col">Status</th></tr></thead>
+<tbody><tr><td>Block HTML</td><td><mark>Ready</mark></td></tr></tbody>
+</table>
+
+## Following Markdown heading
+
+Following Markdown keeps its source location.
 `,
   "/workspace/docs/markdown-diagrams.md": `# Markdown Diagram Sample
 

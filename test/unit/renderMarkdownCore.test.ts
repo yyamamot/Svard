@@ -80,6 +80,87 @@ describe("renderMarkdownCore", () => {
     expect(doc.querySelector("kbd, mark")).toBeNull();
   });
 
+  it("emits one standalone block marker and shields block source metadata", () => {
+    const source = `Before.
+
+<div class="author">
+<p>Block <kbd>content</kbd>.</p>
+</div>
+
+After.`;
+    const result = renderMarkdownCore(source);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(result.markdownAuthorHtmlFragments).toHaveLength(1);
+    expect(result.markdownAuthorHtmlFragments?.[0]).toMatchObject({
+      kind: "block",
+      sourceSpan: {
+        startOffset: source.indexOf("<div"),
+        endOffset: source.indexOf("</div>") + "</div>".length,
+      },
+    });
+    expect(
+      doc.querySelectorAll("svard-markdown-author-html-block"),
+    ).toHaveLength(1);
+    expect(
+      doc.querySelector("svard-markdown-author-html-block")?.parentElement,
+    ).toBe(doc.body);
+    expect(result.sourceSelectionBlocks).toEqual(
+      expect.not.arrayContaining([
+        expect.objectContaining({ startLine: 3 }),
+        expect.objectContaining({ startLine: 4 }),
+      ]),
+    );
+    expect(result.sourceTextBlocks).toHaveLength(2);
+    expect(result.markdownRendererProvenance).toHaveLength(2);
+  });
+
+  it("keeps the source location of Markdown following a multiline author block", () => {
+    const result = renderMarkdownCore(`<table>
+<tr><td>HTML</td></tr>
+</table>
+
+## After
+
+Paragraph.`);
+
+    expect(result.headings[0]?.sourceLocation).toEqual({ line: 5, column: 1 });
+    expect(result.sourceSelectionBlocks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "heading", startLine: 5, endLine: 5 }),
+        expect.objectContaining({
+          kind: "paragraph",
+          startLine: 7,
+          endLine: 7,
+        }),
+      ]),
+    );
+    expect(result.markdownRendererProvenance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "heading" }),
+        expect.objectContaining({ kind: "paragraph" }),
+      ]),
+    );
+  });
+
+  it("does not activate block HTML inside renderer-owned details", () => {
+    const source = `<details>
+<summary>Block boundary</summary>
+
+<div><p>Literal details block</p></div>
+</details>`;
+    const result = renderMarkdownCore(source);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(result.markdownAuthorHtmlFragments).toBeUndefined();
+    expect(
+      doc.querySelector("details div.markdown-safe-html-block"),
+    ).toBeNull();
+    expect(doc.querySelector("details")?.textContent).toContain(
+      "<div><p>Literal details block</p></div>",
+    );
+  });
+
   it("consumes adjacent author markers followed directly by ordinary text", () => {
     const source = "Line<br>notation<kbd>Ctrl</kbd>adjacent";
     const result = renderMarkdownCore(source);

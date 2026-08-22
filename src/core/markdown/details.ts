@@ -229,11 +229,13 @@ export function extractMarkdownDetails(
         block.summary,
         summaryLineStart + opening.summaryStartInLine,
         provenance.authorHtmlRegistry,
+        { allowBlocks: false },
       ).source;
       const body = scanMarkdownAuthorHtml(
         block.body,
         bodyLineStart,
         provenance.authorHtmlRegistry,
+        { allowBlocks: false },
       ).source;
       block = { ...block, summary, body };
     }

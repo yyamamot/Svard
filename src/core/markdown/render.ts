@@ -117,12 +117,9 @@ export function renderMarkdownDocument(source: string): RenderResult {
   const sourceBytes = utf8ByteLength(source);
   const sourceMap = new MarkdownOriginalSourceMap(source);
   const provenance = new MarkdownRendererProvenanceRegistry(source);
-  const sourceSelectionBlocks = extractSourceSelectionBlocks(
+  const extractedSourceSelectionBlocks = extractSourceSelectionBlocks(
     source,
     "markdown",
-  );
-  const sourceSelectionBlocksByRange = indexSourceSelectionBlocks(
-    sourceSelectionBlocks,
   );
   const placeholders = new MarkdownPlaceholderRegistry(
     source,
@@ -147,6 +144,24 @@ export function renderMarkdownDocument(source: string): RenderResult {
   recordPerf("markdown.authorHtml", authorHtmlStartedAt, {
     count: scannedAuthorHtml.count,
   });
+  const authorBlockLineRanges = authorHtmlRegistry?.blockLineRanges() ?? [];
+  const overlapsAuthorBlock = (startLine: number, endLine: number): boolean => {
+    let low = 0;
+    let high = authorBlockLineRanges.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (authorBlockLineRanges[middle].endLine < startLine) low = middle + 1;
+      else high = middle;
+    }
+    const range = authorBlockLineRanges[low];
+    return Boolean(range && range.startLine <= endLine);
+  };
+  const sourceSelectionBlocks = extractedSourceSelectionBlocks.filter(
+    (block) => !overlapsAuthorBlock(block.startLine, block.endLine),
+  );
+  const sourceSelectionBlocksByRange = indexSourceSelectionBlocks(
+    sourceSelectionBlocks,
+  );
 
   const detailsStartedAt = perfNow();
   const details = extractMarkdownDetails(

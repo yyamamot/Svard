@@ -25,6 +25,36 @@ function sourceSpan(source: string, value: string) {
 }
 
 describe("normalizeMarkdownAuthorHtmlInPlace", () => {
+  it("constructs a typed block tree and records only app-owned block roots", () => {
+    const source = `<table class="author"><tbody><tr><th scope="COL">A</th><td colspan="2"><kbd>B</kbd></td></tr></tbody></table>`;
+    const body = parseBody(marker("block", "block-1", "fallback"));
+
+    const result = normalizeMarkdownAuthorHtmlInPlace(body, source, [
+      {
+        id: "block-1",
+        kind: "block",
+        sourceSpan: { startOffset: 0, endOffset: source.length },
+      },
+    ]);
+
+    const table = body.querySelector("table");
+    expect(result).toMatchObject({
+      passedCount: 1,
+      escapedCount: 0,
+      rejectedCount: 0,
+    });
+    expect(result.blockRootElements).toEqual(new Set([table as Element]));
+    expect(table?.classList.contains("markdown-safe-html-block")).toBe(true);
+    expect(table?.getAttribute("class")).toBe("markdown-safe-html-block");
+    expect(table?.querySelector("th")?.getAttribute("scope")).toBe("col");
+    expect(table?.querySelector("td")?.getAttribute("colspan")).toBe("2");
+    expect(table?.querySelector("kbd")?.textContent).toBe("B");
+    expect(result.sourceActionExcludedElements.has(table as Element)).toBe(
+      true,
+    );
+    expect(body.querySelector(markerSelector)).toBeNull();
+  });
+
   it("constructs allowed nested elements and normalized attributes without an HTML sink", () => {
     const source =
       '<AbBr TITLE="term" onclick="alert(1)"><mark>API</mark></AbBr>';

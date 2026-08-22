@@ -1,11 +1,14 @@
 import type { Options } from "markdown-it/lib/index.mjs";
 import type Renderer from "markdown-it/lib/renderer.mjs";
+import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
 import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
 import type Token from "markdown-it/lib/token.mjs";
 
 import type { MarkdownAuthorHtmlFragment } from "../types";
 import {
   MAX_MARKDOWN_AUTHOR_HTML_ITEMS,
+  isMarkdownAuthorHtmlBlockRootTag,
+  parseMarkdownAuthorHtmlBlockFragment,
   parseMarkdownAuthorHtmlFragment,
   type MarkdownAuthorHtmlParseResult,
   type MarkdownAuthorHtmlSourceSpan,
@@ -18,6 +21,7 @@ export const MAX_MARKDOWN_AUTHOR_HTML_ID_ATTEMPTS = 8;
 export const MARKDOWN_AUTHOR_HTML_INTEGRITY_ERROR =
   "Markdown rendering stopped because author HTML provenance integrity validation failed.";
 export const markdownAuthorHtmlTokenType = "svard_author_html";
+export const markdownAuthorHtmlBlockTokenType = "svard_author_html_block";
 
 const authorMarkerPrefix = "<SVARD_MARKDOWN_AUTHOR_HTML";
 const authorRegistryKey: unique symbol = Symbol(
@@ -44,6 +48,11 @@ interface MarkdownAuthorHtmlRecord {
   marker: string;
   source: string;
   visibleText: string;
+}
+
+export interface MarkdownAuthorHtmlBlockLineRange {
+  endLine: number;
+  startLine: number;
 }
 
 interface MarkdownAuthorHtmlTokenMeta {
@@ -92,6 +101,7 @@ function authorNonce(originalSource: string): string {
 
 export class MarkdownAuthorHtmlRegistry {
   readonly #originalSource: string;
+  readonly #lineStarts: number[];
   #nonce = "";
   readonly #records: MarkdownAuthorHtmlRecord[] = [];
   readonly #recordsById = new Map<string, MarkdownAuthorHtmlRecord>();
@@ -101,6 +111,10 @@ export class MarkdownAuthorHtmlRegistry {
 
   constructor(originalSource: string) {
     this.#originalSource = originalSource;
+    this.#lineStarts = [0];
+    for (let index = 0; index < originalSource.length; index += 1) {
+      if (originalSource[index] === "\n") this.#lineStarts.push(index + 1);
+    }
   }
 
   get size(): number {
@@ -111,6 +125,7 @@ export class MarkdownAuthorHtmlRegistry {
     source: string,
     sourceSpan: MarkdownAuthorHtmlSourceSpan,
     parsed: Extract<MarkdownAuthorHtmlParseResult, { status: "pass" }>,
+    kind: MarkdownAuthorHtmlFragment["kind"] = "inline",
   ): string {
     if (
       !Number.isSafeInteger(sourceSpan.startOffset) ||
@@ -134,7 +149,7 @@ export class MarkdownAuthorHtmlRegistry {
     const id = `${this.#nonce}-${sequence}`;
     const marker = `${authorMarkerPrefix}_${this.#nonce}_${sequence}>`;
     const record: MarkdownAuthorHtmlRecord = {
-      fragment: { id, kind: "inline", sourceSpan },
+      fragment: { id, kind, sourceSpan },
       marker,
       source,
       visibleText: parsed.visibleText,
@@ -146,14 +161,19 @@ export class MarkdownAuthorHtmlRegistry {
     return marker;
   }
 
-  matchAt(source: string, offset: number): MarkdownAuthorHtmlRecord | null {
+  matchAt(
+    source: string,
+    offset: number,
+    kind?: MarkdownAuthorHtmlFragment["kind"],
+  ): MarkdownAuthorHtmlRecord | null {
     if (this.#nonce === "") return null;
     const prefix = `${authorMarkerPrefix}_${this.#nonce}_`;
     if (!source.startsWith(prefix, offset)) return null;
     let endOffset = offset + prefix.length;
     while (/[0-9]/u.test(source[endOffset] ?? "")) endOffset += 1;
     if (source[endOffset] === ">") endOffset += 1;
-    return this.#recordsByMarker.get(source.slice(offset, endOffset)) ?? null;
+    const record = this.#recordsByMarker.get(source.slice(offset, endOffset));
+    return record && (!kind || record.fragment.kind === kind) ? record : null;
   }
 
   consume(id: string): MarkdownAuthorHtmlRecord {
@@ -177,6 +197,25 @@ export class MarkdownAuthorHtmlRegistry {
         (left, right) =>
           left.sourceSpan.startOffset - right.sourceSpan.startOffset,
       );
+  }
+
+  blockLineRanges(): readonly MarkdownAuthorHtmlBlockLineRange[] {
+    const lineForOffset = (offset: number): number => {
+      let low = 0;
+      let high = this.#lineStarts.length;
+      while (low + 1 < high) {
+        const middle = Math.floor((low + high) / 2);
+        if (this.#lineStarts[middle] <= offset) low = middle;
+        else high = middle;
+      }
+      return low + 1;
+    };
+    return this.#records
+      .filter((record) => record.fragment.kind === "block")
+      .map(({ fragment }) => ({
+        startLine: lineForOffset(fragment.sourceSpan.startOffset),
+        endLine: lineForOffset(fragment.sourceSpan.endOffset - 1),
+      }));
   }
 
   sourceForMarker(marker: string): string | undefined {
@@ -205,6 +244,7 @@ export function containsMarkdownAuthorHtmlToken(
     tokens?.some(
       (token) =>
         token.type === markdownAuthorHtmlTokenType ||
+        token.type === markdownAuthorHtmlBlockTokenType ||
         containsMarkdownAuthorHtmlToken(token.children),
     ),
   );
@@ -232,7 +272,7 @@ export function parseMarkdownAuthorHtmlInlineToken(
     authorRegistryKey
   ];
   if (!registry) return false;
-  const record = registry.matchAt(state.src, state.pos);
+  const record = registry.matchAt(state.src, state.pos, "inline");
   if (!record) return false;
   const token = state.push(markdownAuthorHtmlTokenType, "", 0);
   token.content = record.visibleText;
@@ -240,6 +280,34 @@ export function parseMarkdownAuthorHtmlInlineToken(
     authorHtmlId: record.fragment.id,
   } satisfies MarkdownAuthorHtmlTokenMeta;
   state.pos += record.marker.length;
+  return true;
+}
+
+export function parseMarkdownAuthorHtmlBlockToken(
+  state: StateBlock,
+  startLine: number,
+  _endLine: number,
+  silent: boolean,
+): boolean {
+  const registry = (state.env as MarkdownAuthorHtmlEnvironment)[
+    authorRegistryKey
+  ];
+  if (!registry) return false;
+  const offset = state.bMarks[startLine] + state.tShift[startLine];
+  const record = registry.matchAt(state.src, offset, "block");
+  if (!record) return false;
+  const lineEnd = state.eMarks[startLine];
+  if (state.src.slice(offset + record.marker.length, lineEnd).trim()) {
+    return false;
+  }
+  if (silent) return true;
+  const token = state.push(markdownAuthorHtmlBlockTokenType, "", 0);
+  token.block = true;
+  token.map = [startLine, startLine + 1];
+  token.meta = {
+    authorHtmlId: record.fragment.id,
+  } satisfies MarkdownAuthorHtmlTokenMeta;
+  state.line = startLine + 1;
   return true;
 }
 
@@ -256,14 +324,15 @@ export function renderMarkdownAuthorHtmlToken(
     authorRegistryKey
   ];
   if (
-    token.type !== markdownAuthorHtmlTokenType ||
+    (token.type !== markdownAuthorHtmlTokenType &&
+      token.type !== markdownAuthorHtmlBlockTokenType) ||
     token.tag !== "" ||
     token.attrs !== null ||
     token.nesting !== 0 ||
     token.children !== null ||
     token.markup !== "" ||
     token.info !== "" ||
-    token.block !== false ||
+    token.block !== (token.type === markdownAuthorHtmlBlockTokenType) ||
     token.hidden !== false ||
     !meta ||
     Object.keys(meta).length !== 1 ||
@@ -273,7 +342,17 @@ export function renderMarkdownAuthorHtmlToken(
     return throwAuthorIntegrityError();
   }
   const record = registry.consume(meta.authorHtmlId);
-  return `<svard-markdown-author-html-inline data-svard-markdown-author-html-id="${record.fragment.id}">${escapeHtml(record.source)}</svard-markdown-author-html-inline>`;
+  const markerName =
+    record.fragment.kind === "block"
+      ? "svard-markdown-author-html-block"
+      : "svard-markdown-author-html-inline";
+  if (
+    (record.fragment.kind === "block") !==
+    (token.type === markdownAuthorHtmlBlockTokenType)
+  ) {
+    return throwAuthorIntegrityError();
+  }
+  return `<${markerName} data-svard-markdown-author-html-id="${record.fragment.id}">${escapeHtml(record.source)}</${markerName}>${record.fragment.kind === "block" ? "\n" : ""}`;
 }
 
 function openingTagNameAt(source: string, offset: number): string | null {
@@ -282,10 +361,15 @@ function openingTagNameAt(source: string, offset: number): string | null {
   return match?.[1].toLowerCase() ?? null;
 }
 
-function tagEndOffset(source: string, offset: number): number | null {
+function tagEndOffset(
+  source: string,
+  offset: number,
+  limit = source.length,
+): number | null {
   let quote = "";
-  for (let index = offset; index < source.length; index += 1) {
+  for (let index = offset; index < limit; index += 1) {
     const character = source[index];
+    if (character === "\n" || character === "\r") return null;
     if (quote) {
       if (character === quote) quote = "";
       continue;
@@ -303,36 +387,59 @@ type HtmlLikeRootResult =
   | { status: "complete"; endOffset: number }
   | { status: "malformed" };
 
-function htmlLikeRoot(source: string, startOffset: number): HtmlLikeRootResult {
+function htmlLikeRoot(
+  source: string,
+  startOffset: number,
+  cache?: Map<number, HtmlLikeRootResult>,
+  limit = source.length,
+): HtmlLikeRootResult {
+  const cached = cache?.get(startOffset);
+  if (cached) return cached;
   const rootName = openingTagNameAt(source, startOffset);
   if (!rootName) return { status: "malformed" };
-  const stack: string[] = [];
+  const stack: { name: string; startOffset: number }[] = [];
+  const malformed = (): HtmlLikeRootResult => {
+    const result = { status: "malformed" } as const;
+    for (const entry of stack) cache?.set(entry.startOffset, result);
+    cache?.set(startOffset, result);
+    return result;
+  };
   let offset = startOffset;
-  while (offset < source.length) {
+  while (offset < limit) {
     const nextTagOffset = source.indexOf("<", offset);
-    if (nextTagOffset < 0) return { status: "malformed" };
-    const endOffset = tagEndOffset(source, nextTagOffset);
-    if (endOffset === null) return { status: "malformed" };
+    if (nextTagOffset < 0 || nextTagOffset >= limit) return malformed();
+    const endOffset = tagEndOffset(source, nextTagOffset, limit);
+    if (endOffset === null) return malformed();
     const rawTag = source.slice(nextTagOffset, endOffset);
     const closing = rawTag.match(/^<\/\s*([A-Za-z][A-Za-z0-9-]*)\s*>$/u);
     if (closing) {
-      if (stack.at(-1) !== closing[1].toLowerCase()) {
-        return { status: "malformed" };
+      if (stack.at(-1)?.name !== closing[1].toLowerCase()) {
+        return malformed();
       }
-      stack.pop();
-      if (stack.length === 0) return { status: "complete", endOffset };
+      const closed = stack.pop();
+      const result = { status: "complete", endOffset } as const;
+      if (closed) cache?.set(closed.startOffset, result);
+      if (stack.length === 0) return result;
       offset = endOffset;
       continue;
     }
     const opening = rawTag.match(/^<\s*([A-Za-z][A-Za-z0-9-]*)\b[\s\S]*>$/u);
-    if (!opening) return { status: "malformed" };
+    if (!opening) return malformed();
     const tagName = opening[1].toLowerCase();
-    const isVoid = tagName === "br" || /\/\s*>$/u.test(rawTag);
-    if (!isVoid) stack.push(tagName);
-    else if (stack.length === 0) return { status: "complete", endOffset };
+    const isVoid =
+      tagName === "br" ||
+      tagName === "hr" ||
+      tagName === "col" ||
+      /\/\s*>$/u.test(rawTag);
+    if (!isVoid) stack.push({ name: tagName, startOffset: nextTagOffset });
+    else {
+      const result = { status: "complete", endOffset } as const;
+      cache?.set(nextTagOffset, result);
+      if (stack.length === 0) return result;
+    }
     offset = endOffset;
   }
-  return { status: "malformed" };
+  return malformed();
 }
 
 function isEscaped(source: string, offset: number): boolean {
@@ -525,10 +632,99 @@ function detailsShieldedLines(lines: readonly string[]): ReadonlySet<number> {
   return shielded;
 }
 
+interface ScannedAuthorHtmlBlock {
+  consumedLines: number;
+  lines: string[];
+}
+
+function scanAuthorHtmlBlockAtLine(
+  source: string,
+  lines: readonly string[],
+  lineOffsets: readonly number[],
+  nextBlankLines: readonly number[],
+  lineIndex: number,
+  absoluteLineOffset: number,
+  registry: MarkdownAuthorHtmlRegistry,
+  rootCache: Map<number, HtmlLikeRootResult>,
+): ScannedAuthorHtmlBlock | null {
+  const firstLine = lines[lineIndex].replace(/\r$/u, "");
+  const opening = /^( {0,3})<([A-Za-z][A-Za-z0-9-]*)\b/u.exec(firstLine);
+  if (!opening) return null;
+  const prefix = opening[1];
+  const tagName = opening[2].toLowerCase();
+  const blockRoot = isMarkdownAuthorHtmlBlockRootTag(tagName);
+  if (!blockRoot && allowedTags.has(tagName as MarkdownAuthorHtmlTagName)) {
+    return null;
+  }
+  const rootStartOffset = lineOffsets[lineIndex] + prefix.length;
+  const firstLineEndOffset = lineOffsets[lineIndex] + firstLine.length;
+  const openingEnd = tagEndOffset(source, rootStartOffset, firstLineEndOffset);
+  const literalEndLine = nextBlankLines[lineIndex];
+  const literalBlock = (): ScannedAuthorHtmlBlock => {
+    const consumedLines = literalEndLine - lineIndex;
+    return {
+      consumedLines,
+      lines: [...lines.slice(lineIndex, lineIndex + consumedLines)],
+    };
+  };
+  if (openingEnd === null || openingEnd > firstLineEndOffset) {
+    return literalBlock();
+  }
+  const root = htmlLikeRoot(source, rootStartOffset, rootCache);
+  if (root.status === "malformed") {
+    return literalBlock();
+  }
+  let endLine = lineIndex;
+  while (
+    endLine + 1 < lineOffsets.length &&
+    lineOffsets[endLine + 1] < root.endOffset
+  ) {
+    endLine += 1;
+  }
+  const consumedLines = endLine - lineIndex + 1;
+  const endLineContentEnd =
+    lineOffsets[endLine] + lines[endLine].replace(/\r$/u, "").length;
+  const suffix = source.slice(root.endOffset, endLineContentEnd);
+  if (!/^[\t ]*\r?$/u.test(suffix)) {
+    return null;
+  }
+  const candidate = source.slice(rootStartOffset, root.endOffset);
+  if (!blockRoot) {
+    return {
+      consumedLines,
+      lines: [...lines.slice(lineIndex, lineIndex + consumedLines)],
+    };
+  }
+  const parsed = parseMarkdownAuthorHtmlBlockFragment(candidate);
+  if (parsed.status !== "pass") {
+    return {
+      consumedLines,
+      lines: [...lines.slice(lineIndex, lineIndex + consumedLines)],
+    };
+  }
+  const marker = registry.add(
+    candidate,
+    {
+      startOffset: absoluteLineOffset + prefix.length,
+      endOffset: absoluteLineOffset + (root.endOffset - lineOffsets[lineIndex]),
+    },
+    parsed,
+    "block",
+  );
+  const output = [
+    `${prefix}${marker}${lines[lineIndex].endsWith("\r") ? "\r" : ""}`,
+  ];
+  for (let offset = 1; offset < consumedLines; offset += 1) {
+    output.push(lines[lineIndex + offset].endsWith("\r") ? "\r" : "");
+  }
+  return { consumedLines, lines: output };
+}
+
 export function scanMarkdownAuthorHtml(
   source: string,
   absoluteStartOffset: number,
   registry: MarkdownAuthorHtmlRegistry,
+  options: { allowBlocks?: boolean } = {},
 ): { count: number; source: string } {
   if (!source.includes("<")) return { count: 0, source };
   const initialSize = registry.size;
@@ -536,15 +732,30 @@ export function scanMarkdownAuthorHtml(
   const commentLines = standaloneCommentRanges(lines);
   const shieldedDetailsLines = detailsShieldedLines(lines);
   const transformed: string[] = [];
+  const lineOffsets: number[] = [];
+  const nextBlankLines = new Array<number>(lines.length);
+  let nextLineOffset = 0;
+  for (const line of lines) {
+    lineOffsets.push(nextLineOffset);
+    nextLineOffset += line.length + 1;
+  }
+  let nextBlankLine = lines.length;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    nextBlankLines[index] = nextBlankLine;
+    if (lines[index].replace(/\r$/u, "").trim() === "") {
+      nextBlankLine = index;
+    }
+  }
   let fence: MarkdownFenceState | null = null;
   let inInlineComment = false;
-  let offset = 0;
+  const blockRootCache = new Map<number, HtmlLikeRootResult>();
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
+    const absoluteLineOffset = absoluteStartOffset + lineOffsets[index];
     if (inInlineComment) {
       const scanned = scanAuthorHtmlLine(
         line,
-        absoluteStartOffset + offset,
+        absoluteLineOffset,
         registry,
         true,
       );
@@ -563,15 +774,28 @@ export function scanMarkdownAuthorHtml(
     } else if (commentLines.literal.has(index)) {
       transformed.push(line);
     } else {
-      const scanned = scanAuthorHtmlLine(
-        line,
-        absoluteStartOffset + offset,
-        registry,
-      );
+      const block =
+        options.allowBlocks === false
+          ? null
+          : scanAuthorHtmlBlockAtLine(
+              source,
+              lines,
+              lineOffsets,
+              nextBlankLines,
+              index,
+              absoluteLineOffset,
+              registry,
+              blockRootCache,
+            );
+      if (block) {
+        transformed.push(...block.lines);
+        index += block.consumedLines - 1;
+        continue;
+      }
+      const scanned = scanAuthorHtmlLine(line, absoluteLineOffset, registry);
       inInlineComment = scanned.inComment;
       transformed.push(scanned.source);
     }
-    offset += line.length + 1;
   }
   return { count: registry.size - initialSize, source: transformed.join("\n") };
 }

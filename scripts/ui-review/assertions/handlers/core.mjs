@@ -23,6 +23,7 @@ export async function buildCoreAssertions(context) {
               .count()) === 1,
     hasDocument:
       scenario === "viewer-files-tree-auto-refresh" ||
+      scenario === "viewer-diff-markdown-safe-html" ||
       (isPreferencesPageScenario(scenario) &&
         bodyText.includes("Preferences") &&
         bodyText.includes("General")) ||
@@ -84,6 +85,8 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("File Diff Table Fixture") ||
       bodyText.includes("Markdown Diagram Sample") ||
       bodyText.includes("Markdown Safe HTML Sample") ||
+      bodyText.includes("Markdown Safe HTML Blocks") ||
+      bodyText.includes("Git Safe HTML Blocks") ||
       bodyText.includes("Markdown 日本語確認") ||
       bodyText.includes("Obsidian Index") ||
       bodyText.includes("Wikilink Disabled") ||

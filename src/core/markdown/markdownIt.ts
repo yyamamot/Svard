@@ -10,6 +10,8 @@ import {
 } from "./placeholders";
 import {
   markdownAuthorHtmlTokenType,
+  markdownAuthorHtmlBlockTokenType,
+  parseMarkdownAuthorHtmlBlockToken,
   parseMarkdownAuthorHtmlInlineToken,
   renderMarkdownAuthorHtmlToken,
 } from "./authorHtmlRuntime";
@@ -56,6 +58,11 @@ export const markdown = new MarkdownIt({
 markdown.use(markdownItFootnote);
 registerMathRules(markdown);
 registerWikilinkRule(markdown);
+markdown.block.ruler.before(
+  "paragraph",
+  markdownAuthorHtmlBlockTokenType,
+  parseMarkdownAuthorHtmlBlockToken,
+);
 markdown.inline.ruler.before(
   "text",
   markdownAuthorHtmlTokenType,
@@ -106,4 +113,6 @@ markdown.renderer.rules.diagram_slot = (tokens, index) => tokens[index].content;
 markdown.renderer.rules[markdownPlaceholderTokenType] =
   renderMarkdownPlaceholderToken;
 markdown.renderer.rules[markdownAuthorHtmlTokenType] =
+  renderMarkdownAuthorHtmlToken;
+markdown.renderer.rules[markdownAuthorHtmlBlockTokenType] =
   renderMarkdownAuthorHtmlToken;

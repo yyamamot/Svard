@@ -113,11 +113,25 @@ const asciiDocTableAttributes = [
   "width",
 ] as const;
 
+const markdownSafeHtmlAttributes = [
+  "align",
+  "colspan",
+  "reversed",
+  "rowspan",
+  "scope",
+  "span",
+  "start",
+  "title",
+  "type",
+  "value",
+] as const;
+
 function sanitizeConfigForFormat(format: DocumentFormat | undefined): Config {
   if (format !== "asciidoc") {
     return {
       ...commonConfig,
-      ADD_ATTR: [...viewerMetadataAttributes],
+      ADD_ATTR: [...viewerMetadataAttributes, ...markdownSafeHtmlAttributes],
+      ADD_URI_SAFE_ATTR: [...markdownSafeHtmlAttributes],
     };
   }
 

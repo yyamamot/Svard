@@ -189,10 +189,13 @@ export async function applyMarkdownScenario(context) {
     await compactDetails
       .locator(".markdown-details-body")
       .waitFor({ state: "visible" });
-    await page
-      .locator('[data-review-id="source-copy-button"]')
-      .first()
-      .waitFor({ state: "attached" });
+    if (
+      (await page
+        .locator('.markdown-details [data-review-id="source-copy-button"]')
+        .count()) !== 0
+    ) {
+      throw new Error("Markdown details must not expose source-copy actions.");
+    }
     await page.locator(".markdown-details[open] pre").hover();
   } else if (scenario === "viewer-markdown-safe-html") {
     await page.locator("text=markdown-safe-html.md").click();
@@ -213,6 +216,22 @@ export async function applyMarkdownScenario(context) {
       .filter({ has: page.getByText("More context", { exact: true }) })
       .waitFor();
     await page.getByText("<kbd>Unclosed fragment", { exact: true }).waitFor();
+  } else if (scenario === "viewer-markdown-safe-html-blocks") {
+    await page.locator("text=markdown-safe-html-blocks.md").click();
+    await page
+      .getByRole("heading", { name: "Markdown Safe HTML Blocks" })
+      .waitFor();
+    await page
+      .locator(".markdown-safe-html-block")
+      .filter({ hasText: "Typed block content" })
+      .waitFor();
+    await page
+      .locator("table.markdown-safe-html-block")
+      .filter({ hasText: "Safe table matrix" })
+      .waitFor();
+    await page
+      .getByRole("heading", { name: "Following Markdown heading" })
+      .waitFor();
   } else if (scenario === "viewer-markdown-diagrams") {
     await page.locator("text=markdown-diagrams.md").click();
     await page

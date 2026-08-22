@@ -36,20 +36,75 @@ export type MarkdownAuthorHtmlParseResult =
 
 export type MarkdownAuthorHtmlTagName =
   | "abbr"
+  | "blockquote"
   | "br"
+  | "caption"
+  | "col"
+  | "colgroup"
+  | "dd"
   | "del"
+  | "div"
+  | "dl"
+  | "dt"
+  | "hr"
   | "ins"
   | "kbd"
+  | "li"
   | "mark"
+  | "ol"
+  | "p"
   | "rp"
   | "rt"
   | "ruby"
   | "s"
   | "small"
   | "sub"
-  | "sup";
+  | "sup"
+  | "table"
+  | "tbody"
+  | "td"
+  | "tfoot"
+  | "th"
+  | "thead"
+  | "tr"
+  | "ul";
 
 const allowedTags = new Set<MarkdownAuthorHtmlTagName>([
+  "abbr",
+  "blockquote",
+  "br",
+  "caption",
+  "col",
+  "colgroup",
+  "dd",
+  "del",
+  "div",
+  "dl",
+  "dt",
+  "hr",
+  "ins",
+  "kbd",
+  "li",
+  "mark",
+  "ol",
+  "p",
+  "rp",
+  "rt",
+  "ruby",
+  "s",
+  "small",
+  "sub",
+  "sup",
+  "table",
+  "tbody",
+  "td",
+  "tfoot",
+  "th",
+  "thead",
+  "tr",
+  "ul",
+]);
+const inlineTags = new Set<MarkdownAuthorHtmlTagName>([
   "abbr",
   "br",
   "del",
@@ -64,9 +119,20 @@ const allowedTags = new Set<MarkdownAuthorHtmlTagName>([
   "sub",
   "sup",
 ]);
+const blockRootTags = new Set<MarkdownAuthorHtmlTagName>([
+  "blockquote",
+  "div",
+  "dl",
+  "hr",
+  "ol",
+  "p",
+  "table",
+  "ul",
+]);
 const rubyChildTags = new Set<MarkdownAuthorHtmlTagName>(["rp", "rt"]);
+const voidTags = new Set<MarkdownAuthorHtmlTagName>(["br", "col", "hr"]);
 const asciiNamePattern = /^[A-Za-z][A-Za-z0-9-]*$/u;
-const whitespacePattern = /\s/u;
+const whitespacePattern = /[\t\f ]/u;
 
 interface ParsedOpeningTag {
   attributes: Record<string, string>;
@@ -77,6 +143,7 @@ interface ParsedOpeningTag {
 
 interface ParseState {
   elementCount: number;
+  mode: "block" | "inline";
   source: string;
 }
 
@@ -106,6 +173,97 @@ function skipWhitespace(source: string, offset: number): number {
     offset += 1;
   }
   return offset;
+}
+
+type NormalizedAttribute =
+  | { name: string; value: string }
+  | { name: null }
+  | null;
+
+function canonicalSafeInteger(value: string): string | null {
+  if (!/^[+-]?\d+$/u.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? String(parsed) : null;
+}
+
+function boundedSpan(value: string): string | null {
+  if (!/^\d+$/u.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100
+    ? String(parsed)
+    : null;
+}
+
+function normalizeAttribute(
+  tagName: MarkdownAuthorHtmlTagName,
+  attributeName: string,
+  value: string,
+): NormalizedAttribute {
+  if (tagName === "abbr" && attributeName === "title") {
+    const normalizedTitle = decodeHtmlEntities(value);
+    if (
+      utf8ByteLength(
+        normalizedTitle,
+        MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES,
+      ) > MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES
+    ) {
+      return null;
+    }
+    return { name: "title", value: normalizedTitle };
+  }
+  if (
+    (tagName === "p" ||
+      tagName === "div" ||
+      tagName === "th" ||
+      tagName === "td") &&
+    attributeName === "align"
+  ) {
+    const normalized = value.toLowerCase();
+    return normalized === "left" ||
+      normalized === "center" ||
+      normalized === "right"
+      ? { name: "align", value: normalized }
+      : null;
+  }
+  if (tagName === "ol") {
+    if (attributeName === "reversed") return { name: "reversed", value: "" };
+    if (attributeName === "start") {
+      const normalized = canonicalSafeInteger(value);
+      return normalized === null ? null : { name: "start", value: normalized };
+    }
+    if (attributeName === "type") {
+      return ["1", "a", "A", "i", "I"].includes(value)
+        ? { name: "type", value }
+        : null;
+    }
+  }
+  if (tagName === "li" && attributeName === "value") {
+    const normalized = canonicalSafeInteger(value);
+    return normalized === null ? null : { name: "value", value: normalized };
+  }
+  if (
+    (tagName === "th" || tagName === "td") &&
+    (attributeName === "rowspan" || attributeName === "colspan")
+  ) {
+    const normalized = boundedSpan(value);
+    return normalized === null
+      ? null
+      : { name: attributeName, value: normalized };
+  }
+  if (
+    (tagName === "col" || tagName === "colgroup") &&
+    attributeName === "span"
+  ) {
+    const normalized = boundedSpan(value);
+    return normalized === null ? null : { name: "span", value: normalized };
+  }
+  if (tagName === "th" && attributeName === "scope") {
+    const normalized = value.toLowerCase();
+    return ["row", "col", "rowgroup", "colgroup"].includes(normalized)
+      ? { name: "scope", value: normalized }
+      : null;
+  }
+  return { name: null };
 }
 
 export function parseMarkdownAuthorContainerOpeningTag(
@@ -178,6 +336,7 @@ function parseOpeningTag(
   let offset = parsedName[1];
   while (offset < source.length) {
     offset = skipWhitespace(source, offset);
+    if (source[offset] === "\n" || source[offset] === "\r") return null;
     if (source.startsWith("/>", offset)) {
       return { attributes, endOffset: offset + 2, selfClosing: true, tagName };
     }
@@ -198,6 +357,7 @@ function parseOpeningTag(
         const valueEndOffset = source.indexOf(quote, offset + 1);
         if (valueEndOffset < 0) return null;
         value = source.slice(offset + 1, valueEndOffset);
+        if (value.includes("\n") || value.includes("\r")) return null;
         offset = valueEndOffset + 1;
       } else {
         const valueStartOffset = offset;
@@ -209,7 +369,9 @@ function parseOpeningTag(
           if (
             source[offset] === '"' ||
             source[offset] === "'" ||
-            source[offset] === "<"
+            source[offset] === "<" ||
+            source[offset] === "\n" ||
+            source[offset] === "\r"
           ) {
             return null;
           }
@@ -219,17 +381,10 @@ function parseOpeningTag(
         value = source.slice(valueStartOffset, offset);
       }
     }
-    if (tagName === "abbr" && attributeName === "title") {
-      const normalizedTitle = decodeHtmlEntities(value);
-      if (
-        utf8ByteLength(
-          normalizedTitle,
-          MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES,
-        ) > MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES
-      ) {
-        return null;
-      }
-      attributes.title = normalizedTitle;
+    const normalized = normalizeAttribute(tagName, attributeName, value);
+    if (normalized === null) return null;
+    if (normalized.name !== null) {
+      attributes[normalized.name] = normalized.value;
     }
   }
   return null;
@@ -243,16 +398,140 @@ function visibleText(nodes: readonly MarkdownAuthorHtmlNode[]): string {
     .join("");
 }
 
+function childElementNames(
+  nodes: readonly MarkdownAuthorHtmlNode[],
+): MarkdownAuthorHtmlTagName[] {
+  return nodes.flatMap((node) =>
+    node.type === "element" ? [node.tagName] : [],
+  );
+}
+
+function hasOnlyWhitespaceText(
+  nodes: readonly MarkdownAuthorHtmlNode[],
+): boolean {
+  return nodes.every(
+    (node) => node.type === "element" || /^\s*$/u.test(node.value),
+  );
+}
+
+function validDefinitionListChildren(
+  nodes: readonly MarkdownAuthorHtmlNode[],
+): boolean {
+  if (!hasOnlyWhitespaceText(nodes)) return false;
+  const names = childElementNames(nodes);
+  let hasTerm = false;
+  let descriptionsForTerm = 0;
+  for (const name of names) {
+    if (name === "dt") {
+      if (hasTerm && descriptionsForTerm === 0) return false;
+      hasTerm = true;
+      descriptionsForTerm = 0;
+    } else if (name === "dd" && hasTerm) {
+      descriptionsForTerm += 1;
+    } else {
+      return false;
+    }
+  }
+  return hasTerm && descriptionsForTerm > 0;
+}
+
+function validTableChildren(nodes: readonly MarkdownAuthorHtmlNode[]): boolean {
+  if (!hasOnlyWhitespaceText(nodes)) return false;
+  const names = childElementNames(nodes);
+  let index = 0;
+  if (names[index] === "caption") index += 1;
+  while (names[index] === "colgroup") index += 1;
+  if (names[index] === "thead") index += 1;
+  const bodyKind = names[index];
+  if (bodyKind !== "tbody" && bodyKind !== "tr") return false;
+  while (names[index] === bodyKind) index += 1;
+  if (names[index] === "tfoot") index += 1;
+  return index === names.length;
+}
+
+function parentAllowsChild(
+  parent: MarkdownAuthorHtmlTagName,
+  child: MarkdownAuthorHtmlTagName,
+  ancestors: readonly MarkdownAuthorHtmlTagName[],
+): boolean {
+  if (parent === "ul" || parent === "ol") return child === "li";
+  if (parent === "dl") return child === "dt" || child === "dd";
+  if (parent === "table") {
+    return ["caption", "colgroup", "thead", "tbody", "tfoot", "tr"].includes(
+      child,
+    );
+  }
+  if (parent === "thead" || parent === "tbody" || parent === "tfoot") {
+    return child === "tr";
+  }
+  if (parent === "tr") return child === "th" || child === "td";
+  if (parent === "colgroup") return child === "col";
+  if (parent === "p" || parent === "caption" || parent === "dt") {
+    return inlineTags.has(child);
+  }
+  if (parent === "ruby") return inlineTags.has(child) && child !== "ruby";
+  if (rubyChildTags.has(parent)) {
+    return (
+      inlineTags.has(child) && child !== "ruby" && !rubyChildTags.has(child)
+    );
+  }
+  if (inlineTags.has(parent)) return inlineTags.has(child);
+  if (
+    parent === "div" ||
+    parent === "blockquote" ||
+    parent === "li" ||
+    parent === "dd" ||
+    parent === "th" ||
+    parent === "td"
+  ) {
+    if (child === "table" && ancestors.includes("table")) return false;
+    return inlineTags.has(child) || blockRootTags.has(child);
+  }
+  return false;
+}
+
+function validElementChildren(
+  node: Extract<MarkdownAuthorHtmlNode, { type: "element" }>,
+): boolean {
+  if (
+    ["ul", "ol", "table", "thead", "tbody", "tfoot", "tr", "colgroup"].includes(
+      node.tagName,
+    ) &&
+    !hasOnlyWhitespaceText(node.children)
+  ) {
+    return false;
+  }
+  if (node.tagName === "dl") return validDefinitionListChildren(node.children);
+  if (node.tagName === "table") return validTableChildren(node.children);
+  if (
+    node.tagName === "colgroup" &&
+    node.attributes.span !== undefined &&
+    childElementNames(node.children).length > 0
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function parseElement(
   state: ParseState,
   startOffset: number,
   depth: number,
   parentTagName?: MarkdownAuthorHtmlTagName,
+  ancestors: readonly MarkdownAuthorHtmlTagName[] = [],
 ): { endOffset: number; node: MarkdownAuthorHtmlNode } | null {
   if (depth > MAX_MARKDOWN_AUTHOR_HTML_NESTING) return null;
   const opening = parseOpeningTag(state.source, startOffset);
   if (!opening) return null;
   const { tagName } = opening;
+  if (state.mode === "inline" && !inlineTags.has(tagName)) return null;
+  if (
+    state.mode === "block" &&
+    parentTagName &&
+    !parentAllowsChild(parentTagName, tagName, ancestors)
+  ) {
+    return null;
+  }
   if (rubyChildTags.has(tagName) && parentTagName !== "ruby") return null;
   if (tagName === "ruby" && parentTagName === "ruby") return null;
   if (
@@ -263,13 +542,7 @@ function parseElement(
     return null;
   state.elementCount += 1;
   if (state.elementCount > MAX_MARKDOWN_AUTHOR_HTML_ITEMS) return null;
-  if (tagName === "br") {
-    if (
-      !opening.selfClosing &&
-      state.source.startsWith("</br", opening.endOffset)
-    ) {
-      return null;
-    }
+  if (voidTags.has(tagName)) {
     return {
       endOffset: opening.endOffset,
       node: {
@@ -305,18 +578,20 @@ function parseElement(
       const closingEndOffset = skipWhitespace(state.source, closingName[1]);
       if (state.source[closingEndOffset] !== ">") return null;
       const endOffset = closingEndOffset + 1;
-      return {
-        endOffset,
-        node: {
-          type: "element",
-          tagName,
-          attributes: opening.attributes,
-          children,
-          sourceSpan: { startOffset, endOffset },
-        },
+      const node: Extract<MarkdownAuthorHtmlNode, { type: "element" }> = {
+        type: "element",
+        tagName,
+        attributes: opening.attributes,
+        children,
+        sourceSpan: { startOffset, endOffset },
       };
+      if (!validElementChildren(node)) return null;
+      return { endOffset, node };
     }
-    const child = parseElement(state, offset, depth + 1, tagName);
+    const child = parseElement(state, offset, depth + 1, tagName, [
+      ...ancestors,
+      tagName,
+    ]);
     if (!child) return null;
     appendText(offset);
     children.push(child.node);
@@ -332,7 +607,7 @@ export function parseMarkdownAuthorHtmlFragment(
   if (source.length === 0 || source.includes("\n") || source.includes("\r")) {
     return { status: "escape" };
   }
-  const state: ParseState = { elementCount: 0, source };
+  const state: ParseState = { elementCount: 0, mode: "inline", source };
   const parsed = parseElement(state, 0, 1);
   if (!parsed || parsed.endOffset !== source.length)
     return { status: "escape" };
@@ -343,4 +618,31 @@ export function parseMarkdownAuthorHtmlFragment(
     elementCount: state.elementCount,
     visibleText: visibleText(nodes),
   };
+}
+
+export function parseMarkdownAuthorHtmlBlockFragment(
+  source: string,
+): MarkdownAuthorHtmlParseResult {
+  if (source.length === 0 || source[0] !== "<") return { status: "escape" };
+  const state: ParseState = { elementCount: 0, mode: "block", source };
+  const parsed = parseElement(state, 0, 1);
+  if (
+    !parsed ||
+    parsed.endOffset !== source.length ||
+    parsed.node.type !== "element" ||
+    !blockRootTags.has(parsed.node.tagName)
+  ) {
+    return { status: "escape" };
+  }
+  const nodes = [parsed.node];
+  return {
+    status: "pass",
+    nodes,
+    elementCount: state.elementCount,
+    visibleText: visibleText(nodes),
+  };
+}
+
+export function isMarkdownAuthorHtmlBlockRootTag(tagName: string): boolean {
+  return blockRootTags.has(tagName.toLowerCase() as MarkdownAuthorHtmlTagName);
 }

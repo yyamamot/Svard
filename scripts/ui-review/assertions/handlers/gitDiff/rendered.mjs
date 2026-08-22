@@ -136,6 +136,34 @@ export async function buildGitDiffRenderedAssertions(context, samples) {
             .locator('[data-review-id="git-rendered-block"]')
             .count()) > 0
         : true,
+    hasDiffMarkdownSafeHtml:
+      scenario === "viewer-diff-markdown-safe-html"
+        ? await page.evaluate(() => {
+            const left = document.querySelector(
+              '[data-review-id="git-rendered-left-pane"]',
+            );
+            const right = document.querySelector(
+              '[data-review-id="git-rendered-right-pane"]',
+            );
+            if (!left || !right) return false;
+            const combined = [left, right];
+            return (
+              left.textContent?.includes("HEAD block is pending.") === true &&
+              right.textContent?.includes("Working tree block is ready.") ===
+                true &&
+              right.querySelector("hr.markdown-safe-html-block") !== null &&
+              combined.every(
+                (pane) =>
+                  pane.querySelector("table") !== null &&
+                  pane.querySelector(
+                    "svard-markdown-author-html-inline,svard-markdown-author-html-block,[data-svard-markdown-author-html-id],[data-source-reference]",
+                  ) === null,
+              ) &&
+              document.querySelectorAll('[data-review-id="git-rendered-block"]')
+                .length > 0
+            );
+          })
+        : true,
     hasDiffRenderedContextMenu:
       scenario === "viewer-diff-context-menu-rendered"
         ? await page.evaluate(() => {

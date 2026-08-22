@@ -52,6 +52,24 @@ describe("git table diff", () => {
     expect(normalized.body.querySelector("[data-source-reference]")).toBeNull();
   });
 
+  it("extracts typed author HTML tables and keeps spans on the complex fallback", () => {
+    const source = `<table class="author"><caption>Plans</caption><tbody><tr><th>Name</th><td colspan="2"><mark>Svard</mark></td></tr></tbody></table>`;
+    const rendered = renderMarkdownCore(source);
+    const normalized = normalizeRenderResultHtml("markdown", source, rendered);
+    const tables = extractRenderedTablesFromRoot(normalized.body);
+
+    expect(tables).toEqual([
+      {
+        label: "Table 1 · Plans",
+        rows: [["Name", "Svard"]],
+        complex: true,
+      },
+    ]);
+    expect(JSON.stringify(tables)).not.toMatch(
+      /author|svard-markdown-author-html|data-source/u,
+    );
+  });
+
   it("extracts rendered AsciiDoc table matrices from HTML", () => {
     const tables = extractRenderedTablesFromHtml(`<table class="tableblock">
   <caption>Table 1. Plans</caption>

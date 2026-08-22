@@ -216,6 +216,7 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     });
   } else if (
     scenario === "viewer-git-diff-rendered-markdown" ||
+    scenario === "viewer-diff-markdown-safe-html" ||
     scenario === "viewer-diff-context-menu-rendered" ||
     scenario === "viewer-agent-chat-diff-selection" ||
     scenario === "viewer-agent-chat-diff-media-context" ||
@@ -243,7 +244,9 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     const fixtureName =
       scenario === "viewer-diff-context-menu-rendered"
         ? "git-rendered-markdown.md"
-        : "diff-regression-gallery.md";
+        : scenario === "viewer-diff-markdown-safe-html"
+          ? "git-safe-html-blocks.md"
+          : "diff-regression-gallery.md";
     await page.locator(`text=${fixtureName}`).click();
     await page
       .locator('[data-review-id="document-body"]')
@@ -251,7 +254,9 @@ export async function applyGitDiffRenderedCoreScenario(context) {
         hasText:
           scenario === "viewer-diff-context-menu-rendered"
             ? "Git Rendered Markdown Diff Fixture"
-            : "Diff Preview Regression Gallery",
+            : scenario === "viewer-diff-markdown-safe-html"
+              ? "Safe HTML Block Diff"
+              : "Diff Preview Regression Gallery",
       })
       .waitFor();
     await page.evaluate(() =>
@@ -260,6 +265,7 @@ export async function applyGitDiffRenderedCoreScenario(context) {
     await page.locator('[data-review-id="git-diff-preview-panel"]').waitFor();
     if (
       scenario === "viewer-git-diff-rendered-markdown" ||
+      scenario === "viewer-diff-markdown-safe-html" ||
       scenario === "viewer-agent-chat-diff-selection" ||
       scenario === "viewer-agent-chat-diff-media-context" ||
       scenario === "viewer-agent-chat-diff-dock"

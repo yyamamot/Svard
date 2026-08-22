@@ -22,10 +22,15 @@ describe("sanitizer boundary render contract", () => {
     });
     const bodyText = doc.body.textContent ?? "";
 
-    expect(renderResult).not.toHaveProperty("markdownAuthorHtmlFragments");
+    expect(renderResult.markdownAuthorHtmlFragments).toEqual([
+      expect.objectContaining({ kind: "block" }),
+    ]);
     expect(preparedHtml).not.toContain("svard-markdown-author-html-");
     expect(bodyText).toContain("unsafe div");
-    expect(bodyText).toContain('<div style="color:red"');
+    expect(doc.querySelector("div.markdown-safe-html-block")?.textContent).toBe(
+      "unsafe div",
+    );
+    expect(bodyText).not.toContain('<div style="color:red"');
     expect(bodyText).toContain('<a href="javascript:alert(1)"');
     expect(bodyText).toContain('<iframe srcdoc="<script>');
     expect(bodyText).toContain("<svg><script>alert(1)</script>");

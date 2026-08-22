@@ -182,17 +182,17 @@ describe("sanitizeHtml", () => {
     parseSpy.mockRestore();
   });
 
-  it("does not broaden the Markdown sanitizer profile with AsciiDoc table attributes", () => {
+  it("preserves typed Safe HTML attributes without enabling AsciiDoc-only attributes", () => {
     const html = sanitizeDocumentHtml(
       '<table><tbody><tr><td rowspan="2" colspan="3" width="80%" align="center">Cell</td></tr></tbody></table>',
       { format: "markdown" },
     );
 
     expect(html).toContain("<td");
-    expect(html).not.toContain("rowspan");
-    expect(html).not.toContain("colspan");
+    expect(html).toContain('rowspan="2"');
+    expect(html).toContain('colspan="3"');
     expect(html).not.toContain("width=");
-    expect(html).not.toContain("align=");
+    expect(html).toContain('align="center"');
   });
 
   it("removes unsafe SVG content while preserving diagram geometry", () => {

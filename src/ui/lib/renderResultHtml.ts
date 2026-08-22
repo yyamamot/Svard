@@ -16,6 +16,7 @@ export interface NormalizedRenderResultHtml {
   document: Document;
   body: HTMLElement;
   authorHtml: RenderResultHtmlNormalizationStatus;
+  authorHtmlBlockRootElements: Set<Element>;
   authorHtmlSourceActionExcludedElements: Set<Element>;
 }
 
@@ -55,6 +56,7 @@ export function normalizeRenderResultHtml(
         passedCount: 0,
         escapedCount: 0,
         rejectedCount: 0,
+        blockRootElements: new Set<Element>(),
         sourceActionExcludedElements: new Set<Element>(),
       };
 
@@ -71,6 +73,7 @@ export function normalizeRenderResultHtml(
       escapedCount: counts.escapedCount,
       rejectedCount: counts.rejectedCount,
     },
+    authorHtmlBlockRootElements: counts.blockRootElements,
     authorHtmlSourceActionExcludedElements: counts.sourceActionExcludedElements,
   };
 }

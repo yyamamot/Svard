@@ -4,6 +4,7 @@ import {
   MAX_MARKDOWN_AUTHOR_HTML_ABBR_TITLE_BYTES,
   MAX_MARKDOWN_AUTHOR_HTML_NESTING,
   parseMarkdownAuthorContainerOpeningTag,
+  parseMarkdownAuthorHtmlBlockFragment,
   parseMarkdownAuthorHtmlFragment,
 } from "../../src/core/markdown/authorHtml";
 import {
@@ -128,6 +129,66 @@ describe("parseMarkdownAuthorHtmlFragment", () => {
   });
 });
 
+describe("parseMarkdownAuthorHtmlBlockFragment", () => {
+  it.each([
+    "<p>Text <kbd>Ctrl</kbd></p>",
+    '<div align="CENTER"><blockquote>Quote</blockquote></div>',
+    '<ol start="+02" reversed type="I"><li value="-3">Item</li></ol>',
+    "<dl><dt>Term</dt><dd><p>Definition</p></dd></dl>",
+    "<hr>",
+    `<table><caption>Caption</caption><colgroup><col span="2"></colgroup><thead><tr><th scope="col">A</th></tr></thead><tbody><tr><td rowspan="2">B</td></tr></tbody><tfoot><tr><td>C</td></tr></tfoot></table>`,
+  ])("accepts strict resource-free block HTML: %s", (source) => {
+    expect(parseMarkdownAuthorHtmlBlockFragment(source).status).toBe("pass");
+  });
+
+  it("normalizes typed attributes and removes unknown attributes", () => {
+    const result = parseMarkdownAuthorHtmlBlockFragment(
+      '<OL START="+02" REVERSED="false" TYPE="A" class="discard"><LI VALUE="-03">x</LI></OL>',
+    );
+    expect(result.status).toBe("pass");
+    if (result.status !== "pass" || result.nodes[0].type !== "element") return;
+    expect(result.nodes[0].attributes).toEqual({
+      start: "2",
+      reversed: "",
+      type: "A",
+    });
+    const item = result.nodes[0].children.find(
+      (node) => node.type === "element",
+    );
+    expect(item?.type === "element" ? item.attributes : {}).toEqual({
+      value: "-3",
+    });
+  });
+
+  it.each([
+    "<li>orphan</li>",
+    "<div>a</div><p>b</p>",
+    "<p><div>invalid</div></p>",
+    "<ul><p>invalid</p></ul>",
+    "<dl><dt>missing description</dt></dl>",
+    "<dl><dt>one</dt><dt>two</dt><dd>description</dd></dl>",
+    "<table><tr><td>x</td></tr><tbody><tr><td>mixed</td></tr></tbody></table>",
+    "<table><tbody><tr><td><table><tr><td>nested</td></tr></table></td></tr></tbody></table>",
+    '<table><tbody><tr><td colspan="101">x</td></tr></tbody></table>',
+    '<ol type="z"><li>x</li></ol>',
+    '<div align="sideways">x</div>',
+    '<div class="a" CLASS="b">x</div>',
+    '<div\nclass="x">x</div>',
+  ])("escapes invalid block grammar: %s", (source) => {
+    expect(parseMarkdownAuthorHtmlBlockFragment(source)).toEqual({
+      status: "escape",
+    });
+  });
+
+  it("accepts one or more descriptions after every definition term", () => {
+    expect(
+      parseMarkdownAuthorHtmlBlockFragment(
+        "<dl><dt>one</dt><dd>first</dd><dd>second</dd><dt>two</dt><dd>third</dd></dl>",
+      ).status,
+    ).toBe("pass");
+  });
+});
+
 describe("parseMarkdownAuthorContainerOpeningTag", () => {
   it("keeps only the details open boolean and accepts removable attributes", () => {
     const details = '<DETAILS class="x" OPEN data-private="y" onclick="z">';
@@ -162,6 +223,107 @@ describe("parseMarkdownAuthorContainerOpeningTag", () => {
 });
 
 describe("MarkdownAuthorHtmlRegistry and scanner", () => {
+  it("scans a multiline block into one block marker while preserving line count", () => {
+    const source = `Before
+
+  <div class="discard">
+<p>Text <kbd>Ctrl</kbd></p>
+</div>
+
+After`;
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const result = scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(result.count).toBe(1);
+    expect(result.source.split("\n")).toHaveLength(source.split("\n").length);
+    expect(result.source).toContain("SVARD_MARKDOWN_AUTHOR_HTML");
+    expect(registry.fragments()).toMatchObject([
+      {
+        kind: "block",
+        sourceSpan: {
+          startOffset: source.indexOf("<div"),
+          endOffset: source.indexOf("</div>") + "</div>".length,
+        },
+      },
+    ]);
+    expect(registry.blockLineRanges()).toEqual([{ startLine: 3, endLine: 5 }]);
+  });
+
+  it("keeps CRLF and emoji UTF-16 offsets exact for block spans", () => {
+    const block = "<div>\r\n<p>😀</p>\r\n</div>";
+    const source = `😀 prefix\r\n${block}\r\nAfter`;
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(registry.fragments()).toMatchObject([
+      {
+        kind: "block",
+        sourceSpan: {
+          startOffset: source.indexOf(block),
+          endOffset: source.indexOf(block) + block.length,
+        },
+      },
+    ]);
+  });
+
+  it("keeps inline-position block tags and invalid or unsupported blocks literal", () => {
+    const source = `Text <div><kbd>inline</kbd></div>
+
+<table><div><kbd>invalid</kbd></div></table>
+
+<script>
+<mark>blocked</mark>
+</script>`;
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const result = scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(result.count).toBe(0);
+    expect(result.source).toBe(source);
+  });
+
+  it("scans many independent unsupported one-line roots without rebuilding document suffixes", () => {
+    const source = Array.from(
+      { length: 16_000 },
+      (_, index) => `<x>${index}</x>`,
+    ).join("\n");
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const startedAt = performance.now();
+    const result = scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(performance.now() - startedAt).toBeLessThan(1_500);
+    expect(result).toEqual({ count: 0, source });
+  });
+
+  it("bounds repeated malformed root and opening-tag scans", () => {
+    const source = Array.from({ length: 16_000 }, (_, index) =>
+      index % 2 === 0 ? "<x>" : '<div title="unterminated',
+    ).join("\n\n");
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const startedAt = performance.now();
+    const result = scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(performance.now() - startedAt).toBeLessThan(1_500);
+    expect(result).toEqual({ count: 0, source });
+  });
+
+  it("shields an unsupported outer root across blank lines", () => {
+    const source = "<script>\n\n<kbd>blocked</kbd>\n</script>";
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const result = scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(result).toEqual({ count: 0, source });
+  });
+
+  it("bounds a deeply nested unsupported root on one line", () => {
+    const source = `${"<x>".repeat(16_000)}content${"</x>".repeat(16_000)}`;
+    const registry = new MarkdownAuthorHtmlRegistry(source);
+    const startedAt = performance.now();
+    const result = scanMarkdownAuthorHtml(source, 0, registry);
+
+    expect(performance.now() - startedAt).toBeLessThan(1_500);
+    expect(result).toEqual({ count: 0, source });
+  });
+
   it("scans inline fragments linearly while skipping code, fences, escaped tags, and frontmatter-sized prefixes", () => {
     const source = `Text <kbd>Ctrl</kbd> and \`<mark>code</mark>\`.
 \\<sub>escaped</sub>
@@ -376,5 +538,20 @@ Tail <!-- <sup>still blocked</sup>`;
     expect(() => scanMarkdownAuthorHtml(source, 0, registry)).toThrow(
       MARKDOWN_RENDER_BUDGET_ERROR,
     );
+  });
+
+  it("applies the combined item budget to one block root and all descendants", () => {
+    const atLimit = `<ul>${"<li>x</li>".repeat(4_094)}</ul>`;
+    const registry = new MarkdownAuthorHtmlRegistry(atLimit);
+    expect(scanMarkdownAuthorHtml(atLimit, 0, registry).count).toBe(1);
+
+    const overLimit = `<ul>${"<li>x</li>".repeat(4_095)}</ul>`;
+    expect(() =>
+      scanMarkdownAuthorHtml(
+        overLimit,
+        0,
+        new MarkdownAuthorHtmlRegistry(overLimit),
+      ),
+    ).toThrow(MARKDOWN_RENDER_BUDGET_ERROR);
   });
 });

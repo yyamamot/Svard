@@ -303,6 +303,8 @@ export async function prepareDocumentHtml(
   const doc = normalizedRenderResult.document;
   const authorHtmlSourceActionExcludedElements =
     normalizedRenderResult.authorHtmlSourceActionExcludedElements;
+  const authorHtmlBlockRootElements =
+    normalizedRenderResult.authorHtmlBlockRootElements;
   tracePerf("render.prepareDocumentHtml.domParse", {
     basename,
     format: document.format,
@@ -797,7 +799,12 @@ export async function prepareDocumentHtml(
   });
 
   const tablesStartedAt = perfNow();
-  const shouldProcessTables = htmlMayContainElement(html, "table");
+  const shouldProcessTables =
+    htmlMayContainElement(html, "table") ||
+    Array.from(authorHtmlBlockRootElements).some(
+      (root) =>
+        root.localName === "table" || Boolean(root.querySelector("table")),
+    );
   let tableCount = 0;
   let tableLineCount = 0;
   if (shouldProcessTables) {

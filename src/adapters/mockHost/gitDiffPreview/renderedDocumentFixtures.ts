@@ -18,6 +18,33 @@ export function getRenderedDocumentGitDiffPreview(
   path: string,
   relativePath: string,
 ): GitDiffPreview | null {
+  if (path.endsWith("/git-safe-html-blocks.md")) {
+    const leftText = `# Safe HTML Block Diff
+
+<div><p>HEAD block is pending.</p></div>
+
+<table><tbody><tr><th>Status</th><td>Pending</td></tr></tbody></table>
+`;
+    const rightText = `# Safe HTML Block Diff
+
+<div><p>Working tree block is ready.</p></div>
+
+<hr>
+
+<table><tbody><tr><th>Status</th><td>Stable</td></tr></tbody></table>
+`;
+    return {
+      repositoryRoot: null,
+      relativePath,
+      status: "modified",
+      leftLabel: "HEAD",
+      rightLabel: "Working Tree",
+      hunks: diffHunksFromText(leftText, rightText),
+      message: null,
+      leftText,
+      rightText,
+    };
+  }
   if (path.endsWith("/git-rendered-markdown.md")) {
     const leftText = `# Git Rendered Markdown Diff Fixture
 

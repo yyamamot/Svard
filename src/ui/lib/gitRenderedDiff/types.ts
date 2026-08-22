@@ -14,6 +14,7 @@ export type RenderedBlockKind =
   | "list"
   | "definition-list"
   | "table"
+  | "thematic-break"
   | "source-block"
   | "admonition"
   | "blockquote"

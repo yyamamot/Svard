@@ -6,6 +6,7 @@ import type {
   RenderedStructuredChildSnapshot,
   RenderedTableRowSnapshot,
 } from "./types";
+import { MARKDOWN_SAFE_HTML_BLOCK_CLASS } from "../markdownAuthorHtml";
 import { normalizedText } from "./text";
 
 function blockKindForElement(element: Element): RenderedBlockKind | null {
@@ -24,6 +25,18 @@ function blockKindForElement(element: Element): RenderedBlockKind | null {
   }
   if (tagName === "p") {
     return "paragraph";
+  }
+  if (
+    tagName === "div" &&
+    element.classList.contains(MARKDOWN_SAFE_HTML_BLOCK_CLASS)
+  ) {
+    return "paragraph";
+  }
+  if (
+    tagName === "hr" &&
+    element.classList.contains(MARKDOWN_SAFE_HTML_BLOCK_CLASS)
+  ) {
+    return "thematic-break";
   }
   if (element.classList.contains("math-block")) {
     return "paragraph";
@@ -164,6 +177,7 @@ function safeBlockHtml(
 }
 
 function blockText(element: Element, kind: RenderedBlockKind): string {
+  if (kind === "thematic-break") return "Horizontal rule";
   if (kind === "list") {
     return Array.from(element.children)
       .filter((child) => child.tagName.toLowerCase() === "li")
@@ -409,6 +423,12 @@ function structuredChildSnapshots(
 
 function shouldSkipDescendantBlock(element: Element): boolean {
   if (
+    !element.classList.contains(MARKDOWN_SAFE_HTML_BLOCK_CLASS) &&
+    element.parentElement?.closest(`.${MARKDOWN_SAFE_HTML_BLOCK_CLASS}`)
+  ) {
+    return true;
+  }
+  if (
     element.tagName.toLowerCase() === "img" &&
     element.parentElement &&
     blockKindForElement(element.parentElement) === "image"
@@ -448,6 +468,7 @@ function isRenderedBlockCandidateElement(element: Element): boolean {
     element.classList.contains("admonitionblock") ||
     element.classList.contains("markdown-alert") ||
     element.classList.contains("imageblock") ||
+    element.classList.contains(MARKDOWN_SAFE_HTML_BLOCK_CLASS) ||
     isDiagramRoot(element)
   );
 }
@@ -466,7 +487,7 @@ export function extractRenderedBlocksFromRoot(
 ): RenderedBlock[] {
   const candidates = Array.from(
     root.querySelectorAll(
-      "h1,h2,h3,h4,h5,h6,p,ul,ol,dl,.dlist,table,pre,blockquote,.admonitionblock,.markdown-alert,.imageblock,.diagram-slot,.diagram-inline,img,.math-block",
+      `h1,h2,h3,h4,h5,h6,p,ul,ol,dl,.dlist,table,pre,blockquote,.admonitionblock,.markdown-alert,.imageblock,.diagram-slot,.diagram-inline,img,.math-block,.${MARKDOWN_SAFE_HTML_BLOCK_CLASS}`,
     ),
   );
   const blocks: RenderedBlock[] = [];

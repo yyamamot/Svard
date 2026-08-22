@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
+import { addTableItems } from "../../src/ui/hooks/documentLinks/tableActions";
 import { prepareDocumentHtml } from "../../src/ui/lib/documentHtml";
 import {
   collectPrepareDocumentEvents,
@@ -9,6 +10,55 @@ import {
 } from "./helpers/documentHtml";
 
 describe("prepareDocumentHtml", () => {
+  it("renders typed author blocks and tables without source or resolver actions", async () => {
+    const source = `<div align="center" class="author">
+<p>Block <kbd>content</kbd>.</p>
+</div>
+
+<table>
+<tbody><tr><th scope="row">Name</th><td colspan="2">Svard</td></tr></tbody>
+</table>`;
+    const result = renderMarkdownCore(source);
+    const resolveLocalImage = vi.fn();
+    const resolveDocumentLink = vi.fn();
+    const html = await prepareDocumentHtml(
+      result.html,
+      { ...documentPayload, format: "markdown", source },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+      { resolveDocumentLink, resolveLocalImage },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const block = doc.querySelector("div.markdown-safe-html-block");
+    const table = doc.querySelector<HTMLTableElement>(
+      "table.markdown-safe-html-block",
+    );
+
+    expect(block?.getAttribute("align")).toBe("center");
+    expect(block?.querySelector("kbd")?.textContent).toBe("content");
+    expect(table?.querySelector("th")?.getAttribute("scope")).toBe("row");
+    expect(table?.querySelector("td")?.getAttribute("colspan")).toBe("2");
+    expect(table?.closest(".markdown-table-scroll")).not.toBeNull();
+    expect(
+      doc.querySelector(
+        ".markdown-safe-html-block[data-source-reference],.markdown-safe-html-block [data-source-reference],.markdown-safe-html-block[data-source-selection-block-id],.markdown-safe-html-block [data-source-selection-block-id]",
+      ),
+    ).toBeNull();
+    expect(
+      doc.querySelector("[data-svard-markdown-author-html-id]"),
+    ).toBeNull();
+    expect(resolveLocalImage).not.toHaveBeenCalled();
+    expect(resolveDocumentLink).not.toHaveBeenCalled();
+
+    const items: Parameters<typeof addTableItems>[0] = [];
+    addTableItems(items, table!, vi.fn());
+    expect(items.map((item) => item.id)).toEqual([
+      "copy-table-tsv",
+      "copy-table-csv",
+      "copy-table-markdown",
+    ]);
+  });
+
   it("keeps heading collapse while omitting source actions for passed author HTML", async () => {
     const source = "# Use <kbd>Ctrl</kbd> safely";
     const result = renderMarkdownCore(source);

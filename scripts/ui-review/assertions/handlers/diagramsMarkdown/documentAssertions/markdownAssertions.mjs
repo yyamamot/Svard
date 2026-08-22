@@ -327,6 +327,58 @@ export async function buildMarkdownAssertions({
             );
           }))
         : true,
+    hasMarkdownSafeHtmlBlocks:
+      scenario === "viewer-markdown-safe-html-blocks"
+        ? bodyText.includes("Markdown Safe HTML Blocks") &&
+          bodyText.includes("Following Markdown keeps its source location.") &&
+          (await page.evaluate(() => {
+            const body = document.querySelector(
+              '[data-review-id="document-body"].format-markdown',
+            );
+            if (!body) return false;
+            const roots = Array.from(
+              body.querySelectorAll(".markdown-safe-html-block"),
+            );
+            const table = body.querySelector("table.markdown-safe-html-block");
+            const followingHeading = Array.from(
+              body.querySelectorAll("h2"),
+            ).find(
+              (heading) =>
+                heading.textContent?.trim() === "Following Markdown heading",
+            );
+            return (
+              roots.length === 5 &&
+              body.querySelector(
+                'div.markdown-safe-html-block[align="center"]',
+              ) !== null &&
+              body.querySelector(".markdown-safe-html-block.author-layout") ===
+                null &&
+              body.querySelector("table.author-table") === null &&
+              body.querySelector('ol[start="2"][reversed][type="A"]') !==
+                null &&
+              body.querySelector('ol > li[value="4"]') !== null &&
+              body.querySelector("dl > dt + dd") !== null &&
+              body.querySelector("hr.markdown-safe-html-block") !== null &&
+              table?.closest(".markdown-table-scroll") !== null &&
+              table?.querySelector('th[scope="col"]') !== null &&
+              !roots.some(
+                (root) =>
+                  root.hasAttribute("data-source-reference") ||
+                  root.hasAttribute("data-source-selection-block-id") ||
+                  root.querySelector(
+                    "[data-source-reference],[data-source-selection-block-id]",
+                  ),
+              ) &&
+              followingHeading?.hasAttribute("data-source-reference") ===
+                true &&
+              body.querySelector(
+                "svard-markdown-author-html-inline,svard-markdown-author-html-block,[data-svard-markdown-author-html-id]",
+              ) === null &&
+              body.querySelector("a,img,script,style,iframe,form,svg,math") ===
+                null
+            );
+          }))
+        : true,
     hasMarkdownDiagrams:
       scenario === "viewer-markdown-diagrams"
         ? bodyText.includes("Markdown Diagram Sample") &&

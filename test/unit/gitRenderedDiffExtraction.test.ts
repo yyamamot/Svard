@@ -135,6 +135,58 @@ export function readLabel() {
     ).toBeNull();
   });
 
+  it("extracts author block roots once and preserves thematic breaks and table structure", () => {
+    const source = `<div><p>Container <mark>text</mark>.</p></div>
+
+<hr>
+
+<table><tbody><tr><th>Name</th><td>Svard</td></tr></tbody></table>`;
+    const rendered = renderMarkdownCore(source);
+    const normalized = normalizeRenderResultHtml("markdown", source, rendered);
+    const blocks = extractRenderedBlocksFromRoot(normalized.body);
+
+    expect(
+      blocks.map((block) => [block.kind, block.tagName, block.text]),
+    ).toEqual([
+      ["paragraph", "div", "Container text."],
+      ["thematic-break", "hr", "Horizontal rule"],
+      ["table", "table", "NameSvard"],
+    ]);
+    expect(blocks[0]?.html).toContain("markdown-safe-html-block");
+    expect(blocks[2]?.tableRows).toHaveLength(1);
+    expect(JSON.stringify(blocks)).not.toMatch(
+      /svard-markdown-author-html|data-svard-markdown-author-html-id/u,
+    );
+  });
+
+  it("detects author table cell changes through the existing structured comparison", () => {
+    const render = (value: string) => {
+      const source = `<table><tbody><tr><th>Status</th><td>${value}</td></tr></tbody></table>`;
+      const result = renderMarkdownCore(source);
+      return extractRenderedBlocksFromRoot(
+        normalizeRenderResultHtml("markdown", source, result).body,
+      );
+    };
+    const diff = compareRenderedBlocks(
+      render("Beta status"),
+      render("Beta stable"),
+    );
+
+    expect(diff).toHaveLength(1);
+    expect(diff[0]).toMatchObject({ kind: "changed", blockKind: "table" });
+    expect(diff[0]?.tableChanges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "changed",
+          leftRowIndex: 0,
+          rightRowIndex: 0,
+          leftCellIndex: 1,
+          rightCellIndex: 1,
+        }),
+      ]),
+    );
+  });
+
   it("keeps hydrated local image HTML while preserving diagram placeholders", () => {
     const blocks =
       blocksFromHtml(`<div class="diagram-slot" data-diagram-id="mermaid-1"></div>
