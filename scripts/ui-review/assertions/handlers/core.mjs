@@ -95,6 +95,7 @@ export async function buildCoreAssertions(context) {
       bodyText.includes("PlantUML Marker Compatibility") ||
       bodyText.includes("AsciiDoc Diagram Attributes") ||
       bodyText.includes("AsciiDoc Standard Theme Sample") ||
+      bodyText.includes("AsciiDoc Active Content Boundary") ||
       bodyText.includes("Cross-platform Local Assets") ||
       bodyText.includes("Project Context Assets") ||
       bodyText.includes("Antora Module Local Assets") ||

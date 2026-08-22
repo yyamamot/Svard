@@ -17,6 +17,31 @@ function marker(
 }
 
 describe("normalizeRenderResultHtml", () => {
+  it("neutralizes AsciiDoc active controls and app-owned Kroki action metadata", () => {
+    const result = normalizeRenderResultHtml("asciidoc", "", {
+      html: '<form action="https://example.test/submit"><label>Static label</label><button data-kroki-confirm-key="spoof" formaction="http://127.0.0.1/action">Send</button><textarea>Notes</textarea><select><option>First</option></select><input value="secret"></form><img src="./safe.png" usemap="#routes" ismap><map name="routes"><area href="https://example.test/escape"></map><span data-kroki-fallback-key="spoof" data-kroki-open-preferences="true">Fallback</span>',
+    });
+
+    expect(
+      result.body.querySelector(
+        "form,input,button,textarea,select,option,map,area",
+      ),
+    ).toBeNull();
+    expect(
+      result.body.querySelector(
+        "[action],[formaction],[usemap],[ismap],[data-kroki-confirm-key],[data-kroki-fallback-key],[data-kroki-open-preferences]",
+      ),
+    ).toBeNull();
+    expect(result.body.textContent).toContain("Static label");
+    expect(result.body.textContent).toContain("Send");
+    expect(result.body.textContent).toContain("Notes");
+    expect(result.body.textContent).toContain("First");
+    expect(result.body.textContent).toContain("Fallback");
+    expect(result.body.querySelector("img")?.getAttribute("src")).toBe(
+      "./safe.png",
+    );
+  });
+
   it("normalizes valid inline and block fragments once with UTF-16 source spans", () => {
     const inline = "<kbd>😀</kbd>";
     const block = "<section>Block</section>";

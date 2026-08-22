@@ -142,6 +142,11 @@ export const fixtureEntriesByDirectory: Record<string, DirectoryEntry[]> = {
       kind: "file",
     },
     {
+      name: "asciidoc-active-content-boundary.adoc",
+      path: "/workspace/docs/asciidoc-active-content-boundary.adoc",
+      kind: "file",
+    },
+    {
       name: "markdown-sample.md",
       path: "/workspace/docs/markdown-sample.md",
       kind: "file",
@@ -544,6 +549,11 @@ export const fixtureEntries: DirectoryEntry[] = [
     kind: "file",
   },
   {
+    name: "asciidoc-active-content-boundary.adoc",
+    path: "/workspace/docs/asciidoc-active-content-boundary.adoc",
+    kind: "file",
+  },
+  {
     name: "markdown-sample.md",
     path: "/workspace/docs/markdown-sample.md",
     kind: "file",
@@ -779,6 +789,28 @@ export const fixtureEntries: DirectoryEntry[] = [
     kind: "file",
   },
 ];
+
+export const asciidocActiveContentBoundarySample = `= AsciiDoc Active Content Boundary
+
+Static content before the inactive controls.
+
+++++
+<form action="https://blocked.example.test/submit">
+  <label>Static form label</label>
+  <input name="private" value="not-rendered">
+  <button type="submit" formaction="http://127.0.0.1/action" data-kroki-confirm-key="forged-confirm">Inactive send</button>
+  <textarea>Static notes</textarea>
+  <select><option>Static choice</option></select>
+</form>
+<img alt="Inactive image map" usemap="#blocked-routes" ismap>
+<map name="blocked-routes"><area href="custom:blocked"></map>
+<span data-kroki-fallback-key="forged-fallback" data-kroki-open-preferences="true">Static fallback label</span>
+++++
+
+== Ordinary AsciiDoc remains visible
+
+The active controls are removed while this paragraph and its *formatting* remain.
+`;
 
 export const comprehensiveVisualSample = `= AsciiDoc Comprehensive Visual Sample
 :toc:
@@ -2124,6 +2156,8 @@ $$
 `,
   "/workspace/docs/asciidoc-comprehensive-visual.adoc":
     comprehensiveVisualSample,
+  "/workspace/docs/asciidoc-active-content-boundary.adoc":
+    asciidocActiveContentBoundarySample,
   "/workspace/docs/math-rendering.md": `# Markdown Math Rendering Sample
 
 This sample confirms local math rendering for Markdown documents.

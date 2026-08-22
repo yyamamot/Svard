@@ -1,9 +1,39 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { prepareDocumentHtml } from "../../src/ui/lib/documentHtml";
 import { documentPayload } from "./helpers/documentHtml";
 
 describe("prepareDocumentHtml image and link hydration", () => {
+  it("neutralizes AsciiDoc form, image-map, and forged Kroki actions before resolvers", async () => {
+    const resolveDocumentLink = vi.fn();
+    const resolveLocalImage = vi.fn();
+    const html = await prepareDocumentHtml(
+      '<form action="https://example.test/submit"><label>Static label</label><input type="image" src="https://example.test/input.png"><button type="submit" formaction="http://127.0.0.1/action" data-kroki-confirm-key="spoof">Send</button></form><img alt="Map image" usemap="#routes" ismap><map name="routes"><area href="custom:escape"></map><span data-kroki-fallback-key="spoof" data-kroki-open-preferences="true">Fallback</span>',
+      { ...documentPayload, format: "asciidoc" },
+      {
+        security: {
+          allowLocalImages: true,
+          showExternalImages: true,
+          confirmExternalLinks: true,
+        },
+      },
+      { headings: [], sourceBlocks: [] },
+      { resolveDocumentLink, resolveLocalImage },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(
+      doc.querySelector(
+        "form,input,button,textarea,select,option,map,area,[action],[formaction],[usemap],[ismap],[data-kroki-confirm-key],[data-kroki-fallback-key],[data-kroki-open-preferences]",
+      ),
+    ).toBeNull();
+    expect(doc.body.textContent).toContain("Static label");
+    expect(doc.body.textContent).toContain("Send");
+    expect(doc.body.textContent).toContain("Fallback");
+    expect(resolveDocumentLink).not.toHaveBeenCalled();
+    expect(resolveLocalImage).not.toHaveBeenCalled();
+  });
+
   it("removes image-loading attributes from elements outside the image policy", async () => {
     const html = await prepareDocumentHtml(
       `<input type="image" src="https://example.test/input.png">
@@ -27,7 +57,7 @@ describe("prepareDocumentHtml image and link hydration", () => {
     );
     const doc = new DOMParser().parseFromString(html, "text/html");
 
-    expect(doc.querySelector("input")?.hasAttribute("src")).toBe(false);
+    expect(doc.querySelector("input")).toBeNull();
     expect(doc.querySelector("video")?.hasAttribute("src")).toBe(false);
     expect(doc.querySelector("video")?.hasAttribute("poster")).toBe(false);
     expect(doc.querySelector("object")?.hasAttribute("data")).not.toBe(true);

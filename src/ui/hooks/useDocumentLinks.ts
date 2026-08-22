@@ -186,6 +186,8 @@ export function useDocumentLinks({
       saveSvgFile,
     });
   const handleArticleClick = createArticleClickHandler({
+    documentPath: documentPayload?.path,
+    diagramSlots: renderResult?.diagramSlots,
     onConfirmKrokiRender,
     onOpenPreferences,
     onSelectDiagram,

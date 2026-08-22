@@ -100,6 +100,124 @@ describe("createArticleClickHandler source block actions", () => {
   });
 });
 
+describe("createArticleClickHandler Kroki actions", () => {
+  const documentPath = "/workspace/docs/guide.adoc";
+  const diagramSlots = [
+    {
+      id: "kroki-1",
+      diagramType: "ditaa",
+      renderer: "kroki" as const,
+    },
+    {
+      id: "plantuml-1",
+      diagramType: "plantuml",
+      renderer: "plantuml" as const,
+    },
+    {
+      id: "graphviz-1",
+      diagramType: "graphviz",
+      renderer: "graphviz" as const,
+    },
+  ];
+
+  function krokiHandler() {
+    const callbacks = {
+      onConfirmKrokiRender: vi.fn(),
+      onOpenPreferences: vi.fn(),
+      onSelectDiagram: vi.fn(),
+      onTryKrokiFallback: vi.fn(),
+    };
+    return {
+      callbacks,
+      handler: createArticleClickHandler({
+        ...callbacks,
+        copyText: vi.fn(),
+        documentPath,
+        diagramSlots,
+      }),
+    };
+  }
+
+  it("accepts only current-render confirm, fallback, and preferences actions", () => {
+    document.body.innerHTML = `
+      <div class="diagram-slot" data-diagram-id="kroki-1" data-diagram-renderer="kroki">
+        <button type="button" class="diagram-inline-action" data-review-id="kroki-confirm" data-kroki-confirm-key="${documentPath}::kroki:kroki-1">Render once</button>
+      </div>
+      <div class="diagram-slot" data-diagram-id="plantuml-1" data-diagram-renderer="plantuml">
+        <button type="button" class="diagram-inline-action" data-review-id="plantuml-fallback-kroki" data-kroki-fallback-key="${documentPath}::plantuml:plantuml-1">Try with Kroki</button>
+        <button type="button" class="diagram-inline-action" data-review-id="plantuml-configure-kroki" data-kroki-open-preferences="true">Configure Kroki</button>
+      </div>`;
+    const { callbacks, handler } = krokiHandler();
+
+    for (const button of document.querySelectorAll("button")) {
+      handler(mouseEventFor(button));
+    }
+
+    expect(callbacks.onConfirmKrokiRender).toHaveBeenCalledWith(
+      `${documentPath}::kroki:kroki-1`,
+    );
+    expect(callbacks.onTryKrokiFallback).toHaveBeenCalledWith(
+      `${documentPath}::plantuml:plantuml-1`,
+    );
+    expect(callbacks.onOpenPreferences).toHaveBeenCalledOnce();
+    expect(callbacks.onSelectDiagram).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: "unknown key",
+      slot: "kroki-1",
+      renderer: "kroki",
+      reviewId: "kroki-confirm",
+      attribute: 'data-kroki-confirm-key="unknown"',
+    },
+    {
+      name: "different document key",
+      slot: "kroki-1",
+      renderer: "kroki",
+      reviewId: "kroki-confirm",
+      attribute:
+        'data-kroki-confirm-key="/workspace/other.adoc::kroki:kroki-1"',
+    },
+    {
+      name: "renderer mismatch",
+      slot: "plantuml-1",
+      renderer: "graphviz",
+      reviewId: "plantuml-fallback-kroki",
+      attribute: `data-kroki-fallback-key="${documentPath}::plantuml:plantuml-1"`,
+    },
+    {
+      name: "action mismatch",
+      slot: "kroki-1",
+      renderer: "kroki",
+      reviewId: "kroki-fallback-kroki",
+      attribute: `data-kroki-fallback-key="${documentPath}::kroki:kroki-1"`,
+    },
+    {
+      name: "forged element shape",
+      slot: "kroki-1",
+      renderer: "kroki",
+      reviewId: "kroki-confirm",
+      attribute: `data-kroki-confirm-key="${documentPath}::kroki:kroki-1"`,
+      tag: "span",
+    },
+  ])("ignores $name without changing action state", (caseSpec) => {
+    const tag = caseSpec.tag ?? "button";
+    document.body.innerHTML = `<div class="diagram-slot" data-diagram-id="${caseSpec.slot}" data-diagram-renderer="${caseSpec.renderer}"><${tag} type="button" class="diagram-inline-action" data-review-id="${caseSpec.reviewId}" ${caseSpec.attribute}>Action</${tag}></div>`;
+    const { callbacks, handler } = krokiHandler();
+    const target = document.querySelector(tag) as HTMLElement;
+    const event = mouseEventFor(target);
+
+    handler(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(callbacks.onConfirmKrokiRender).not.toHaveBeenCalled();
+    expect(callbacks.onTryKrokiFallback).not.toHaveBeenCalled();
+    expect(callbacks.onOpenPreferences).not.toHaveBeenCalled();
+    expect(callbacks.onSelectDiagram).not.toHaveBeenCalled();
+  });
+});
+
 describe("createArticleLinkCaptureHandler", () => {
   it("captures allowed links before delegating their action", () => {
     const root = document.createElement("article");

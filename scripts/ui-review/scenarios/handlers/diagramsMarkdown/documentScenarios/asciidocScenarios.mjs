@@ -215,6 +215,14 @@ export async function applyAsciiDocScenario(context) {
       .first()
       .waitFor();
     await page.getByRole("heading", { name: "Image" }).scrollIntoViewIfNeeded();
+  } else if (scenario === "viewer-asciidoc-active-content-boundary") {
+    await page.locator("text=asciidoc-active-content-boundary.adoc").click();
+    await page
+      .getByRole("heading", { name: "AsciiDoc Active Content Boundary" })
+      .waitFor();
+    await page
+      .getByRole("heading", { name: "Ordinary AsciiDoc remains visible" })
+      .waitFor();
   } else {
     return false;
   }

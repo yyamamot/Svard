@@ -133,6 +133,23 @@ const markdownSafeHtmlAttributes = [
   "value",
 ] as const;
 
+const asciiDocActiveContentTags = [
+  "area",
+  "form",
+  "input",
+  "map",
+  "option",
+  "select",
+  "textarea",
+] as const;
+
+const asciiDocNavigationAttributes = [
+  "action",
+  "formaction",
+  "ismap",
+  "usemap",
+] as const;
+
 function sanitizeConfigForFormat(format: DocumentFormat | undefined): Config {
   if (format !== "asciidoc") {
     return {
@@ -147,6 +164,11 @@ function sanitizeConfigForFormat(format: DocumentFormat | undefined): Config {
     ADD_TAGS: [...asciiDocStructureTags],
     ADD_ATTR: [...viewerMetadataAttributes, ...asciiDocTableAttributes],
     ADD_URI_SAFE_ATTR: [...asciiDocTableAttributes],
+    FORBID_ATTR: [
+      ...(commonConfig.FORBID_ATTR ?? []),
+      ...asciiDocNavigationAttributes,
+    ],
+    FORBID_TAGS: [...asciiDocActiveContentTags],
   };
 }
 

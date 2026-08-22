@@ -29,6 +29,58 @@ interface NormalizeRenderResultHtmlOptions {
   rendererIdentity?: "strip" | "preserve-for-validation";
 }
 
+const APP_OWNED_KROKI_ACTION_ATTRIBUTES = [
+  "data-kroki-confirm-key",
+  "data-kroki-fallback-key",
+  "data-kroki-open-preferences",
+] as const;
+
+const ASCIIDOC_NAVIGATION_ATTRIBUTES = [
+  "action",
+  "formaction",
+  "ismap",
+  "usemap",
+] as const;
+
+function stripAppOwnedKrokiActionsInPlace(body: HTMLElement): void {
+  for (const attribute of APP_OWNED_KROKI_ACTION_ATTRIBUTES) {
+    if (body.hasAttribute(attribute)) body.removeAttribute(attribute);
+    for (const element of body.querySelectorAll(`[${attribute}]`)) {
+      element.removeAttribute(attribute);
+    }
+  }
+}
+
+function replaceWithStaticText(element: Element): void {
+  const text = element.textContent ?? "";
+  if (text) {
+    element.replaceWith(element.ownerDocument.createTextNode(text));
+  } else {
+    element.remove();
+  }
+}
+
+function neutralizeAsciiDocActiveContentInPlace(body: HTMLElement): void {
+  for (const attribute of ASCIIDOC_NAVIGATION_ATTRIBUTES) {
+    if (body.hasAttribute(attribute)) body.removeAttribute(attribute);
+    for (const element of body.querySelectorAll(`[${attribute}]`)) {
+      element.removeAttribute(attribute);
+    }
+  }
+
+  for (const map of body.querySelectorAll("map")) map.remove();
+  for (const area of body.querySelectorAll("area")) area.remove();
+  for (const form of body.querySelectorAll("form")) {
+    form.replaceWith(...Array.from(form.childNodes));
+  }
+  for (const control of body.querySelectorAll(
+    "button, textarea, select, option",
+  )) {
+    replaceWithStaticText(control);
+  }
+  for (const input of body.querySelectorAll("input")) input.remove();
+}
+
 function stripRendererIdentityInPlace(body: HTMLElement): void {
   if (body.hasAttribute(MARKDOWN_RENDERER_ID_ATTRIBUTE)) {
     body.removeAttribute(MARKDOWN_RENDERER_ID_ATTRIBUTE);
@@ -50,6 +102,10 @@ export function normalizeRenderResultHtml(
     renderResult.html,
     "text/html",
   );
+  stripAppOwnedKrokiActionsInPlace(document.body);
+  if (format === "asciidoc") {
+    neutralizeAsciiDocActiveContentInPlace(document.body);
+  }
   const fragments = renderResult.markdownAuthorHtmlFragments ?? [];
   const shouldNormalizeAuthorHtml =
     format === "markdown" &&

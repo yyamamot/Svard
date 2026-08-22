@@ -146,6 +146,39 @@ describe("sanitizeHtml", () => {
     expect(html).not.toContain("foreignObject");
   });
 
+  it("removes AsciiDoc forms and image-map navigation while preserving static text", () => {
+    const html = sanitizeDocumentHtml(
+      '<form action="https://example.test/submit"><label>Choice</label><input name="secret" value="hidden"><button type="submit" formaction="http://127.0.0.1/action">Send</button><textarea>Notes</textarea><select><option>First</option></select></form><img src="data:image/png;base64,AA==" usemap="#routes" ismap><map name="routes"><area href="https://example.test/escape" shape="rect"></map>',
+      { format: "asciidoc" },
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(
+      doc.querySelector("form,input,textarea,select,option,map,area"),
+    ).toBeNull();
+    expect(
+      doc.querySelector("[action],[formaction],[usemap],[ismap]"),
+    ).toBeNull();
+    expect(doc.body.textContent).toContain("Choice");
+    expect(doc.body.textContent).toContain("Send");
+    expect(doc.body.textContent).toContain("Notes");
+    expect(doc.body.textContent).toContain("First");
+    expect(doc.querySelector("img")?.getAttribute("src")).toBe(
+      "data:image/png;base64,AA==",
+    );
+  });
+
+  it("keeps Markdown task-list inputs outside the AsciiDoc-only policy", () => {
+    const html = sanitizeDocumentHtml(
+      '<ul><li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled checked> Done</li></ul>',
+      { format: "markdown" },
+    );
+
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain("checked");
+    expect(html).toContain("disabled");
+  });
+
   it("keeps the document body in-place sanitizer aligned with string sanitization", () => {
     const input =
       '<h2 onclick="alert(1)">Title</h2><p style="color:red"><a href="javascript:alert(1)" onmouseover="alert(2)">bad</a><strong>safe</strong></p><table><tbody><tr><td rowspan="2" width="30%">Cell</td></tr></tbody></table><script>alert(1)</script>';

@@ -332,5 +332,20 @@ export async function buildAsciiDocAssertions({
           !bodyText.includes("@startuml") &&
           !bodyText.includes("flowchart LR")
         : true,
+    hasAsciiDocActiveContentBoundary:
+      scenario === "viewer-asciidoc-active-content-boundary"
+        ? bodyText.includes("AsciiDoc Active Content Boundary") &&
+          bodyText.includes("Static form label") &&
+          bodyText.includes("Inactive send") &&
+          bodyText.includes("Static notes") &&
+          bodyText.includes("Static choice") &&
+          bodyText.includes("Static fallback label") &&
+          bodyText.includes("Ordinary AsciiDoc remains visible") &&
+          (await page
+            .locator(
+              ".document-body form, .document-body input, .document-body button[data-kroki-confirm-key], .document-body textarea, .document-body select, .document-body option, .document-body map, .document-body area, .document-body [action], .document-body [formaction], .document-body [usemap], .document-body [ismap], .document-body [data-kroki-fallback-key], .document-body [data-kroki-open-preferences]",
+            )
+            .count()) === 0
+        : true,
   };
 }

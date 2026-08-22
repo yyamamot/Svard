@@ -135,6 +135,19 @@ export function readLabel() {
     ).toBeNull();
   });
 
+  it("keeps AsciiDoc active controls and forged Kroki actions out of pathless blocks", () => {
+    const normalized = normalizeRenderResultHtml("asciidoc", "", {
+      html: '<div><form action="https://example.test/submit"><p>Static form text</p><button data-kroki-confirm-key="spoof">Send</button></form><img alt="Map" usemap="#routes"><map name="routes"><area href="http://127.0.0.1/action"></map><span data-kroki-fallback-key="spoof">Fallback</span></div>',
+    });
+    const blocks = extractRenderedBlocksFromRoot(normalized.body);
+    const serialized = JSON.stringify(blocks);
+
+    expect(serialized).toContain("Static form text");
+    expect(serialized).not.toMatch(
+      /<form|<button|<map|<area|example\.test|127\.0\.0\.1|data-kroki|usemap/u,
+    );
+  });
+
   it("extracts author block roots once and preserves thematic breaks and table structure", () => {
     const source = `<div><p>Container <mark>text</mark>.</p></div>
 
