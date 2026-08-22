@@ -6,6 +6,7 @@ import {
   extractRenderedTablesFromHtml,
 } from "../../src/ui/lib/gitTableDiff";
 import type { GitDiffPreview } from "../../src/core/types";
+import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
 
 describe("git table diff", () => {
   it("extracts rendered Markdown table matrices from HTML", () => {
@@ -22,6 +23,17 @@ describe("git table diff", () => {
       ["Basic", "Beta"],
     ]);
     expect(tables[0]?.complex).toBe(false);
+  });
+
+  it("does not retain renderer identity metadata in direct table extraction", () => {
+    const rendered = renderMarkdownCore(
+      "| Name | Status |\n| --- | --- |\n| Boundary | Safe |",
+    );
+    const tables = extractRenderedTablesFromHtml(rendered.html);
+
+    expect(rendered.html).toContain("data-source-renderer-id");
+    expect(JSON.stringify(tables)).not.toContain("svard-renderer-");
+    expect(tables[0]?.rows[1]).toEqual(["Boundary", "Safe"]);
   });
 
   it("extracts rendered AsciiDoc table matrices from HTML", () => {

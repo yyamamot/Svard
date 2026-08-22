@@ -22,6 +22,10 @@ import {
   containsMarkdownAuthorHtmlMarkerMarkup,
   normalizeMarkdownAuthorHtmlInPlace,
 } from "./markdownAuthorHtml";
+import {
+  MARKDOWN_RENDERER_ID_ATTRIBUTE,
+  validateMarkdownRendererProvenance,
+} from "./markdownRendererProvenance";
 import { sanitizeDocumentBodyInPlace } from "./sanitizeHtml";
 import { markSafeHtml, unwrapSafeHtml } from "./safeHtml";
 import type { SafeHtml } from "./safeHtml";
@@ -179,6 +183,43 @@ function wrapMarkdownTable(doc: Document, table: HTMLTableElement): void {
   wrapper.append(table);
 }
 
+const markdownSourceActionAttributes = [
+  "data-section-collapse-heading",
+  "data-section-collapsed",
+  "data-section-collapse-toggle",
+  "data-source-line",
+  "data-source-column",
+  "data-source-reference",
+  "data-source-block-id",
+  "data-source-text-block-id",
+  "data-copy-source",
+  "data-copy-source-button",
+  "data-copy-source-location-button",
+  "data-source-wrap-toggle",
+  "data-source-collapse-toggle",
+  "data-source-selection-block-id",
+  "data-source-selection-start",
+  "data-source-selection-end",
+  "data-source-selection-source-path",
+] as const;
+
+function clearMarkdownSourceActionsInPlace(body: HTMLElement): void {
+  body
+    .querySelectorAll<HTMLElement>(
+      "[data-section-collapse-toggle],.source-block-toolbar",
+    )
+    .forEach((element) => element.remove());
+  body.querySelectorAll<HTMLElement>(".source-block-frame").forEach((frame) => {
+    const pre = frame.querySelector(":scope > pre");
+    if (pre) frame.replaceWith(pre);
+  });
+  [body, ...body.querySelectorAll<HTMLElement>("*")].forEach((element) => {
+    markdownSourceActionAttributes.forEach((attribute) =>
+      element.removeAttribute(attribute),
+    );
+  });
+}
+
 function encodeLocalSvgImage(svg: string): string {
   return encodeURIComponent(svg.replaceAll("&nbsp;", "&#160;"));
 }
@@ -246,8 +287,9 @@ export async function prepareDocumentHtml(
     | "sourceTextBlocks"
     | "sourceSelectionBlocks"
     | "markdownAuthorHtmlFragments"
+    | "markdownRendererProvenance"
   > &
-    Partial<Pick<RenderResult, "diagnostics">>,
+    Partial<Pick<RenderResult, "diagnostics" | "diagramSlots">>,
   options: PrepareDocumentHtmlOptions = {},
 ): Promise<SafeHtml> {
   const basename = perfBasename(document.path);
@@ -273,6 +315,97 @@ export async function prepareDocumentHtml(
       document.source,
       markdownAuthorHtmlFragments,
     );
+  }
+
+  const markdownRendererValidation =
+    document.format === "markdown"
+      ? validateMarkdownRendererProvenance(
+          doc.body,
+          document.source,
+          renderResult?.markdownRendererProvenance ?? [],
+          {
+            headings: renderResult?.headings ?? [],
+            sourceBlocks: renderResult?.sourceBlocks ?? [],
+            sourceTextBlocks: renderResult?.sourceTextBlocks,
+            sourceSelectionBlocks: renderResult?.sourceSelectionBlocks,
+            diagramSlots: renderResult?.diagramSlots,
+          },
+        )
+      : { status: "absent" as const, entries: [] };
+  if (document.format === "markdown") {
+    [
+      ...(doc.body.hasAttribute(MARKDOWN_RENDERER_ID_ATTRIBUTE)
+        ? [doc.body]
+        : []),
+      ...doc.body.querySelectorAll<HTMLElement>(
+        `[${MARKDOWN_RENDERER_ID_ATTRIBUTE}]`,
+      ),
+    ].forEach((element) =>
+      element.removeAttribute(MARKDOWN_RENDERER_ID_ATTRIBUTE),
+    );
+    clearMarkdownSourceActionsInPlace(doc.body);
+  }
+
+  const markdownHeadingElements = new Map<string, HTMLElement>();
+  const markdownSourceElements = new Map<string, HTMLElement>();
+  const markdownSourceTextElements = new Map<string, HTMLElement>();
+  const markdownSelectionElements = new Map<string, HTMLElement>();
+  const markdownTableElements = new Set<HTMLElement>();
+  if (markdownRendererValidation.status === "valid") {
+    for (const { element, provenance } of markdownRendererValidation.entries) {
+      switch (provenance.kind) {
+        case "heading":
+          markdownHeadingElements.set(provenance.headingId, element);
+          markdownSelectionElements.set(
+            provenance.sourceSelectionBlockId,
+            element,
+          );
+          break;
+        case "paragraph":
+          markdownSourceTextElements.set(provenance.sourceTextBlockId, element);
+          if (
+            "sourceSelectionBlockId" in provenance &&
+            provenance.sourceSelectionBlockId
+          ) {
+            markdownSelectionElements.set(
+              provenance.sourceSelectionBlockId,
+              element,
+            );
+          }
+          break;
+        case "list":
+        case "table":
+          if (provenance.kind === "table") {
+            markdownTableElements.add(element);
+          }
+          if (
+            "sourceSelectionBlockId" in provenance &&
+            provenance.sourceSelectionBlockId
+          ) {
+            markdownSelectionElements.set(
+              provenance.sourceSelectionBlockId,
+              element,
+            );
+          }
+          break;
+        case "source":
+          markdownSourceElements.set(provenance.sourceBlockId, element);
+          markdownSelectionElements.set(
+            provenance.sourceSelectionBlockId,
+            element,
+          );
+          break;
+        case "diagram":
+          markdownSelectionElements.set(
+            provenance.sourceSelectionBlockId,
+            element,
+          );
+          break;
+        case "frontmatter":
+        case "details":
+          break;
+      }
+    }
   }
 
   const diagnosticsStartedAt = perfNow();
@@ -312,7 +445,10 @@ export async function prepareDocumentHtml(
 
   const headingsStartedAt = perfNow();
   renderResult?.headings.forEach((heading) => {
-    const element = doc.getElementById(heading.id);
+    const element =
+      document.format === "markdown"
+        ? markdownHeadingElements.get(heading.id)
+        : doc.getElementById(heading.id);
     if (!element) {
       return;
     }
@@ -348,12 +484,27 @@ export async function prepareDocumentHtml(
   });
 
   const sourceBlocksStartedAt = perfNow();
-  const shouldProcessSourceBlocks = htmlMayContainElement(html, "pre");
+  const sourceBlockTargets =
+    document.format === "markdown"
+      ? (renderResult?.sourceBlocks ?? []).flatMap((sourceBlock, index) => {
+          const pre = markdownSourceElements.get(sourceBlock.id);
+          return pre ? [{ pre, sourceBlock, index }] : [];
+        })
+      : Array.from(doc.querySelectorAll<HTMLElement>("pre")).map(
+          (pre, index) => ({
+            pre,
+            sourceBlock: renderResult?.sourceBlocks[index],
+            index,
+          }),
+        );
+  const shouldProcessSourceBlocks =
+    document.format === "markdown"
+      ? sourceBlockTargets.length > 0
+      : htmlMayContainElement(html, "pre");
   let sourceBlockCount = 0;
   if (shouldProcessSourceBlocks) {
-    doc.querySelectorAll("pre").forEach((pre, index) => {
+    sourceBlockTargets.forEach(({ pre, sourceBlock, index }) => {
       sourceBlockCount += 1;
-      const sourceBlock = renderResult?.sourceBlocks[index];
       const sourceLine = sourceBlock?.sourceLocation?.line;
       const sourceLanguage = sourceBlock?.language?.trim() || "Source";
       const sourceCode = pre.querySelector("code");
@@ -498,6 +649,12 @@ export async function prepareDocumentHtml(
         );
       });
     }
+  } else if (markdownRendererValidation.status === "valid") {
+    sourceTextBlocks.forEach((sourceTextBlock) => {
+      markdownSourceTextElements
+        .get(sourceTextBlock.id)
+        ?.setAttribute("data-source-text-block-id", sourceTextBlock.id);
+    });
   }
   tracePerf("render.prepareDocumentHtml.sourceTextBlocks", {
     basename,
@@ -508,64 +665,88 @@ export async function prepareDocumentHtml(
 
   const selectionBlocksStartedAt = perfNow();
   const selectionBlocks = renderResult?.sourceSelectionBlocks ?? [];
-  const attachSelectionBlocks = (
-    selector: string,
-    kind: string,
-    elementFilter: (element: HTMLElement) => boolean = () => true,
-    blockFilter: (block: SourceSelectionBlock) => boolean = () => true,
-  ) => {
-    const elements = Array.from(
-      doc.querySelectorAll<HTMLElement>(selector),
-    ).filter(elementFilter);
-    const blocks = selectionBlocks.filter(
-      (block) => block.kind === kind && blockFilter(block),
+  if (document.format === "asciidoc") {
+    const attachSelectionBlocks = (
+      selector: string,
+      kind: string,
+      elementFilter: (element: HTMLElement) => boolean = () => true,
+      blockFilter: (block: SourceSelectionBlock) => boolean = () => true,
+    ) => {
+      const elements = Array.from(
+        doc.querySelectorAll<HTMLElement>(selector),
+      ).filter(elementFilter);
+      const blocks = selectionBlocks.filter(
+        (block) => block.kind === kind && blockFilter(block),
+      );
+      if (elements.length !== blocks.length) return;
+      elements.forEach((element, index) => {
+        attachSourceSelectionBlock(element, blocks[index]);
+      });
+    };
+    attachSelectionBlocks("h1,h2,h3,h4,h5,h6", "heading");
+    doc
+      .querySelectorAll<HTMLElement>("p[data-source-text-block-id]")
+      .forEach((paragraph) => {
+        const sourceTextBlock = sourceTextBlocks.find(
+          (block) =>
+            block.id === paragraph.getAttribute("data-source-text-block-id"),
+        );
+        if (!sourceTextBlock) return;
+        const matches = selectionBlocks.filter(
+          (block) =>
+            block.kind === "paragraph" &&
+            sourceRangeMatches(document, block, sourceTextBlock),
+        );
+        if (matches.length === 1) {
+          attachSourceSelectionBlock(paragraph, matches[0]);
+        }
+      });
+    attachSelectionBlocks(".source-block-frame", "code");
+    doc
+      .querySelectorAll<HTMLElement>(".source-block-frame")
+      .forEach((frame) => {
+        const id = frame.getAttribute("data-source-selection-block-id");
+        const pre = frame.querySelector("pre");
+        if (!id || !pre) return;
+        [
+          "data-source-selection-block-id",
+          "data-source-selection-start",
+          "data-source-selection-end",
+          "data-source-selection-source-path",
+        ].forEach((name) => {
+          const value = frame.getAttribute(name);
+          if (value) pre.setAttribute(name, value);
+        });
+      });
+    attachSelectionBlocks(
+      "ul,ol",
+      "list",
+      isSimpleSelectionListElement,
+      (block) => isSupportedSelectionListBlock(document, block),
     );
-    if (elements.length !== blocks.length) return;
-    elements.forEach((element, index) => {
-      attachSourceSelectionBlock(element, blocks[index]);
-    });
-  };
-  attachSelectionBlocks("h1,h2,h3,h4,h5,h6", "heading");
-  doc
-    .querySelectorAll<HTMLElement>("p[data-source-text-block-id]")
-    .forEach((paragraph) => {
-      const sourceTextBlock = sourceTextBlocks.find(
-        (block) =>
-          block.id === paragraph.getAttribute("data-source-text-block-id"),
-      );
-      if (!sourceTextBlock) return;
-      const matches = selectionBlocks.filter(
-        (block) =>
-          block.kind === "paragraph" &&
-          sourceRangeMatches(document, block, sourceTextBlock),
-      );
-      if (matches.length === 1) {
-        attachSourceSelectionBlock(paragraph, matches[0]);
+    attachSelectionBlocks("table", "table");
+    attachSelectionBlocks(".diagram-slot", "diagram");
+  } else if (markdownRendererValidation.status === "valid") {
+    selectionBlocks.forEach((block) => {
+      const element = markdownSelectionElements.get(block.id);
+      if (!element) return;
+      if (
+        block.kind === "list" &&
+        (!isSimpleSelectionListElement(element) ||
+          !isSupportedSelectionListBlock(document, block))
+      ) {
+        return;
       }
+      if (block.kind === "code") {
+        const frame = element.closest<HTMLElement>(".source-block-frame");
+        if (!frame) return;
+        attachSourceSelectionBlock(frame, block);
+        attachSourceSelectionBlock(element, block);
+        return;
+      }
+      attachSourceSelectionBlock(element, block);
     });
-  attachSelectionBlocks(".source-block-frame", "code");
-  doc.querySelectorAll<HTMLElement>(".source-block-frame").forEach((frame) => {
-    const id = frame.getAttribute("data-source-selection-block-id");
-    const pre = frame.querySelector("pre");
-    if (!id || !pre) return;
-    [
-      "data-source-selection-block-id",
-      "data-source-selection-start",
-      "data-source-selection-end",
-      "data-source-selection-source-path",
-    ].forEach((name) => {
-      const value = frame.getAttribute(name);
-      if (value) pre.setAttribute(name, value);
-    });
-  });
-  attachSelectionBlocks(
-    "ul,ol",
-    "list",
-    isSimpleSelectionListElement,
-    (block) => isSupportedSelectionListBlock(document, block),
-  );
-  attachSelectionBlocks("table", "table");
-  attachSelectionBlocks(".diagram-slot", "diagram");
+  }
   tracePerf("render.prepareDocumentHtml.sourceSelectionBlocks", {
     basename,
     format: document.format,
@@ -587,18 +768,28 @@ export async function prepareDocumentHtml(
     tableCount = tables.length;
     const tableSourceScanStartedAt = perfNow();
     const tableLines =
-      document.format === "markdown" && tables.length === 0
-        ? []
-        : tableSourceLines(document.source, document.format);
+      document.format === "asciidoc"
+        ? tableSourceLines(document.source, document.format)
+        : [];
     tracePerf("render.prepareDocumentHtml.tableSourceScan", {
       basename,
       format: document.format,
       count: tableLines.length,
+      skipped: document.format === "markdown",
       durationMs: perfDuration(tableSourceScanStartedAt),
     });
-    tableLineCount = tableLines.length;
+    tableLineCount =
+      document.format === "markdown"
+        ? markdownTableElements.size
+        : tableLines.length;
     tables.forEach((table, index) => {
-      const sourceLine = tableLines[index];
+      const sourceLine =
+        document.format === "markdown"
+          ? markdownTableElements.has(table)
+            ? Number(table.getAttribute("data-source-selection-start")) ||
+              undefined
+            : undefined
+          : tableLines[index];
       table.setAttribute("data-review-id", "rendered-table");
       if (sourceLine) {
         table.setAttribute("data-source-line", String(sourceLine));

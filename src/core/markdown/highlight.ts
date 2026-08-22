@@ -18,6 +18,7 @@ import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 import { escapeAttribute, escapeHtml } from "./escape";
+import { MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR } from "./rendererProvenance";
 
 hljs.registerLanguage("bash", bash);
 hljs.registerLanguage("sh", bash);
@@ -49,13 +50,29 @@ hljs.registerLanguage("yaml", yaml);
 hljs.registerLanguage("yml", yaml);
 
 export function highlightCode(value: string, language: string): string {
+  return highlightCodeWithPreAttributes(value, language, []);
+}
+
+export function highlightCodeWithPreAttributes(
+  value: string,
+  language: string,
+  preAttributes: readonly (readonly [string, string])[],
+): string {
   const normalizedLanguage = language.trim().toLowerCase();
   const highlightedCode = highlightCodeContent(value, normalizedLanguage);
+  const renderedPreAttributes = preAttributes
+    .map(([name, attributeValue]) => {
+      if (!/^[a-z][a-z0-9-]*$/.test(name)) {
+        throw new Error(MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR);
+      }
+      return ` ${name}="${escapeAttribute(attributeValue)}"`;
+    })
+    .join("");
   if (normalizedLanguage && hljs.getLanguage(normalizedLanguage)) {
-    return `<pre class="hljs"><code class="language-${escapeAttribute(normalizedLanguage)}">${highlightedCode}</code></pre>`;
+    return `<pre class="hljs"${renderedPreAttributes}><code class="language-${escapeAttribute(normalizedLanguage)}">${highlightedCode}</code></pre>`;
   }
 
-  return `<pre class="hljs"><code>${highlightedCode}</code></pre>`;
+  return `<pre class="hljs"${renderedPreAttributes}><code>${highlightedCode}</code></pre>`;
 }
 
 export function highlightCodeContent(value: string, language: string): string {

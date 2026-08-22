@@ -7,6 +7,12 @@ import type {
   MarkdownPlaceholderRegistry,
   Utf8ChunkWriter,
 } from "./placeholders";
+import {
+  MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE,
+  MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR,
+  type MarkdownRendererProvenanceRegistry,
+} from "./rendererProvenance";
+import type { MarkdownOriginalSourceMap } from "./sourceSpans";
 import type { MarkdownDetailsBlock } from "./types";
 
 const detailsOpenPattern = /^<details(?:\s+open)?\s*>$/i;
@@ -23,14 +29,21 @@ interface MarkdownDetailsOpening {
 function renderMarkdownDetailsToWriter(
   block: MarkdownDetailsBlock,
   writer: Utf8ChunkWriter,
+  rendererId?: string,
 ): void {
   writer.append(
-    `<details class="markdown-details"${block.open ? " open" : ""} data-review-id="markdown-details"><summary>`,
+    `<details class="markdown-details"${block.open ? " open" : ""} data-review-id="markdown-details"${rendererId ? ` ${MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE}="${rendererId}"` : ""}><summary>`,
   );
   renderMarkdownInlineToWriter(block.summary.trim(), writer);
   writer.append('</summary><div class="markdown-details-body">');
   renderMarkdownFragmentToWriter(block.body, writer);
   writer.append("</div></details>");
+}
+
+export interface MarkdownDetailsProvenanceContext {
+  originalBodyLineOffset: number;
+  registry: MarkdownRendererProvenanceRegistry;
+  sourceMap: MarkdownOriginalSourceMap;
 }
 
 function parseMarkdownDetailsAt(
@@ -104,6 +117,7 @@ function parseMarkdownDetailsAt(
 export function extractMarkdownDetails(
   source: string,
   placeholders: MarkdownPlaceholderRegistry,
+  provenance?: MarkdownDetailsProvenanceContext,
 ): {
   count: number;
   source: string;
@@ -142,8 +156,24 @@ export function extractMarkdownDetails(
       continue;
     }
 
+    const sourceSpan = provenance?.sourceMap.spanForLineRange(
+      provenance.originalBodyLineOffset + index,
+      provenance.originalBodyLineOffset + parsed.endIndex + 1,
+    );
+    if (provenance && !sourceSpan) {
+      throw new Error(MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR);
+    }
+    placeholders.assertCanAdd();
+    const rendererId =
+      provenance && sourceSpan
+        ? provenance.registry.add({
+            kind: "details",
+            tagName: "details",
+            sourceSpan,
+          })
+        : undefined;
     const marker = placeholders.add(index, (writer) =>
-      renderMarkdownDetailsToWriter(parsed.block, writer),
+      renderMarkdownDetailsToWriter(parsed.block, writer, rendererId),
     );
     count += 1;
     transformed.push(marker);

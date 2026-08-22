@@ -3,6 +3,12 @@ import type {
   MarkdownPlaceholderRegistry,
   Utf8ChunkWriter,
 } from "./placeholders";
+import {
+  MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE,
+  MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR,
+  type MarkdownRendererProvenanceRegistry,
+} from "./rendererProvenance";
+import type { MarkdownOriginalSourceMap } from "./sourceSpans";
 
 function isSingleLineHtmlComment(trimmed: string): boolean {
   return /^<!--[\s\S]*-->$/.test(trimmed);
@@ -45,12 +51,15 @@ function isPreviousLinePipeRow(lines: string[], index: number): boolean {
 function renderCompatPipeTableToWriter(
   lines: string[],
   writer: Utf8ChunkWriter,
+  rendererId?: string,
 ): void {
   const rows = lines
     .slice(1)
     .map((line) => parsePipeCells(line))
     .filter((cells): cells is string[] => Boolean(cells));
-  writer.append("<table><tbody>");
+  writer.append(
+    `<table${rendererId ? ` ${MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE}="${rendererId}"` : ""}><tbody>`,
+  );
   for (const cells of rows) {
     writer.append("<tr>");
     for (const cell of cells) {
@@ -63,9 +72,16 @@ function renderCompatPipeTableToWriter(
   writer.append("</tbody></table>");
 }
 
+export interface MarkdownCompatibilityProvenanceContext {
+  originalBodyLineOffset: number;
+  registry: MarkdownRendererProvenanceRegistry;
+  sourceMap: MarkdownOriginalSourceMap;
+}
+
 export function extractMarkdownCompatibility(
   source: string,
   placeholders: MarkdownPlaceholderRegistry,
+  provenance?: MarkdownCompatibilityProvenanceContext,
 ): {
   count: number;
   source: string;
@@ -106,8 +122,29 @@ export function extractMarkdownCompatibility(
       }
 
       if (tableLines.length > 1) {
+        const originalStartLine =
+          (provenance?.originalBodyLineOffset ?? 0) + index;
+        const originalEndLine =
+          (provenance?.originalBodyLineOffset ?? 0) + tableEndIndex + 1;
+        const sourceSpan = provenance?.sourceMap.spanForLineRange(
+          originalStartLine,
+          originalEndLine,
+        );
+        if (provenance && !sourceSpan) {
+          throw new Error(MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR);
+        }
+        placeholders.assertCanAdd();
+        const rendererId =
+          provenance && sourceSpan
+            ? provenance.registry.add({
+                kind: "table",
+                tagName: "table",
+                tableKind: "compatibility",
+                sourceSpan,
+              })
+            : undefined;
         const marker = placeholders.add(index, (writer) =>
-          renderCompatPipeTableToWriter(tableLines, writer),
+          renderCompatPipeTableToWriter(tableLines, writer, rendererId),
         );
         count += 1;
         transformed.push(marker);

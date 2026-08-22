@@ -15,7 +15,7 @@ export function slugifyHeading(
   text: string,
   used: Map<string, number>,
 ): string {
-  const base =
+  const normalized =
     text
       .normalize("NFKC")
       .trim()
@@ -23,6 +23,9 @@ export function slugifyHeading(
       .replace(/\s+/g, "-")
       .replace(/[^\p{Letter}\p{Number}_-]+/gu, "")
       .replace(/^-+|-+$/g, "") || "heading";
+  const base = normalized.startsWith("svard-")
+    ? `heading-${normalized}`
+    : normalized;
   const count = used.get(base) ?? 0;
   used.set(base, count + 1);
   return count === 0 ? base : `${base}-${count + 1}`;

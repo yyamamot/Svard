@@ -17,11 +17,7 @@ import { splitFrontmatter } from "./frontmatter";
 import { extractSourceSelectionBlocks } from "../sourceSelectionBlocks";
 import { markdown } from "./markdownIt";
 import { headingInlineMetadata } from "./headingInline";
-import {
-  fallbackSourceLocation,
-  slugifyHeading,
-  sourceLocationForToken,
-} from "./metadata";
+import { fallbackSourceLocation, slugifyHeading } from "./metadata";
 import type { DiagramRenderer, MarkdownDiagramSlot } from "./types";
 import type {
   DiagramSlot,
@@ -30,6 +26,7 @@ import type {
   RenderDiagnostic,
   RenderResult,
   SourceBlock,
+  SourceSelectionBlock,
   SourceTextBlock,
 } from "../types";
 import {
@@ -42,6 +39,16 @@ import {
   utf8ByteLength,
   Utf8ChunkWriter,
 } from "./placeholders";
+import {
+  MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE,
+  MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR,
+  MarkdownRendererProvenanceRegistry,
+} from "./rendererProvenance";
+import {
+  MarkdownOriginalSourceMap,
+  originalLineRangeForTokenMap,
+  type MarkdownOriginalLineRange,
+} from "./sourceSpans";
 
 function perfNow(): number {
   return globalThis.performance?.now?.() ?? Date.now();
@@ -49,6 +56,43 @@ function perfNow(): number {
 
 function perfDuration(startedAt: number): number {
   return Number((perfNow() - startedAt).toFixed(2));
+}
+
+function sourceSelectionRangeKey(
+  range: MarkdownOriginalLineRange,
+  kind: SourceSelectionBlock["kind"],
+): string {
+  return `${range.startLine + 1}\0${range.endLine}\0${kind}`;
+}
+
+function indexSourceSelectionBlocks(
+  blocks: readonly SourceSelectionBlock[],
+): ReadonlyMap<string, string | null> {
+  const index = new Map<string, string | null>();
+  for (const block of blocks) {
+    const key = `${block.startLine}\0${block.endLine}\0${block.kind}`;
+    index.set(key, index.has(key) ? null : block.id);
+  }
+  return index;
+}
+
+function sourceSelectionBlockIdForRange(
+  index: ReadonlyMap<string, string | null>,
+  range: MarkdownOriginalLineRange,
+  kind: SourceSelectionBlock["kind"],
+): string | undefined {
+  return index.get(sourceSelectionRangeKey(range, kind)) ?? undefined;
+}
+
+function sourceSpanForRange(
+  sourceMap: MarkdownOriginalSourceMap,
+  range: MarkdownOriginalLineRange,
+) {
+  const sourceSpan = sourceMap.spanForLineRange(range.startLine, range.endLine);
+  if (!sourceSpan) {
+    throw new Error(MARKDOWN_RENDERER_PROVENANCE_INTEGRITY_ERROR);
+  }
+  return sourceSpan;
 }
 
 export function renderMarkdownDocument(source: string): RenderResult {
@@ -65,17 +109,30 @@ export function renderMarkdownDocument(source: string): RenderResult {
   const frontmatterStartedAt = perfNow();
   const env = {};
   const sourceBytes = utf8ByteLength(source);
+  const sourceMap = new MarkdownOriginalSourceMap(source);
+  const provenance = new MarkdownRendererProvenanceRegistry(source);
+  const sourceSelectionBlocks = extractSourceSelectionBlocks(
+    source,
+    "markdown",
+  );
+  const sourceSelectionBlocksByRange = indexSourceSelectionBlocks(
+    sourceSelectionBlocks,
+  );
   const placeholders = new MarkdownPlaceholderRegistry(
     source,
     markdownReplacementBudgetForSourceBytes(sourceBytes),
   );
-  const { body, htmlPrefix, lineOffset } = splitFrontmatter(source);
+  const { body, htmlPrefix, lineOffset } = splitFrontmatter(source, provenance);
   recordPerf("markdown.frontmatter", frontmatterStartedAt, {
     bytes: sourceBytes,
   });
 
   const detailsStartedAt = perfNow();
-  const details = extractMarkdownDetails(body, placeholders);
+  const details = extractMarkdownDetails(body, placeholders, {
+    originalBodyLineOffset: lineOffset,
+    registry: provenance,
+    sourceMap,
+  });
   recordPerf("markdown.details", detailsStartedAt, {
     count: details.count,
   });
@@ -84,6 +141,11 @@ export function renderMarkdownDocument(source: string): RenderResult {
   const compatibility = extractMarkdownCompatibility(
     details.source,
     placeholders,
+    {
+      originalBodyLineOffset: lineOffset,
+      registry: provenance,
+      sourceMap,
+    },
   );
   recordPerf("markdown.compatibility", compatStartedAt, {
     count: compatibility.count,
@@ -127,16 +189,42 @@ export function renderMarkdownDocument(source: string): RenderResult {
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
+    const mappedOriginalRange = originalLineRangeForTokenMap(
+      token.map,
+      transformed.inputLineForOutputLine,
+      lineOffset,
+    );
+    const originalRange = mappedOriginalRange
+      ? sourceMap.trimBlankBoundaryLines(mappedOriginalRange)
+      : null;
 
     if (token.type === "paragraph_open" && token.level === 0 && token.map) {
+      const metadataRange = originalRange ?? {
+        startLine: token.map[0] + lineOffset,
+        endLine: token.map[1] + lineOffset,
+      };
       const block: SourceTextBlock = {
         id: `text-${sourceTextBlocks.length + 1}`,
         kind: "paragraph",
-        startLine: token.map[0] + lineOffset + 1,
-        endLine: token.map[1] + lineOffset,
+        startLine: metadataRange.startLine + 1,
+        endLine: metadataRange.endLine,
       };
-      token.attrSet("data-source-text-block-id", block.id);
       sourceTextBlocks.push(block);
+      if (originalRange) {
+        const sourceSelectionBlockId = sourceSelectionBlockIdForRange(
+          sourceSelectionBlocksByRange,
+          originalRange,
+          "paragraph",
+        );
+        const rendererId = provenance.add({
+          kind: "paragraph",
+          tagName: "p",
+          sourceSpan: sourceSpanForRange(sourceMap, originalRange),
+          sourceTextBlockId: block.id,
+          ...(sourceSelectionBlockId ? { sourceSelectionBlockId } : {}),
+        });
+        token.attrSet(MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE, rendererId);
+      }
       continue;
     }
 
@@ -147,16 +235,80 @@ export function renderMarkdownDocument(source: string): RenderResult {
       const headingMetadata = headingInlineMetadata(inline?.children);
       const id = slugifyHeading(rawText, usedHeadingIds);
       token.attrSet("id", id);
+      const sourceLocation = originalRange
+        ? { line: originalRange.startLine + 1, column: 1 }
+        : token.map
+          ? { line: token.map[0] + lineOffset + 1, column: 1 }
+          : undefined;
       headings.push({
         id,
         level,
         text: headingMetadata.text,
         rawText,
         ...(headingMetadata.inline ? { inline: headingMetadata.inline } : {}),
-        ...(sourceLocationForToken(token, lineOffset)
-          ? { sourceLocation: sourceLocationForToken(token, lineOffset) }
-          : {}),
+        ...(sourceLocation ? { sourceLocation } : {}),
       });
+      if (token.level === 0 && originalRange) {
+        const sourceSelectionBlockId = sourceSelectionBlockIdForRange(
+          sourceSelectionBlocksByRange,
+          originalRange,
+          "heading",
+        );
+        if (sourceSelectionBlockId) {
+          const rendererId = provenance.add({
+            headingId: id,
+            kind: "heading",
+            sourceSelectionBlockId,
+            sourceSpan: sourceSpanForRange(sourceMap, originalRange),
+            tagName: token.tag,
+          });
+          token.attrSet(MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE, rendererId);
+        }
+      }
+      continue;
+    }
+
+    if (
+      (token.type === "bullet_list_open" ||
+        token.type === "ordered_list_open") &&
+      token.level === 0 &&
+      token.map
+    ) {
+      if (!originalRange) {
+        continue;
+      }
+      const sourceSelectionBlockId = sourceSelectionBlockIdForRange(
+        sourceSelectionBlocksByRange,
+        originalRange,
+        "list",
+      );
+      const rendererId = provenance.add({
+        kind: "list",
+        sourceSpan: sourceSpanForRange(sourceMap, originalRange),
+        tagName: token.tag,
+        ...(sourceSelectionBlockId ? { sourceSelectionBlockId } : {}),
+      });
+      token.attrSet(MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE, rendererId);
+      continue;
+    }
+
+    if (token.type === "table_open" && token.level === 0 && token.map) {
+      if (!originalRange) {
+        continue;
+      }
+      const sourceSelectionBlockId = sourceSelectionBlockIdForRange(
+        sourceSelectionBlocksByRange,
+        originalRange,
+        "table",
+      );
+      const rendererId = provenance.add({
+        kind: "table",
+        sourceSpan: sourceSpanForRange(sourceMap, originalRange),
+        tableKind: "standard",
+        tagName: "table",
+        ...(sourceSelectionBlockId ? { sourceSelectionBlockId } : {}),
+      });
+      token.attrSet(MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE, rendererId);
       continue;
     }
 
@@ -164,21 +316,42 @@ export function renderMarkdownDocument(source: string): RenderResult {
       continue;
     }
 
+    const isTopLevelFence = token.level === 0 && Boolean(originalRange);
+    const sourceLocation = originalRange
+      ? { line: originalRange.startLine + 1, column: 1 }
+      : token.map
+        ? { line: token.map[0] + lineOffset + 1, column: 1 }
+        : fallbackSourceLocation();
+
     const language = token.info.trim().split(/\s+/, 1)[0]?.toLowerCase() ?? "";
     const renderer = rendererForType(language);
     if (!renderer) {
-      sourceBlocks.push({
+      const block: SourceBlock = {
         id: `source-${sourceBlocks.length + 1}`,
         ...(language ? { language } : {}),
-        ...(sourceLocationForToken(token, lineOffset)
-          ? { sourceLocation: sourceLocationForToken(token, lineOffset) }
-          : {}),
-      });
+        sourceLocation,
+      };
+      sourceBlocks.push(block);
+      if (isTopLevelFence && originalRange) {
+        const sourceSelectionBlockId = sourceSelectionBlockIdForRange(
+          sourceSelectionBlocksByRange,
+          originalRange,
+          "code",
+        );
+        if (sourceSelectionBlockId) {
+          const rendererId = provenance.add({
+            kind: "source",
+            sourceBlockId: block.id,
+            sourceSelectionBlockId,
+            sourceSpan: sourceSpanForRange(sourceMap, originalRange),
+            tagName: "pre",
+          });
+          token.attrSet(MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE, rendererId);
+        }
+      }
       continue;
     }
 
-    const sourceLocation =
-      sourceLocationForToken(token, lineOffset) ?? fallbackSourceLocation();
     const diagramType = normalizeDiagramType(language);
     const slot: DiagramSlot = {
       id: slotIdForRenderer(renderer, diagramCounters),
@@ -197,11 +370,29 @@ export function renderMarkdownDocument(source: string): RenderResult {
 
     addKrokiDisabledDiagnostic(diagnostics, slot);
 
+    let rendererId: string | undefined;
+    if (isTopLevelFence && originalRange) {
+      const sourceSelectionBlockId = sourceSelectionBlockIdForRange(
+        sourceSelectionBlocksByRange,
+        originalRange,
+        "diagram",
+      );
+      if (sourceSelectionBlockId) {
+        rendererId = provenance.add({
+          diagramId: slot.id,
+          kind: "diagram",
+          sourceSelectionBlockId,
+          sourceSpan: sourceSpanForRange(sourceMap, originalRange),
+          tagName: "div",
+        });
+      }
+    }
+
     token.type = "diagram_slot";
     token.tag = "";
     token.nesting = 0;
     token.attrs = null;
-    token.content = diagramPlaceholder(slot);
+    token.content = diagramPlaceholder(slot, rendererId);
     token.markup = "";
     token.info = "";
   }
@@ -224,6 +415,7 @@ export function renderMarkdownDocument(source: string): RenderResult {
   );
   placeholders.assertAllRendered();
   const html = htmlWriter.toString();
+  const markdownRendererProvenance = provenance.records();
   recordPerf("markdown.htmlRender", htmlStartedAt, {
     bytes: htmlWriter.byteLength,
   });
@@ -242,10 +434,13 @@ export function renderMarkdownDocument(source: string): RenderResult {
     headings,
     sourceBlocks,
     sourceTextBlocks,
-    sourceSelectionBlocks: extractSourceSelectionBlocks(source, "markdown"),
+    sourceSelectionBlocks,
     diagnostics,
     diagramSlots,
     perf,
+    ...(markdownRendererProvenance.length > 0
+      ? { markdownRendererProvenance: [...markdownRendererProvenance] }
+      : {}),
     ...buildDiagramResults(markdownDiagramSlots),
   };
 }

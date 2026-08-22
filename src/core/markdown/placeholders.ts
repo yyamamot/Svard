@@ -268,13 +268,17 @@ export class MarkdownPlaceholderRegistry {
     return this.#replacementBytes;
   }
 
-  add(expectedLine: number, render: PlaceholderRenderer): string {
+  assertCanAdd(): void {
     if (this.#bound) {
       return throwIntegrityError();
     }
     if (this.#records.length >= MAX_MARKDOWN_PLACEHOLDERS) {
       return throwBudgetError();
     }
+  }
+
+  add(expectedLine: number, render: PlaceholderRenderer): string {
+    this.assertCanAdd();
     if (
       !Number.isSafeInteger(expectedLine) ||
       expectedLine < 0 ||

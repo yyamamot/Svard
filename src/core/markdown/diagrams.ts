@@ -7,6 +7,7 @@ import type {
   RenderDiagnostic,
 } from "../types";
 import type { DiagramRenderer, MarkdownDiagramSlot } from "./types";
+import { MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE } from "./rendererProvenance";
 
 const krokiDiagramTypes = new Set([
   "blockdiag",
@@ -47,8 +48,11 @@ export function slotIdForRenderer(
   return `${renderer}-${counters[renderer]}`;
 }
 
-export function diagramPlaceholder(slot: DiagramSlot): string {
-  return `<div class="diagram-slot" data-diagram-id="${slot.id}" data-diagram-type="${slot.diagramType}" data-diagram-renderer="${slot.renderer}"></div>`;
+export function diagramPlaceholder(
+  slot: DiagramSlot,
+  rendererId?: string,
+): string {
+  return `<div class="diagram-slot" data-diagram-id="${slot.id}" data-diagram-type="${slot.diagramType}" data-diagram-renderer="${slot.renderer}"${rendererId ? ` ${MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE}="${rendererId}"` : ""}></div>`;
 }
 
 export function addKrokiDisabledDiagnostic(

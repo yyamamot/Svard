@@ -244,7 +244,9 @@ export async function applyReaderActionsScenario(context) {
     });
   } else if (scenario === "viewer-section-collapse") {
     await page.locator("text=copy-actions.adoc").click();
-    await page.locator("text=Copy Actions").waitFor();
+    await page
+      .getByRole("heading", { name: "Copy Actions", exact: true })
+      .waitFor();
     const codeHeading = page
       .locator("[data-section-collapse-heading]")
       .filter({ hasText: "Code" })

@@ -8,12 +8,13 @@ const DOMPurify = createDOMPurify(window);
 
 const allowedUriPattern =
   /^(?:(?:(?:https?|mailto|data|asset|file):)|(?:[A-Za-z]:[\\/])|(?:[./#])|(?:\/(?!\/)))/i;
+const privateRendererAttributes = ["data-source-renderer-id"] as const;
 
 const commonConfig = {
   ALLOW_ARIA_ATTR: true,
   ALLOW_DATA_ATTR: true,
   ALLOWED_URI_REGEXP: allowedUriPattern,
-  FORBID_ATTR: ["style"],
+  FORBID_ATTR: ["style", ...privateRendererAttributes],
 } satisfies Config;
 
 export interface SanitizeDocumentHtmlOptions {
@@ -154,7 +155,7 @@ export function sanitizeRenderedBlockHtml(
   if (html.includes("katex")) {
     const sanitized = DOMPurify.sanitize(html, {
       ...sanitizeConfigForFormat(options.format),
-      FORBID_ATTR: [],
+      FORBID_ATTR: [...privateRendererAttributes],
     });
     const doc = new DOMParser().parseFromString(sanitized, "text/html");
     doc.body.querySelectorAll<HTMLElement>("[style]").forEach((element) => {
@@ -173,6 +174,7 @@ export function sanitizeSvg(svg: string): SafeHtml {
       ALLOW_ARIA_ATTR: true,
       ALLOW_DATA_ATTR: true,
       USE_PROFILES: { svg: true, svgFilters: true },
+      FORBID_ATTR: [...privateRendererAttributes],
       FORBID_TAGS: ["foreignObject", "iframe", "object", "embed", "script"],
       ADD_ATTR: [
         "aria-label",

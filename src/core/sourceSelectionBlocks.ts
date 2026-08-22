@@ -56,6 +56,11 @@ function markdownRanges(lines: string[]): LineRange[] {
       index += 1;
       continue;
     }
+    if (isMarkdownSetextHeading(lines, index)) {
+      ranges.push({ kind: "heading", start: index, end: index + 1 });
+      index += 2;
+      continue;
+    }
     const fence = /^\s*(`{3,}|~{3,})\s*([^\s]*)/.exec(line);
     if (fence) {
       const marker = fence[1][0];
@@ -238,6 +243,16 @@ function locationForRange(
 
 function isSimpleMarkdownList(line: string) {
   return /^(?:[-*+] |\d+\. )/.test(line);
+}
+function isMarkdownSetextHeading(lines: string[], index: number) {
+  const title = lines[index]?.replace(/\r$/, "") ?? "";
+  const underline = lines[index + 1]?.replace(/\r$/, "") ?? "";
+  return (
+    title.trim().length > 0 &&
+    !isSimpleMarkdownList(title) &&
+    !/^\s{0,3}(?:#{1,6}\s+|>|```|~~~)/.test(title) &&
+    /^\s{0,3}(?:=+|-+)\s*$/.test(underline)
+  );
 }
 function isSimpleAsciiDocList(line: string) {
   return /^(?:[*-]|\d+\.)\s+/.test(line);

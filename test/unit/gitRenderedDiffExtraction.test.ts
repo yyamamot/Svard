@@ -96,6 +96,18 @@ export function readLabel() {
     expect(sanitized).toContain("hljs-string");
   });
 
+  it("does not retain private renderer identities at the rendered diff HTML sink", () => {
+    const rendered = renderMarkdownCore("Rendered diff paragraph.");
+    const [block] = blocksFromHtml(rendered.html);
+    const sanitized = sanitizeRenderedBlockHtml(block?.html ?? "", {
+      format: "markdown",
+    });
+
+    expect(rendered.html).toContain("data-source-renderer-id");
+    expect(sanitized).not.toContain("data-source-renderer-id");
+    expect(sanitized).toContain("Rendered diff paragraph.");
+  });
+
   it("keeps hydrated local image HTML while preserving diagram placeholders", () => {
     const blocks =
       blocksFromHtml(`<div class="diagram-slot" data-diagram-id="mermaid-1"></div>

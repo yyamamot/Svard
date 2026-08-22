@@ -12,7 +12,17 @@ describe("source text blocks", () => {
     expect(result.sourceTextBlocks).toEqual([
       { id: "text-1", kind: "paragraph", startLine: 3, endLine: 4 },
     ]);
-    expect(result.html).toContain('data-source-text-block-id="text-1"');
+    expect(result.html).not.toContain("data-source-text-block-id");
+    const paragraphProvenance = result.markdownRendererProvenance?.find(
+      (record) => record.kind === "paragraph",
+    );
+    expect(paragraphProvenance).toMatchObject({
+      kind: "paragraph",
+      sourceTextBlockId: "text-1",
+    });
+    expect(result.html).toContain(
+      `data-source-renderer-id="${paragraphProvenance?.id}"`,
+    );
   });
 
   it("keeps a contiguous included AsciiDoc paragraph at its origin", () => {

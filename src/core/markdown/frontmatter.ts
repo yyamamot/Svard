@@ -1,4 +1,8 @@
 import { escapeHtml } from "./escape";
+import {
+  MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE,
+  MarkdownRendererProvenanceRegistry,
+} from "./rendererProvenance";
 import type { FrontmatterValue } from "./types";
 
 const frontmatterPattern = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
@@ -116,7 +120,10 @@ function frontmatterSummary(count: number | "raw"): string {
   return `<summary><span class="metadata-label">Frontmatter</span> · <span class="metadata-count">${countLabel}</span></summary>`;
 }
 
-export function splitFrontmatter(source: string): {
+export function splitFrontmatter(
+  source: string,
+  provenance?: MarkdownRendererProvenanceRegistry,
+): {
   body: string;
   htmlPrefix: string;
   lineOffset: number;
@@ -130,12 +137,26 @@ export function splitFrontmatter(source: string): {
   const { rows, parsed } = parseFrontmatter(frontmatter);
   const lineOffset = match[0].split(/\r?\n/).length - 1;
   const body = source.slice(match[0].length);
+  const trailingLineBreakLength = match[0].endsWith("\r\n")
+    ? 2
+    : match[0].endsWith("\n")
+      ? 1
+      : 0;
+  const frontmatterEndOffset = match[0].length - trailingLineBreakLength;
+  const rendererId = provenance?.add({
+    kind: "frontmatter",
+    tagName: "details",
+    sourceSpan: { startOffset: 0, endOffset: frontmatterEndOffset },
+  });
+  const rendererAttribute = rendererId
+    ? ` ${MARKDOWN_RENDERER_PROVENANCE_ATTRIBUTE}="${rendererId}"`
+    : "";
 
   if (!parsed) {
     return {
       body,
       lineOffset,
-      htmlPrefix: `<details class="markdown-frontmatter">${frontmatterSummary("raw")}<pre><code>${escapeHtml(frontmatter)}</code></pre></details>`,
+      htmlPrefix: `<details class="markdown-frontmatter"${rendererAttribute}>${frontmatterSummary("raw")}<pre><code>${escapeHtml(frontmatter)}</code></pre></details>`,
     };
   }
 
@@ -148,6 +169,6 @@ export function splitFrontmatter(source: string): {
   return {
     body,
     lineOffset,
-    htmlPrefix: `<details class="markdown-frontmatter">${frontmatterSummary(rows.length)}<table><tbody>${tableRows}</tbody></table></details>`,
+    htmlPrefix: `<details class="markdown-frontmatter"${rendererAttribute}>${frontmatterSummary(rows.length)}<table><tbody>${tableRows}</tbody></table></details>`,
   };
 }

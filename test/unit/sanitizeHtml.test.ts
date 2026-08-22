@@ -19,6 +19,32 @@ describe("sanitizeHtml", () => {
     expect(html).not.toContain("javascript:");
   });
 
+  it("never retains private Markdown renderer identities in sanitizer consumers", () => {
+    const input =
+      '<p data-source-renderer-id="svard-renderer-11111111111111111111111111111111-0">safe</p>';
+    const body = new DOMParser().parseFromString(input, "text/html").body;
+
+    expect(sanitizeDocumentHtml(input)).not.toContain(
+      "data-source-renderer-id",
+    );
+    expect(sanitizeDocumentBodyInPlace(body)).not.toContain(
+      "data-source-renderer-id",
+    );
+    expect(sanitizeRenderedBlockHtml(input)).not.toContain(
+      "data-source-renderer-id",
+    );
+    expect(
+      sanitizeRenderedBlockHtml(
+        `<span class="katex" style="display:inline" data-source-renderer-id="svard-renderer-11111111111111111111111111111111-0">math</span>`,
+      ),
+    ).not.toContain("data-source-renderer-id");
+    expect(
+      sanitizeSvg(
+        '<svg data-source-renderer-id="svard-renderer-11111111111111111111111111111111-0"><text>safe</text></svg>',
+      ),
+    ).not.toContain("data-source-renderer-id");
+  });
+
   it("preserves AsciiDoc structural table and admonition markup", () => {
     const html = sanitizeDocumentHtml(
       '<div class="admonitionblock warning"><table><tr><td class="icon"><i class="fa icon-warning" title="Warning"></i></td><td class="content">Be careful</td></tr></table></div><table class="tableblock frame-all grid-all stretch"><caption class="title">Table 1. Feature Matrix</caption><colgroup><col style="width: 30%"><col width="70%"></colgroup><tbody><tr><td class="tableblock halign-left valign-top" rowspan="2" width="30%" valign="top"><p class="tableblock">Group</p></td><td class="tableblock halign-center valign-middle" colspan="2" align="center"><p class="tableblock">Cell</p></td></tr></tbody></table>',

@@ -16,6 +16,7 @@ export function isFenceBoundary(line: string): boolean {
 }
 
 export interface MarkdownSourceTransform {
+  inputLineForOutputLine: number[];
   outputLineForInputLine: number[];
   source: string;
 }
@@ -25,8 +26,14 @@ export function transformSimpleAdmonitionsWithLineMap(
 ): MarkdownSourceTransform {
   const lines = source.split("\n");
   const transformed: string[] = [];
+  const inputLineForOutputLine: number[] = [];
   const outputLineForInputLine: number[] = [];
   let inFence = false;
+
+  const pushTransformed = (value: string, inputLine: number) => {
+    transformed.push(value);
+    inputLineForOutputLine.push(inputLine);
+  };
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -35,7 +42,7 @@ export function transformSimpleAdmonitionsWithLineMap(
 
     if (isFenceBoundary(trimmed)) {
       inFence = !inFence;
-      transformed.push(line);
+      pushTransformed(line, index);
       continue;
     }
 
@@ -43,11 +50,12 @@ export function transformSimpleAdmonitionsWithLineMap(
       ? trimmed.match(mkDocsAdmonitionPattern)
       : null;
     if (mkDocsMatch) {
+      const openingIndex = index;
       const title = (mkDocsMatch[2] ?? mkDocsMatch[3] ?? "").trim();
 
-      transformed.push(`> [!${mkDocsMatch[1].toUpperCase()}]`);
+      pushTransformed(`> [!${mkDocsMatch[1].toUpperCase()}]`, openingIndex);
       if (title) {
-        transformed.push(`> **${title}**`);
+        pushTransformed(`> **${title}**`, openingIndex);
       }
 
       index += 1;
@@ -66,16 +74,16 @@ export function transformSimpleAdmonitionsWithLineMap(
             nextContentIndex >= lines.length ||
             !/^( {4}|\t)/.test(lines[nextContentIndex].replace(/\r$/, ""))
           ) {
-            transformed.push("");
+            pushTransformed("", index);
             break;
           }
-          transformed.push(">");
+          pushTransformed(">", index);
           index += 1;
           continue;
         }
         if (/^( {4}|\t)/.test(bodyLine)) {
           outputLineForInputLine[index] = transformed.length;
-          transformed.push(`> ${bodyLine.replace(/^( {4}|\t)/, "")}`);
+          pushTransformed(`> ${bodyLine.replace(/^( {4}|\t)/, "")}`, index);
           index += 1;
           continue;
         }
@@ -87,26 +95,27 @@ export function transformSimpleAdmonitionsWithLineMap(
 
     const match = !inFence ? trimmed.match(simpleAdmonitionPattern) : null;
     if (!match) {
-      transformed.push(line);
+      pushTransformed(line, index);
       continue;
     }
 
-    transformed.push(`> [!${match[1].toUpperCase()}]`);
+    pushTransformed(`> [!${match[1].toUpperCase()}]`, index);
     index += 1;
 
     while (index < lines.length) {
       const bodyLine = lines[index];
       outputLineForInputLine[index] = transformed.length;
       if (bodyLine.replace(/\r$/, "").trim() === "") {
-        transformed.push(bodyLine);
+        pushTransformed(bodyLine, index);
         break;
       }
-      transformed.push(`> ${bodyLine}`);
+      pushTransformed(`> ${bodyLine}`, index);
       index += 1;
     }
   }
 
   return {
+    inputLineForOutputLine,
     source: transformed.join("\n"),
     outputLineForInputLine,
   };

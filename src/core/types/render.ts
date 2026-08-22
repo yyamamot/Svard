@@ -56,6 +56,67 @@ export interface MarkdownAuthorHtmlFragment {
   };
 }
 
+export interface MarkdownRendererSourceSpan {
+  startOffset: number;
+  endOffset: number;
+}
+
+export interface MarkdownRendererProvenanceBase {
+  id: string;
+  kind:
+    | "heading"
+    | "paragraph"
+    | "list"
+    | "source"
+    | "table"
+    | "diagram"
+    | "frontmatter"
+    | "details";
+  tagName: string;
+  sourceSpan: MarkdownRendererSourceSpan;
+}
+
+export type MarkdownRendererProvenance =
+  | (MarkdownRendererProvenanceBase & {
+      kind: "heading";
+      headingId: string;
+      sourceSelectionBlockId: string;
+    })
+  | (MarkdownRendererProvenanceBase & {
+      kind: "paragraph";
+      sourceTextBlockId: string;
+      sourceSelectionBlockId?: string;
+    })
+  | (MarkdownRendererProvenanceBase & {
+      kind: "list";
+      sourceSelectionBlockId?: string;
+    })
+  | (MarkdownRendererProvenanceBase & {
+      kind: "source";
+      sourceBlockId: string;
+      sourceSelectionBlockId: string;
+    })
+  | (MarkdownRendererProvenanceBase & {
+      kind: "table";
+      tableKind: "standard";
+      sourceSelectionBlockId?: string;
+    })
+  | (MarkdownRendererProvenanceBase & {
+      kind: "table";
+      tableKind: "compatibility";
+    })
+  | (MarkdownRendererProvenanceBase & {
+      kind: "diagram";
+      diagramId: string;
+      sourceSelectionBlockId: string;
+    })
+  | (MarkdownRendererProvenanceBase & {
+      kind: "frontmatter";
+    })
+  | (MarkdownRendererProvenanceBase & {
+      kind: "details";
+    });
+
 export interface RenderResult {
   html: string;
   headings: Heading[];
@@ -70,6 +131,7 @@ export interface RenderResult {
   graphvizDiagrams: GraphvizDiagram[];
   krokiDiagrams: KrokiDiagram[];
   markdownAuthorHtmlFragments?: MarkdownAuthorHtmlFragment[];
+  markdownRendererProvenance?: MarkdownRendererProvenance[];
   perf?: RenderPerfStage[];
 }
 

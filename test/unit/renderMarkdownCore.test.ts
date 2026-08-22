@@ -610,9 +610,21 @@ After.
       { id: "text-1", kind: "paragraph", startLine: 1, endLine: 1 },
       { id: "text-2", kind: "paragraph", startLine: 11, endLine: 11 },
     ]);
-    expect(result.html).toContain('data-source-text-block-id="text-1"');
-    expect(result.html).toContain('data-source-text-block-id="text-2"');
-    expect(result.html).not.toContain('data-source-text-block-id="text-3"');
+    expect(result.html).not.toContain("data-source-text-block-id");
+    const paragraphProvenance =
+      result.markdownRendererProvenance?.filter(
+        (record) => record.kind === "paragraph",
+      ) ?? [];
+    expect(
+      paragraphProvenance.map((record) => record.sourceTextBlockId),
+    ).toEqual(["text-1", "text-2"]);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    expect(
+      Array.from(
+        doc.querySelectorAll<HTMLElement>("p[data-source-renderer-id]"),
+        (paragraph) => paragraph.dataset.sourceRendererId,
+      ),
+    ).toEqual(paragraphProvenance.map((record) => record.id));
   });
 
   it("fails closed with a fixed privacy-safe error when a placeholder is not an independent paragraph", () => {

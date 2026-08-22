@@ -138,6 +138,38 @@ describe("link preview", () => {
     });
   });
 
+  it("does not retain private renderer identities in direct link preview state", async () => {
+    vi.mocked(renderDocument).mockResolvedValueOnce({
+      ...currentRenderResult,
+      html: `<h1 id="next" data-source-renderer-id="svard-renderer-${"11".repeat(16)}-0">Next</h1><p data-source-renderer-id="svard-renderer-${"11".repeat(16)}-1">Private identity is not state.</p>`,
+      headings: [{ id: "next", level: 1, text: "Next" }],
+    });
+    const preview = await buildLinkPreview({
+      href: "./next.md",
+      currentDocument,
+      renderResult: currentRenderResult,
+      article: articleFrom(`<h1 id="current">Current</h1>`),
+      x: 10,
+      y: 20,
+      resolveDocumentLink: vi.fn(async () =>
+        resolved("/workspace/docs/next.md"),
+      ),
+      loadDocument: vi.fn(async () =>
+        markdownDocument(
+          "/workspace/docs/next.md",
+          "# Next\n\nPrivate identity is not state.",
+        ),
+      ),
+    });
+
+    expect(preview).toMatchObject({
+      status: "ready",
+      title: "Next",
+      snippet: "Private identity is not state.",
+    });
+    expect(JSON.stringify(preview)).not.toContain("svard-renderer-");
+  });
+
   it("matches a formatted Markdown heading by its raw source text", async () => {
     vi.mocked(renderDocument).mockResolvedValueOnce({
       html: `<h1 id="next">Next</h1><h2 id="hugging-face-conv1d">Hugging Face <code>Conv1D</code></h2><p>Formatted heading preview.</p>`,

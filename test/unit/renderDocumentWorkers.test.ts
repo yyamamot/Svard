@@ -215,6 +215,64 @@ describe("document render worker wrappers", () => {
     });
   });
 
+  it("renders normally in the same Markdown worker handler after provenance crypto rejects", async () => {
+    const originalCrypto = globalThis.crypto;
+    const responses: RenderWorkerResponse<RenderResult>[] = [];
+    const workerScope = {
+      onmessage: null as
+        | ((
+            event: MessageEvent<RenderWorkerRequest<{ source: string }>>,
+          ) => void)
+        | null,
+      postMessage(response: RenderWorkerResponse<RenderResult>) {
+        responses.push(response);
+      },
+    };
+    vi.stubGlobal("self", workerScope);
+    vi.stubGlobal("crypto", {
+      getRandomValues(): never {
+        throw new Error("private entropy provider failure");
+      },
+    });
+    vi.resetModules();
+    await import("../../src/core/markdown.worker");
+
+    workerScope.onmessage?.({
+      data: {
+        requestId: "markdown-provenance-crypto",
+        diagnostic: false,
+        payload: { source: "private /workspace/secret.md token-123" },
+      },
+    } as MessageEvent<RenderWorkerRequest<{ source: string }>>);
+
+    expect(responses[0]).toEqual({
+      requestId: "markdown-provenance-crypto",
+      ok: false,
+      message:
+        "Markdown rendering stopped because renderer provenance integrity validation failed.",
+    });
+    expect(JSON.stringify(responses[0])).not.toContain("/workspace/secret.md");
+    expect(JSON.stringify(responses[0])).not.toContain("token-123");
+
+    vi.stubGlobal("crypto", originalCrypto);
+    workerScope.onmessage?.({
+      data: {
+        requestId: "markdown-provenance-retry",
+        diagnostic: false,
+        payload: { source: "# Safe retry" },
+      },
+    } as MessageEvent<RenderWorkerRequest<{ source: string }>>);
+
+    expect(responses[1]).toMatchObject({
+      requestId: "markdown-provenance-retry",
+      ok: true,
+      result: {
+        html: expect.stringContaining("Safe retry"),
+        markdownRendererProvenance: expect.any(Array),
+      },
+    });
+  });
+
   it("preserves optional Markdown author HTML provenance in worker results", async () => {
     vi.stubGlobal("Worker", StubBrowserWorker);
     const { disposeMarkdownRenderWorkers, renderMarkdown } =

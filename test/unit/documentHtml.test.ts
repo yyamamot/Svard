@@ -653,17 +653,19 @@ $not rendered in source$
   });
 
   it("wraps Markdown tables for horizontal scrolling without hiding table metadata", async () => {
+    const source =
+      "# README\n\n| Feature | Status |\n| --- | --- |\n| Wide Markdown table | Ready |";
+    const markdownResult = renderMarkdownCore(source);
     const html = await prepareDocumentHtml(
-      "<table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Wide Markdown table</td><td>Ready</td></tr></tbody></table>",
+      markdownResult.html,
       {
         ...documentPayload,
         path: "/workspace/docs/readme.md",
         format: "markdown",
-        source:
-          "# README\n\n| Feature | Status |\n| --- | --- |\n| Wide Markdown table | Ready |",
+        source,
       },
       { security: { allowLocalImages: true, confirmExternalLinks: true } },
-      { headings: [], sourceBlocks: [] },
+      markdownResult,
     );
     const doc = new DOMParser().parseFromString(html, "text/html");
     const wrapper = doc.querySelector(".markdown-table-scroll");
@@ -679,6 +681,211 @@ $not rendered in source$
     expect(table?.getAttribute("data-source-reference")).toBe(
       "/workspace/docs/readme.md:3",
     );
+  });
+
+  it("uses validated Markdown renderer identities for source actions and removes private identities", async () => {
+    const source = [
+      "# Identity boundary",
+      "",
+      "```ts",
+      "const safe = true;",
+      "```",
+      "",
+      "| Feature | Status |",
+      "| --- | --- |",
+      "| Provenance | Ready |",
+    ].join("\n");
+    const markdownResult = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      markdownResult.html,
+      {
+        ...documentPayload,
+        path: "/workspace/docs/identity.md",
+        format: "markdown",
+        source,
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      markdownResult,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("[data-source-renderer-id]")).toBeNull();
+    expect(doc.querySelector("h1 [data-section-collapse-toggle]")).toBeTruthy();
+    expect(doc.querySelector(".source-block-frame")).toBeTruthy();
+    expect(doc.querySelector("[data-copy-source-button]")).toBeTruthy();
+    expect(doc.querySelector("table")?.getAttribute("data-source-line")).toBe(
+      "7",
+    );
+    expect(
+      doc.querySelectorAll("[data-source-selection-block-id]").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("rejects Markdown provenance as one document while retaining visual-only rendering", async () => {
+    const source = [
+      "# Identity boundary",
+      "",
+      "Text with a footnote.[^one]",
+      "",
+      "```ts",
+      "const visible = true;",
+      "```",
+      "",
+      "| Feature | Status |",
+      "| --- | --- |",
+      "| Provenance | Rejected |",
+      "",
+      "<details>",
+      "<summary>Native details</summary>",
+      "Visible body.",
+      "</details>",
+      "",
+      "[^one]: Footnote body.",
+    ].join("\n");
+    const markdownResult = renderMarkdownCore(source);
+    const replayId = markdownResult.markdownRendererProvenance?.[0]?.id;
+    expect(replayId).toBeTruthy();
+    const tamperedHtml = markdownResult.html.replace(
+      "</h1>",
+      `<button data-section-collapse-toggle="true">forged</button></h1><p data-source-renderer-id="${replayId}">replay</p>`,
+    );
+    const html = await prepareDocumentHtml(
+      tamperedHtml,
+      {
+        ...documentPayload,
+        path: "/workspace/docs/rejected.md",
+        format: "markdown",
+        source,
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      markdownResult,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("h1")?.textContent).toContain("Identity boundary");
+    expect(doc.querySelector("pre code")?.textContent).toContain(
+      "const visible = true;",
+    );
+    expect(doc.querySelector(".markdown-table-scroll > table")).toBeTruthy();
+    expect(doc.querySelector("details.markdown-details")).toBeTruthy();
+    expect(
+      doc.querySelector("li.footnote-item a.footnote-backref"),
+    ).toBeTruthy();
+    expect(doc.querySelector("[data-source-renderer-id]")).toBeNull();
+    expect(doc.querySelector(".source-block-frame")).toBeNull();
+    expect(doc.querySelector("[data-section-collapse-toggle]")).toBeNull();
+    expect(doc.querySelector("[data-copy-source-button]")).toBeNull();
+    expect(
+      doc.querySelector(
+        "[data-source-reference],[data-source-line],[data-source-selection-block-id]",
+      ),
+    ).toBeNull();
+  });
+
+  it("keeps repeated footnote navigation valid without retaining renderer identities", async () => {
+    const source = [
+      "# Footnotes",
+      "",
+      "First[^one] and repeated[^one].",
+      "",
+      "[^one]: Shared note.",
+    ].join("\n");
+    const markdownResult = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      markdownResult.html,
+      {
+        ...documentPayload,
+        path: "/workspace/docs/footnotes.md",
+        format: "markdown",
+        source,
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      markdownResult,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("h1 [data-section-collapse-toggle]")).toBeTruthy();
+    expect(
+      Array.from(doc.querySelectorAll(".footnote-ref > a")).map(
+        (link) => link.id,
+      ),
+    ).toEqual(["svard-footnote-ref-1", "svard-footnote-ref-1-2"]);
+    expect(
+      Array.from(doc.querySelectorAll(".footnote-backref")).map((link) =>
+        link.getAttribute("href"),
+      ),
+    ).toEqual(["#svard-footnote-ref-1", "#svard-footnote-ref-1-2"]);
+    expect(doc.querySelector("[data-source-renderer-id]")).toBeNull();
+  });
+
+  it("does not let shielded frontmatter, details, or compatibility tables steal Markdown actions", async () => {
+    const source = [
+      "---",
+      "title: Boundary",
+      "---",
+      "",
+      "<details>",
+      "<summary>Shielded details</summary>",
+      "```js",
+      "const inner = true;",
+      "```",
+      "</details>",
+      "",
+      "| --- | --- |",
+      "| Compatibility | No action |",
+      "",
+      "| Standard | Action |",
+      "| --- | --- |",
+      "| Exact | Mapping |",
+      "",
+      "```ts",
+      "const outer = true;",
+      "```",
+    ].join("\n");
+    const markdownResult = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      markdownResult.html,
+      {
+        ...documentPayload,
+        path: "/workspace/docs/shields.md",
+        format: "markdown",
+        source,
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      markdownResult,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const tables = Array.from(doc.querySelectorAll("table"));
+    const compatibility = tables.find((table) =>
+      table.textContent?.includes("Compatibility"),
+    );
+    const standard = tables.find((table) =>
+      table.textContent?.includes("Standard"),
+    );
+
+    expect(
+      doc.querySelector(".markdown-frontmatter [data-source-reference]"),
+    ).toBeNull();
+    expect(
+      doc.querySelector(".markdown-details .source-block-frame"),
+    ).toBeNull();
+    expect(
+      doc.querySelector(".markdown-details [data-source-selection-block-id]"),
+    ).toBeNull();
+    expect(compatibility?.getAttribute("data-source-reference")).toBeNull();
+    expect(
+      compatibility?.getAttribute("data-source-selection-block-id"),
+    ).toBeNull();
+    expect(standard?.getAttribute("data-source-line")).toBe("15");
+    expect(standard?.getAttribute("data-source-reference")).toBe(
+      "/workspace/docs/shields.md:15",
+    );
+    expect(doc.querySelectorAll(".source-block-frame")).toHaveLength(1);
+    expect(
+      doc
+        .querySelector(".source-block-frame")
+        ?.getAttribute("data-source-reference"),
+    ).toBe("/workspace/docs/shields.md:19");
   });
 
   it("does not wrap Markdown frontmatter or Rouge helper tables", async () => {
