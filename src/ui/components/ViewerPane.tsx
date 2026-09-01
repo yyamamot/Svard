@@ -24,6 +24,7 @@ import {
   perfBasename,
   perfDuration,
   perfNow,
+  perfTraceEnabled,
   tracePerf,
 } from "../lib/perfTrace";
 import { setElementSafeHtml, unwrapSafeHtml } from "../lib/safeHtml";
@@ -32,6 +33,7 @@ import {
   setArticleLayoutState,
   waitForArticleLayoutStability,
 } from "../lib/articleLayoutStability";
+import { traceCommittedImageDecode } from "../lib/renderCriticalPathTrace";
 import type { CommandId } from "../../core/commands";
 import type {
   CaptureAreaRect,
@@ -353,6 +355,7 @@ export function ViewerPane({
     }
 
     const startedAt = perfNow();
+    const criticalPathTracingEnabled = perfTraceEnabled();
     const layoutCommitSequence = layoutCommitSequenceRef.current + 1;
     layoutCommitSequenceRef.current = layoutCommitSequence;
     tracePerf("render.articleRefReady", {
@@ -366,6 +369,7 @@ export function ViewerPane({
       durationMs: 0,
     });
     setElementSafeHtml(article, html);
+    const commitCompletedAt = perfNow();
     article.dataset.renderedDocumentPath = documentPath;
     article.dataset.renderRevision = articleRenderIdentity;
     article.dataset.layoutCommit = String(layoutCommitSequence);
@@ -374,22 +378,53 @@ export function ViewerPane({
       basename: perfBasename(documentPath),
       format: documentFormat,
       bytes: unwrapSafeHtml(html).length,
-      durationMs: perfDuration(startedAt),
+      durationMs: Number((commitCompletedAt - startedAt).toFixed(2)),
     });
     tracePerf("render.layoutEffect.done", {
       basename: perfBasename(documentPath),
       format: documentFormat,
       durationMs: perfDuration(startedAt),
     });
+    const isCurrentLayoutCommit = () =>
+      articleNodeRef.current === article &&
+      article.dataset.renderRevision === articleRenderIdentity &&
+      article.dataset.layoutCommit === String(layoutCommitSequence) &&
+      layoutCommitSequenceRef.current === layoutCommitSequence;
+    void traceCommittedImageDecode({
+      article,
+      commitCompletedAt,
+      isCurrent: isCurrentLayoutCommit,
+    });
+    let layoutFrameCount = 0;
+    const commitFrameDurations: number[] = [];
     const cancelLayoutWait = waitForArticleLayoutStability({
       article,
-      isCurrent: () =>
-        articleNodeRef.current === article &&
-        article.dataset.renderRevision === articleRenderIdentity &&
-        article.dataset.layoutCommit === String(layoutCommitSequence) &&
-        layoutCommitSequenceRef.current === layoutCommitSequence,
+      isCurrent: isCurrentLayoutCommit,
+      onFrame: criticalPathTracingEnabled
+        ? (frameCount) => {
+            layoutFrameCount = frameCount;
+            if (frameCount <= 2) {
+              commitFrameDurations[frameCount - 1] =
+                perfDuration(commitCompletedAt);
+            }
+          }
+        : undefined,
       onComplete: (state) => {
         setArticleLayoutState(article, articleRenderIdentity, state);
+        if (criticalPathTracingEnabled) {
+          commitFrameDurations.forEach((durationMs, index) => {
+            tracePerf("render.commitFrame", {
+              durationMs,
+              frame: index + 1,
+              status: "measured",
+            });
+          });
+          tracePerf("render.layoutStability", {
+            durationMs: perfDuration(commitCompletedAt),
+            frameCount: layoutFrameCount,
+            status: state,
+          });
+        }
         tracePerf("render.postCommitAnimationFrame", {
           basename: perfBasename(documentPath),
           format: documentFormat,

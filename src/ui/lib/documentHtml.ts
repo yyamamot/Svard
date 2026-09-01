@@ -24,7 +24,13 @@ import {
   classifyDocumentLinkHref,
   relativeResolvedDocumentHref,
 } from "./documentLinkNavigation";
-import { perfBasename, perfDuration, perfNow, tracePerf } from "./perfTrace";
+import {
+  perfBasename,
+  perfDuration,
+  perfNow,
+  perfTraceEnabled,
+  tracePerf,
+} from "./perfTrace";
 import {
   MARKDOWN_RENDERER_ID_ATTRIBUTE,
   validateMarkdownRendererProvenance,
@@ -903,6 +909,12 @@ export async function prepareDocumentHtml(
   });
 
   const imagesStartedAt = perfNow();
+  const imageResolverTracingEnabled = perfTraceEnabled();
+  let imageResolverDurationMs = 0;
+  let imageResolverCallCount = 0;
+  let imageResolverResolvedCount = 0;
+  let imageResolverBlockedCount = 0;
+  let imageResolverErrorCount = 0;
   const hasAuthorImages = Array.from(
     authorHtmlResourceCandidates.values(),
   ).some((candidate) => candidate.kind === "image");
@@ -977,16 +989,47 @@ export async function prepareDocumentHtml(
       }
 
       if (resolvedImage.status === "local") {
-        const backendResult = options.resolveLocalImage
-          ? await options.resolveLocalImage(
+        let backendResult: LocalImageResult;
+        if (options.resolveLocalImage) {
+          const resolverStartedAt = imageResolverTracingEnabled ? perfNow() : 0;
+          try {
+            backendResult = await options.resolveLocalImage(
               resolvedImage.source,
               document.path,
               document.asciidocContext ?? document.resourceContext,
-            )
-          : {
-              status: "blocked" as const,
-              placeholderText: `Local image: ${source}`,
-            };
+            );
+          } catch (error) {
+            if (imageResolverTracingEnabled) {
+              imageResolverDurationMs += perfNow() - resolverStartedAt;
+              imageResolverCallCount += 1;
+              imageResolverErrorCount += 1;
+              traceImageResolverMetrics({
+                durationMs: imageResolverDurationMs,
+                callCount: imageResolverCallCount,
+                resolvedCount: imageResolverResolvedCount,
+                blockedCount: imageResolverBlockedCount,
+                errorCount: imageResolverErrorCount,
+              });
+            }
+            throw error;
+          }
+          if (imageResolverTracingEnabled) {
+            imageResolverDurationMs += perfNow() - resolverStartedAt;
+            imageResolverCallCount += 1;
+            if (backendResult.status === "resolved") {
+              imageResolverResolvedCount += 1;
+            } else if (backendResult.status === "blocked") {
+              imageResolverBlockedCount += 1;
+            } else {
+              imageResolverErrorCount += 1;
+            }
+          }
+        } else {
+          backendResult = {
+            status: "blocked" as const,
+            placeholderText: `Local image: ${source}`,
+          };
+        }
         if (backendResult.status !== "resolved" || !backendResult.content) {
           if (authorCandidate) {
             blockMarkdownAuthorImage(image);
@@ -1023,6 +1066,15 @@ export async function prepareDocumentHtml(
       }
       image.setAttribute("data-image-reference", sourceReference(document));
     }
+  }
+  if (imageResolverTracingEnabled) {
+    traceImageResolverMetrics({
+      durationMs: imageResolverDurationMs,
+      callCount: imageResolverCallCount,
+      resolvedCount: imageResolverResolvedCount,
+      blockedCount: imageResolverBlockedCount,
+      errorCount: imageResolverErrorCount,
+    });
   }
   tracePerf("render.prepareDocumentHtml.images", {
     basename,
@@ -1208,6 +1260,29 @@ export async function prepareDocumentHtml(
     durationMs: perfDuration(mathStartedAt),
   });
   return markSafeHtml(sanitizedDoc.body.innerHTML);
+}
+
+function traceImageResolverMetrics({
+  durationMs,
+  callCount,
+  resolvedCount,
+  blockedCount,
+  errorCount,
+}: {
+  durationMs: number;
+  callCount: number;
+  resolvedCount: number;
+  blockedCount: number;
+  errorCount: number;
+}) {
+  tracePerf("render.prepareDocumentHtml.imageResolver", {
+    durationMs: Number(durationMs.toFixed(2)),
+    callCount,
+    resolvedCount,
+    blockedCount,
+    errorCount,
+    status: callCount > 0 ? "used" : "unused",
+  });
 }
 
 function traceWikilinkResolution(resolved: DocumentLinkResolution): void {

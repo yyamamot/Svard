@@ -12,6 +12,12 @@ import {
   type DocumentLinksByPath,
 } from "../lib/documentLinkInspector";
 import { buildIncludeInspectorItems } from "../lib/includeInspector";
+import {
+  perfDuration,
+  perfNow,
+  perfTraceEnabled,
+  tracePerf,
+} from "../lib/perfTrace";
 import type { SafeHtml } from "../lib/safeHtml";
 
 interface UseAppDocumentInspectorStateOptions {
@@ -59,21 +65,30 @@ export function useAppDocumentInspectorState({
     () => buildIncludeInspectorItems(activeDocumentPayload),
     [activeDocumentPayload],
   );
-  const linkInspectorModel = useMemo(
-    () =>
-      buildLinkInspectorModel({
-        activePath: activeDocumentPayload?.path,
-        documentLinksByPath,
-        openDocumentPaths,
-        rootDirectory,
-      }),
-    [
-      activeDocumentPayload?.path,
+  const linkInspectorModel = useMemo(() => {
+    const tracingEnabled = perfTraceEnabled();
+    const startedAt = tracingEnabled ? perfNow() : 0;
+    const model = buildLinkInspectorModel({
+      activePath: activeDocumentPayload?.path,
       documentLinksByPath,
       openDocumentPaths,
       rootDirectory,
-    ],
-  );
+    });
+    if (tracingEnabled) {
+      tracePerf("render.linkInspector.build", {
+        durationMs: perfDuration(startedAt),
+        outgoingCount: model.outgoing.length,
+        backlinkCount: model.backlinks.length,
+        status: "ready",
+      });
+    }
+    return model;
+  }, [
+    activeDocumentPayload?.path,
+    documentLinksByPath,
+    openDocumentPaths,
+    rootDirectory,
+  ]);
 
   useEffect(() => {
     setDocumentLinksByPath((current) =>
@@ -82,13 +97,30 @@ export function useAppDocumentInspectorState({
   }, [openDocumentPaths]);
 
   useEffect(() => {
+    const tracingEnabled = perfTraceEnabled();
+    const startedAt = tracingEnabled ? perfNow() : 0;
     if (!activeDocumentPayload || preferencesOpen) {
+      if (tracingEnabled) {
+        tracePerf("render.linkInspector.collect", {
+          durationMs: perfDuration(startedAt),
+          linkCount: 0,
+          status: "skipped",
+        });
+      }
       return;
     }
     const links = collectResolvedDocumentLinksFromHtml({
       document: { path: activeDocumentPayload.path },
       html: documentHtml,
     });
+    if (tracingEnabled) {
+      const linkCount = links.reduce((count, link) => count + link.count, 0);
+      tracePerf("render.linkInspector.collect", {
+        durationMs: perfDuration(startedAt),
+        linkCount,
+        status: "ready",
+      });
+    }
     setDocumentLinksByPath((current) => ({
       ...current,
       [activeDocumentPayload.path]: {

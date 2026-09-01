@@ -14,7 +14,12 @@ import {
 } from "../lib/search";
 import { expandCollapsedSectionsContaining } from "../lib/sectionCollapse";
 import type { SafeHtml } from "../lib/safeHtml";
-import { perfBasename, perfDuration, perfNow } from "../lib/perfTrace";
+import {
+  perfBasename,
+  perfDuration,
+  perfNow,
+  tracePerf,
+} from "../lib/perfTrace";
 
 interface UseSearchStateOptions {
   articleRef: RefObject<HTMLElement | null>;
@@ -98,6 +103,11 @@ export function useSearchState({
     const basename = perfBasename(documentPath);
     if (!article) {
       previousActiveSearchHitIndexRef.current = null;
+      tracePerf("render.search.cleanup", {
+        durationMs: 0,
+        markCount: 0,
+        status: "no-article",
+      });
       updateCurrentFileSearchTiming({
         basename,
         hitCount: 0,
@@ -109,10 +119,17 @@ export function useSearchState({
     // The viewer owns sanitized rendered HTML outside React's virtual DOM.
     // Search marks must be removed before each new highlight pass so html
     // updates and query changes never stack nested <mark> elements.
-    article.querySelectorAll("mark.search-hit").forEach((mark) => {
+    const cleanupStartedAt = perfNow();
+    const staleMarks = article.querySelectorAll("mark.search-hit");
+    staleMarks.forEach((mark) => {
       mark.replaceWith(document.createTextNode(mark.textContent ?? ""));
     });
     article.normalize();
+    tracePerf("render.search.cleanup", {
+      durationMs: perfDuration(cleanupStartedAt),
+      markCount: staleMarks.length,
+      status: "complete",
+    });
     previousActiveSearchHitIndexRef.current = null;
 
     if (documentPath && article.dataset.renderedDocumentPath !== documentPath) {

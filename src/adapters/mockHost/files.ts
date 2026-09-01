@@ -425,6 +425,14 @@ export async function resolveLocalImage(
     documentPath,
     context,
   );
+  if (path.startsWith("/workspace/docs/assets/imp-560-raster-")) {
+    const { resolveImp560BenchmarkRaster } =
+      await import("./imp560BenchmarkRasters");
+    const benchmarkRaster = resolveImp560BenchmarkRaster(path);
+    if (benchmarkRaster) {
+      return benchmarkRaster;
+    }
+  }
   if (
     path === "/workspace/docs/assets/svard-sample.svg" ||
     path === "/workspace/docs/assets/diff-oversized-image.svg" ||

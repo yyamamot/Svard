@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import type { RenderResult } from "../../core/types";
-import { tracePerf } from "../lib/perfTrace";
+import {
+  perfDuration,
+  perfNow,
+  perfTraceEnabled,
+  tracePerf,
+} from "../lib/perfTrace";
 
 interface UseActiveHeadingTrackingOptions {
   articleRef: React.RefObject<HTMLElement | null>;
@@ -20,6 +25,8 @@ export function useActiveHeadingTracking({
     if (!viewer || !renderResult) {
       return;
     }
+    const tracingEnabled = perfTraceEnabled();
+    const initialMeasurementStartedAt = tracingEnabled ? perfNow() : 0;
     const headings = renderResult.headings
       .map((heading) => ({
         id: heading.id,
@@ -36,7 +43,10 @@ export function useActiveHeadingTracking({
     let scrollEventCount = 0;
     let measurementCount = 0;
 
-    function updateActiveHeading() {
+    function updateActiveHeading(
+      trigger: "initial" | "scroll",
+      startedAt = tracingEnabled ? perfNow() : 0,
+    ) {
       measurementCount += 1;
       const active = headings
         .map((item) => ({
@@ -46,7 +56,17 @@ export function useActiveHeadingTracking({
         .filter((item) => item.top <= 140)
         .at(-1);
       const nextActiveHeadingId = active?.id ?? null;
-      if (nextActiveHeadingId !== activeHeadingId) {
+      const changed = nextActiveHeadingId !== activeHeadingId;
+      if (tracingEnabled) {
+        tracePerf("render.activeHeading.measure", {
+          durationMs: perfDuration(startedAt),
+          headingCount: headings.length,
+          measurementCount,
+          trigger,
+          status: changed ? "changed" : "unchanged",
+        });
+      }
+      if (changed) {
         activeHeadingId = nextActiveHeadingId;
         tracePerf("viewer.activeHeading.changed", {
           headingId: nextActiveHeadingId,
@@ -65,14 +85,14 @@ export function useActiveHeadingTracking({
       }
       animationFrame = window.requestAnimationFrame(() => {
         animationFrame = null;
-        updateActiveHeading();
+        updateActiveHeading("scroll");
       });
     }
 
     viewer.addEventListener("scroll", scheduleUpdateActiveHeading, {
       passive: true,
     });
-    updateActiveHeading();
+    updateActiveHeading("initial", initialMeasurementStartedAt);
     return () => {
       if (animationFrame !== null) {
         window.cancelAnimationFrame(animationFrame);

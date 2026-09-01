@@ -132,7 +132,43 @@ describe("useSearchState", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    localStorage.removeItem("SVARD_PERF_TRACE");
     delete window.__SVARD_CURRENT_FILE_SEARCH_TIMING__;
+  });
+
+  it("records search cleanup cost without query or document identity", async () => {
+    const events: Array<Record<string, unknown>> = [];
+    localStorage.setItem("SVARD_PERF_TRACE", "1");
+    vi.spyOn(console, "info").mockImplementation(
+      (label: unknown, payload: unknown) => {
+        if (label === "[perf]" && payload && typeof payload === "object") {
+          events.push(payload as Record<string, unknown>);
+        }
+      },
+    );
+    const { harness } = renderSearchStateHarness({
+      html: '<h1>Search</h1><p><mark class="search-hit">private-query</mark></p>',
+    });
+
+    await flushSearchEffects();
+
+    const event = events.find(
+      (candidate) =>
+        candidate.event === "render.search.cleanup" &&
+        candidate.status === "complete" &&
+        candidate.markCount === 1,
+    );
+    expect(event).toEqual(
+      expect.objectContaining({
+        markCount: 1,
+        status: "complete",
+      }),
+    );
+    expect(typeof event?.durationMs).toBe("number");
+    expect(JSON.stringify(event)).not.toContain("private-query");
+    expect(JSON.stringify(event)).not.toContain("/workspace");
+
+    harness.cleanup();
   });
 
   it("highlights current document hits and publishes privacy-safe timing", async () => {

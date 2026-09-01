@@ -16,6 +16,41 @@ use crate::path_policy::{
 
 pub(crate) const LOCAL_IMAGE_MAX_BYTES: u64 = 5 * 1024 * 1024;
 
+#[derive(Clone, Copy)]
+enum LocalImageResolvePhase {
+    PathPolicyContext,
+    Metadata,
+    FileRead,
+    Encode,
+}
+
+trait LocalImagePhaseRecorder {
+    type Started;
+
+    fn start(&mut self) -> Self::Started;
+    fn finish(&mut self, phase: LocalImageResolvePhase, started: Self::Started);
+}
+
+struct DisabledLocalImagePhaseRecorder;
+
+impl LocalImagePhaseRecorder for DisabledLocalImagePhaseRecorder {
+    type Started = ();
+
+    #[inline(always)]
+    fn start(&mut self) -> Self::Started {}
+
+    #[inline(always)]
+    fn finish(&mut self, _phase: LocalImageResolvePhase, _started: Self::Started) {}
+}
+
+enum LocalImagePathResolution {
+    Ready {
+        image_path: PathBuf,
+        media_type: &'static str,
+    },
+    Blocked(LocalImageResult),
+}
+
 #[cfg(test)]
 pub(crate) fn resolve_local_image_from_path(
     source: &str,
@@ -53,43 +88,93 @@ pub(crate) fn resolve_local_image_from_path_with_local_context(
     roots: &AllowedRoots,
     context: Option<&LocalImageResolveContext>,
 ) -> Result<LocalImageResult, String> {
-    let document_path = match resolve_existing_file_path(&PathBuf::from(document_path)) {
-        Ok(path) => path,
-        Err(_) => {
-            return Ok(blocked_local_image(
-                "Local image document is not available.",
-            ));
-        }
-    };
+    let mut recorder = DisabledLocalImagePhaseRecorder;
+    resolve_local_image_from_path_with_recorder(
+        source,
+        document_path,
+        roots,
+        context,
+        &mut recorder,
+    )
+}
 
-    ensure_path_allowed(&document_path, roots)?;
-    let trusted_context = trusted_local_image_context(&document_path, roots, context);
-    let image_path =
-        match resolve_local_image_candidates(source, &document_path, Some(&trusted_context), roots)
-        {
+fn resolve_local_image_from_path_with_recorder<R: LocalImagePhaseRecorder>(
+    source: &str,
+    document_path: &str,
+    roots: &AllowedRoots,
+    context: Option<&LocalImageResolveContext>,
+    recorder: &mut R,
+) -> Result<LocalImageResult, String> {
+    let path_started = recorder.start();
+    let path_resolution = (|| -> Result<LocalImagePathResolution, String> {
+        let document_path = match resolve_existing_file_path(&PathBuf::from(document_path)) {
+            Ok(path) => path,
+            Err(_) => {
+                return Ok(LocalImagePathResolution::Blocked(blocked_local_image(
+                    "Local image document is not available.",
+                )));
+            }
+        };
+
+        ensure_path_allowed(&document_path, roots)?;
+        let trusted_context = trusted_local_image_context(&document_path, roots, context);
+        let image_path = match resolve_local_image_candidates(
+            source,
+            &document_path,
+            Some(&trusted_context),
+            roots,
+        ) {
             Some(candidates) => match candidates
                 .into_iter()
                 .find_map(|candidate| resolve_existing_file_path(&candidate).ok())
             {
                 Some(path) => path,
-                None => return Ok(blocked_local_image("Local image is not available.")),
+                None => {
+                    return Ok(LocalImagePathResolution::Blocked(blocked_local_image(
+                        "Local image is not available.",
+                    )));
+                }
             },
-            None => return Ok(blocked_local_image("Local image URL is not allowed.")),
+            None => {
+                return Ok(LocalImagePathResolution::Blocked(blocked_local_image(
+                    "Local image URL is not allowed.",
+                )));
+            }
         };
-    let context_allows_root_relative_asset = is_root_relative_local_asset(source)
-        && context_allows_image_path(&trusted_context, &image_path);
-    if !image_path.is_file()
-        || (ensure_path_allowed(&image_path, roots).is_err() && !context_allows_root_relative_asset)
-    {
-        return Ok(blocked_local_image(
-            "Local image is outside the current workspace.",
-        ));
-    }
+        let context_allows_root_relative_asset = is_root_relative_local_asset(source)
+            && context_allows_image_path(&trusted_context, &image_path);
+        if !image_path.is_file()
+            || (ensure_path_allowed(&image_path, roots).is_err()
+                && !context_allows_root_relative_asset)
+        {
+            return Ok(LocalImagePathResolution::Blocked(blocked_local_image(
+                "Local image is outside the current workspace.",
+            )));
+        }
 
-    let Some(media_type) = local_image_media_type(&image_path) else {
-        return Ok(blocked_local_image("Unsupported local image type."));
+        let Some(media_type) = local_image_media_type(&image_path) else {
+            return Ok(LocalImagePathResolution::Blocked(blocked_local_image(
+                "Unsupported local image type.",
+            )));
+        };
+        Ok(LocalImagePathResolution::Ready {
+            image_path,
+            media_type,
+        })
+    })();
+    recorder.finish(LocalImageResolvePhase::PathPolicyContext, path_started);
+    let (image_path, media_type) = match path_resolution? {
+        LocalImagePathResolution::Ready {
+            image_path,
+            media_type,
+        } => (image_path, media_type),
+        LocalImagePathResolution::Blocked(result) => return Ok(result),
     };
-    let metadata = match fs::metadata(&image_path) {
+
+    let metadata_started = recorder.start();
+    let metadata = fs::metadata(&image_path);
+    recorder.finish(LocalImageResolvePhase::Metadata, metadata_started);
+    let metadata = match metadata {
         Ok(metadata) => metadata,
         Err(_) => return Ok(blocked_local_image("Local image is not available.")),
     };
@@ -97,11 +182,79 @@ pub(crate) fn resolve_local_image_from_path_with_local_context(
         return Ok(blocked_local_image("Local image is too large."));
     }
 
-    let bytes = match fs::read(&image_path) {
+    let file_read_started = recorder.start();
+    let bytes = fs::read(&image_path);
+    recorder.finish(LocalImageResolvePhase::FileRead, file_read_started);
+    let bytes = match bytes {
         Ok(bytes) => bytes,
         Err(_) => return Ok(blocked_local_image("Local image is not available.")),
     };
-    resolved_local_image_from_bytes(bytes, media_type, &image_path)
+
+    let encode_started = recorder.start();
+    let result = resolved_local_image_from_bytes(bytes, media_type, &image_path);
+    recorder.finish(LocalImageResolvePhase::Encode, encode_started);
+    result
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct LocalImageResolvePhaseTimings {
+    pub(crate) path_policy_context_ms: f64,
+    pub(crate) metadata_ms: f64,
+    pub(crate) file_read_ms: f64,
+    pub(crate) encode_ms: f64,
+    pub(crate) total_ms: f64,
+}
+
+#[cfg(test)]
+struct MeasuringLocalImagePhaseRecorder {
+    timings: LocalImageResolvePhaseTimings,
+}
+
+#[cfg(test)]
+impl LocalImagePhaseRecorder for MeasuringLocalImagePhaseRecorder {
+    type Started = std::time::Instant;
+
+    fn start(&mut self) -> Self::Started {
+        std::time::Instant::now()
+    }
+
+    fn finish(&mut self, phase: LocalImageResolvePhase, started: Self::Started) {
+        let duration_ms = started.elapsed().as_secs_f64() * 1_000.0;
+        match phase {
+            LocalImageResolvePhase::PathPolicyContext => {
+                self.timings.path_policy_context_ms += duration_ms;
+            }
+            LocalImageResolvePhase::Metadata => self.timings.metadata_ms += duration_ms,
+            LocalImageResolvePhase::FileRead => self.timings.file_read_ms += duration_ms,
+            LocalImageResolvePhase::Encode => self.timings.encode_ms += duration_ms,
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn probe_local_image_resolve_phases(
+    source: &str,
+    document_path: &str,
+    roots: &AllowedRoots,
+    context: Option<&LocalImageResolveContext>,
+) -> (
+    Result<LocalImageResult, String>,
+    LocalImageResolvePhaseTimings,
+) {
+    let total_started = std::time::Instant::now();
+    let mut recorder = MeasuringLocalImagePhaseRecorder {
+        timings: LocalImageResolvePhaseTimings::default(),
+    };
+    let result = resolve_local_image_from_path_with_recorder(
+        source,
+        document_path,
+        roots,
+        context,
+        &mut recorder,
+    );
+    recorder.timings.total_ms = total_started.elapsed().as_secs_f64() * 1_000.0;
+    (result, recorder.timings)
 }
 
 pub(crate) fn resolve_git_diff_local_image_from_source(
@@ -549,3 +702,6 @@ pub(crate) fn local_image_media_type(path: &Path) -> Option<&'static str> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod perf_probe_tests;

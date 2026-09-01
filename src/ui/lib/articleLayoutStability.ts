@@ -29,6 +29,11 @@ interface WaitForArticleLayoutOptions {
     state: Exclude<ArticleLayoutState, "pending">,
     geometry: ArticleLayoutGeometry,
   ) => void;
+  onFrame?: (
+    frameCount: number,
+    geometry: ArticleLayoutGeometry,
+    stableCount: number,
+  ) => void;
   stableFrames?: number;
 }
 
@@ -69,6 +74,7 @@ export function waitForArticleLayoutStability({
   cancelFrame = window.cancelAnimationFrame.bind(window),
   measure = measureArticleLayout,
   onComplete,
+  onFrame,
   stableFrames = articleLayoutStableFrames,
 }: WaitForArticleLayoutOptions) {
   let cancelled = false;
@@ -84,6 +90,7 @@ export function waitForArticleLayoutStability({
     stableCount =
       previous && sameGeometry(previous, geometry) ? stableCount + 1 : 1;
     previous = geometry;
+    onFrame?.(frameCount, geometry, stableCount);
     if (stableCount >= stableFrames) {
       onComplete("ready", geometry);
       return;

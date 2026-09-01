@@ -11,6 +11,32 @@ describe("render commit perf trace", () => {
     path.join(process.cwd(), "src/ui/components/ViewerPane.tsx"),
     "utf8",
   );
+  const documentHtmlSource = fs.readFileSync(
+    path.join(process.cwd(), "src/ui/lib/documentHtml.ts"),
+    "utf8",
+  );
+  const imageDecodeTraceSource = fs.readFileSync(
+    path.join(process.cwd(), "src/ui/lib/renderCriticalPathTrace.ts"),
+    "utf8",
+  );
+  const searchStateSource = fs.readFileSync(
+    path.join(process.cwd(), "src/ui/hooks/useSearchState.ts"),
+    "utf8",
+  );
+  const activeHeadingSource = fs.readFileSync(
+    path.join(process.cwd(), "src/ui/hooks/useActiveHeadingTracking.ts"),
+    "utf8",
+  );
+  const inspectorSource = fs.readFileSync(
+    path.join(process.cwd(), "src/ui/hooks/useAppDocumentInspectorState.ts"),
+    "utf8",
+  );
+
+  function tracePayloadSource(source: string, event: string) {
+    const start = source.indexOf(`tracePerf("${event}"`);
+    expect(start, `${event} trace exists`).toBeGreaterThanOrEqual(0);
+    return source.slice(start, source.indexOf("});", start) + 3);
+  }
 
   it("records state and layout commit boundaries without private body data", () => {
     expect(renderHookSource).toContain("render.stateCommit.start");
@@ -87,5 +113,26 @@ describe("render commit perf trace", () => {
     expect(layoutEffectBody).not.toContain("source");
     expect(layoutEffectBody).not.toContain("documentPayload.path");
     expect(layoutEffectBody).not.toContain("[html, payload, result]");
+  });
+
+  it("keeps critical-path phase events aggregate and privacy-safe", () => {
+    const phaseEvents = [
+      [documentHtmlSource, "render.prepareDocumentHtml.imageResolver"] as const,
+      [imageDecodeTraceSource, "render.imageDecode.complete"] as const,
+      [viewerPaneSource, "render.commitFrame"] as const,
+      [viewerPaneSource, "render.layoutStability"] as const,
+      [searchStateSource, "render.search.cleanup"] as const,
+      [activeHeadingSource, "render.activeHeading.measure"] as const,
+      [inspectorSource, "render.linkInspector.collect"] as const,
+      [inspectorSource, "render.linkInspector.build"] as const,
+    ];
+
+    for (const [source, event] of phaseEvents) {
+      const payload = tracePayloadSource(source, event);
+      expect(payload).toContain("durationMs");
+      expect(payload).not.toMatch(
+        /\b(?:basename|documentPath|path|url|html|source|content)\b/iu,
+      );
+    }
   });
 });

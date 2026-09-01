@@ -39,11 +39,13 @@ describe("article layout stability", () => {
     const article = document.createElement("article");
     const frames = frameQueue();
     const onComplete = vi.fn();
+    const onFrame = vi.fn();
     waitForArticleLayoutStability({
       article,
       isCurrent: () => true,
       measure: () => stableGeometry,
       onComplete,
+      onFrame,
       requestFrame: frames.requestFrame,
     });
 
@@ -51,6 +53,8 @@ describe("article layout stability", () => {
     expect(onComplete).not.toHaveBeenCalled();
     frames.runNext();
     expect(onComplete).toHaveBeenCalledWith("ready", stableGeometry);
+    expect(onFrame).toHaveBeenNthCalledWith(1, 1, stableGeometry, 1);
+    expect(onFrame).toHaveBeenNthCalledWith(2, 2, stableGeometry, 2);
   });
 
   it("times out without hiding the article when geometry keeps changing", () => {

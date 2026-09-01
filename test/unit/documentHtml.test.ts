@@ -633,6 +633,71 @@ describe("prepareDocumentHtml", () => {
           }),
         );
       }
+      expect(
+        events.find(
+          (event) => event.event === "render.prepareDocumentHtml.imageResolver",
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          callCount: 0,
+          resolvedCount: 0,
+          blockedCount: 0,
+          errorCount: 0,
+          status: "unused",
+        }),
+      );
+    } finally {
+      infoSpy.mockRestore();
+      localStorage.removeItem("SVARD_PERF_TRACE");
+    }
+  });
+
+  it("records aggregate local image resolver timing without resource data", async () => {
+    const events: Array<Record<string, unknown>> = [];
+    localStorage.setItem("SVARD_PERF_TRACE", "1");
+    const infoSpy = vi
+      .spyOn(console, "info")
+      .mockImplementation((label: unknown, payload: unknown) => {
+        if (label === "[perf]" && payload && typeof payload === "object") {
+          events.push(payload as Record<string, unknown>);
+        }
+      });
+    const results = [
+      {
+        status: "resolved" as const,
+        mediaType: "image/png",
+        content: "AA==",
+      },
+      { status: "blocked" as const, placeholderText: "blocked" },
+      { status: "error" as const, placeholderText: "error" },
+    ];
+    const resolveLocalImage = vi.fn(async () => results.shift()!);
+
+    try {
+      await prepareDocumentHtml(
+        '<p><img src="./private-a.png"><img src="./private-b.png"><img src="./private-c.png"></p>',
+        documentPayload,
+        { security: { allowLocalImages: true, confirmExternalLinks: true } },
+        renderResult,
+        { resolveLocalImage },
+      );
+
+      const event = events.find(
+        (candidate) =>
+          candidate.event === "render.prepareDocumentHtml.imageResolver",
+      );
+      expect(event).toEqual(
+        expect.objectContaining({
+          callCount: 3,
+          resolvedCount: 1,
+          blockedCount: 1,
+          errorCount: 1,
+          status: "used",
+        }),
+      );
+      expect(typeof event?.durationMs).toBe("number");
+      expect(JSON.stringify(event)).not.toContain("private-a");
+      expect(JSON.stringify(event)).not.toContain("/workspace");
     } finally {
       infoSpy.mockRestore();
       localStorage.removeItem("SVARD_PERF_TRACE");
