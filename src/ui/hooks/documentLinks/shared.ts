@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import type { LucideIcon } from "lucide-react";
+import { selectionVisibleTextForRange } from "../../lib/documentSelection";
 
 export function menuIcon(Icon: LucideIcon) {
   return createElement(Icon, { size: 14 });
@@ -11,11 +12,14 @@ export function documentSelectionAtPoint(
   clientY: number,
 ) {
   const selection = window.getSelection();
-  const text = selection?.toString() ?? "";
-  if (!text || !article || !selection?.rangeCount) {
+  if (!article || !selection?.rangeCount || selection.isCollapsed) {
     return "";
   }
   const range = selection.getRangeAt(0);
+  const text = selectionVisibleTextForRange(range);
+  if (!text) {
+    return "";
+  }
   const ancestor = range.commonAncestorContainer;
   const node =
     ancestor.nodeType === Node.ELEMENT_NODE ? ancestor : ancestor.parentElement;

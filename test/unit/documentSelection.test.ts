@@ -69,4 +69,43 @@ describe("documentSelectionAtPoint", () => {
     document.elementFromPoint = original;
     article.remove();
   });
+
+  it("uses visible math source once instead of hidden KaTeX internals", () => {
+    const article = document.createElement("article");
+    article.innerHTML = `<p>Equation <span class="katex" data-math-source="E = mc^2" data-math-display="inline"><span class="katex-mathml">E = mc^2</span><span class="katex-html" aria-hidden="true">hidden visual math</span></span>.</p>`;
+    const paragraph = article.querySelector("p")!;
+    const math = article.querySelector<HTMLElement>(".katex")!;
+    document.body.append(article);
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.getClientRects = () => [] as unknown as DOMRectList;
+    window.getSelection()?.addRange(range);
+    const original = document.elementFromPoint;
+    document.elementFromPoint = () => math;
+
+    expect(documentSelectionAtPoint(article, 10, 10)).toBe(
+      "Equation E = mc^2.",
+    );
+
+    document.elementFromPoint = original;
+    article.remove();
+  });
+
+  it("treats a selection inside one KaTeX wrapper as atomic visible math", () => {
+    const article = document.createElement("article");
+    article.innerHTML = `<p><span class="katex" data-math-source="E = mc^2" data-math-display="inline"><span class="katex-mathml">E = mc^2</span><span class="katex-html" aria-hidden="true">hidden visual math</span></span></p>`;
+    const math = article.querySelector<HTMLElement>(".katex")!;
+    document.body.append(article);
+    const range = document.createRange();
+    range.selectNodeContents(math);
+    range.getClientRects = () => [] as unknown as DOMRectList;
+    window.getSelection()?.addRange(range);
+    const original = document.elementFromPoint;
+    document.elementFromPoint = () => math;
+
+    expect(documentSelectionAtPoint(article, 10, 10)).toBe("E = mc^2");
+
+    document.elementFromPoint = original;
+    article.remove();
+  });
 });

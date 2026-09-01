@@ -179,7 +179,7 @@ export async function extractDocumentSelection({
     if (prose.plainText || prose.markdown) blocks.push(prose);
   }
 
-  const plainText = visibleSelectionText(range);
+  const plainText = selectionVisibleTextForRange(range);
   const serializedBytes = new TextEncoder().encode(
     blocks.map(selectionBlockText).filter(Boolean).join("\n\n"),
   ).byteLength;
@@ -304,48 +304,11 @@ export function selectionTextReference(
       ? `Comparison: ${snapshot.diffContext.comparisonLabel}`
       : "",
     snapshot.sectionLabel ? `Section: ${snapshot.sectionLabel}` : "",
-    "Selected content:",
-    selectionSnapshotText(snapshot),
+    "Text:",
+    snapshot.plainText,
   ]
     .filter(Boolean)
     .join("\n");
-}
-
-export function selectionOriginalTextReference(
-  snapshot: DocumentSelectionSnapshot,
-  source: string,
-): string | undefined {
-  if (
-    snapshot.provenance.length !== 1 ||
-    !snapshot.provenance[0].exact ||
-    !snapshot.plainText
-  ) {
-    return undefined;
-  }
-  const provenance = snapshot.provenance[0];
-  const lines = source.replace(/\r\n?/gu, "\n").split("\n");
-  const sourceSlice = lines
-    .slice(provenance.startLine - 1, provenance.endLine)
-    .join("\n");
-  const first = sourceSlice.indexOf(snapshot.plainText);
-  if (
-    first < 0 ||
-    sourceSlice.indexOf(
-      snapshot.plainText,
-      first + snapshot.plainText.length,
-    ) >= 0
-  ) {
-    return undefined;
-  }
-  return [
-    `File: ${provenance.sourcePath}:${provenance.startLine}${
-      provenance.endLine === provenance.startLine
-        ? ""
-        : `-${provenance.endLine}`
-    }`,
-    "Original source:",
-    sourceSlice.slice(first, first + snapshot.plainText.length),
-  ].join("\n");
 }
 
 function emptySnapshot(
@@ -771,7 +734,16 @@ function removeExcluded(root: DocumentFragment) {
   root.querySelectorAll(".katex-html").forEach((element) => element.remove());
 }
 
-function visibleSelectionText(range: Range) {
+export function selectionVisibleTextForRange(range: Range) {
+  const ancestor = range.commonAncestorContainer;
+  const enclosingMath = (
+    ancestor instanceof Element ? ancestor : ancestor.parentElement
+  )?.closest(".katex");
+  if (enclosingMath) {
+    return normalizeVisibleText(
+      renderedMathSource(enclosingMath) ?? range.toString(),
+    );
+  }
   const fragment = range.cloneContents();
   if (!fragment.querySelector(".katex")) {
     return normalizeVisibleText(range.toString());

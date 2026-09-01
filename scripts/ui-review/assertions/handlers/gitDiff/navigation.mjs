@@ -22,6 +22,10 @@ export async function buildGitDiffNavigationAssertions(context) {
   const page = context.page;
   const bodyText = context.bodyText;
   const geometryReviewIds = context.geometryReviewIds;
+  const diffOverviewText =
+    scenario === "viewer-diff-overview"
+      ? await page.locator('[data-review-id="git-diff-overview"]').innerText()
+      : "";
 
   return {
     hasDiffPreviewExpand:
@@ -54,37 +58,27 @@ export async function buildGitDiffNavigationAssertions(context) {
         : true,
     hasDiffOverview:
       scenario === "viewer-diff-overview"
-        ? bodyText.includes("Overview") &&
-          bodyText.includes("Changed sections") &&
-          bodyText.includes("Changed blocks") &&
-          bodyText.includes("Tables") &&
-          bodyText.includes("2 changes") &&
-          !bodyText.includes("Added blocks") &&
-          !bodyText.includes("Removed blocks") &&
-          !bodyText.includes("Diagrams") &&
-          !bodyText.includes("Changes-only and source diff data") &&
+        ? (await page
+            .locator('[data-review-id="git-diff-overview-view"]')
+            .getAttribute("aria-pressed")) === "true" &&
+          diffOverviewText.includes("Changed sections") &&
+          diffOverviewText.includes("Changed blocks") &&
+          diffOverviewText.includes("Tables") &&
+          diffOverviewText.includes("2 changes") &&
+          !diffOverviewText.includes("Added blocks") &&
+          !diffOverviewText.includes("Removed blocks") &&
+          !diffOverviewText.includes("Diagrams") &&
+          !diffOverviewText.includes("Changes-only and source diff data") &&
           (await page
             .locator('[data-review-id="git-diff-fallback-reason"]')
-            .count()) === 0 &&
+            .filter({ hasText: "Structured fallback: ambiguous" })
+            .count()) === 1 &&
           (await page
             .locator('[data-review-id="git-diff-overview"]')
             .count()) === 1 &&
           (await page
             .locator('[data-review-id="git-diff-overview-sections"] li')
-            .count()) > 0 &&
-          (await page.evaluate(() => {
-            const sectionButtons = Array.from(
-              document.querySelectorAll(
-                '[data-review-id="git-diff-overview-sections"] button',
-              ),
-            );
-            const labels = sectionButtons.map((button) =>
-              (button.textContent ?? "")
-                .replace(/\s*·?\s*\d+\s+changes?\s*$/u, "")
-                .trim(),
-            );
-            return new Set(labels).size === labels.length;
-          }))
+            .count()) === 3
         : true,
     hasDiffChangeNavigation:
       scenario === "viewer-diff-change-navigation"

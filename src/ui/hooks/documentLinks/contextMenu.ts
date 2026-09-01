@@ -3,15 +3,16 @@ import type { ContextMenuItem } from "../../types";
 import {
   isLocationReferenceTarget,
   locationReferenceForElement,
+  locationReferenceForSelection,
   locationReferenceTargetLabel,
 } from "../../lib/locationReference";
 import { imageReferenceForElement } from "../../lib/imageReference";
-import {
-  extractDocumentSelection,
-  selectionOriginalTextReference,
-  selectionTextReference,
-} from "../../lib/documentSelection";
+import { extractDocumentSelection } from "../../lib/documentSelection";
 import { extractDocumentMedia } from "../../lib/documentMedia";
+import {
+  originalTextReferenceForSelection,
+  sourceReferenceForSelection,
+} from "../../lib/sourceTextCopy";
 import type { CopyText, UseDocumentLinksOptions } from "./types";
 import { documentSelectionAtPoint } from "./shared";
 import {
@@ -113,8 +114,34 @@ export function createArticleContextMenuHandler({
         activeSelection?.rangeCount && articleRef.current
           ? activeSelection.getRangeAt(0).cloneRange()
           : null;
+      const textReference = documentPayload
+        ? locationReferenceForSelection({
+            article: articleRef.current,
+            document: documentPayload,
+            renderResult,
+            selection,
+            range: selectionRange ?? undefined,
+            sourceReference: sourceReferenceForSelection({
+              article: articleRef.current,
+              document: documentPayload,
+              renderResult,
+              range: selectionRange ?? undefined,
+            }),
+          })
+        : undefined;
+      const originalTextReference = documentPayload
+        ? originalTextReferenceForSelection({
+            article: articleRef.current,
+            document: documentPayload,
+            renderResult,
+            range: selectionRange ?? undefined,
+          })
+        : undefined;
       const snapshot =
-        documentPayload && articleRef.current && selectionRange
+        onAddAgentSelection &&
+        documentPayload &&
+        articleRef.current &&
+        selectionRange
           ? await extractDocumentSelection({
               article: articleRef.current,
               document: documentPayload,
@@ -122,17 +149,13 @@ export function createArticleContextMenuHandler({
               renderResult,
             })
           : null;
-      const originalReference =
-        snapshot && documentPayload
-          ? selectionOriginalTextReference(snapshot, documentPayload.source)
-          : undefined;
       addSelectionItems(
         items,
         table,
         copyText,
-        snapshot ? selectionTextReference(snapshot) : undefined,
+        textReference,
         undefined,
-        originalReference ? { value: originalReference } : undefined,
+        originalTextReference,
         snapshot &&
           !snapshot.diagnostics.some(
             (diagnostic) => diagnostic.severity === "blocking",

@@ -35,6 +35,7 @@ import {
 } from "./sourceControlRequests";
 import {
   emptyGitRefList,
+  type GitFileHistoryGitStateEntry,
   mergeGitCommitGraphPage,
   mergeGitFileHistoryPage,
   mergeGitRefPage,
@@ -81,6 +82,8 @@ export function useSourceControlActions({
   const [gitTimelinePath, setGitTimelinePath] = useState<string | null>(null);
   const [gitTimelineHistory, setGitTimelineHistory] =
     useState<GitFileHistory | null>(null);
+  const [gitFileHistoryGitStateEntry, setGitFileHistoryGitState] =
+    useState<GitFileHistoryGitStateEntry | null>(null);
   const [gitTimelineLoading, setGitTimelineLoading] = useState(false);
   const [gitTimelineLoadingMore, setGitTimelineLoadingMore] = useState(false);
   const [gitTimelineRefreshToken, setGitTimelineRefreshToken] = useState(0);
@@ -132,6 +135,10 @@ export function useSourceControlActions({
 
   const effectiveGitTimelinePath =
     gitTimelinePath ?? documentPayload?.path ?? null;
+  const gitFileHistoryGitState =
+    gitFileHistoryGitStateEntry?.path === effectiveGitTimelinePath
+      ? gitFileHistoryGitStateEntry.changes
+      : null;
   const sourceControlAnchorPath =
     rootDirectory || documentPayload?.path || effectiveGitTimelinePath || "";
   const isSourceControlOpen = workspaceSidebarTab === "sourceControl";
@@ -179,6 +186,7 @@ export function useSourceControlActions({
     setGitCommitGraphLoading,
     setGitTimelineCompareBase,
     setGitTimelineHistory,
+    setGitFileHistoryGitState,
     setGitTimelineLoading,
     setGitTimelineRefreshToken,
     setWorkspaceSidebarTab,
@@ -826,6 +834,7 @@ export function useSourceControlActions({
     gitBranchDiffLoading,
     gitChanges,
     gitChangesLoading,
+    gitFileHistoryGitState,
     gitCommitDetails,
     gitCommitGraph,
     gitCommitGraphLoading,

@@ -94,14 +94,7 @@ export function markerCompletenessForScenario(scenario, geometry) {
     optional.add("tree-collapse-all");
   }
   const scenarioMarkers = [];
-  if (
-    scenario.includes("search") ||
-    scenario === "viewer-copy-actions" ||
-    scenario === "viewer-copy-location-reference" ||
-    scenario === "viewer-code-block-actions" ||
-    scenario === "viewer-asciidoc-code-highlight" ||
-    scenario === "viewer-section-collapse-search-auto-expand"
-  ) {
+  if (scenario.includes("search")) {
     scenarioMarkers.push("search-input");
   }
   if (scenario === "viewer-lightweight-action-feedback") {

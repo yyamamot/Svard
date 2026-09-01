@@ -14,6 +14,7 @@ export function originalTextReferenceForSelection({
   article,
   document,
   renderResult,
+  range: explicitRange,
 }: {
   article: HTMLElement | null;
   document: DocumentPayload;
@@ -27,12 +28,17 @@ export function originalTextReferenceForSelection({
         >)
     | null
     | undefined;
+  range?: Range;
 }) {
   const selection = window.getSelection();
-  if (!article || !selection?.rangeCount || selection.isCollapsed) {
+  const range =
+    explicitRange ??
+    (selection && selection.rangeCount > 0 && !selection.isCollapsed
+      ? selection.getRangeAt(0)
+      : undefined);
+  if (!article || !range || range.collapsed) {
     return undefined;
   }
-  const range = selection.getRangeAt(0);
   const section = sectionLabelForRange({
     article,
     range,
@@ -56,11 +62,15 @@ export function sourceReferenceForSelection({
   article,
   document,
   renderResult,
+  range: explicitRange,
 }: Parameters<typeof originalTextReferenceForSelection>[0]) {
   const selection = window.getSelection();
-  if (!article || !selection?.rangeCount || selection.isCollapsed)
-    return undefined;
-  const range = selection.getRangeAt(0);
+  const range =
+    explicitRange ??
+    (selection && selection.rangeCount > 0 && !selection.isCollapsed
+      ? selection.getRangeAt(0)
+      : undefined);
+  if (!article || !range || range.collapsed) return undefined;
   const mapped = sourceSelectionStartForRange(
     range,
     article,

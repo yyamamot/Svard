@@ -147,6 +147,49 @@ describe("file compare drag payload", () => {
     window.removeEventListener(codexContextPointerDragStartEvent, onDragStart);
   });
 
+  it("keeps the native document drag while the file compare picker is open", () => {
+    const codexPanel = document.createElement("div");
+    codexPanel.dataset.reviewId = "codex-panel";
+    document.body.append(codexPanel);
+    const picker = document.createElement("div");
+    picker.dataset.reviewId = "file-compare-picker";
+    document.body.append(picker);
+
+    const target = document.createElement("button");
+    const setPointerCapture = vi.fn();
+    target.setPointerCapture = setPointerCapture;
+    document.body.append(target);
+
+    prepareFileCompareDragData("/workspace/docs/prepared.md");
+    prepareCodexContextPointerCapture(target, 8);
+
+    expect(activateCodexContextPointerCapture()).toBe(false);
+    expect(setPointerCapture).not.toHaveBeenCalled();
+    expect(isCodexContextPointerDragActive()).toBe(false);
+  });
+
+  it("discards a pending Agent pointer capture when the picker opens", () => {
+    const codexPanel = document.createElement("div");
+    codexPanel.dataset.reviewId = "codex-panel";
+    document.body.append(codexPanel);
+
+    const target = document.createElement("button");
+    const setPointerCapture = vi.fn();
+    target.setPointerCapture = setPointerCapture;
+    document.body.append(target);
+
+    prepareFileCompareDragData("/workspace/docs/prepared.md");
+    prepareCodexContextPointerCapture(target, 8);
+
+    const picker = document.createElement("div");
+    picker.dataset.reviewId = "file-compare-picker";
+    document.body.append(picker);
+
+    expect(activateCodexContextPointerCapture()).toBe(false);
+    expect(setPointerCapture).not.toHaveBeenCalled();
+    expect(isCodexContextPointerDragActive()).toBe(false);
+  });
+
   it("keeps the internal path until the pointer-based drop finishes", () => {
     vi.useFakeTimers();
     try {

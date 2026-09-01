@@ -3,6 +3,7 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 
 import { isSupportedDocumentPath } from "../../core/documentFormat";
 import type {
+  GitChanges,
   GitFileHistory,
   HostAdapter,
   WorkspacePerformanceMode,
@@ -16,6 +17,7 @@ import {
   type SourceControlTimerRefs,
 } from "./sourceControlScheduling";
 import { setSourceControlPayload } from "./sourceControlPayload";
+import type { GitFileHistoryGitStateEntry } from "./sourceControlState";
 
 export function useSourceControlFileHistoryLoader({
   effectiveGitTimelinePath,
@@ -24,6 +26,7 @@ export function useSourceControlFileHistoryLoader({
   isFileHistoryView,
   requestsRef,
   setGitTimelineHistory,
+  setGitFileHistoryGitState,
   setGitTimelineLoading,
   setGitTimelineRefreshToken,
   sourceControlAnchorPath,
@@ -37,6 +40,9 @@ export function useSourceControlFileHistoryLoader({
   isFileHistoryView: boolean;
   requestsRef: RefObject<SourceControlRequests>;
   setGitTimelineHistory: Dispatch<SetStateAction<GitFileHistory | null>>;
+  setGitFileHistoryGitState: Dispatch<
+    SetStateAction<GitFileHistoryGitStateEntry | null>
+  >;
   setGitTimelineLoading: (value: boolean) => void;
   setGitTimelineRefreshToken: Dispatch<SetStateAction<number>>;
   sourceControlAnchorPath: string;
@@ -60,6 +66,7 @@ export function useSourceControlFileHistoryLoader({
       !effectiveGitTimelinePath ||
       !isSupportedDocumentPath(effectiveGitTimelinePath)
     ) {
+      setGitFileHistoryGitState(null);
       setGitTimelineHistory(
         effectiveGitTimelinePath
           ? {
@@ -75,6 +82,30 @@ export function useSourceControlFileHistoryLoader({
     }
     let cancelled = false;
     const path = effectiveGitTimelinePath;
+    const gitStateRequest = requestsRef.current.getOrStartGitChangesRequest(
+      path,
+      "file-history-header",
+    );
+    if (gitStateRequest.cached) {
+      setGitFileHistoryGitState({
+        path,
+        changes: gitStateRequest.cached,
+      });
+    } else {
+      setGitFileHistoryGitState(null);
+    }
+    gitStateRequest.request
+      .then((changes: GitChanges) => {
+        requestsRef.current.setGitChangesCache(path, changes);
+        if (!cancelled) {
+          setGitFileHistoryGitState({ path, changes });
+        }
+      })
+      .catch(() => {
+        if (!cancelled && !gitStateRequest.cached) {
+          setGitFileHistoryGitState(null);
+        }
+      });
     const cached = requestsRef.current.getGitFileHistoryCache(path);
     if (cached) {
       setSourceControlPayload(setGitTimelineHistory, cached);
@@ -165,8 +196,10 @@ export function useSourceControlFileHistoryLoader({
   }, [
     effectiveGitTimelinePath,
     gitTimelineRefreshToken,
+    host,
     isFileHistoryView,
     requestsRef,
+    setGitFileHistoryGitState,
     setGitTimelineHistory,
     setGitTimelineLoading,
   ]);

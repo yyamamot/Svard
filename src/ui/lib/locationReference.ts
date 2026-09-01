@@ -68,6 +68,7 @@ export function locationReferenceForSelection({
   renderResult,
   selection,
   sourceReference: explicitSourceReference,
+  range: explicitRange,
   revision,
 }: {
   article: HTMLElement | null;
@@ -75,11 +76,14 @@ export function locationReferenceForSelection({
   renderResult?: Pick<RenderResult, "headings"> | null;
   selection: string;
   sourceReference?: string;
+  range?: Range;
   revision?: LocationReferenceRevision | null;
 }): string | undefined {
-  const range = window.getSelection()?.rangeCount
-    ? window.getSelection()?.getRangeAt(0)
-    : null;
+  const range =
+    explicitRange ??
+    (window.getSelection()?.rangeCount
+      ? window.getSelection()?.getRangeAt(0)
+      : null);
   const sourceElement = range ? sharedSourceElement(range, article) : null;
   const anchorElement = range
     ? elementForNode(range.commonAncestorContainer)

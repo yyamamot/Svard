@@ -41,6 +41,7 @@ import {
 export function SourceControlPanel({
   changes,
   changesLoading,
+  fileHistoryGitState,
   documentReviewSession = emptyDocumentReviewSessionControls,
   branchDiff,
   branchDiffLoading,
@@ -71,6 +72,7 @@ export function SourceControlPanel({
 }: {
   changes: GitChanges | null;
   changesLoading: boolean;
+  fileHistoryGitState: GitChanges | null;
   documentReviewSession?: DocumentReviewSessionControls;
   branchDiff: GitBranchDiff | null;
   branchDiffLoading: boolean;
@@ -120,17 +122,21 @@ export function SourceControlPanel({
           ? "fileHistory"
           : "repoGraph";
   const sourceControlGitState =
-    view === "changes"
+    activeSourceControlMode === "changes"
       ? !changesLoading && changes?.status === "ok"
         ? changes
         : null
-      : view === "branchDiff"
-        ? !branchDiffLoading && branchDiff?.status === "ok"
-          ? branchDiff
+      : activeSourceControlMode === "fileHistory"
+        ? fileHistoryGitState?.status === "ok"
+          ? fileHistoryGitState
           : null
-        : !graphLoading && graph?.status === "ok"
-          ? graph
-          : null;
+        : activeSourceControlMode === "branchDiff"
+          ? !branchDiffLoading && branchDiff?.status === "ok"
+            ? branchDiff
+            : null
+          : !graphLoading && graph?.status === "ok"
+            ? graph
+            : null;
   const currentBranch = sourceControlGitState?.currentBranch ?? null;
   const headCommit = sourceControlGitState?.headCommit ?? null;
   const headCommitTitle = headCommit

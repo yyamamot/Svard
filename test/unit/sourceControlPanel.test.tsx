@@ -170,6 +170,60 @@ describe("SourceControlPanel review session", () => {
     expect(onOpenAllDiffs.mock.calls[0]?.[0].items).toHaveLength(1);
   });
 
+  it("uses the target repository branch and HEAD in File History", async () => {
+    await renderPanel({
+      changes: {
+        status: "ok",
+        currentBranch: "workspace-branch",
+        headCommit: {
+          revision: "aaaaaaaaaaaaaaaa",
+          shortHash: "aaaaaaa",
+          summary: "Workspace head",
+        },
+        items: [],
+      },
+      fileHistoryGitState: {
+        status: "ok",
+        repositoryRoot: "/other-repository",
+        currentBranch: "feature/file-history",
+        headCommit: {
+          revision: "1234567890abcdef",
+          shortHash: "1234567",
+          summary: "Target file history header",
+        },
+        items: [],
+      },
+      graph: {
+        status: "ok",
+        scope: "repository",
+        currentBranch: "stale-graph-branch",
+        headCommit: {
+          revision: "abcdef1234567890",
+          shortHash: "abcdef1",
+          summary: "Stale graph head",
+        },
+        items: [],
+      },
+      fileHistory: {
+        status: "ok",
+        items: [],
+      },
+      view: "graph",
+      graphScope: "file",
+    });
+
+    expect(
+      container.querySelector('[data-review-id="source-control-branch"]')
+        ?.textContent,
+    ).toContain("feature/file-history");
+    expect(
+      container.querySelector('[data-review-id="source-control-head-commit"]')
+        ?.textContent,
+    ).toContain("Target file history header");
+    expect(container.textContent).not.toContain("workspace-branch");
+    expect(container.textContent).not.toContain("stale-graph-branch");
+  });
+
   async function renderPanel(
     overrides: Partial<Parameters<typeof SourceControlPanel>[0]> = {},
   ) {
@@ -188,6 +242,7 @@ describe("SourceControlPanel review session", () => {
             ],
           }}
           changesLoading={false}
+          fileHistoryGitState={null}
           documentReviewSession={{
             stateByPath: {},
             summary: { total: 1, reviewed: 0, needsAttention: 0 },

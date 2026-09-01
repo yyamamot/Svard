@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AppConfig,
   DocumentPayload,
+  GitChanges,
   HostAdapter,
 } from "../../src/core/types";
 import {
@@ -48,6 +49,7 @@ describe("useSourceControlActions", () => {
       onGitChangesRefreshComplete?: Parameters<
         typeof SourceControlHarness
       >[0]["onGitChangesRefreshComplete"];
+      onGitRefresh?: Parameters<typeof SourceControlHarness>[0]["onGitRefresh"];
       onActions?: (actions: SourceControlActions) => void;
       rootDirectory?: string;
       setDocumentDiffPreview?: Parameters<
@@ -418,6 +420,104 @@ describe("useSourceControlActions", () => {
       expect.any(Function),
     );
     expect(host.getGitCommitGraph).not.toHaveBeenCalled();
+    restoreAnimationFrame();
+  });
+
+  it("loads File History header state from the target repository without a general Git refresh", async () => {
+    const restoreAnimationFrame = mockAnimationFrame();
+    const host = createHost();
+    const onGitRefresh = vi.fn();
+    const targetPath = "/other-repository/docs/other.md";
+    const targetChanges: GitChanges = {
+      status: "ok",
+      repositoryRoot: "/other-repository",
+      currentBranch: "feature/other-repository",
+      headCommit: {
+        revision: "2222222222222222",
+        shortHash: "2222222",
+        summary: "Other repository head",
+      },
+      items: [],
+    };
+    vi.mocked(host.getGitChanges).mockImplementation(async (path) => {
+      if (path === targetPath) return targetChanges;
+      throw new Error(`Unexpected Git changes target: ${path}`);
+    });
+    let actions: SourceControlActions | undefined;
+
+    await render(configWithWorkspace({ sidebarTab: "files" }), host, {
+      onActions: (nextActions) => {
+        actions = nextActions;
+      },
+      onGitRefresh,
+    });
+    await act(async () => {
+      await actions!.showGitFileHistory(targetPath);
+    });
+    await act(async () => {});
+
+    expect(host.getGitChanges).toHaveBeenCalledWith(targetPath);
+    expect(actions?.gitFileHistoryGitState).toEqual(targetChanges);
+    expect(actions?.gitChanges).toBeNull();
+    expect(onGitRefresh).not.toHaveBeenCalled();
+    restoreAnimationFrame();
+  });
+
+  it("ignores stale File History header state after switching target repositories", async () => {
+    const restoreAnimationFrame = mockAnimationFrame();
+    const host = createHost();
+    const firstPath = "/repository-a/docs/first.md";
+    const secondPath = "/repository-b/docs/second.md";
+    const firstRequest = deferred<GitChanges>();
+    const secondRequest = deferred<GitChanges>();
+    vi.mocked(host.getGitChanges).mockImplementation((path) => {
+      if (path === firstPath) return firstRequest.promise;
+      if (path === secondPath) return secondRequest.promise;
+      return Promise.reject(
+        new Error(`Unexpected Git changes target: ${path}`),
+      );
+    });
+    let actions: SourceControlActions | undefined;
+
+    await render(configWithWorkspace({ sidebarTab: "files" }), host, {
+      onActions: (nextActions) => {
+        actions = nextActions;
+      },
+    });
+    await act(async () => {
+      await actions!.showGitFileHistory(firstPath);
+    });
+    expect(host.getGitChanges).toHaveBeenCalledWith(firstPath);
+
+    await act(async () => {
+      await actions!.showGitFileHistory(secondPath);
+    });
+    expect(host.getGitChanges).toHaveBeenCalledWith(secondPath);
+
+    const secondChanges: GitChanges = {
+      status: "ok",
+      repositoryRoot: "/repository-b",
+      currentBranch: "feature/second",
+      headCommit: null,
+      items: [],
+    };
+    await act(async () => {
+      secondRequest.resolve(secondChanges);
+      await secondRequest.promise;
+    });
+    expect(actions?.gitFileHistoryGitState).toEqual(secondChanges);
+
+    await act(async () => {
+      firstRequest.resolve({
+        status: "ok",
+        repositoryRoot: "/repository-a",
+        currentBranch: "stale-first",
+        headCommit: null,
+        items: [],
+      });
+      await firstRequest.promise;
+    });
+    expect(actions?.gitFileHistoryGitState).toEqual(secondChanges);
     restoreAnimationFrame();
   });
 

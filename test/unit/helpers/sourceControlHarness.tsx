@@ -92,6 +92,7 @@ export function SourceControlHarness({
   document = documentPayload,
   host,
   onGitChangesRefreshComplete,
+  onGitRefresh,
   onDocumentReviewNeedsAttention,
   onDocumentReviewReset,
   onDocumentReviewViewed,
@@ -107,6 +108,7 @@ export function SourceControlHarness({
   onGitChangesRefreshComplete?: Parameters<
     typeof useSourceControlActions
   >[0]["onGitChangesRefreshComplete"];
+  onGitRefresh?: Parameters<typeof useSourceControlActions>[0]["onGitRefresh"];
   onDocumentReviewNeedsAttention?: Parameters<
     typeof useSourceControlActions
   >[0]["onDocumentReviewNeedsAttention"];
@@ -133,6 +135,7 @@ export function SourceControlHarness({
     host,
     openContextMenu,
     onGitChangesRefreshComplete,
+    onGitRefresh,
     onDocumentReviewNeedsAttention,
     onDocumentReviewReset,
     onDocumentReviewViewed,

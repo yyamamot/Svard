@@ -11,6 +11,7 @@ export function buildLeftSidebarSourceControlProps({
   gitBranchDiffLoading,
   gitChanges,
   gitChangesLoading,
+  gitFileHistoryGitState,
   gitCommitGraph,
   gitCommitGraphLoading,
   gitCommitGraphLoadingMore,
@@ -41,6 +42,7 @@ export function buildLeftSidebarSourceControlProps({
   gitBranchDiffLoading: LeftSidebarProps["gitBranchDiffLoading"];
   gitChanges: LeftSidebarProps["gitChanges"];
   gitChangesLoading: LeftSidebarProps["gitChangesLoading"];
+  gitFileHistoryGitState: LeftSidebarProps["gitFileHistoryGitState"];
   gitCommitGraph: LeftSidebarProps["gitCommitGraph"];
   gitCommitGraphLoading: LeftSidebarProps["gitCommitGraphLoading"];
   gitCommitGraphLoadingMore: LeftSidebarProps["gitCommitGraphLoadingMore"];
@@ -78,6 +80,7 @@ export function buildLeftSidebarSourceControlProps({
   return {
     gitChanges,
     gitChangesLoading,
+    gitFileHistoryGitState,
     gitBranchDiff,
     gitBranchDiffLoading,
     gitCommitGraph,

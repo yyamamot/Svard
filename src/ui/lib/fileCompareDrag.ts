@@ -29,10 +29,12 @@ export function prepareCodexContextPointerCapture(
 ) {
   if (
     typeof document === "undefined" ||
+    document.querySelector('[data-review-id="file-compare-picker"]') ||
     !document.querySelector(
       '[data-review-id="codex-panel"], [data-review-id="agent-panel"]',
     )
   ) {
+    pendingCodexPointerCapture = null;
     return;
   }
   pendingCodexPointerCapture = { pointerId, target };
@@ -42,6 +44,13 @@ export function activateCodexContextPointerCapture(position?: {
   clientX: number;
   clientY: number;
 }) {
+  if (
+    typeof document !== "undefined" &&
+    document.querySelector('[data-review-id="file-compare-picker"]')
+  ) {
+    pendingCodexPointerCapture = null;
+    return false;
+  }
   if (!pendingCodexPointerCapture || !currentFileCompareDragPath) {
     return false;
   }

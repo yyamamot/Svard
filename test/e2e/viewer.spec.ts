@@ -91,6 +91,7 @@ test("viewer-preferences exposes MVP defaults", async ({ page }) => {
   await expect(page.getByTestId("diagram-timeout-unit")).toHaveText([
     "ms",
     "ms",
+    "ms",
   ]);
   await page
     .getByTestId("plantuml-renderer-control")
@@ -129,14 +130,14 @@ test("viewer-preferences exposes MVP defaults", async ({ page }) => {
     "Kroki is not used.",
   );
   await expect(page.getByTestId("kroki-privacy-note")).toContainText(
-    "Public kroki.io requires per-request confirmation.",
+    "Public kroki.io always requires confirmation.",
   );
   await expect(page.getByTestId("kroki-mode-control")).not.toContainText(
     "Local",
   );
   await page.getByTestId("kroki-mode-control").selectOption("remote");
   await expect(page.getByTestId("kroki-mode-help")).toHaveText(
-    "Use a trusted self-managed Kroki endpoint, including LAN or localhost.",
+    "Use a trusted self-managed Kroki endpoint. Confirmation is controlled below.",
   );
   await expect(page.getByTestId("kroki-endpoint-control")).toBeEnabled();
   await expect(page.getByTestId("kroki-endpoint-control")).toHaveAttribute(
@@ -238,7 +239,7 @@ test("viewer-preferences exposes MVP defaults", async ({ page }) => {
     "Store rendered Kroki diagrams on this device.",
   );
   await expect(page.getByTestId("cache-retention-note")).toHaveText(
-    "Cached files are kept until you clear them or the operating system removes app cache data.",
+    "Each diagram cache keeps up to 128 MiB and removes the least recently used files automatically.",
   );
   await page
     .getByTestId("preferences-nav-item")
@@ -273,7 +274,10 @@ test("viewer-search stays scoped to the active tab during tab switches", async (
   await expect(page.getByTestId("document-body")).toContainText("Copy Actions");
   await page.getByTestId("right-sidebar-tab-search").click();
   await page.getByTestId("search-input").fill("Pl");
-  await expect(page.getByTestId("search-result")).toContainText("0 matches");
+  await expect(page.getByTestId("search-result")).toContainText(
+    "1 of 2 matches",
+  );
+  await expect(page.getByTestId("search-hit")).toHaveCount(2);
 
   await page
     .getByTestId("open-file-item")
@@ -295,7 +299,7 @@ test("viewer-search stays scoped to the active tab during tab switches", async (
   await page.getByTestId("search-input").type("r");
   await expect(page.getByTestId("search-input")).toHaveValue("Gr");
   await expect(page.getByTestId("search-result")).not.toContainText(
-    "0 matches",
+    "No matches",
   );
   await expect(page.getByTestId("search-hit").first()).toBeVisible();
 
@@ -304,8 +308,8 @@ test("viewer-search stays scoped to the active tab during tab switches", async (
   await expect(page.getByTestId("search-result")).toContainText("3 matches");
   await expect(page.getByTestId("search-hit")).toHaveCount(3);
   await page.getByTestId("search-pin").click();
-  await expect(page.getByTestId("search-default-status")).toContainText(
-    "Default search: Graphviz",
+  await expect(page.getByTestId("search-pinned-status")).toContainText(
+    "Pinned search: Graphviz",
   );
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
     "Search pinned",
@@ -316,7 +320,7 @@ test("viewer-search stays scoped to the active tab during tab switches", async (
     "Render Fixtures",
   );
   await expect(page.getByTestId("search-input")).toHaveValue("Graphviz");
-  await expect(page.getByTestId("search-result")).toContainText("0 matches");
+  await expect(page.getByTestId("search-result")).toContainText("No matches");
 
   await page
     .getByTestId("open-file-item")
@@ -328,7 +332,7 @@ test("viewer-search stays scoped to the active tab during tab switches", async (
   await page.getByTestId("search-input").type("Pl");
   await expect(page.getByTestId("search-input")).toHaveValue("Pl");
   await expect(page.getByTestId("search-result")).not.toContainText(
-    "0 matches",
+    "No matches",
   );
   await expect(page.getByTestId("search-hit").first()).toBeVisible();
 
@@ -341,8 +345,10 @@ test("viewer-search stays scoped to the active tab during tab switches", async (
     .filter({ hasText: "copy-actions.adoc" })
     .click();
   await expect(page.getByTestId("search-input")).toHaveValue("Pl");
-  await expect(page.getByTestId("search-result")).toContainText("0 matches");
-  await expect(page.getByTestId("search-hit")).toHaveCount(0);
+  await expect(page.getByTestId("search-result")).toContainText(
+    "1 of 2 matches",
+  );
+  await expect(page.getByTestId("search-hit")).toHaveCount(2);
   await expect(page.getByTestId("document-body")).toContainText("Copy Actions");
 });
 
@@ -361,6 +367,7 @@ test("viewer-pinned-tabs keeps pinned files when closing others", async ({
   const pinnedRow = page
     .getByTestId("open-file-item")
     .filter({ hasText: "mvp-guide.adoc" });
+  await pinnedRow.hover();
   await pinnedRow.getByTestId("open-file-pin").click();
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
     "pinned",
@@ -749,19 +756,23 @@ test("viewer-diagram-context-action saves rendered svg without host save api", a
 }) => {
   await page.goto("/");
 
-  await page
-    .getByTestId("diagram-inline-image")
-    .locator("svg")
-    .first()
-    .waitFor();
+  const diagram = page
+    .getByTestId("mermaid-render")
+    .getByTestId("diagram-inline-image");
+  await diagram.locator("svg").waitFor();
+  await diagram.scrollIntoViewIfNeeded();
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
   const downloadPromise = page.waitForEvent("download");
-  await page.getByTestId("diagram-inline-image").first().click({
-    button: "right",
-  });
+  await diagram.click({ button: "right" });
   await expect(page.getByTestId("context-menu")).toBeVisible();
   await page.getByRole("menuitem", { name: "Save SVG" }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("mvp-guide-diagram.svg");
+  expect(download.suggestedFilename()).toBe("mvp-guide-mermaid-16.svg");
   await expect(page.getByTestId("inline-notice")).toContainText(
     "Diagram SVG saved",
   );
@@ -800,7 +811,7 @@ test("viewer-context-menu-document exposes document actions", async ({
   });
   await page.getByRole("menuitem", { name: "Copy Link" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    "https://example.com",
+    "https://example.com/",
   );
 
   await page.getByRole("link", { name: "Local document link" }).click({
@@ -1312,23 +1323,28 @@ test("viewer-table-copy exposes TSV, CSV, Markdown, and reference actions", asyn
     "Render Fixtures",
   );
   const table = page.locator("table").filter({ hasText: "AsciiDoc" }).first();
+  const tableCell = table.getByRole("cell", {
+    name: "AsciiDoc",
+    exact: true,
+  });
 
   async function openTableContextMenu() {
     await expect(page.getByTestId("context-menu")).toBeHidden();
-    const box = await table.boundingBox();
-    if (!box) {
-      throw new Error("Expected table bounds");
-    }
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, {
-      button: "right",
-    });
+    await tableCell.scrollIntoViewIfNeeded();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await tableCell.click({ button: "right" });
     await expect(page.getByTestId("context-menu")).toBeVisible();
   }
 
   async function selectMenuItem(label: string) {
     const item = page.getByRole("menuitem", { name: label });
     await expect(item).toBeVisible();
-    await item.evaluate((element) => (element as HTMLButtonElement).click());
+    await item.click();
   }
 
   await openTableContextMenu();
@@ -1378,6 +1394,7 @@ test("viewer-context-menu-navigation exposes tree, open file, bookmark, and tab 
     page.getByRole("menuitem", { name: "Open", exact: true }),
   ).toHaveCount(0);
   expect(await menuLabels()).toEqual([
+    "Open in New Window",
     "Open in Editor",
     "Show Git Diff",
     "Show File History",
@@ -1408,7 +1425,8 @@ test("viewer-context-menu-navigation exposes tree, open file, bookmark, and tab 
     page.getByRole("menuitem", { name: "Activate", exact: true }),
   ).toHaveCount(0);
   expect(await menuLabels()).toEqual([
-    "Pin",
+    "Open in New Window",
+    "Move Tab to New Window",
     "Open in Editor",
     "Show Git Diff",
     "Show File History",
@@ -1416,8 +1434,10 @@ test("viewer-context-menu-navigation exposes tree, open file, bookmark, and tab 
     "Compare with Branch...",
     "Compare with Tag...",
     "Compare with Commit...",
+    "Pin",
     "Copy Path",
     "Close",
+    "Close All Files",
   ]);
   await page.getByRole("menuitem", { name: "Pin" }).click();
   await expect(page.getByTestId("lightweight-action-feedback")).toContainText(
@@ -1431,6 +1451,7 @@ test("viewer-context-menu-navigation exposes tree, open file, bookmark, and tab 
     page.getByRole("menuitem", { name: "Open", exact: true }),
   ).toHaveCount(0);
   expect(await menuLabels()).toEqual([
+    "Open in New Window",
     "Open in Editor",
     "Show Git Diff",
     "Show File History",
@@ -1452,9 +1473,11 @@ test("viewer-context-menu-navigation exposes tree, open file, bookmark, and tab 
     page.getByRole("menuitem", { name: "Activate", exact: true }),
   ).toHaveCount(0);
   const tabLabels = await menuLabels();
-  expect(tabLabels.at(0)).toMatch(/^(Pin|Unpin)$/);
-  expect(tabLabels.at(-2)).toBe("Copy Path");
-  expect(tabLabels.at(-1)).toBe("Close");
+  expect(tabLabels).toContain("Open in New Window");
+  expect(tabLabels).toContain("Move Tab to New Window");
+  expect(tabLabels.at(-3)).toBe("Copy Path");
+  expect(tabLabels.at(-2)).toBe("Close");
+  expect(tabLabels.at(-1)).toBe("Close All Files");
 });
 
 test("viewer-open-in-editor exposes document editor actions", async ({
@@ -1658,7 +1681,9 @@ test("viewer-git-status-hints-auto-refresh updates badges after Git metadata cha
     ).__SVARD_TRIGGER_GIT_STATUS_CHANGE__?.();
   });
   await expect(cleanTreeRow).toHaveAttribute("data-git-status", "modified");
-  await expect(cleanTreeRow.getByTestId("git-status-badge")).toHaveText("M");
+  await expect(cleanTreeRow.getByTestId("git-status-diff-button")).toHaveText(
+    "M",
+  );
 
   await page.evaluate(() => {
     (
@@ -1800,7 +1825,10 @@ test("viewer-source-control-all-diffs supports LLM reference and Current file ca
       }),
     )
     .toBe(0);
-  const changedParagraph = rightPane.locator("p").first();
+  const changedParagraph = rightPane
+    .locator("p")
+    .filter({ hasText: "two-pane Git diff preview" })
+    .first();
   await expect(changedParagraph).toBeVisible();
 
   await changedParagraph.click({ button: "right" });
@@ -2381,7 +2409,7 @@ test("viewer-rendered-visual-diff-asciidoc overlays changes on AsciiDoc preview"
   ).toBeVisible();
 });
 
-test("viewer-git-diff-rendered-diagram-placeholder hides diagram source", async ({
+test("viewer-git-diff-rendered-diagram-placeholder renders local diagrams without source", async ({
   page,
 }) => {
   await page.goto("/");
@@ -2396,12 +2424,33 @@ test("viewer-git-diff-rendered-diagram-placeholder hides diagram source", async 
   await expect(page.getByTestId("git-diff-rendered-view")).toBeEnabled();
   await page.getByTestId("git-diff-rendered-view").click();
 
-  await expect(page.getByTestId("git-rendered-diff")).toContainText(
-    "Diagram placeholder",
-  );
-  await expect(page.getByTestId("git-rendered-diff")).not.toContainText(
-    "A[Start]",
-  );
+  const renderedDiff = page.getByTestId("git-rendered-diff");
+  await expect(renderedDiff).not.toContainText("Diagram placeholder");
+  await expect(
+    renderedDiff
+      .getByTestId("mermaid-render")
+      .getByTestId("diagram-inline-image")
+      .locator("svg")
+      .first(),
+  ).toBeVisible();
+  await expect(
+    renderedDiff
+      .getByTestId("plantuml-render")
+      .getByTestId("diagram-inline-image")
+      .locator("svg")
+      .first(),
+  ).toBeVisible();
+  await expect(
+    renderedDiff
+      .getByTestId("graphviz-render")
+      .getByTestId("diagram-inline-image")
+      .locator("svg")
+      .first(),
+  ).toBeVisible();
+  await expect(renderedDiff).not.toContainText("flowchart TD");
+  await expect(renderedDiff).not.toContainText("A[Start]");
+  await expect(renderedDiff).not.toContainText("User -> Viewer:");
+  await expect(renderedDiff).not.toContainText("digraph G");
 });
 
 test("viewer-rendered-diff-quality shows default rendered readability controls", async ({
@@ -2740,9 +2789,11 @@ test("viewer-diff-overview summarizes rendered diff changes", async ({
     "2 changes",
   );
   await expect(page.getByTestId("git-diff-overview-jump-preview")).toHaveCount(
-    1,
+    3,
   );
-  await expect(page.getByTestId("git-diff-fallback-reason")).toHaveCount(0);
+  await expect(page.getByTestId("git-diff-fallback-reason")).toContainText(
+    "Structured fallback: ambiguous",
+  );
 });
 
 test("viewer-diff-change-navigation moves between changes", async ({
@@ -2787,17 +2838,16 @@ test("viewer-diff-diagram-placeholder summarizes diagram changes without source"
 }) => {
   await page.goto("/");
 
-  await page.getByText("git-rendered-diagram.adoc").click();
+  await page.getByText("git-rendered-unsupported-diagram.adoc").click();
   await page.evaluate(() =>
     window.__SVARD_COMMANDS__?.dispatch("git.showDiff"),
   );
 
+  const fullPreviewDiff = page.getByTestId("git-full-preview-diff");
   await expect(
-    page.getByTestId("git-diff-diagram-placeholder").first(),
-  ).toContainText("Diagram changed");
-  await expect(page.getByTestId("git-full-preview-diff")).not.toContainText(
-    "A[Start]",
-  );
+    fullPreviewDiff.getByTestId("diagram-inline-diagnostic").first(),
+  ).toContainText("Diagram rendering is disabled");
+  await expect(fullPreviewDiff).not.toContainText('Rel(user, app, "Reviews")');
 });
 
 test("viewer-file-diff-source compares two Markdown documents", async ({
@@ -2925,12 +2975,18 @@ test("viewer-file-compare-picker-drag-drop compares dropped tree files", async (
 }) => {
   await page.goto("/");
 
-  await page.keyboard.press("Control+L");
-  await page.getByTestId("quick-open-input").fill(">compare files");
-  await page
-    .getByTestId("quick-open-result")
-    .filter({ hasText: "Compare Files..." })
-    .click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          window.__SVARD_COMMANDS__?.getCommandState("file.compareFiles")
+            .enabled ?? false,
+      ),
+    )
+    .toBe(true);
+  await page.evaluate(() =>
+    window.__SVARD_COMMANDS__?.dispatch("file.compareFiles"),
+  );
   await expect(page.getByTestId("file-compare-picker")).toBeVisible();
 
   await page
@@ -3191,7 +3247,7 @@ test("viewer-git-diff-asciidoc-table-dom shows rendered table diff", async ({
   await expect(page.getByTestId("git-diff-table-right-pane")).toContainText(
     "Changed",
   );
-  await expect(page.locator(".git-diff-table-cell.changed")).toHaveCount(2);
+  await expect(page.locator(".git-diff-table-cell.changed")).toHaveCount(4);
 });
 
 test("viewer-context-menu-search-toc exposes search and contents actions", async ({

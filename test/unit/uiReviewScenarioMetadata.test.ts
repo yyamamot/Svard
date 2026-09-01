@@ -115,4 +115,27 @@ describe("UI review scenario metadata", () => {
       ]),
     );
   });
+
+  it("keeps Copy Actions scoped to its visible controls", () => {
+    expect(scenarioContractFor("viewer-copy-actions")).toMatchObject({
+      group: "files-bookmarks",
+      handler: "filesBookmarks",
+      documented: true,
+    });
+    expect(requiredMarkersForScenario("viewer-copy-actions")).toEqual(
+      expect.arrayContaining([
+        "document-body",
+        "source-block-toolbar",
+        "source-copy-button",
+        "source-reference-copy-button",
+        "lightweight-action-feedback",
+      ]),
+    );
+    expect(requiredMarkersForScenario("viewer-copy-actions")).not.toContain(
+      "search-input",
+    );
+    expect(
+      requiredMarkersForScenario("viewer-copy-location-reference"),
+    ).toEqual(["document-body", "lightweight-action-feedback"]);
+  });
 });

@@ -1,8 +1,14 @@
 import type {
   GitCommitGraph,
+  GitChanges,
   GitFileHistory,
   GitRefList,
 } from "../../core/types";
+
+export interface GitFileHistoryGitStateEntry {
+  path: string;
+  changes: GitChanges;
+}
 
 export function emptyGitRefList(): GitRefList {
   return {

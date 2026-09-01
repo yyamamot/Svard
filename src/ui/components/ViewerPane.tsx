@@ -66,11 +66,11 @@ import type {
 } from "../types";
 import {
   extractDocumentSelection,
-  selectionOriginalTextReference,
   selectionPlainCopy,
   selectionSnapshotText,
   selectionTextReference,
 } from "../lib/documentSelection";
+import { originalTextReferenceForSelection } from "../lib/sourceTextCopy";
 import { useSelectionRangeController } from "../hooks/useSelectionRangeController";
 import { useSelectionSnapshotActions } from "../hooks/useSelectionSnapshotActions";
 import { SelectionMiniToolbar } from "./SelectionMiniToolbar";
@@ -307,6 +307,16 @@ export function ViewerPane({
     prepareSnapshot: prepareViewerSelection,
     showNotice: showSelectionNotice,
   });
+  const originalTextReference = useMemo(() => {
+    const active = documentSelection.active;
+    if (!active || !selectionActions.menuSnapshot) return undefined;
+    return originalTextReferenceForSelection({
+      article: active.context.article,
+      document: active.context.document,
+      renderResult: active.context.renderResult,
+      range: active.range,
+    });
+  }, [documentSelection.active, selectionActions.menuSnapshot]);
 
   useEffect(() => {
     setInspectedSelection(null);
@@ -663,22 +673,14 @@ export function ViewerPane({
           onToggleMenu={() => void selectionActions.toggleMenu()}
           actions={[
             selectionActions.textReferenceAction(selectionTextReference),
-            ...(payload &&
-            selectionActions.menuSnapshot &&
-            selectionOriginalTextReference(
-              selectionActions.menuSnapshot,
-              payload.source,
-            )
+            ...(originalTextReference
               ? [
                   {
                     id: "original-text-reference",
                     label: "Copy Original Text Reference",
                     onSelect: () =>
-                      void selectionActions.copy((snapshot) =>
-                        selectionOriginalTextReference(
-                          snapshot,
-                          payload.source,
-                        ),
+                      void selectionActions.copy(
+                        () => originalTextReference.value,
                       ),
                   },
                 ]

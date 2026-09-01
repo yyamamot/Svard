@@ -61,6 +61,7 @@ interface LeftSidebarProps {
   openFileReloadStates: Record<string, OpenFileReloadState>;
   gitChanges: GitChanges | null;
   gitChangesLoading: boolean;
+  gitFileHistoryGitState: GitChanges | null;
   gitBranchDiff: GitBranchDiff | null;
   gitBranchDiffLoading: boolean;
   gitCommitGraph: GitCommitGraph | null;
@@ -166,6 +167,7 @@ export function LeftSidebar({
   openFileReloadStates,
   gitChanges,
   gitChangesLoading,
+  gitFileHistoryGitState,
   gitBranchDiff,
   gitBranchDiffLoading,
   gitCommitGraph,
@@ -323,6 +325,7 @@ export function LeftSidebar({
               <SourceControlPanel
                 changes={gitChanges}
                 changesLoading={gitChangesLoading}
+                fileHistoryGitState={gitFileHistoryGitState}
                 documentReviewSession={documentReviewSession}
                 branchDiff={gitBranchDiff}
                 branchDiffLoading={gitBranchDiffLoading}

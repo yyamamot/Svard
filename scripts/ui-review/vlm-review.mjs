@@ -12,6 +12,13 @@ const findingCategories = new Set([
 
 const findingSeverities = new Set(["minor", "major", "blocker"]);
 
+const densityExemptReviewIds = new Set([
+  "git-diff-change-ruler",
+  "git-diff-change-ruler-marker",
+  "git-rendered-margin-marker",
+  "git-rendered-margin-markers",
+]);
+
 function normalizeFinding(finding) {
   const severity = findingSeverities.has(finding.severity)
     ? finding.severity
@@ -49,13 +56,20 @@ export async function runVlmReview(artifactRoot) {
     geometry,
     (element) => element.reviewId,
   );
+  const requiredReviewIds = Array.isArray(
+    geometryDocument.markerCompleteness?.required,
+  )
+    ? geometryDocument.markerCompleteness.required
+    : [...elementsByReviewId.keys()];
 
-  for (const [reviewId, elements] of elementsByReviewId) {
+  for (const reviewId of requiredReviewIds) {
+    const elements = elementsByReviewId.get(reviewId) ?? [];
     const visibleElements = elements.filter((element) => element.visible);
     if (optionalCoreMarkers.has(reviewId)) {
       continue;
     }
     const hasVisibleInlineDiagram =
+      elements.length > 0 &&
       reviewId.endsWith("-render") &&
       (elementsByReviewId
         .get("diagram-inline-image")
@@ -81,7 +95,16 @@ export async function runVlmReview(artifactRoot) {
         description: `${reviewId} is not visible in the captured scenario.`,
       });
     }
+  }
 
+  for (const [reviewId, elements] of elementsByReviewId) {
+    if (
+      optionalCoreMarkers.has(reviewId) ||
+      densityExemptReviewIds.has(reviewId)
+    ) {
+      continue;
+    }
+    const visibleElements = elements.filter((element) => element.visible);
     for (const element of visibleElements) {
       if (element.rect.width < 24 || element.rect.height < 16) {
         findings.push({

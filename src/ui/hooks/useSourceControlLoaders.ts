@@ -25,6 +25,7 @@ import {
 } from "./useSourceControlChangesLoader";
 import { useSourceControlFileHistoryLoader } from "./useSourceControlFileHistoryLoader";
 import { useSourceControlGraphLoader } from "./useSourceControlGraphLoader";
+import type { GitFileHistoryGitStateEntry } from "./sourceControlState";
 
 export { sourceControlWslVisibleRetryDelayMs };
 export {
@@ -54,6 +55,7 @@ export function useSourceControlLoaders({
   setGitCommitGraphLoading,
   setGitTimelineCompareBase,
   setGitTimelineHistory,
+  setGitFileHistoryGitState,
   setGitTimelineLoading,
   setGitTimelineRefreshToken,
   setWorkspaceSidebarTab,
@@ -91,6 +93,9 @@ export function useSourceControlLoaders({
   setGitCommitGraphLoading: (value: boolean) => void;
   setGitTimelineCompareBase: (value: GitFileHistoryItem | null) => void;
   setGitTimelineHistory: Dispatch<SetStateAction<GitFileHistory | null>>;
+  setGitFileHistoryGitState: Dispatch<
+    SetStateAction<GitFileHistoryGitStateEntry | null>
+  >;
   setGitTimelineLoading: (value: boolean) => void;
   setGitTimelineRefreshToken: Dispatch<SetStateAction<number>>;
   setWorkspaceSidebarTab: (value: AppConfig["workspace"]["sidebarTab"]) => void;
@@ -217,6 +222,7 @@ export function useSourceControlLoaders({
     isFileHistoryView,
     requestsRef,
     setGitTimelineHistory,
+    setGitFileHistoryGitState,
     setGitTimelineLoading,
     setGitTimelineRefreshToken,
     sourceControlAnchorPath,

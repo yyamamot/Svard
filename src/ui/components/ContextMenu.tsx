@@ -38,6 +38,14 @@ export function ContextMenu({ menu, onClose }: ContextMenuProps) {
       onClose();
     }
 
+    function handleScroll(event: Event) {
+      const target = event.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) {
+        return;
+      }
+      onClose();
+    }
+
     function handleKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -46,18 +54,19 @@ export function ContextMenu({ menu, onClose }: ContextMenuProps) {
     }
 
     document.addEventListener("pointerdown", close);
-    window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
     document.addEventListener("keydown", handleKeyDown);
-    requestAnimationFrame(() => {
+    const activationFrame = requestAnimationFrame(() => {
+      window.addEventListener("scroll", handleScroll, true);
       menuRef.current
         ?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
-        ?.focus();
+        ?.focus({ preventScroll: true });
     });
 
     return () => {
+      cancelAnimationFrame(activationFrame);
       document.removeEventListener("pointerdown", close);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("resize", close);
       document.removeEventListener("keydown", handleKeyDown);
     };

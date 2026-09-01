@@ -6,7 +6,6 @@ import {
   cloneViewerSelectionRange,
   extractDocumentSelection,
   selectionHasBlockingDiagnostic,
-  selectionOriginalTextReference,
   selectionPlainCopy,
   selectionSnapshotText,
   selectionTextReference,
@@ -259,38 +258,9 @@ describe("document selection extraction", () => {
     expect(selectionTextReference(snapshot)).toContain(
       "File: /workspace/docs/guide.md:4",
     );
-    expect(selectionTextReference(snapshot)).toContain(
-      "Selected content:\nSelected",
-    );
+    expect(selectionTextReference(snapshot)).toContain("Text:\nSelected");
+    expect(selectionTextReference(snapshot)).not.toContain("Selected content:");
     expect(selectionTextReference(snapshot)).not.toContain("only.");
-  });
-
-  it("returns original source only for one unique exact substring", async () => {
-    document.body.innerHTML =
-      '<article><p data-source-selection-block-id="p1">Selected only.</p></article>';
-    const article = document.querySelector("article")!;
-    const text = article.querySelector("p")!.firstChild as Text;
-    const snapshot = await extractDocumentSelection({
-      article,
-      document: { ...payload, source: "Prefix\nSelected only.\nSuffix\n" },
-      range: select(text, 0, text, "Selected".length),
-      renderResult: {
-        headings: [],
-        sourceSelectionBlocks: [
-          { id: "p1", kind: "paragraph", startLine: 2, endLine: 2 },
-        ],
-      },
-    });
-
-    expect(
-      selectionOriginalTextReference(
-        snapshot,
-        "Prefix\nSelected only.\nSuffix\n",
-      ),
-    ).toBe("File: /workspace/docs/guide.md:2\nOriginal source:\nSelected");
-    expect(
-      selectionOriginalTextReference(snapshot, "Selected and Selected"),
-    ).toBeUndefined();
   });
 
   it("keeps visible content usable when source provenance is ambiguous", async () => {
@@ -312,9 +282,6 @@ describe("document selection extraction", () => {
         severity: "warning",
       }),
     );
-    expect(
-      selectionOriginalTextReference(snapshot, payload.source),
-    ).toBeUndefined();
   });
 
   it("keeps text-image-text order for plain copy", () => {
@@ -462,7 +429,10 @@ describe("document selection extraction", () => {
     );
     expect(selectionSnapshotText(snapshot)).toBe(source);
     expect(selectionPlainCopy(snapshot)).toBe(snapshot.plainText);
-    expect(selectionTextReference(snapshot)).toContain(source);
+    expect(selectionTextReference(snapshot)).toContain(
+      `Text:\n${snapshot.plainText}`,
+    );
+    expect(selectionTextReference(snapshot)).not.toContain(source);
     expect(selectionSnapshotText(snapshot)).not.toContain("katex-html");
   });
 
