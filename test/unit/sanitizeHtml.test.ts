@@ -200,6 +200,45 @@ describe("sanitizeHtml", () => {
     expect(bodySanitized).not.toContain("<script");
   });
 
+  it("reports privacy-safe in-place sanitizer subphases around serialization", () => {
+    const body = new DOMParser().parseFromString(
+      '<p onclick="alert(1)">Safe</p>',
+      "text/html",
+    ).body;
+    const phases: string[] = [];
+    const sanitized = sanitizeDocumentBodyInPlace(
+      body,
+      { format: "markdown" },
+      {
+        onPhase: (phase, durationMs) => {
+          phases.push(phase);
+          expect(durationMs).toBeGreaterThanOrEqual(0);
+        },
+      },
+    );
+
+    expect(phases).toEqual([
+      "purify",
+      "dimensionScope",
+      "serialize",
+      "taskListRestore",
+    ]);
+    expect(sanitized).toContain("<p>Safe</p>");
+    expect(sanitized).not.toContain("onclick");
+  });
+
+  it("does not read the performance clock when sanitizer phase tracing is absent", () => {
+    const nowSpy = vi.spyOn(performance, "now");
+    const body = new DOMParser().parseFromString(
+      "<p>Safe</p>",
+      "text/html",
+    ).body;
+
+    sanitizeDocumentBodyInPlace(body, { format: "markdown" });
+
+    expect(nowSpy).not.toHaveBeenCalled();
+  });
+
   it("keeps the URI scheme boundary explicit", () => {
     const html = sanitizeDocumentHtml(
       '<a href="https://example.test">https</a><a href="file:///tmp/guide.adoc">file</a><a href="asset://localhost/image.svg">asset</a><a href="data:text/plain,hello">data</a><a href="javascript:alert(1)">script</a><img src="data:image/png;base64,AA=="><img src="javascript:alert(1)">',

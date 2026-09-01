@@ -9,6 +9,7 @@ import { mainViewerRenderFixtures } from "./main-viewer-render-benchmark/fixture
 import {
   assertMainViewerRenderArtifactSafe,
   buildMainViewerAdoptionComparison,
+  buildMainViewerPairedArtifact,
   buildMainViewerRenderArtifact,
   combineMainViewerFormalConfirmation,
   compareMainViewerBaselineHeadroom,
@@ -19,10 +20,30 @@ import {
 const warmupCount = 1;
 const formalMeasurementCount = 20;
 const sampleTimeoutMs = 10_000;
+const requiredTimingKeys = Object.freeze([
+  "viewerReadyMs",
+  "workerCoreMs",
+  "workerDeliveryMs",
+  "prepareMs",
+  "sanitizeMs",
+  "sanitizeCommitMs",
+  "resolverMs",
+  "commitMs",
+  "decodeMs",
+  "frame1Ms",
+  "frame2Ms",
+  "layoutStabilityMs",
+  "searchCleanupMs",
+  "activeHeadingMs",
+  "linkInspectorCollectMs",
+  "linkInspectorBuildMs",
+  "postCommitMs",
+]);
 
 export function parseMainViewerRenderBenchmarkArgs(argv) {
   const args = {
     baseline: null,
+    candidate: null,
     confirmation: null,
     headroomFormal: null,
     out: ".artifacts/perf/imp-560-main-viewer-render-formal.json",
@@ -36,6 +57,8 @@ export function parseMainViewerRenderBenchmarkArgs(argv) {
     if (value === "--") continue;
     if (value === "--baseline") {
       args.baseline = argv[++index] ?? null;
+    } else if (value === "--candidate") {
+      args.candidate = argv[++index] ?? null;
     } else if (value === "--confirmation") {
       args.confirmation = argv[++index] ?? null;
     } else if (value === "--out") {
@@ -60,14 +83,23 @@ export function parseMainViewerRenderBenchmarkArgs(argv) {
   if (args.runMode !== "formal" && args.runMode !== "confirmation") {
     throw new Error(`Invalid run mode: ${args.runMode}`);
   }
-  if (args.confirmation && !args.baseline) {
-    throw new Error("--confirmation requires --baseline");
+  if (args.candidate !== null && args.candidate !== "raster-sidecar") {
+    throw new Error(`Invalid candidate: ${args.candidate}`);
+  }
+  if (args.candidate && args.baseline) {
+    throw new Error("--candidate cannot be combined with --baseline");
+  }
+  if (args.confirmation && !args.baseline && !args.candidate) {
+    throw new Error("--confirmation requires --baseline or --candidate");
   }
   if (args.confirmation && args.runMode !== "confirmation") {
     throw new Error("--confirmation requires --run-mode confirmation");
   }
   if (args.headroomFormal && args.runMode !== "confirmation") {
     throw new Error("--headroom-formal requires --run-mode confirmation");
+  }
+  if (args.candidate && args.headroomFormal) {
+    throw new Error("--candidate cannot be combined with --headroom-formal");
   }
   return args;
 }
@@ -160,6 +192,12 @@ function rotatedFixtures(roundIndex) {
   ];
 }
 
+export function mainViewerCandidateArmOrder(runMode) {
+  if (runMode === "formal") return ["baseline", "candidate"];
+  if (runMode === "confirmation") return ["candidate", "baseline"];
+  throw new Error(`Invalid Main Viewer candidate run mode: ${runMode}`);
+}
+
 function latestEvent(events, name, predicate = () => true) {
   return events
     .filter((event) => event?.event === name && predicate(event))
@@ -188,6 +226,8 @@ function sumDurations(values) {
 }
 
 export function buildMainViewerRenderSample({
+  arm = "baseline",
+  candidateName = null,
   events,
   expectedMediaCount,
   fixtureId,
@@ -244,7 +284,33 @@ export function buildMainViewerRenderSample({
   const linkBuild = linkBuildEvents.at(-1);
   const prepare = latestEvent(events, "render.prepareDocumentHtml");
   const sanitize = latestEvent(events, "render.prepareDocumentHtml.sanitize");
+  const sanitizePurify = latestEvent(
+    events,
+    "render.prepareDocumentHtml.sanitize.purify",
+  );
+  const sanitizeDimensionScope = latestEvent(
+    events,
+    "render.prepareDocumentHtml.sanitize.dimensionScope",
+  );
+  const sanitizeSerialize = latestEvent(
+    events,
+    "render.prepareDocumentHtml.sanitize.serialize",
+  );
+  const sanitizeTaskListRestore = latestEvent(
+    events,
+    "render.prepareDocumentHtml.sanitize.taskListRestore",
+  );
   const commit = latestEvent(events, "render.articleInnerHtmlCommit");
+  const rasterSidecar = latestEvent(events, "render.rasterSidecar.complete");
+  const candidateExpected =
+    arm === "candidate" &&
+    candidateName === "raster-sidecar" &&
+    fixtureId.startsWith("raster-");
+  const candidateHookApplied =
+    candidateExpected &&
+    rasterSidecar?.status === "applied" &&
+    eventCount(rasterSidecar, "hydratedCount") === expectedMediaCount &&
+    eventCount(rasterSidecar, "inlineRasterDataUrlCount") === 0;
   const workerCoreMs = round(numeric(workerMetrics?.renderCoreMs));
   const workerDeliveryMs =
     numeric(workerMessage?.sincePostMessageMs) !== null &&
@@ -288,15 +354,39 @@ export function buildMainViewerRenderSample({
     linkInspectorBuildCount: linkBuildEvents.length,
     outgoingCount: eventCount(linkBuild, "outgoingCount"),
     backlinkCount: eventCount(linkBuild, "backlinkCount"),
+    sanitizeBreakdownCount: [
+      sanitizePurify,
+      sanitizeDimensionScope,
+      sanitizeSerialize,
+      sanitizeTaskListRestore,
+    ].filter(Boolean).length,
+    rasterSidecarHydratedCount: candidateExpected
+      ? eventCount(rasterSidecar, "hydratedCount")
+      : null,
+    inlineRasterDataUrlCount: candidateExpected
+      ? eventCount(rasterSidecar, "inlineRasterDataUrlCount")
+      : null,
+    candidateHookViolationCount: candidateExpected
+      ? candidateHookApplied
+        ? 0
+        : 1
+      : 0,
   };
+  const sanitizeMs = eventDuration(sanitize);
+  const commitMs = eventDuration(commit);
   const timings = {
     viewerReadyMs: null,
     workerCoreMs,
     workerDeliveryMs,
     prepareMs: eventDuration(prepare),
-    sanitizeMs: eventDuration(sanitize),
+    sanitizeMs,
+    sanitizePurifyMs: eventDuration(sanitizePurify),
+    sanitizeDimensionScopeMs: eventDuration(sanitizeDimensionScope),
+    sanitizeSerializeMs: eventDuration(sanitizeSerialize),
+    sanitizeTaskListRestoreMs: eventDuration(sanitizeTaskListRestore),
+    sanitizeCommitMs: sumDurations([sanitizeMs, commitMs]),
     resolverMs: eventDuration(resolver),
-    commitMs: eventDuration(commit),
+    commitMs,
     decodeMs: eventDuration(decode),
     frame1Ms: eventDuration(frame1),
     frame2Ms: eventDuration(frame2),
@@ -323,6 +413,7 @@ export function buildMainViewerRenderSample({
     sanitize,
     commit,
   ];
+  if (candidateExpected) requiredEvents.push(rasterSidecar);
   const readyCapturedAt = requiredEvents
     .map((event) => numeric(event?.captureAtMs))
     .filter((value) => value !== null)
@@ -352,7 +443,7 @@ export function buildMainViewerRenderSample({
     status:
       waitCompleted &&
       requiredEvents.every(Boolean) &&
-      Object.values(timings).every((value) => value !== null) &&
+      requiredTimingKeys.every((key) => timings[key] !== null) &&
       contractMatches
         ? "ok"
         : "incomplete",
@@ -366,6 +457,7 @@ async function installPerfHarness(page) {
     localStorage.setItem("SVARD_PERF_DIAGNOSTIC", "1");
     window.__SVARD_MAIN_VIEWER_PERF_EVENTS__ = [];
     window.__SVARD_DOCUMENT_OVERRIDES__ = {};
+    window.__SVARD_MAIN_VIEWER_RASTER_SIDECAR_VARIANT__ = "baseline";
     const originalInfo = console.info.bind(console);
     console.info = (...args) => {
       if (args[0] === "[perf]" && args[1] && typeof args[1] === "object") {
@@ -388,12 +480,19 @@ async function flushBrowserEffects(page) {
   );
 }
 
-async function runBrowserSample(page, fixture, sampleIndex) {
+async function runBrowserSample(
+  page,
+  fixture,
+  sampleIndex,
+  { arm = "baseline", armPosition = 0, candidateName = null } = {},
+) {
   const documentPath = `/workspace/docs/imp-560-${fixture.fixtureId}.md`;
-  const updatedAt = `2026-08-30T00:00:${String(sampleIndex + 2).padStart(2, "0")}.000Z`;
+  const updatedAtSequence = (sampleIndex + 1) * 2 + armPosition;
+  const updatedAt = `2026-08-30T00:00:${String(updatedAtSequence).padStart(2, "0")}.000Z`;
   await flushBrowserEffects(page);
   await page.evaluate(
-    ({ nextDocumentPath, nextUpdatedAt, source }) => {
+    ({ nextArm, nextDocumentPath, nextUpdatedAt, source }) => {
+      window.__SVARD_MAIN_VIEWER_RASTER_SIDECAR_VARIANT__ = nextArm;
       window.__SVARD_DOCUMENT_OVERRIDES__[nextDocumentPath] = {
         source,
         updatedAt: nextUpdatedAt,
@@ -403,6 +502,7 @@ async function runBrowserSample(page, fixture, sampleIndex) {
       localStorage.setItem("svard.mockPickDocument", nextDocumentPath);
     },
     {
+      nextArm: arm,
       nextDocumentPath: documentPath,
       nextUpdatedAt: updatedAt,
       source: fixture.source,
@@ -419,7 +519,7 @@ async function runBrowserSample(page, fixture, sampleIndex) {
   let waitCompleted = true;
   try {
     await page.waitForFunction(
-      () => {
+      (requiresRasterSidecar) => {
         const events = window.__SVARD_MAIN_VIEWER_PERF_EVENTS__ ?? [];
         const has = (name, predicate = () => true) =>
           events.some((event) => event?.event === name && predicate(event));
@@ -442,10 +542,16 @@ async function runBrowserSample(page, fixture, sampleIndex) {
             "render.linkInspector.collect",
             (event) => event.status === "ready",
           ) &&
-          has("render.linkInspector.build", (event) => event.status === "ready")
+          has(
+            "render.linkInspector.build",
+            (event) => event.status === "ready",
+          ) &&
+          (!requiresRasterSidecar || has("render.rasterSidecar.complete"))
         );
       },
-      undefined,
+      arm === "candidate" &&
+        candidateName === "raster-sidecar" &&
+        fixture.fixtureId.startsWith("raster-"),
       { timeout: sampleTimeoutMs },
     );
   } catch {
@@ -463,6 +569,8 @@ async function runBrowserSample(page, fixture, sampleIndex) {
   }, documentPath);
   return buildMainViewerRenderSample({
     ...collected,
+    arm,
+    candidateName,
     expectedMediaCount: fixture.expectedMediaCount,
     fixtureId: fixture.fixtureId,
     sampleIndex,
@@ -470,12 +578,21 @@ async function runBrowserSample(page, fixture, sampleIndex) {
   });
 }
 
-async function runBrowserMeasurements({ baseUrl, measurementCount }) {
+async function runBrowserMeasurements({
+  baseUrl,
+  candidateName = null,
+  measurementCount,
+  mode,
+}) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1440, height: 960 },
   });
   const page = await context.newPage();
+  const armOrder = candidateName
+    ? mainViewerCandidateArmOrder(mode)
+    : ["baseline"];
+  const samplesByArm = { baseline: [], candidate: [] };
   await installPerfHarness(page);
   try {
     await page.goto(`${baseUrl}/?scenario=imp-560-main-viewer-render`, {
@@ -500,21 +617,34 @@ async function runBrowserMeasurements({ baseUrl, measurementCount }) {
       )
       .catch(() => undefined);
     for (let warmupIndex = 0; warmupIndex < warmupCount; warmupIndex += 1) {
-      for (const fixture of rotatedFixtures(warmupIndex)) {
-        await runBrowserSample(page, fixture, -1);
+      for (const [armPosition, arm] of armOrder.entries()) {
+        for (const fixture of rotatedFixtures(warmupIndex)) {
+          await runBrowserSample(page, fixture, -1, {
+            arm,
+            armPosition,
+            candidateName,
+          });
+        }
       }
     }
-    const samples = [];
     for (
       let sampleIndex = 0;
       sampleIndex < measurementCount;
       sampleIndex += 1
     ) {
-      for (const fixture of rotatedFixtures(sampleIndex)) {
-        samples.push(await runBrowserSample(page, fixture, sampleIndex));
+      for (const [armPosition, arm] of armOrder.entries()) {
+        for (const fixture of rotatedFixtures(sampleIndex)) {
+          samplesByArm[arm].push(
+            await runBrowserSample(page, fixture, sampleIndex, {
+              arm,
+              armPosition,
+              candidateName,
+            }),
+          );
+        }
       }
     }
-    return samples;
+    return candidateName ? samplesByArm : samplesByArm.baseline;
   } finally {
     await context.close();
     await browser.close();
@@ -531,36 +661,62 @@ export async function runMainViewerRenderBenchmark(
   if (!baseUrl) throw new Error("Main Viewer benchmark URL is unavailable");
   try {
     const measurementCount = args.smoke ? 1 : formalMeasurementCount;
-    const samples = await runBrowserMeasurements({
-      baseUrl,
-      measurementCount,
-    });
     const mode = args.runMode;
-    let artifact = buildMainViewerRenderArtifact({
-      fixtures: mainViewerRenderFixtures,
+    const measurements = await runBrowserMeasurements({
+      baseUrl,
+      candidateName: args.candidate,
       measurementCount,
       mode,
-      runtime,
-      samples,
     });
-    if (args.baseline) {
-      const baseline = JSON.parse(await fs.readFile(args.baseline, "utf8"));
-      assertMainViewerRenderArtifactSafe(baseline);
-      artifact = {
-        ...artifact,
-        adoption: buildMainViewerAdoptionComparison(baseline, artifact),
-      };
+    let artifact;
+    if (args.candidate) {
+      const baseline = buildMainViewerRenderArtifact({
+        fixtures: mainViewerRenderFixtures,
+        measurementCount,
+        mode,
+        runtime,
+        samples: measurements.baseline,
+      });
+      const candidate = buildMainViewerRenderArtifact({
+        fixtures: mainViewerRenderFixtures,
+        measurementCount,
+        mode,
+        runtime,
+        samples: measurements.candidate,
+      });
+      artifact = buildMainViewerPairedArtifact({
+        baseline,
+        candidate,
+        candidateName: args.candidate,
+        comparisonOrder: mode === "formal" ? "AB" : "BA",
+      });
     } else {
-      artifact = {
-        ...artifact,
-        adoption: {
-          candidatePhase: artifact.headroom.selectedCandidate,
-          contractStatus: "mismatch",
-          reasons: ["missing-baseline"],
-          status: "needs-baseline",
-          targetFixtureId: artifact.headroom.selectedFixtureId,
-        },
-      };
+      artifact = buildMainViewerRenderArtifact({
+        fixtures: mainViewerRenderFixtures,
+        measurementCount,
+        mode,
+        runtime,
+        samples: measurements,
+      });
+      if (args.baseline) {
+        const baseline = JSON.parse(await fs.readFile(args.baseline, "utf8"));
+        assertMainViewerRenderArtifactSafe(baseline);
+        artifact = {
+          ...artifact,
+          adoption: buildMainViewerAdoptionComparison(baseline, artifact),
+        };
+      } else {
+        artifact = {
+          ...artifact,
+          adoption: {
+            candidatePhase: artifact.headroom.selectedCandidate,
+            contractStatus: "mismatch",
+            reasons: ["missing-baseline"],
+            status: "needs-baseline",
+            targetFixtureId: artifact.headroom.selectedFixtureId,
+          },
+        };
+      }
     }
     if (args.confirmation) {
       const formal = JSON.parse(await fs.readFile(args.confirmation, "utf8"));

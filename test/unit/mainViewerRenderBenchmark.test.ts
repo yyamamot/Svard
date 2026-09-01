@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   buildMainViewerRenderSample,
+  mainViewerCandidateArmOrder,
   parseMainViewerRenderBenchmarkArgs,
 } from "../../scripts/main-viewer-render-benchmark.mjs";
 import {
@@ -13,6 +14,7 @@ import {
 import {
   assertMainViewerRenderArtifactSafe,
   buildMainViewerAdoptionComparison,
+  buildMainViewerPairedArtifact,
   buildMainViewerRenderArtifact,
   combineMainViewerFormalConfirmation,
   compareMainViewerBaselineHeadroom,
@@ -98,12 +100,30 @@ function benchmarkSample(
   sampleIndex: number,
   viewerReadyMs: number,
   resolverMs = 1,
+  candidateHookStatus: "applied" | "missing" | null = null,
 ) {
+  const events: Array<Record<string, unknown>> = fixedEvents(
+    fixture.expectedMediaCount,
+  ).map((event) => ({
+    ...event,
+    captureAtMs: viewerReadyMs - 14 + (event.captureAtMs as number),
+  }));
+  if (
+    candidateHookStatus === "applied" &&
+    fixture.fixtureId.startsWith("raster-")
+  ) {
+    events.push({
+      captureAtMs: viewerReadyMs + 100,
+      event: "render.rasterSidecar.complete",
+      hydratedCount: fixture.expectedMediaCount,
+      inlineRasterDataUrlCount: 0,
+      status: "applied",
+    });
+  }
   const built = buildMainViewerRenderSample({
-    events: fixedEvents(fixture.expectedMediaCount).map((event) => ({
-      ...event,
-      captureAtMs: viewerReadyMs - 14 + (event.captureAtMs as number),
-    })),
+    arm: candidateHookStatus === null ? "baseline" : "candidate",
+    candidateName: candidateHookStatus === null ? null : "raster-sidecar",
+    events,
     expectedMediaCount: fixture.expectedMediaCount,
     fixtureId: fixture.fixtureId,
     sampleIndex,
@@ -120,10 +140,12 @@ function benchmarkSample(
 }
 
 function artifact({
+  candidateHookStatus = null,
   controlMs = 100,
   mode = "formal",
   targetMs = 100,
 }: {
+  candidateHookStatus?: "applied" | "missing" | null;
   controlMs?: number;
   mode?: "formal" | "confirmation";
   targetMs?: number;
@@ -139,6 +161,7 @@ function artifact({
             ? targetMs
             : 100,
         fixture.fixtureId === "raster-duplicate" ? 40 : 1,
+        candidateHookStatus,
       ),
     ),
   );
@@ -168,6 +191,7 @@ describe("Main Viewer render benchmark", () => {
     expect(script).toContain("nextUpdatedAt: updatedAt");
     expect(parseMainViewerRenderBenchmarkArgs([])).toEqual({
       baseline: null,
+      candidate: null,
       confirmation: null,
       headroomFormal: null,
       out: ".artifacts/perf/imp-560-main-viewer-render-formal.json",
@@ -200,7 +224,24 @@ describe("Main Viewer render benchmark", () => {
         "--run-mode",
         "confirmation",
       ]),
-    ).toThrow("requires --baseline");
+    ).toThrow("requires --baseline or --candidate");
+    expect(
+      parseMainViewerRenderBenchmarkArgs([
+        "--candidate",
+        "raster-sidecar",
+        "--confirmation",
+        "formal.json",
+        "--run-mode",
+        "confirmation",
+      ]),
+    ).toMatchObject({
+      candidate: "raster-sidecar",
+      confirmation: "formal.json",
+      runMode: "confirmation",
+    });
+    expect(() =>
+      parseMainViewerRenderBenchmarkArgs(["--candidate", "unknown"]),
+    ).toThrow("Invalid candidate");
     expect(() =>
       parseMainViewerRenderBenchmarkArgs(["--samples", "2"]),
     ).toThrow("Unknown argument");
@@ -249,6 +290,7 @@ describe("Main Viewer render benchmark", () => {
         mediaElementCount: 1,
         resolverCallCount: 1,
         resolverResolvedCount: 1,
+        sanitizeBreakdownCount: 0,
         staleDecodeCount: 0,
       },
       status: "ok",
@@ -257,6 +299,8 @@ describe("Main Viewer render benchmark", () => {
         decodeMs: 8,
         postCommitMs: 4,
         resolverMs: 12,
+        sanitizeCommitMs: 3,
+        sanitizePurifyMs: null,
         viewerReadyMs: 14,
         workerCoreMs: 2,
         workerDeliveryMs: 4,
@@ -274,6 +318,93 @@ describe("Main Viewer render benchmark", () => {
         waitCompleted: false,
       }).status,
     ).toBe("incomplete");
+  });
+
+  it("splits sanitize internals into duration-only optional metrics", () => {
+    const sample = buildMainViewerRenderSample({
+      events: [
+        ...fixedEvents(0),
+        {
+          captureAtMs: 110,
+          durationMs: 0.8,
+          event: "render.prepareDocumentHtml.sanitize.purify",
+        },
+        {
+          captureAtMs: 111,
+          durationMs: 0.4,
+          event: "render.prepareDocumentHtml.sanitize.dimensionScope",
+        },
+        {
+          captureAtMs: 112,
+          durationMs: 0.6,
+          event: "render.prepareDocumentHtml.sanitize.serialize",
+        },
+        {
+          captureAtMs: 113,
+          durationMs: 0.2,
+          event: "render.prepareDocumentHtml.sanitize.taskListRestore",
+        },
+      ],
+      expectedMediaCount: 0,
+      fixtureId: "dom-dense",
+      sampleIndex: 0,
+      sampleStartedAt: 100,
+      waitCompleted: true,
+    });
+    expect(sample).toMatchObject({
+      counts: { sanitizeBreakdownCount: 4 },
+      status: "ok",
+      timings: {
+        sanitizeCommitMs: 3,
+        sanitizeDimensionScopeMs: 0.4,
+        sanitizePurifyMs: 0.8,
+        sanitizeSerializeMs: 0.6,
+        sanitizeTaskListRestoreMs: 0.2,
+      },
+    });
+  });
+
+  it("fails closed when the raster-sidecar candidate hook is absent", () => {
+    const baseInput = {
+      arm: "candidate" as const,
+      candidateName: "raster-sidecar" as const,
+      expectedMediaCount: 6,
+      fixtureId: "raster-unique",
+      sampleIndex: 0,
+      sampleStartedAt: 100,
+      waitCompleted: true,
+    };
+    expect(
+      buildMainViewerRenderSample({
+        ...baseInput,
+        events: fixedEvents(6),
+      }),
+    ).toMatchObject({
+      counts: { candidateHookViolationCount: 1 },
+      status: "incomplete",
+    });
+    expect(
+      buildMainViewerRenderSample({
+        ...baseInput,
+        events: [
+          ...fixedEvents(6),
+          {
+            captureAtMs: 115,
+            event: "render.rasterSidecar.complete",
+            hydratedCount: 6,
+            inlineRasterDataUrlCount: 0,
+            status: "applied",
+          },
+        ],
+      }),
+    ).toMatchObject({
+      counts: {
+        candidateHookViolationCount: 0,
+        inlineRasterDataUrlCount: 0,
+        rasterSidecarHydratedCount: 6,
+      },
+      status: "ok",
+    });
   });
 
   it("sums repeated link inspector work within one document generation", () => {
@@ -391,6 +522,89 @@ describe("Main Viewer render benchmark", () => {
     expect(medianAbsoluteDeviation([2, 4, 5, 8, 20])).toBe(3);
   });
 
+  it("evaluates sanitize plus commit as a non-overlapping headroom candidate", () => {
+    const samples = mainViewerRenderFixtures.flatMap((fixture) =>
+      Array.from({ length: 20 }, (_, sampleIndex) => {
+        const sample = benchmarkSample(fixture, sampleIndex, 100);
+        return {
+          ...sample,
+          timings: {
+            ...sample.timings,
+            sanitizeCommitMs:
+              fixture.fixtureId === "dom-dense" ||
+              fixture.fixtureId.startsWith("raster-")
+                ? 40
+                : 1,
+          },
+        };
+      }),
+    );
+    const measured = buildMainViewerRenderArtifact({
+      fixtures: mainViewerRenderFixtures,
+      mode: "formal",
+      runtime: "chromium-vite-production",
+      samples,
+    });
+    expect(measured.headroom).toMatchObject({
+      selectedCandidate: "sanitize-commit",
+      selectedFixtureId: "dom-dense",
+      status: "go",
+    });
+  });
+
+  it("uses paired AB for formal and BA for confirmation", () => {
+    expect(mainViewerCandidateArmOrder("formal")).toEqual([
+      "baseline",
+      "candidate",
+    ]);
+    expect(mainViewerCandidateArmOrder("confirmation")).toEqual([
+      "candidate",
+      "baseline",
+    ]);
+  });
+
+  it("marks an unconnected candidate arm as an explicit no-go", () => {
+    const baseline = artifact();
+    const missing = buildMainViewerPairedArtifact({
+      baseline,
+      candidate: artifact({
+        candidateHookStatus: "missing",
+        controlMs: 101,
+        targetMs: 80,
+      }),
+      candidateName: "raster-sidecar",
+      comparisonOrder: "AB",
+    });
+    expect(missing).toMatchObject({
+      adoption: {
+        reasons: ["candidate-hook-unavailable"],
+        status: "no-go",
+      },
+      candidateHook: {
+        candidateName: "raster-sidecar",
+        status: "unavailable",
+        violationCount: 60,
+      },
+      comparisonOrder: "AB",
+      pairedArms: [{ arm: "baseline" }, { arm: "candidate" }],
+    });
+
+    const applied = buildMainViewerPairedArtifact({
+      baseline,
+      candidate: artifact({
+        candidateHookStatus: "applied",
+        controlMs: 101,
+        targetMs: 80,
+      }),
+      candidateName: "raster-sidecar",
+      comparisonOrder: "AB",
+    });
+    expect(applied).toMatchObject({
+      adoption: { reasons: [], status: "go" },
+      candidateHook: { status: "applied", violationCount: 0 },
+    });
+  });
+
   it("records raw samples plus p50, p95, and MAD", () => {
     expect(summarizeDurationSamples([1, 2, 3, 4, 100])).toEqual({
       count: 5,
@@ -479,6 +693,46 @@ describe("Main Viewer render benchmark", () => {
     });
   });
 
+  it("requires AB formal and BA confirmation for paired candidates", () => {
+    const formal = buildMainViewerPairedArtifact({
+      baseline: artifact(),
+      candidate: artifact({
+        candidateHookStatus: "applied",
+        controlMs: 101,
+        targetMs: 80,
+      }),
+      candidateName: "raster-sidecar",
+      comparisonOrder: "AB",
+    });
+    const confirmation = buildMainViewerPairedArtifact({
+      baseline: artifact({ mode: "confirmation" }),
+      candidate: artifact({
+        candidateHookStatus: "applied",
+        controlMs: 101,
+        mode: "confirmation",
+        targetMs: 80,
+      }),
+      candidateName: "raster-sidecar",
+      comparisonOrder: "BA",
+    });
+    expect(
+      combineMainViewerFormalConfirmation(formal, confirmation),
+    ).toMatchObject({
+      confirmationDecision: { reason: "confirmed", status: "go" },
+    });
+    expect(
+      combineMainViewerFormalConfirmation(formal, {
+        ...confirmation,
+        comparisonOrder: "AB",
+      }),
+    ).toMatchObject({
+      confirmationDecision: {
+        reason: "comparison-order-mismatch",
+        status: "no-go",
+      },
+    });
+  });
+
   it("confirms baseline headroom in a separate Chromium process", () => {
     const baselineFormal = artifact();
     const baselineConfirmation = artifact({ mode: "confirmation" });
@@ -513,19 +767,19 @@ describe("Main Viewer render benchmark", () => {
     }
     expect(() =>
       assertMainViewerRenderArtifactSafe({
-        schemaVersion: "imp-560-main-viewer-render-v1",
+        schemaVersion: "imp-560-main-viewer-render-v2",
         documentPath: "/private/workspace/secret.md",
       }),
     ).toThrow("unsafe key");
     expect(() =>
       assertMainViewerRenderArtifactSafe({
-        schemaVersion: "imp-560-main-viewer-render-v1",
+        schemaVersion: "imp-560-main-viewer-render-v2",
         htmlBody: "<p>private source body</p>",
       }),
     ).toThrow("unsafe key");
     expect(() =>
       assertMainViewerRenderArtifactSafe({
-        schemaVersion: "imp-560-main-viewer-render-v1",
+        schemaVersion: "imp-560-main-viewer-render-v2",
         status: "private source body",
       }),
     ).toThrow("uncontrolled text");

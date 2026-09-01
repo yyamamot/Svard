@@ -44,6 +44,13 @@ import {
 import { sanitizeDocumentBodyInPlace } from "./sanitizeHtml";
 import { markSafeHtml, unwrapSafeHtml } from "./safeHtml";
 import type { SafeHtml } from "./safeHtml";
+import {
+  createLocalRasterPayloadSlot,
+  isResolvedLocalRasterMediaType,
+  localRasterPayloadSlotAttribute,
+  removeUntrustedLocalRasterSlots,
+} from "./resolvedLocalRasterPayloads";
+import type { ResolvedLocalRasterPayloadInput } from "./resolvedLocalRasterPayloads";
 
 interface PrepareDocumentHtmlOptions {
   resolveLocalImage?: (
@@ -56,6 +63,7 @@ interface PrepareDocumentHtmlOptions {
     documentPath: string,
     options?: { kind?: "local" | "wikilink"; target?: string; label?: string },
   ) => Promise<DocumentLinkResolution>;
+  localRasterPayloadOwner?: RenderResult;
 }
 
 type DocumentHtmlConfig = {
@@ -338,6 +346,7 @@ export async function prepareDocumentHtml(
   );
   const doc = normalizedRenderResult.document;
   stripUnmanagedResourceAttributes(doc.body);
+  removeUntrustedLocalRasterSlots(doc.body);
   const authorHtmlSourceActionExcludedElements =
     normalizedRenderResult.authorHtmlSourceActionExcludedElements;
   const authorHtmlBlockRootElements =
@@ -915,6 +924,7 @@ export async function prepareDocumentHtml(
   let imageResolverResolvedCount = 0;
   let imageResolverBlockedCount = 0;
   let imageResolverErrorCount = 0;
+  const resolvedLocalRasterPayloads: ResolvedLocalRasterPayloadInput[] = [];
   const hasAuthorImages = Array.from(
     authorHtmlResourceCandidates.values(),
   ).some((candidate) => candidate.kind === "image");
@@ -1049,7 +1059,24 @@ export async function prepareDocumentHtml(
             : backendResult.content;
         const encoding =
           mediaType === "image/svg+xml" ? ";charset=utf-8," : ";base64,";
-        image.setAttribute("src", `data:${mediaType}${encoding}${data}`);
+        const dataUrl = `data:${mediaType}${encoding}${data}`;
+        if (
+          document.format === "markdown" &&
+          options.localRasterPayloadOwner &&
+          isResolvedLocalRasterMediaType(mediaType) &&
+          backendResult.encoding === "base64"
+        ) {
+          const slot = createLocalRasterPayloadSlot();
+          if (slot) {
+            image.removeAttribute("src");
+            image.setAttribute(localRasterPayloadSlotAttribute, slot);
+            resolvedLocalRasterPayloads.push({ dataUrl, image, slot });
+          } else {
+            image.setAttribute("src", dataUrl);
+          }
+        } else {
+          image.setAttribute("src", dataUrl);
+        }
         image.setAttribute("data-image-path", resolvedImage.source);
         if (backendResult.resolvedPath) {
           image.setAttribute(
@@ -1196,9 +1223,26 @@ export async function prepareDocumentHtml(
   });
 
   const sanitizeStartedAt = perfNow();
-  const sanitized = sanitizeDocumentBodyInPlace(doc.body, {
-    format: document.format,
-  });
+  const sanitized = sanitizeDocumentBodyInPlace(
+    doc.body,
+    { format: document.format },
+    {
+      resolvedLocalRasterSidecar: options.localRasterPayloadOwner
+        ? {
+            owner: options.localRasterPayloadOwner,
+            inputs: resolvedLocalRasterPayloads,
+          }
+        : undefined,
+      onPhase: imageResolverTracingEnabled
+        ? (phase, durationMs) => {
+            tracePerf(`render.prepareDocumentHtml.sanitize.${phase}`, {
+              format: document.format,
+              durationMs: Number(durationMs.toFixed(2)),
+            });
+          }
+        : undefined,
+    },
+  );
   tracePerf("render.prepareDocumentHtml.sanitize", {
     basename,
     format: document.format,

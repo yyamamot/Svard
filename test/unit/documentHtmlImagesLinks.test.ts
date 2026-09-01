@@ -1,9 +1,97 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { prepareDocumentHtml } from "../../src/ui/lib/documentHtml";
+import type { RenderResult } from "../../src/core/types";
+import {
+  hydrateResolvedLocalRasterPayloads,
+  localRasterPayloadSlotAttribute,
+} from "../../src/ui/lib/resolvedLocalRasterPayloads";
 import { documentPayload } from "./helpers/documentHtml";
 
+function rasterOwner(): RenderResult {
+  return {
+    html: "",
+    headings: [],
+    sourceBlocks: [],
+    diagnostics: [],
+    diagramSlots: [],
+    mermaidDiagrams: [],
+    plantUmlDiagrams: [],
+    graphvizDiagrams: [],
+    krokiDiagrams: [],
+  };
+}
+
 describe("prepareDocumentHtml image and link hydration", () => {
+  it("keeps resolved Markdown raster payloads outside SafeHtml until pane hydration", async () => {
+    const owner = rasterOwner();
+    const html = await prepareDocumentHtml(
+      `<p><img src="./assets/sample.png" alt="Sample" ${localRasterPayloadSlotAttribute}="author-forged"></p>`,
+      { ...documentPayload, format: "markdown" },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      owner,
+      {
+        localRasterPayloadOwner: owner,
+        resolveLocalImage: async () => ({
+          status: "resolved",
+          mediaType: "image/png",
+          encoding: "base64",
+          content: "AA==",
+        }),
+      },
+    );
+
+    expect(html).not.toContain("data:image/png;base64");
+    expect(html).not.toContain("author-forged");
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    expect(doc.querySelector("img")?.hasAttribute("src")).toBe(false);
+    expect(
+      doc.querySelector("img")?.getAttribute(localRasterPayloadSlotAttribute),
+    ).toBeTruthy();
+
+    expect(hydrateResolvedLocalRasterPayloads(doc.body, owner)).toEqual({
+      hydratedCount: 1,
+      status: "applied",
+    });
+    expect(doc.querySelector("img")?.getAttribute("src")).toBe(
+      "data:image/png;base64,AA==",
+    );
+    expect(
+      doc.querySelector(`[${localRasterPayloadSlotAttribute}]`),
+    ).toBeNull();
+  });
+
+  it("does not sidecar SVG or a raster with a non-base64 encoding", async () => {
+    for (const resolved of [
+      {
+        mediaType: "image/svg+xml",
+        encoding: "utf8" as const,
+        content: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+      },
+      {
+        mediaType: "image/png",
+        encoding: "utf8" as const,
+        content: "AA==",
+      },
+    ]) {
+      const owner = rasterOwner();
+      const html = await prepareDocumentHtml(
+        '<p><img src="./assets/sample" alt="Sample"></p>',
+        { ...documentPayload, format: "markdown" },
+        { security: { allowLocalImages: true, confirmExternalLinks: true } },
+        owner,
+        {
+          localRasterPayloadOwner: owner,
+          resolveLocalImage: async () => ({
+            status: "resolved",
+            ...resolved,
+          }),
+        },
+      );
+      expect(html).toContain(`data:${resolved.mediaType}`);
+      expect(html).not.toContain(localRasterPayloadSlotAttribute);
+    }
+  });
   it("neutralizes AsciiDoc form, image-map, and forged Kroki actions before resolvers", async () => {
     const resolveDocumentLink = vi.fn();
     const resolveLocalImage = vi.fn();

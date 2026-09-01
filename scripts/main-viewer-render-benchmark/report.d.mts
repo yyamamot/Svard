@@ -42,6 +42,12 @@ export function buildMainViewerRenderArtifact(input: {
   runtime: string;
   samples: readonly MainViewerRenderSample[];
 }): Record<string, unknown>;
+export function buildMainViewerPairedArtifact(input: {
+  baseline: Record<string, unknown>;
+  candidate: Record<string, unknown>;
+  candidateName: "raster-sidecar";
+  comparisonOrder: "AB" | "BA";
+}): Record<string, unknown>;
 export function buildMainViewerAdoptionComparison(
   baseline: Record<string, unknown>,
   current: Record<string, unknown>,

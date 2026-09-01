@@ -1,6 +1,7 @@
 import { mainViewerRenderFixtureIds } from "./fixtures.mjs";
+import { buildMainViewerCandidatePair } from "./reportCandidate.mjs";
 
-export const mainViewerRenderSchema = "imp-560-main-viewer-render-v1";
+export const mainViewerRenderSchema = "imp-560-main-viewer-render-v2";
 export const mainViewerRenderBenchmarkId = "imp-560-main-viewer-render";
 export const mainViewerRenderRuntime = "chromium-vite-production";
 
@@ -10,6 +11,11 @@ export const mainViewerRenderTimingKeys = Object.freeze([
   "workerDeliveryMs",
   "prepareMs",
   "sanitizeMs",
+  "sanitizePurifyMs",
+  "sanitizeDimensionScopeMs",
+  "sanitizeSerializeMs",
+  "sanitizeTaskListRestoreMs",
+  "sanitizeCommitMs",
   "resolverMs",
   "commitMs",
   "decodeMs",
@@ -43,6 +49,10 @@ export const mainViewerRenderCountKeys = Object.freeze([
   "linkInspectorBuildCount",
   "outgoingCount",
   "backlinkCount",
+  "sanitizeBreakdownCount",
+  "rasterSidecarHydratedCount",
+  "inlineRasterDataUrlCount",
+  "candidateHookViolationCount",
 ]);
 
 const candidateDefinitions = Object.freeze([
@@ -71,19 +81,34 @@ const candidateDefinitions = Object.freeze([
     fixtureIds: Object.freeze(["dom-dense"]),
     timingKey: "postCommitMs",
   }),
+  Object.freeze({
+    candidatePhase: "sanitize-commit",
+    fixtureIds: Object.freeze([
+      "dom-dense",
+      "raster-duplicate",
+      "raster-unique",
+      "raster-near-5-mib",
+    ]),
+    timingKey: "sanitizeCommitMs",
+  }),
 ]);
 
 const allowedArtifactKeys = new Set([
   "activeHeadingMs",
   "adoption",
+  "arm",
   "backlinkCount",
   "baselineP50Ms",
   "baselineP95Ms",
   "benchmarkId",
   "cacheStatus",
+  "candidateHook",
+  "candidateHookViolationCount",
+  "candidateName",
   "candidatePhase",
   "commitMs",
   "confirmationDecision",
+  "comparisonOrder",
   "conservativeHeadroomMs",
   "contractStatus",
   "controlBaselineP95Ms",
@@ -113,6 +138,7 @@ const allowedArtifactKeys = new Set([
   "headroom",
   "headroomConfirmation",
   "htmlCommitCount",
+  "inlineRasterDataUrlCount",
   "layoutFrameCount",
   "layoutTimeoutCount",
   "layoutStabilityMs",
@@ -133,6 +159,7 @@ const allowedArtifactKeys = new Set([
   "nativePhases",
   "noiseFloorMs",
   "outgoingCount",
+  "pairedArms",
   "p50ImprovementPercent",
   "p50Ms",
   "p50SavingMs",
@@ -147,6 +174,7 @@ const allowedArtifactKeys = new Set([
   "prepareMs",
   "reason",
   "reasons",
+  "rasterSidecarHydratedCount",
   "requiredSavingMs",
   "resolverBlockedCount",
   "resolverCallCount",
@@ -160,6 +188,12 @@ const allowedArtifactKeys = new Set([
   "samples",
   "samplesMs",
   "sanitizeMs",
+  "sanitizeBreakdownCount",
+  "sanitizeCommitMs",
+  "sanitizeDimensionScopeMs",
+  "sanitizePurifyMs",
+  "sanitizeSerializeMs",
+  "sanitizeTaskListRestoreMs",
   "schemaVersion",
   "searchCleanupMs",
   "searchMarkCount",
@@ -173,6 +207,7 @@ const allowedArtifactKeys = new Set([
   "timings",
   "totalMs",
   "viewerReadyMs",
+  "violationCount",
   "warmupCount",
   "workerCoreMs",
   "workerDeliveryMs",
@@ -186,6 +221,10 @@ const allowedArtifactStrings = new Set([
   "chromium-external-url",
   "formal",
   "confirmation",
+  "AB",
+  "BA",
+  "baseline",
+  "candidate",
   "none",
   "svg",
   "raster",
@@ -194,6 +233,7 @@ const allowedArtifactStrings = new Set([
   "1-mib-to-5-mib",
   "not-applicable",
   "unavailable",
+  "applied",
   "ok",
   "incomplete",
   "go",
@@ -203,6 +243,8 @@ const allowedArtifactStrings = new Set([
   "image-resolver",
   "image-decode",
   "post-commit",
+  "sanitize-commit",
+  "raster-sidecar",
   "no-candidate",
   "headroom-confirmed",
   "baseline-unstable",
@@ -223,6 +265,8 @@ const allowedArtifactStrings = new Set([
   "formal-not-go",
   "confirmation-not-go",
   "candidate-mismatch",
+  "candidate-hook-unavailable",
+  "comparison-order-mismatch",
   "baseline-headroom-mismatch",
   "runtime-mismatch",
   "run-mode-mismatch",
@@ -468,6 +512,28 @@ export function buildMainViewerRenderArtifact({
   return artifact;
 }
 
+export function buildMainViewerPairedArtifact({
+  baseline,
+  candidate,
+  candidateName,
+  comparisonOrder,
+}) {
+  assertMainViewerRenderArtifactSafe(baseline);
+  assertMainViewerRenderArtifactSafe(candidate);
+  const paired = buildMainViewerCandidatePair({
+    baseline,
+    candidate,
+    candidateName,
+    comparisonOrder,
+  });
+  const artifact = {
+    ...paired,
+    adoption: buildMainViewerAdoptionComparison(baseline, paired),
+  };
+  assertMainViewerRenderArtifactSafe(artifact);
+  return artifact;
+}
+
 function fixtureSummary(artifact, fixtureId) {
   return artifact.fixtures?.find((fixture) => fixture.fixtureId === fixtureId);
 }
@@ -537,6 +603,15 @@ export function buildMainViewerAdoptionComparison(baseline, current) {
       contractStatus: "mismatch",
       reasons: ["run-mode-mismatch"],
       status: "needs-decision",
+      targetFixtureId: targetFixtureId ?? "none",
+    };
+  }
+  if (current.candidateHook && current.candidateHook.status !== "applied") {
+    return {
+      candidatePhase: candidatePhase ?? "no-candidate",
+      contractStatus: "mismatch",
+      reasons: ["candidate-hook-unavailable"],
+      status: "no-go",
       targetFixtureId: targetFixtureId ?? "none",
     };
   }
@@ -745,6 +820,16 @@ export function combineMainViewerFormalConfirmation(formal, confirmation) {
     reason = "run-mode-mismatch";
   } else if (formal.runtime !== confirmation.runtime) {
     reason = "runtime-mismatch";
+  } else if (
+    (formal.candidateName || confirmation.candidateName) &&
+    formal.candidateName !== confirmation.candidateName
+  ) {
+    reason = "candidate-mismatch";
+  } else if (
+    (formal.comparisonOrder || confirmation.comparisonOrder) &&
+    (formal.comparisonOrder !== "AB" || confirmation.comparisonOrder !== "BA")
+  ) {
+    reason = "comparison-order-mismatch";
   } else if (!formalAdoption || !confirmationAdoption) {
     status = "needs-decision";
   } else if (

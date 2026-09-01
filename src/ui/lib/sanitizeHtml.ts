@@ -1,6 +1,10 @@
 import createDOMPurify from "dompurify";
 import type { Config } from "dompurify";
-import type { DocumentFormat } from "../../core/types";
+import type { DocumentFormat, RenderResult } from "../../core/types";
+import {
+  retainResolvedLocalRasterPayloads,
+  type ResolvedLocalRasterPayloadInput,
+} from "./resolvedLocalRasterPayloads";
 import { markSafeHtml, unwrapSafeHtml } from "./safeHtml";
 import type { SafeHtml } from "./safeHtml";
 
@@ -29,6 +33,20 @@ const commonConfig = {
 
 export interface SanitizeDocumentHtmlOptions {
   format?: DocumentFormat;
+}
+
+export type SanitizeDocumentBodyPhase =
+  | "purify"
+  | "dimensionScope"
+  | "serialize"
+  | "taskListRestore";
+
+export interface SanitizeDocumentBodyLifecycle {
+  onPhase?: (phase: SanitizeDocumentBodyPhase, durationMs: number) => void;
+  resolvedLocalRasterSidecar?: {
+    inputs: readonly ResolvedLocalRasterPayloadInput[];
+    owner: RenderResult;
+  };
 }
 
 const viewerMetadataAttributes = [
@@ -211,15 +229,38 @@ export function sanitizeDocumentHtml(
 export function sanitizeDocumentBodyInPlace(
   body: HTMLElement,
   options: SanitizeDocumentHtmlOptions = {},
+  lifecycle: SanitizeDocumentBodyLifecycle = {},
 ): SafeHtml {
+  const now = () => globalThis.performance?.now?.() ?? Date.now();
+  const onPhase = lifecycle.onPhase;
+  let phaseStartedAt = onPhase ? now() : 0;
   DOMPurify.sanitize(body, {
     ...sanitizeConfigForFormat(options.format),
     IN_PLACE: true,
   });
+  if (onPhase) onPhase("purify", now() - phaseStartedAt);
+
+  if (onPhase) phaseStartedAt = now();
   if (options.format !== "asciidoc") {
     stripMarkdownNonImageDimensionsInPlace(body);
   }
-  return markSafeHtml(restoreTaskListCheckboxes(body.innerHTML));
+  if (onPhase) onPhase("dimensionScope", now() - phaseStartedAt);
+
+  if (lifecycle.resolvedLocalRasterSidecar) {
+    retainResolvedLocalRasterPayloads(
+      lifecycle.resolvedLocalRasterSidecar.owner,
+      body,
+      lifecycle.resolvedLocalRasterSidecar.inputs,
+    );
+  }
+  if (onPhase) phaseStartedAt = now();
+  const serialized = body.innerHTML;
+  if (onPhase) onPhase("serialize", now() - phaseStartedAt);
+
+  if (onPhase) phaseStartedAt = now();
+  const restored = restoreTaskListCheckboxes(serialized);
+  if (onPhase) onPhase("taskListRestore", now() - phaseStartedAt);
+  return markSafeHtml(restored);
 }
 
 export function sanitizeRenderedBlockHtml(

@@ -13,6 +13,11 @@ import {
   ViewerPane,
 } from "../../src/ui/components/ViewerPane";
 import { markSafeHtml, emptySafeHtml } from "../../src/ui/lib/safeHtml";
+import {
+  createLocalRasterPayloadSlot,
+  localRasterPayloadSlotAttribute,
+  retainResolvedLocalRasterPayloads,
+} from "../../src/ui/lib/resolvedLocalRasterPayloads";
 import type { ViewerPaneSnapshot } from "../../src/ui/types";
 
 const renderResult: RenderResult = {
@@ -209,6 +214,39 @@ describe("ViewerPane", () => {
     expect(secondArticle).toBe(firstArticle);
     expect(secondArticle?.innerHTML).toBe("<pre>wide source block</pre>");
     expect(secondArticle?.dataset.renderRevision).toBe("2");
+  });
+
+  it("hydrates resolved raster payloads inside the single layout commit", async () => {
+    const owner = { ...renderResult };
+    const slot = createLocalRasterPayloadSlot();
+    if (!slot) throw new Error("Secure slot generation unavailable in test");
+    const source = new DOMParser().parseFromString(
+      `<img alt="Sidecar" ${localRasterPayloadSlotAttribute}="${slot}">`,
+      "text/html",
+    );
+    const sourceImage = source.querySelector("img");
+    if (!sourceImage) throw new Error("Missing sidecar image fixture");
+    retainResolvedLocalRasterPayloads(owner, source.body, [
+      {
+        dataUrl: "data:image/png;base64,AA==",
+        image: sourceImage,
+        slot,
+      },
+    ]);
+
+    await act(async () =>
+      renderPane({
+        documentPayload: payload("markdown"),
+        documentHtml: markSafeHtml(source.body.innerHTML),
+        renderResult: owner,
+      }),
+    );
+
+    const committed = container.querySelector("article img");
+    expect(committed?.getAttribute("src")).toBe("data:image/png;base64,AA==");
+    expect(committed?.hasAttribute(localRasterPayloadSlotAttribute)).toBe(
+      false,
+    );
   });
 
   it("cancels Capture Area when the focused pane switches documents", async () => {

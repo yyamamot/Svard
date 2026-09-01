@@ -30,6 +30,10 @@ import {
 import { setElementSafeHtml, unwrapSafeHtml } from "../lib/safeHtml";
 import type { SafeHtml } from "../lib/safeHtml";
 import {
+  countInlineRasterDataUrls,
+  hydrateResolvedLocalRasterPayloads,
+} from "../lib/resolvedLocalRasterPayloads";
+import {
   setArticleLayoutState,
   waitForArticleLayoutStability,
 } from "../lib/articleLayoutStability";
@@ -369,6 +373,20 @@ export function ViewerPane({
       durationMs: 0,
     });
     setElementSafeHtml(article, html);
+    const inlineRasterDataUrlCount = criticalPathTracingEnabled
+      ? countInlineRasterDataUrls(article)
+      : 0;
+    const rasterSidecarResult = hydrateResolvedLocalRasterPayloads(
+      article,
+      result,
+    );
+    if (criticalPathTracingEnabled) {
+      tracePerf("render.rasterSidecar.complete", {
+        hydratedCount: rasterSidecarResult.hydratedCount,
+        inlineRasterDataUrlCount,
+        status: rasterSidecarResult.status,
+      });
+    }
     const commitCompletedAt = perfNow();
     article.dataset.renderedDocumentPath = documentPath;
     article.dataset.renderRevision = articleRenderIdentity;
@@ -446,6 +464,7 @@ export function ViewerPane({
     documentPath,
     hasRenderResult,
     html,
+    result,
   ]);
 
   useEffect(() => {

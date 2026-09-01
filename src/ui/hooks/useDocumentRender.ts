@@ -39,6 +39,10 @@ import {
   tracePerf,
 } from "../lib/perfTrace";
 import type { SafeHtml } from "../lib/safeHtml";
+import {
+  clearResolvedLocalRasterPayloads,
+  shouldUseMainViewerRasterSidecar,
+} from "../lib/resolvedLocalRasterPayloads";
 
 interface RenderHost {
   renderDiagram(request: KrokiRequest): Promise<KrokiResult>;
@@ -239,12 +243,19 @@ export function useDocumentRender({
         }
 
         const prepareStartedAt = perfNow();
+        const useRasterSidecar =
+          documentPayload.format === "markdown" &&
+          shouldUseMainViewerRasterSidecar();
+        if (!useRasterSidecar) {
+          clearResolvedLocalRasterPayloads(result);
+        }
         const preparedHtml = await prepareDocumentHtml(
           result.html,
           documentPayload,
           { security: securityConfig },
           result,
           {
+            localRasterPayloadOwner: useRasterSidecar ? result : undefined,
             resolveLocalImage: (path, documentPath, context) =>
               host.resolveLocalImage(path, documentPath, context),
             resolveDocumentLink: (href, documentPath, linkOptions) =>
