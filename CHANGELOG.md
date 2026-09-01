@@ -8,6 +8,7 @@
 - Preserved source references, copy actions, rendered diffs, link previews, and table comparisons around Safe HTML while preventing author metadata from gaining app-owned actions.
 - Fixed KaTeX selections so AI Chat, copy actions, and rendered change context preserve the original TeX exactly once.
 - Fixed Markdown Safe HTML images with integer or `px` dimensions, while dropping invalid optional attributes without hiding otherwise safe content.
+- Improved Main Viewer rendering latency for resolved local PNG, JPEG, and WebP images while preserving the existing image security and display behavior.
 - Fixed Viewer text and original-source reference copying so rendered text, source ranges, and AI Chat snapshots remain separate.
 - Fixed context-menu scroll handling, File Compare document drops, and File History repository headers.
 
