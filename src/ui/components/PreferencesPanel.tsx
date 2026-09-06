@@ -1,3 +1,4 @@
+import { settingsLabel } from "../lib/appLabels";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   FocusEvent as ReactFocusEvent,
@@ -672,13 +673,13 @@ export function PreferencesPanel({
     <section
       className={`preferences ${mode === "page" ? "preferences-page" : ""}`}
       data-review-id="preferences-dialog"
-      aria-label="Preferences"
+      aria-label={settingsLabel(platform)}
       onPointerDownCapture={handlePreferencesPointerDownCapture}
       onBlurCapture={handlePreferencesBlur}
     >
       <header className="preferences-header">
         <div>
-          <p className="eyebrow">Preferences</p>
+          <p className="eyebrow">{settingsLabel(platform)}</p>
           <h2>{activeSectionTitle}</h2>
         </div>
         <button

@@ -19,6 +19,7 @@ mod agent_session_registry;
 mod antora_order;
 mod antora_playbook;
 mod app_error;
+mod app_lifecycle;
 mod backend_types;
 mod cache_prune;
 mod codex_executable;
@@ -799,6 +800,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            app_lifecycle::quit_app,
             get_agent_provider_runtime,
             start_agent_session,
             attach_agent_session,
@@ -886,8 +888,9 @@ pub fn run() {
             render_external_plantuml,
             test_external_plantuml
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Svard");
+        .build(tauri::generate_context!())
+        .expect("error while building Svard")
+        .run(app_lifecycle::handle_run_event);
 }
 
 #[cfg(test)]

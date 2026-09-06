@@ -1,4 +1,5 @@
 export const commandIds = [
+  "app.quit",
   "file.open",
   "folder.open",
   "window.new",
@@ -91,6 +92,7 @@ export interface CommandDispatchResult {
 }
 
 export const commandDefinitions: CommandDefinition[] = [
+  { id: "app.quit", title: "Quit Application", context: "global" },
   { id: "file.open", title: "Open File", context: "global" },
   { id: "folder.open", title: "Open Folder", context: "global" },
   { id: "window.new", title: "New Window", context: "global" },

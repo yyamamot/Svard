@@ -1,4 +1,5 @@
 import { isPreferencesLayoutScenario } from "../../../scenarios/metadata.mjs";
+import { expectedSettingsLabel } from "../../../core/platform.mjs";
 
 export async function buildAppShellPreferencesAssertions(context) {
   const scenario = context.scenario;
@@ -63,7 +64,7 @@ export async function buildAppShellPreferencesAssertions(context) {
         : true,
     hasPreferencesTab:
       scenario === "viewer-preferences-tab"
-        ? bodyText.includes("Preferences") &&
+        ? bodyText.includes(await expectedSettingsLabel(page)) &&
           (await page
             .locator('[data-review-id="preferences-page"]')
             .count()) === 1 &&

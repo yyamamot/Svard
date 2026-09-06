@@ -18,6 +18,7 @@ import type {
 } from "../../core/types";
 import type { RecentlyVisitedLocation, WorkspaceTab } from "../types";
 import { fileName } from "./path";
+import { settingsLabel } from "./appLabels";
 
 export const appMenuTopLevelOrder = [
   "File",
@@ -30,7 +31,9 @@ export const appMenuTopLevelOrder = [
   "Help",
 ] as const;
 
-export type AppMenuTopLevelLabel = (typeof appMenuTopLevelOrder)[number];
+export type AppMenuTopLevelLabel =
+  | "Svard"
+  | (typeof appMenuTopLevelOrder)[number];
 
 export interface AppMenuCommandItem {
   type: "command";
@@ -52,6 +55,10 @@ export interface AppMenuNativeItem {
     | "paste"
     | "selectAll"
     | "separator"
+    | "services"
+    | "hide"
+    | "hideOthers"
+    | "showAll"
     | "about";
   enabled?: boolean;
 }
@@ -115,6 +122,7 @@ interface BuildAppMenuModelOptions {
 }
 
 const commandIdsWithNativeAccelerators = new Set<CommandId>([
+  "app.quit",
   "file.open",
   "folder.open",
   "window.new",
@@ -281,15 +289,59 @@ export function buildAppMenuModel({
           },
         ];
   const windowTabItems = windowMenuTabItems({
+    platform,
     command,
     workspaceTabs,
     activeTabId,
   });
 
   return [
+    ...(platform === "mac"
+      ? [
+          {
+            label: "Svard" as const,
+            items: [
+              {
+                type: "native" as const,
+                label: "About Svard",
+                nativeId: "about" as const,
+              },
+              separator(),
+              command("Settings…", "preferences.open"),
+              separator(),
+              {
+                type: "native" as const,
+                label: "Services",
+                nativeId: "services" as const,
+              },
+              separator(),
+              {
+                type: "native" as const,
+                label: "Hide Svard",
+                nativeId: "hide" as const,
+              },
+              {
+                type: "native" as const,
+                label: "Hide Others",
+                nativeId: "hideOthers" as const,
+              },
+              {
+                type: "native" as const,
+                label: "Show All",
+                nativeId: "showAll" as const,
+              },
+              separator(),
+              command("Quit Svard", "app.quit"),
+            ],
+          },
+        ]
+      : []),
     {
       label: "File",
       items: [
+        ...(platform === "mac"
+          ? [command("New Window", "window.new"), separator()]
+          : []),
         command("Open File...", "file.open"),
         command("Open Folder...", "folder.open"),
         submenu("Open Recent", [
@@ -299,7 +351,9 @@ export function buildAppMenuModel({
         ]),
         separator(),
         command("Quick Open...", "quickOpen.focus"),
-        command("Preferences...", "preferences.open"),
+        ...(platform === "mac"
+          ? []
+          : [command("Preferences...", "preferences.open")]),
         separator(),
         command("Compare Files...", "file.compareFiles"),
         command("Compare with Active File", "file.compareWithActive"),
@@ -307,6 +361,9 @@ export function buildAppMenuModel({
         command("Close File", "tab.close"),
         command("Close Other Files", "tab.closeOthers"),
         command("Close All Files", "tab.closeAll"),
+        ...(platform === "mac"
+          ? []
+          : [separator(), command("Exit", "app.quit")]),
       ],
     },
     {
@@ -393,7 +450,7 @@ export function buildAppMenuModel({
     {
       label: "Window",
       items: [
-        command("New Window", "window.new"),
+        ...(platform === "mac" ? [] : [command("New Window", "window.new")]),
         command("Duplicate Window", "window.duplicate"),
         separator(),
         command("Next Tab", "tab.next"),
@@ -405,12 +462,16 @@ export function buildAppMenuModel({
     {
       label: "Help",
       items: [
-        {
-          type: "native",
-          label: "About Svard",
-          nativeId: "about",
-          enabled: true,
-        },
+        ...(platform === "mac"
+          ? []
+          : [
+              {
+                type: "native" as const,
+                label: "About Svard",
+                nativeId: "about" as const,
+                enabled: true,
+              },
+            ]),
         command("Website", "help.openWebsite"),
         command("Shortcuts and Gestures", "viewer.showShortcuts"),
       ],
@@ -419,10 +480,12 @@ export function buildAppMenuModel({
 }
 
 function windowMenuTabItems({
+  platform,
   command,
   workspaceTabs,
   activeTabId,
 }: {
+  platform: Platform;
   command: (label: string, commandId: CommandId) => AppMenuCommandItem;
   workspaceTabs: WorkspaceTab[];
   activeTabId?: string;
@@ -440,7 +503,7 @@ function windowMenuTabItems({
   const primaryTabs = workspaceTabs.slice(0, numberedCommands.length);
   const items = primaryTabs.map((tab, index) =>
     command(
-      windowMenuTabLabel(tab, index + 1, activeTabId, workspaceTabs),
+      windowMenuTabLabel(tab, index + 1, activeTabId, workspaceTabs, platform),
       numberedCommands[index]!,
     ),
   );
@@ -450,7 +513,7 @@ function windowMenuTabItems({
     if (lastTab && !primaryTabs.some((tab) => tab.id === lastTab.id)) {
       items.push(
         command(
-          windowMenuTabLabel(lastTab, 9, activeTabId, workspaceTabs),
+          windowMenuTabLabel(lastTab, 9, activeTabId, workspaceTabs, platform),
           "tab.activateLast",
         ),
       );
@@ -465,15 +528,20 @@ function windowMenuTabLabel(
   index: number,
   activeTabId: string | undefined,
   workspaceTabs: WorkspaceTab[],
+  platform: Platform,
 ): string {
-  const title = tabTitle(tab, workspaceTabs);
+  const title = tabTitle(tab, workspaceTabs, platform);
   const prefix = tab.id === activeTabId ? `✓ ${index}` : `${index}`;
   return `${prefix}  ${title}`;
 }
 
-function tabTitle(tab: WorkspaceTab, workspaceTabs: WorkspaceTab[]): string {
+function tabTitle(
+  tab: WorkspaceTab,
+  workspaceTabs: WorkspaceTab[],
+  platform: Platform,
+): string {
   if (tab.kind === "preferences") {
-    return "Preferences";
+    return settingsLabel(platform);
   }
   const basename = fileName(tab.path);
   const duplicateCount = workspaceTabs.filter(

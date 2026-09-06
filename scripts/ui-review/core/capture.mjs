@@ -86,6 +86,18 @@ export async function captureScenario({
     viewport: { width: 1440, height: 960 },
   });
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  if (scenario === "viewer-macos-menu-settings") {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "platform", {
+        configurable: true,
+        value: "MacIntel",
+      });
+      Object.defineProperty(navigator, "userAgentData", {
+        configurable: true,
+        value: { platform: "macOS" },
+      });
+    });
+  }
   if (scenario === WORKSPACE_BOOT_BENCHMARK_SCENARIO) {
     await installWorkspaceBootBenchmarkCollector(page);
   } else if (scenario === DOCUMENT_RENDER_CACHE_BENCHMARK_SCENARIO) {

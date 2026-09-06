@@ -37,6 +37,25 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 
 import { TauriHostAdapter } from "../../src/adapters/tauriHostAdapter";
 
+describe("TauriHostAdapter.quitApp", () => {
+  beforeEach(() => {
+    tauriMocks.invoke.mockReset();
+  });
+
+  it("invokes only quit_app without a payload", async () => {
+    tauriMocks.invoke.mockResolvedValue(undefined);
+    await new TauriHostAdapter().quitApp();
+    expect(tauriMocks.invoke).toHaveBeenCalledTimes(1);
+    expect(tauriMocks.invoke.mock.calls[0][0]).toBe("quit_app");
+    expect(tauriMocks.invoke.mock.calls[0][1]).toBeUndefined();
+  });
+
+  it("propagates invoke failure to the command notice boundary", async () => {
+    tauriMocks.invoke.mockRejectedValue(new Error("quit failed"));
+    await expect(new TauriHostAdapter().quitApp()).rejects.toThrow();
+  });
+});
+
 describe("TauriHostAdapter.watchDocument", () => {
   beforeEach(() => {
     vi.useFakeTimers();

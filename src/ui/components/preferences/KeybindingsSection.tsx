@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { getCommandTitle } from "../../../core/commands";
+import { getUiCommandTitle } from "../../lib/appLabels";
 import {
   defaultKeybindingMappings,
   formatShortcut,
@@ -28,7 +28,7 @@ export function KeybindingsSection({
           ? formatShortcut(binding.keys, platform)
           : "Unassigned";
         const searchableText = [
-          getCommandTitle(binding.commandId),
+          getUiCommandTitle(binding.commandId, platform),
           binding.commandId,
           shortcut,
           binding.context ?? "global",
@@ -131,7 +131,7 @@ export function KeybindingsSection({
                 data-review-id="keybinding-shortcut-row"
               >
                 <td>
-                  <span>{getCommandTitle(binding.commandId)}</span>
+                  <span>{getUiCommandTitle(binding.commandId, platform)}</span>
                   <code data-review-id="keybinding-command-id">
                     {binding.commandId}
                   </code>

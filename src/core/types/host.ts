@@ -306,6 +306,7 @@ export interface HostAdapter {
   openExternalUrl(url: string): Promise<void>;
   openPathInEditor(path: string): Promise<void>;
   openNewWindow(request: ViewerWindowOpenRequest): Promise<void>;
+  quitApp(): Promise<void>;
   openDocumentInNewWindow(request: ViewerWindowOpenRequest): Promise<void>;
   openCurrentDocumentInNewWindow(
     request: ViewerWindowOpenRequest,

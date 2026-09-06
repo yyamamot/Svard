@@ -1,3 +1,4 @@
+import { settingsLabel } from "../lib/appLabels";
 import { X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AppConfig } from "../../core/types";
@@ -116,7 +117,7 @@ export function ShortcutGestureHints({
                 className="shortcut-gesture-hints-empty"
                 data-review-id="shortcut-gesture-hints-gestures-disabled"
               >
-                Mouse Gestures disabled. Enable them in Preferences.
+                Mouse Gestures disabled. Enable them in {settingsLabel()}.
               </p>
             ) : (
               <HintRows rows={mouseRows} />

@@ -304,6 +304,10 @@ export class TauriHostAdapter
     return invokeCommand("open_new_window", { request });
   }
 
+  quitApp(): Promise<void> {
+    return invokeCommand("quit_app");
+  }
+
   openDocumentInNewWindow(request: ViewerWindowOpenRequest): Promise<void> {
     return invokeCommand("open_current_document_in_new_window", { request });
   }

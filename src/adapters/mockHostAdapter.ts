@@ -65,6 +65,22 @@ import type {
 import { searchMockWorkspace } from "../core/workspaceSearch";
 
 export class MockHostAdapter extends MockAgentFacade implements HostAdapter {
+  private quitRequestCount = 0;
+
+  quitApp(): Promise<void> {
+    this.quitRequestCount += 1;
+    const harness = globalThis as typeof globalThis & {
+      __SVARD_QUIT_REQUEST_COUNT__?: number;
+    };
+    harness.__SVARD_QUIT_REQUEST_COUNT__ =
+      (harness.__SVARD_QUIT_REQUEST_COUNT__ ?? 0) + 1;
+    return Promise.resolve();
+  }
+
+  getQuitRequestCount(): number {
+    return this.quitRequestCount;
+  }
+
   private agentChatWindowRequest: AgentChatWindowOpenRequest | null = null;
 
   openAgentChatWindow(request: AgentChatWindowOpenRequest): Promise<string> {

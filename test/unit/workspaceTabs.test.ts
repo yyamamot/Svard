@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DocumentPayload } from "../../src/core/types";
 import {
@@ -6,6 +6,7 @@ import {
   activeWorkspaceTabId,
   buildWorkspaceTabs,
   preferencesTabId,
+  workspaceTabTitle,
 } from "../../src/ui/lib/workspaceTabs";
 
 function document(path: string): DocumentPayload {
@@ -19,6 +20,20 @@ function document(path: string): DocumentPayload {
 }
 
 describe("workspace tabs", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+  it.each(["MacIntel", "Win32", "Linux x86_64"])(
+    "uses the settings display title on %s without changing tab identity",
+    (platform) => {
+      vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+      const tab = { kind: "preferences" as const, id: preferencesTabId };
+      expect(workspaceTabTitle(tab)).toBe(
+        platform === "MacIntel" ? "Settings" : "Preferences",
+      );
+      expect(tab.id).toBe("app://preferences");
+    },
+  );
   it("adds Preferences as a UI-only workspace tab after document tabs", () => {
     const tabs = buildWorkspaceTabs(
       [

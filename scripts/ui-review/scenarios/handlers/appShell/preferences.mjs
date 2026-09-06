@@ -404,7 +404,9 @@ export async function applyAppShellPreferencesScenario(context) {
         page,
         "__SVARD_PREFERENCES_SIZE_SAMPLES__",
         (name) => {
-          const dialog = document.querySelector('[aria-label="Preferences"]');
+          const dialog = document.querySelector(
+            '[data-review-id="preferences-dialog"]',
+          );
           const pane = document.querySelector(
             '[data-review-id="preferences-pane"]',
           );

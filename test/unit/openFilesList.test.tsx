@@ -18,6 +18,7 @@ function renderOpenFilesList(
   root: Root,
   options: {
     tabs?: DocumentPayload[];
+    preferencesTabOpen?: boolean;
     activePath?: string;
     pinnedTabs?: string[];
     gitStatusByPath?: Record<string, "modified" | "untracked" | "clean">;
@@ -33,7 +34,7 @@ function renderOpenFilesList(
     collapsed: false,
     tabs: options.tabs ?? [tab("/workspace/docs/git-modified.md")],
     activePath: options.activePath,
-    preferencesTabOpen: false,
+    preferencesTabOpen: options.preferencesTabOpen ?? false,
     preferencesActive: false,
     pinnedTabs: options.pinnedTabs ?? [],
     gitStatusByPath: options.gitStatusByPath ?? {},
@@ -72,7 +73,28 @@ describe("OpenFilesList", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.restoreAllMocks();
   });
+
+  it.each(["MacIntel", "Win32", "Linux x86_64"])(
+    "uses platform-specific settings tab labels on %s",
+    (platform) => {
+      vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+      renderOpenFilesList(root, { preferencesTabOpen: true });
+      const label = platform === "MacIntel" ? "Settings" : "Preferences";
+      const row = container.querySelector('[data-tab-kind="preferences"]')!;
+      expect(
+        row.querySelector(".open-file-button")?.getAttribute("title"),
+      ).toBe(label);
+      expect(
+        row.querySelector(".open-file-button")?.getAttribute("aria-label"),
+      ).toBe(label);
+      expect(row.querySelector(".open-file-button")?.textContent).toBe(label);
+      expect(
+        row.querySelector(".open-file-close")?.getAttribute("aria-label"),
+      ).toBe(`Close ${label}`);
+    },
+  );
 
   it("keeps only collapse as the header action", () => {
     renderOpenFilesList(root, {

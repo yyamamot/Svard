@@ -1,4 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+beforeEach(() => {
+  vi.spyOn(navigator, "platform", "get").mockReturnValue("Win32");
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 import { Topbar } from "../../src/ui/components/Topbar";
 import type { CommandId } from "../../src/core/commands";
@@ -27,6 +34,7 @@ const documentTab: WorkspaceTab = {
 };
 
 function renderTopbar({
+  tab = documentTab,
   splitEnabled = false,
   sidebarVisible = true,
   rightSidebarVisible = true,
@@ -39,6 +47,7 @@ function renderTopbar({
   onSelectAgentChatDisplay = vi.fn<(action: AgentChatDisplayAction) => void>(),
   onDispatchCommand = vi.fn<(commandId: CommandId) => void>(),
 }: Partial<{
+  tab: WorkspaceTab;
   splitEnabled: boolean;
   sidebarVisible: boolean;
   rightSidebarVisible: boolean;
@@ -59,9 +68,9 @@ function renderTopbar({
       rightSidebarAvailable={rightSidebarAvailable}
       zenModeActive={zenModeActive}
       activeTitle="01-specification.md"
-      activeTabId={documentTab.id}
-      tabs={[documentTab]}
-      visibleTabs={[documentTab]}
+      activeTabId={tab.id}
+      tabs={[tab]}
+      visibleTabs={[tab]}
       overflowTabs={[]}
       tabMoreOpen={false}
       splitEnabled={splitEnabled}
@@ -80,6 +89,26 @@ function renderTopbar({
 }
 
 describe("Topbar direct layout controls", () => {
+  it.each(["MacIntel", "Win32", "Linux x86_64"])(
+    "labels horizontal settings tabs on %s",
+    (platform) => {
+      vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+      const label = platform === "MacIntel" ? "Settings" : "Preferences";
+      const { harness } = renderTopbar({
+        sidebarVisible: false,
+        tab: { kind: "preferences", id: "app://preferences" },
+      });
+      const tab = harness.byReviewId("active-tab");
+      expect(tab.getAttribute("title")).toBe(label);
+      expect(tab.textContent).toBe(label);
+      expect(
+        tab
+          .querySelector('[data-review-id="tab-close"]')
+          ?.getAttribute("aria-label"),
+      ).toBe(`Close ${label}`);
+      harness.cleanup();
+    },
+  );
   it("keeps app actions menu-first and exposes direct layout controls", () => {
     const { harness } = renderTopbar();
 

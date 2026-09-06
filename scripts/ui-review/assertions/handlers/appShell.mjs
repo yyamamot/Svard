@@ -8,6 +8,57 @@ export async function buildAppShellAssertions(context) {
   const geometryReviewIds = context.geometryReviewIds;
   const searchManualScrollStable = context.searchManualScrollStable;
   return {
+    hasMacosMenuSettings:
+      scenario === "viewer-macos-menu-settings"
+        ? await page.evaluate(() => {
+            const checks = window.__SVARD_MACOS_SETTINGS_CHECK__;
+            return (
+              checks?.labels.title === "Settings" &&
+              checks.labels.panel === "Settings" &&
+              checks.labels.tab === "Settings" &&
+              checks.labels.close === "Close Settings" &&
+              checks.labels.command === "preferences.open" &&
+              checks.closeSearch === true &&
+              document.querySelectorAll(
+                '[data-review-id="keybinding-shortcut-table"] tbody tr',
+              ).length === 1 &&
+              document.querySelector('[data-review-id="keybinding-command-id"]')
+                ?.textContent === "preferences.open" &&
+              document.querySelector('[data-review-id="keybinding-shortcut"]')
+                ?.textContent === "⌘," &&
+              document
+                .querySelector('[data-review-id="keybinding-shortcut-table"]')
+                ?.textContent.includes("Open Settings") &&
+              !document
+                .querySelector('[data-review-id="preferences-dialog"]')
+                ?.textContent.includes("Preferences")
+            );
+          })
+        : true,
+    hasAppQuit:
+      scenario === "viewer-app-quit"
+        ? await page.evaluate(() => {
+            const checks = window.__SVARD_APP_QUIT_CHECK__;
+            return Boolean(
+              checks?.initial.enabled &&
+              checks.initial.handled &&
+              checks.initial.requested &&
+              checks.initial.tabsPreserved &&
+              checks.empty.closeIndependent &&
+              checks.empty.enabled &&
+              checks.empty.requested &&
+              checks.preferences.enabled &&
+              checks.preferences.requested &&
+              globalThis.__SVARD_QUIT_REQUEST_COUNT__ === 3 &&
+              document.querySelector('[data-review-id="keybinding-command-id"]')
+                ?.textContent === "app.quit" &&
+              /^(⌘Q|Ctrl\+Q)$/.test(
+                document.querySelector('[data-review-id="keybinding-shortcut"]')
+                  ?.textContent ?? "",
+              ),
+            );
+          })
+        : true,
     hasTabClose:
       scenario === "viewer-basic" || scenario === "viewer-files"
         ? (await page.locator('[data-review-id="tab-close"]').count()) > 0 ||

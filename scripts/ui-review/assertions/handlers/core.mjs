@@ -1,8 +1,12 @@
 import { isPreferencesPageScenario } from "../../scenarios/metadata.mjs";
+import { expectedSettingsLabel } from "../../core/platform.mjs";
 
 export async function buildCoreAssertions(context) {
   const scenario = context.scenario;
   const page = context.page;
+  const settingsTitle = isPreferencesPageScenario(scenario)
+    ? await expectedSettingsLabel(page)
+    : null;
   const bodyText = context.bodyText;
   const documentUsesViewerWidth = context.documentUsesViewerWidth;
   const openFilesSplitResizeOutcome = context.openFilesSplitResizeOutcome;
@@ -25,7 +29,7 @@ export async function buildCoreAssertions(context) {
       scenario === "viewer-files-tree-auto-refresh" ||
       scenario === "viewer-diff-markdown-safe-html" ||
       (isPreferencesPageScenario(scenario) &&
-        bodyText.includes("Preferences") &&
+        bodyText.includes(settingsTitle) &&
         bodyText.includes("General")) ||
       bodyText.includes("Svard MVP Guide") ||
       bodyText.includes("Release Review Guide") ||

@@ -19,6 +19,7 @@ export interface KeybindingConflict {
 }
 
 const nativeKeybindings: Keybinding[] = [
+  { keys: "Mod+Q", commandId: "app.quit" },
   { keys: "Mod+N", commandId: "window.new" },
   { keys: "Control+N", commandId: "window.new" },
   { keys: "Mod+O", commandId: "file.open" },

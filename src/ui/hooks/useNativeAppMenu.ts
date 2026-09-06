@@ -207,6 +207,13 @@ function nativeMenuItemOptions(
     return { item: "Separator" };
   }
   if (item.type === "native") {
+    if (item.nativeId === "services")
+      return { item: "Services", text: item.label };
+    if (item.nativeId === "hide") return { item: "Hide", text: item.label };
+    if (item.nativeId === "hideOthers")
+      return { item: "HideOthers", text: item.label };
+    if (item.nativeId === "showAll")
+      return { item: "ShowAll", text: item.label };
     if (item.nativeId === "undo") {
       return { item: "Undo", text: item.label };
     }

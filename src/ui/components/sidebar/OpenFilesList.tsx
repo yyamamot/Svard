@@ -1,3 +1,4 @@
+import { settingsLabel } from "../../lib/appLabels";
 import {
   ChevronsDown,
   ChevronsUp,
@@ -248,18 +249,18 @@ export function OpenFilesList({
             <button
               type="button"
               className="open-file-button"
-              title="Preferences"
-              aria-label="Preferences"
+              title={settingsLabel()}
+              aria-label={settingsLabel()}
               onClick={onActivatePreferences}
             >
               <Settings size={14} />
-              <span>Preferences</span>
+              <span>{settingsLabel()}</span>
             </button>
             <button
               type="button"
               className="open-file-close"
               data-review-id="open-file-close"
-              aria-label="Close Preferences"
+              aria-label={`Close ${settingsLabel()}`}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();

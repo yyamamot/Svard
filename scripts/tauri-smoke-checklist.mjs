@@ -14,6 +14,20 @@ const capabilityPath = path.join(
 
 const manualChecks = [
   {
+    id: "native-macos-app-menu-settings",
+    command:
+      "After approval, launch Svard on macOS and inspect Svard, File, Window and Help. Test About, Settings and its shortcut, Services, Hide Svard, Hide Others, Show All, New Window and Quit, including focus changes between multiple Viewer windows.",
+    expected:
+      "Svard contains About, Settings, Services, Hide Svard, Hide Others, Show All and Quit in the contracted order with separators. File starts with New Window; File has no Settings and Help has no About. Window retains Duplicate Window and tab navigation. OS actions retain native behavior, Settings uses the existing tab, customized and cleared Settings/Quit shortcuts remain respected, and Quit retains app-wide cleanup.",
+  },
+  {
+    id: "native-app-quit",
+    command:
+      "After approval, launch Svard with pnpm run dev:tauri, open multiple Viewer windows and Detached AI Chat with a test-owned runtime, then test Quit Svard / Exit and Cmd+Q / Ctrl+Q in separate launches. Also test a customized and cleared shortcut.",
+    expected:
+      "macOS has Svard > Quit Svard first; Windows / Linux have File > separator > Exit. Quit is enabled with no document, Preferences, or a running chat. All windows and owned AI child processes stop without confirmation. Close File remains independent, saved reading sessions survive relaunch, and no new AI resume guarantee is implied.",
+  },
+  {
     id: "native-window-launch",
     command: "pnpm run dev:tauri",
     expected:

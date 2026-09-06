@@ -1,3 +1,4 @@
+import { settingsLabel } from "../lib/appLabels";
 import {
   ChevronDown,
   ChevronLeft,
@@ -95,11 +96,11 @@ export function Topbar({
   }
 
   function tabLabel(tab: WorkspaceTab) {
-    return tab.kind === "preferences" ? "Preferences" : fileName(tab.path);
+    return tab.kind === "preferences" ? settingsLabel() : fileName(tab.path);
   }
 
   function tabTitle(tab: WorkspaceTab) {
-    return tab.kind === "preferences" ? "Preferences" : tab.path;
+    return tab.kind === "preferences" ? settingsLabel() : tab.path;
   }
 
   function dispatchFromTopbar(commandId: CommandId) {
@@ -343,7 +344,7 @@ export function Topbar({
           title={
             rightSidebarAvailable
               ? "Toggle right sidebar"
-              : "Right sidebar is unavailable while Preferences is open"
+              : `Right sidebar is unavailable while ${settingsLabel()} is open`
           }
           aria-pressed={rightSidebarVisible}
           aria-disabled={!rightSidebarAvailable}

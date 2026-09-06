@@ -102,6 +102,7 @@ export interface UseCommandDispatcherOptions {
   onShowViewerShortcuts: () => void;
   onOpenQuickOpen: () => void;
   onOpenNewWindow: () => Promise<void>;
+  onQuitApp: () => Promise<void>;
   onDuplicateWindow: () => Promise<void>;
   onOpenDocument: (
     path: string,
@@ -177,6 +178,7 @@ export function useCommandDispatcher({
   onShowViewerShortcuts,
   onOpenQuickOpen,
   onOpenNewWindow,
+  onQuitApp,
   onDuplicateWindow,
   onOpenDocument,
   onOpenCurrentDocumentInNewWindow,
@@ -234,6 +236,9 @@ export function useCommandDispatcher({
   }
 
   function isCommandEnabled(commandId: CommandId): boolean {
+    if (commandId === "app.quit") {
+      return true;
+    }
     if (documentDiffStreamActive && isDocumentDiffStreamCommand(commandId)) {
       return diffStreamCommandRef?.current?.isEnabled(commandId) ?? false;
     }
@@ -352,6 +357,16 @@ export function useCommandDispatcher({
   async function dispatchCommand(
     commandId: CommandId,
   ): Promise<CommandDispatchResult> {
+    // Native accelerators bypass the DOM key handler, including its recording guard.
+    if (
+      commandId === "app.quit" &&
+      preferencesOpen &&
+      document.querySelector(
+        '[data-review-id="keybinding-recording"], [data-review-id="mouse-gesture-record-pad"]',
+      )
+    ) {
+      return { status: "disabled", commandId };
+    }
     if (!isCommandEnabled(commandId)) {
       return { status: "disabled", commandId };
     }
@@ -368,6 +383,13 @@ export function useCommandDispatcher({
     }
 
     switch (commandId) {
+      case "app.quit":
+        try {
+          await onQuitApp();
+        } catch {
+          showInlineNotice("Unable to quit Svard.", { tone: "error" });
+        }
+        break;
       case "file.open":
         await onPickAndOpenDocument();
         break;
@@ -713,6 +735,19 @@ export function useCommandDispatcher({
 
       const context = getFocusedContext(event.target);
       if (context === "textInput") {
+        // Quit is application-wide, including while typing in AI Chat or Preferences.
+        const resolution = resolveKeybinding({
+          preset: activeConfig.keybindings?.preset ?? "native",
+          platform,
+          key: normalizeKeyboardEvent(event),
+          context: "global",
+          mappings: activeConfig.keybindings?.mappings,
+        });
+        if (resolution.commandId === "app.quit") {
+          event.preventDefault();
+          event.stopPropagation();
+          void dispatchCommand("app.quit");
+        }
         return;
       }
 

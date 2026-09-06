@@ -24,6 +24,151 @@ function allLabels(items: AppMenuItem[]): string[] {
 }
 
 describe("app menu model", () => {
+  it("groups macOS application actions without duplicating File or Help entries", () => {
+    const model = buildAppMenuModel({
+      config: defaultConfig,
+      platform: "mac",
+      isCommandEnabled: () => true,
+    });
+    const app = model[0];
+    expect(
+      app.items.map((item) => (item.type === "separator" ? "---" : item.label)),
+    ).toEqual([
+      "About Svard",
+      "---",
+      "Settings…",
+      "---",
+      "Services",
+      "---",
+      "Hide Svard",
+      "Hide Others",
+      "Show All",
+      "---",
+      "Quit Svard",
+    ]);
+    const labels = model.flatMap((menu) => allLabels(menu.items));
+    for (const label of [
+      "About Svard",
+      "Settings…",
+      "New Window",
+      "Quit Svard",
+    ])
+      expect(labels.filter((item) => item === label)).toHaveLength(1);
+    expect(labels).not.toContain("Preferences...");
+    const file = model.find((menu) => menu.label === "File")!;
+    expect(file.items.slice(0, 3)).toMatchObject([
+      { commandId: "window.new" },
+      { type: "separator" },
+      { commandId: "file.open" },
+    ]);
+    expect(allLabels(file.items)).not.toContain("Settings…");
+    expect(
+      allLabels(model.find((menu) => menu.label === "Window")!.items),
+    ).not.toContain("New Window");
+    expect(
+      allLabels(model.find((menu) => menu.label === "Help")!.items),
+    ).toEqual(["Website", "Shortcuts and Gestures"]);
+  });
+
+  it.each(["windows", "linux"] as const)(
+    "does not add macOS application items on %s",
+    (platform) => {
+      const model = buildAppMenuModel({
+        config: defaultConfig,
+        platform,
+        isCommandEnabled: () => true,
+      });
+      const labels = model.flatMap((menu) => allLabels(menu.items));
+      for (const label of [
+        "Settings…",
+        "Services",
+        "Hide Svard",
+        "Hide Others",
+        "Show All",
+      ])
+        expect(labels).not.toContain(label);
+      expect(
+        allLabels(model.find((menu) => menu.label === "Help")!.items),
+      ).toEqual(["About Svard", "Website", "Shortcuts and Gestures"]);
+    },
+  );
+
+  it("keeps macOS Settings shortcut customization and clearing", () => {
+    const config = structuredClone(defaultConfig);
+    const item = () =>
+      buildAppMenuModel({
+        config,
+        platform: "mac",
+        isCommandEnabled: () => true,
+      })[0].items.find(
+        (item) =>
+          item.type === "command" && item.commandId === "preferences.open",
+      );
+    expect(item()).toMatchObject({
+      shortcutDisplay: "⌘,",
+      accelerator: "CmdOrCtrl+,",
+    });
+    config.keybindings.mappings = [
+      { commandId: "preferences.open", keys: "Mod+Shift+," },
+    ];
+    expect(item()).toMatchObject({
+      shortcutDisplay: "⌘⇧,",
+      accelerator: "CmdOrCtrl+Shift+,",
+    });
+    config.keybindings.mappings = [{ commandId: "preferences.open", keys: "" }];
+    expect(item()).not.toHaveProperty("accelerator");
+    expect(item()).not.toHaveProperty("shortcutDisplay");
+  });
+  it.each(["mac", "windows", "linux"] as const)(
+    "places exactly one global quit item on %s",
+    (platform) => {
+      const model = buildAppMenuModel({
+        config: defaultConfig,
+        platform,
+        isCommandEnabled: (id) => id === "app.quit",
+      });
+      expect(model.map((menu) => menu.label)).toEqual(
+        platform === "mac"
+          ? ["Svard", ...appMenuTopLevelOrder]
+          : [...appMenuTopLevelOrder],
+      );
+      const quits = model
+        .flatMap((menu) => menu.items)
+        .filter(
+          (item) => item.type === "command" && item.commandId === "app.quit",
+        );
+      expect(quits).toEqual([
+        expect.objectContaining({
+          label: platform === "mac" ? "Quit Svard" : "Exit",
+          enabled: true,
+          accelerator: "CmdOrCtrl+Q",
+        }),
+      ]);
+      const file = model.find((menu) => menu.label === "File")!;
+      expect(allLabels(file.items)).toEqual(
+        expect.arrayContaining(["Close File", "Close All Files"]),
+      );
+      if (platform === "mac") {
+        expect(model[0].items.at(-1)).toEqual(quits[0]);
+        expect(allLabels(file.items)).not.toContain("Quit Svard");
+      } else {
+        expect(file.items.slice(-2)).toEqual([{ type: "separator" }, quits[0]]);
+      }
+    },
+  );
+
+  it("uses the customized or cleared quit accelerator", () => {
+    const config = structuredClone(defaultConfig);
+    config.keybindings.mappings = [
+      { commandId: "app.quit", keys: "Mod+Shift+Q" },
+    ];
+    expect(appMenuShortcutResolver(config, "mac")("app.quit")).toEqual({
+      display: "⌘⇧Q",
+      accelerator: "CmdOrCtrl+Shift+Q",
+    });
+    config.keybindings.mappings = [{ commandId: "app.quit", keys: "" }];
+    expect(appMenuShortcutResolver(config, "mac")("app.quit")).toEqual({});
+  });
   it("uses the Chrome-like top-level menu order", () => {
     const model = buildAppMenuModel({
       config: defaultConfig,
@@ -31,7 +176,10 @@ describe("app menu model", () => {
       isCommandEnabled: () => true,
     });
 
-    expect(model.map((menu) => menu.label)).toEqual([...appMenuTopLevelOrder]);
+    expect(model.map((menu) => menu.label)).toEqual([
+      "Svard",
+      ...appMenuTopLevelOrder,
+    ]);
   });
 
   it("maps menu commands to known command definitions", () => {
@@ -66,78 +214,84 @@ describe("app menu model", () => {
     expect(labels).not.toContain("New File");
   });
 
-  it("keeps Quick Open and Preferences in the native File menu", () => {
-    const model = buildAppMenuModel({
-      config: defaultConfig,
-      platform: "mac",
-      isCommandEnabled: () => true,
-    });
-    const file = model.find((menu) => menu.label === "File");
+  it.each(["windows", "linux"] as const)(
+    "keeps Quick Open and Preferences in File on %s",
+    (platform) => {
+      const model = buildAppMenuModel({
+        config: defaultConfig,
+        platform,
+        isCommandEnabled: () => true,
+      });
+      const file = model.find((menu) => menu.label === "File");
 
-    expect(file?.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "command",
-          label: "Quick Open...",
-          commandId: "quickOpen.focus",
-        }),
-        expect.objectContaining({
-          type: "command",
-          label: "Preferences...",
-          commandId: "preferences.open",
-        }),
-      ]),
-    );
-  });
+      expect(file?.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "command",
+            label: "Quick Open...",
+            commandId: "quickOpen.focus",
+          }),
+          expect.objectContaining({
+            type: "command",
+            label: "Preferences...",
+            commandId: "preferences.open",
+          }),
+        ]),
+      );
+    },
+  );
 
-  it("keeps New Window, Duplicate Window, and Switch to Recent Tab in the Window menu", () => {
-    const model = buildAppMenuModel({
-      config: defaultConfig,
-      platform: "mac",
-      isCommandEnabled: () => true,
-    });
-    const file = model.find((menu) => menu.label === "File");
-    const window = model.find((menu) => menu.label === "Window");
+  it.each(["windows", "linux"] as const)(
+    "keeps window actions in Window on %s",
+    (platform) => {
+      const model = buildAppMenuModel({
+        config: defaultConfig,
+        platform,
+        isCommandEnabled: () => true,
+      });
+      const file = model.find((menu) => menu.label === "File");
+      const window = model.find((menu) => menu.label === "Window");
 
-    expect(window?.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "command",
-          label: "New Window",
-          commandId: "window.new",
-          enabled: true,
-        }),
-        expect.objectContaining({
-          type: "command",
-          label: "Duplicate Window",
-          commandId: "window.duplicate",
-          enabled: true,
-        }),
-        expect.objectContaining({
-          type: "command",
-          label: "Switch to Recent Tab",
-          commandId: "tab.switchToRecent",
-          enabled: true,
-        }),
-      ]),
-    );
-    expect(file?.items).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          commandId: "window.new",
-        }),
-        expect.objectContaining({
-          commandId: "window.duplicate",
-        }),
-        expect.objectContaining({
-          commandId: "tab.switchToRecent",
-        }),
-        expect.objectContaining({
-          commandId: "file.openCurrentInNewWindow",
-        }),
-      ]),
-    );
-  });
+      expect(window?.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "command",
+            label: "New Window",
+            commandId: "window.new",
+            enabled: true,
+          }),
+          expect.objectContaining({
+            type: "command",
+            label: "Duplicate Window",
+            commandId: "window.duplicate",
+            enabled: true,
+          }),
+          expect.objectContaining({
+            type: "command",
+            label: "Switch to Recent Tab",
+            commandId: "tab.switchToRecent",
+            enabled: true,
+          }),
+        ]),
+      );
+      expect(file?.items).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            commandId: "window.new",
+          }),
+          expect.objectContaining({
+            commandId: "window.duplicate",
+          }),
+          expect.objectContaining({
+            commandId: "tab.switchToRecent",
+          }),
+          expect.objectContaining({
+            commandId: "file.openCurrentInNewWindow",
+          }),
+        ]),
+      );
+    },
+  );
 
   it("keeps native text editing actions in the Edit menu", () => {
     const model = buildAppMenuModel({
@@ -386,7 +540,6 @@ describe("app menu model", () => {
 
     expect(allLabels(windowMenu?.items ?? [])).not.toContain("Activate Tab 1");
     expect(windowMenu?.items).toMatchObject([
-      { type: "command", commandId: "window.new" },
       { type: "command", commandId: "window.duplicate" },
       { type: "separator" },
       { type: "command", commandId: "tab.next" },
@@ -402,7 +555,7 @@ describe("app menu model", () => {
       {
         type: "command",
         commandId: "tab.activate2",
-        label: "✓ 2  Preferences",
+        label: "✓ 2  Settings",
         shortcutDisplay: "⌘2",
       },
     ]);

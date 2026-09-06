@@ -20,6 +20,7 @@ describe("PreferencesPanel settings and recording", () => {
   let sectionRequest: PreferencesSectionRequest | null;
 
   beforeEach(() => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("Win32");
     harness = createReactRootHarness();
     config = structuredClone(defaultConfig);
     closeSpy = vi.fn<() => void>();
@@ -29,6 +30,7 @@ describe("PreferencesPanel settings and recording", () => {
 
   afterEach(() => {
     harness.cleanup();
+    vi.restoreAllMocks();
   });
 
   function render() {
@@ -53,6 +55,30 @@ describe("PreferencesPanel settings and recording", () => {
     render();
     await harness.click(harness.buttonByText("Keybindings"));
   }
+
+  it.each(["MacIntel", "Win32", "Linux x86_64"])(
+    "labels and searches settings commands on %s",
+    async (platform) => {
+      vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+      const label = platform === "MacIntel" ? "Settings" : "Preferences";
+      await openKeybindings();
+      expect(
+        harness.byReviewId("preferences-dialog").getAttribute("aria-label"),
+      ).toBe(label);
+      for (const action of ["Open", "Close"]) {
+        await harness.setInputValue(
+          harness.inputByReviewId("keybinding-search"),
+          `${action} ${label}`,
+        );
+        const table = harness.byReviewId("keybinding-shortcut-table");
+        expect(table.querySelectorAll("tbody tr")).toHaveLength(1);
+        expect(table.textContent).toContain(`${action} ${label}`);
+        expect(table.textContent).toContain(
+          `preferences.${action.toLowerCase()}`,
+        );
+      }
+    },
+  );
 
   it("applies repeated section requests to AI Providers", async () => {
     sectionRequest = { id: 1, section: "agentProviders" };

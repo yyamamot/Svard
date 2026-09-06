@@ -1,3 +1,4 @@
+import { settingsLabel } from "../lib/appLabels";
 import { useMemo, type CSSProperties } from "react";
 import type {
   AppConfig,
@@ -132,7 +133,7 @@ export function useAppShellViewState({
     zenModeApplies,
   });
   const activeTitle = preferencesOpen
-    ? "Preferences"
+    ? settingsLabel()
     : documentPayload
       ? fileName(documentPayload.path)
       : isLoading

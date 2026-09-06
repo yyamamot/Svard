@@ -652,4 +652,24 @@ fn cleanup_removes_session_temporary_directory() {
     state.cleanup_all();
     assert!(!directory.exists());
     assert!(state.inner.lock().unwrap().sessions.is_empty());
+    state.cleanup_all();
+    assert!(!directory.exists());
+}
+
+#[test]
+fn cleanup_cancels_active_run_and_is_idempotent() {
+    let state = CodexProcessState::default();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let child = Arc::new(Mutex::new(None));
+    state.inner.lock().unwrap().active = Some(ActiveRun {
+        client_session_id: "cleanup-test".into(),
+        run_id: "cleanup-run".into(),
+        child: Arc::clone(&child),
+        cancelled: Arc::clone(&cancelled),
+    });
+    state.cleanup_all();
+    state.cleanup_all();
+    assert!(cancelled.load(Ordering::SeqCst));
+    assert!(state.inner.lock().unwrap().active.is_none());
+    assert!(child.lock().unwrap().is_none());
 }

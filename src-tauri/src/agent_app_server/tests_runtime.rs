@@ -390,7 +390,19 @@ while IFS= read -r line; do :; done
     let scratch = session.scratch_directory.clone();
     assert!(scratch.is_dir());
     std::fs::write(scratch.join("staged-image.png"), b"private snapshot").unwrap();
+    let state = AgentAppServerState::default();
+    state
+        .sessions
+        .lock()
+        .unwrap()
+        .insert("fake-session".into(), Arc::clone(&session));
+    state.cleanup_all();
+    state.cleanup_session("fake-session");
+    state.cleanup_all();
     session.shutdown().unwrap();
+    assert!(state.sessions.lock().unwrap().is_empty());
+    assert!(session.closed.load(Ordering::SeqCst));
+    assert!(session.child.lock().unwrap().is_none());
     assert!(!scratch.exists());
 }
 

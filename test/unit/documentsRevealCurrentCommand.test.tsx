@@ -41,6 +41,7 @@ describe("documents reveal current command", () => {
     const viewerRef = useRef<HTMLElement | null>(null);
     useCommandDispatcher({
       config: defaultConfig,
+      onQuitApp: vi.fn(),
       documentPayload: null,
       focusedPaneId: "left",
       lastClosedTabs: [],

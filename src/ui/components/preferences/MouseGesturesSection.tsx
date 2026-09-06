@@ -1,4 +1,4 @@
-import { getCommandTitle } from "../../../core/commands";
+import { getUiCommandTitle } from "../../lib/appLabels";
 import {
   defaultMouseGestureConfig,
   mouseGestureMappings,
@@ -112,7 +112,7 @@ export function MouseGesturesSection({
                 data-review-id="mouse-gesture-row"
               >
                 <td>
-                  <span>{getCommandTitle(mapping.commandId)}</span>
+                  <span>{getUiCommandTitle(mapping.commandId)}</span>
                   <code>{mapping.commandId}</code>
                 </td>
                 <td>

@@ -1,4 +1,5 @@
-import { getCommandTitle, type CommandId } from "../../core/commands";
+import { getUiCommandTitle } from "./appLabels";
+import type { CommandId } from "../../core/commands";
 import {
   detectPlatform,
   formatShortcut,
@@ -127,7 +128,7 @@ export function buildShortcutGestureHintModel({
         return [
           {
             commandId: action.commandId,
-            label: labelForAction(action),
+            label: labelForAction(action, platform),
             value: formatShortcut(binding.keys, platform),
           },
         ];
@@ -146,7 +147,7 @@ export function buildShortcutGestureHintModel({
           return [
             {
               commandId: action.commandId,
-              label: labelForAction(action),
+              label: labelForAction(action, platform),
               value: mapping.pattern,
             },
           ];
@@ -160,6 +161,6 @@ export function buildShortcutGestureHintModel({
   };
 }
 
-function labelForAction(action: HintAction) {
-  return action.label ?? getCommandTitle(action.commandId);
+function labelForAction(action: HintAction, platform: Platform) {
+  return action.label ?? getUiCommandTitle(action.commandId, platform);
 }

@@ -1,3 +1,4 @@
+import { settingsLabel } from "../lib/appLabels";
 import {
   ExternalLink,
   History,
@@ -368,8 +369,8 @@ export function AgentPanelView({
                 : probeLabel(probe)}
             {!probeError && !ready ? (
               <span>
-                Open AI Providers in Preferences to choose or refresh the Codex
-                installation.
+                Open AI Providers in {settingsLabel()} to choose or refresh the
+                Codex installation.
               </span>
             ) : null}
           </div>

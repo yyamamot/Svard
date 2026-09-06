@@ -15,6 +15,29 @@ import {
 import { commandDefinitions, isCommandId } from "../../src/core/commands";
 
 describe("keybindings", () => {
+  it.each(["mac", "windows", "linux"] as const)(
+    "resolves application quit on %s with configurable binding",
+    (platform) => {
+      const resolve = (
+        keys: string,
+        mappings = defaultKeybindingMappings("native"),
+      ) =>
+        resolveKeybinding({
+          preset: "native",
+          platform,
+          key: expandPlatformKeys(keys, platform),
+          context: "global",
+          mappings,
+        }).commandId;
+      expect(resolve("Mod+Q")).toBe("app.quit");
+      expect(
+        resolve("Mod+Q", [{ commandId: "app.quit", keys: "" }]),
+      ).toBeUndefined();
+      const changed = [{ commandId: "app.quit" as const, keys: "Mod+Shift+Q" }];
+      expect(resolve("Mod+Q", changed)).toBeUndefined();
+      expect(resolve("Mod+Shift+Q", changed)).toBe("app.quit");
+    },
+  );
   it("expands Mod to platform specific modifier", () => {
     expect(expandPlatformKeys("Mod+F", "mac")).toBe("Meta+F");
     expect(expandPlatformKeys("Mod+F", "windows")).toBe("Control+F");
@@ -219,6 +242,27 @@ describe("keybindings", () => {
     expect(Object.values(errors)).toContain("Duplicate shortcut in viewer.");
   });
 
+  it("rejects a quit shortcut that conflicts with another global action", () => {
+    const mappings = defaultKeybindingMappings("native").map((binding) =>
+      binding.commandId === "app.quit"
+        ? { ...binding, keys: "Mod+O" }
+        : binding,
+    );
+    for (const platform of ["mac", "windows", "linux"] as const) {
+      const errors = validateKeybindingMappings(mappings, platform);
+      expect(
+        errors[
+          mappings.findIndex((binding) => binding.commandId === "app.quit")
+        ],
+      ).toBe("Duplicate shortcut in global.");
+      expect(
+        errors[
+          mappings.findIndex((binding) => binding.commandId === "file.open")
+        ],
+      ).toBe("Duplicate shortcut in global.");
+    }
+  });
+
   it("allows duplicate shortcuts in different contexts", () => {
     const mappings = [
       {
@@ -360,6 +404,8 @@ describe("keybindings", () => {
   });
 
   it("keeps preset keybindings conflict-free per context", () => {
+    expect(findKeybindingConflicts("native", "windows")).toEqual([]);
+    expect(findKeybindingConflicts("native", "linux")).toEqual([]);
     expect(findKeybindingConflicts("native", "mac")).toEqual([]);
     expect(findKeybindingConflicts("vim", "mac")).toEqual([]);
     expect(findKeybindingConflicts("emacs", "windows")).toEqual([]);

@@ -1,3 +1,4 @@
+import { settingsLabel } from "./appLabels";
 import type { DocumentPayload } from "../../core/types";
 import type { WorkspaceTab } from "../types";
 
@@ -50,5 +51,5 @@ export function activeDocumentPathFromWorkspaceTab(
 }
 
 export function workspaceTabTitle(tab: WorkspaceTab): string {
-  return tab.kind === "preferences" ? "Preferences" : tab.path;
+  return tab.kind === "preferences" ? settingsLabel() : tab.path;
 }
