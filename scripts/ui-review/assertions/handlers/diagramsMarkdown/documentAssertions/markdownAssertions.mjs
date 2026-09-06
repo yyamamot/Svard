@@ -61,6 +61,46 @@ async function hasNaturalInlineMathBaseline(page) {
   return true;
 }
 
+async function hasVerticalBarMath(page) {
+  const paragraphMath = page
+    .getByRole("heading", { name: "Vertical Bar Math" })
+    .locator("xpath=following-sibling::p[position() <= 4]");
+  const sources = await paragraphMath
+    .locator(".math-inline .katex")
+    .evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute("data-math-source")),
+    );
+  const expected = [
+    String.raw`\Delta=|n-m|`,
+    "|x|",
+    "P(A|B)",
+    String.raw`\lvert x\rvert`,
+    String.raw`\|x\|`,
+    "cat | wc",
+    "a | b",
+  ];
+  if (JSON.stringify(sources) !== JSON.stringify(expected)) return false;
+  if ((await paragraphMath.allTextContents()).join("\n").includes("$"))
+    return false;
+  const table = page
+    .getByRole("heading", { name: "Table Pipes" })
+    .locator("xpath=following::table[1]");
+  const rows = table.locator("tbody tr");
+  return (
+    (await table.locator(".math-inline .katex").count()) === 3 &&
+    JSON.stringify(await rows.nth(1).locator("td").allTextContents()) ===
+      JSON.stringify(["Broken", "$a", "b$"]) &&
+    (await rows
+      .nth(2)
+      .locator(".math-inline .katex")
+      .getAttribute("data-math-source")) === String.raw`\lvert x\rvert` &&
+    (await rows
+      .nth(3)
+      .locator(".math-inline .katex")
+      .getAttribute("data-math-source")) === "|x|"
+  );
+}
+
 export async function buildMarkdownAssertions({
   scenario,
   page,
@@ -95,7 +135,8 @@ export async function buildMarkdownAssertions({
           bodyText.includes("$not math$") &&
           bodyText.includes("not rendered inside source") &&
           bodyText.includes("After invalid math remains visible") &&
-          (await page.locator(".math-inline .katex").count()) === 32 &&
+          (await page.locator(".math-inline .katex").count()) === 41 &&
+          (await hasVerticalBarMath(page)) &&
           (await page
             .getByRole("heading", { name: "ASCII Label Boundaries" })
             .locator("xpath=following-sibling::p[position() <= 4]")

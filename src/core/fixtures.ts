@@ -2259,6 +2259,18 @@ Escaped dollars stay readable: \\$escaped\\$.
 | --- | --- | --- |
 | Valid | $a + b$ | rendered in one cell |
 | Broken | $a | b$ | pipe crossing stays text |
+| Named | $\\lvert x\\rvert$ | absolute value |
+| Escaped | $\\|x\\|$ | Markdown escapes single bars |
+
+## Vertical Bar Math
+
+距離は$\\Delta=|n-m|$、絶対値は$|x|$、条件付き確率は$P(A|B)$です。
+
+Named absolute value: $\\lvert x\\rvert$. Norm: $\\|x\\|$.
+
+Explicit math delimiters also render $cat | wc$.
+
+This is a paragraph: | Broken | $a | b$ |
 
 ## Code Safety
 

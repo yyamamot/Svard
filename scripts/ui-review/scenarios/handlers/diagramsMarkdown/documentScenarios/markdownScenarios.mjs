@@ -30,6 +30,7 @@ export async function applyMarkdownScenario(context) {
       .getByRole("heading", { name: "ASCII Label Boundaries" })
       .waitFor();
     await page.getByRole("heading", { name: "Numeric Table Math" }).waitFor();
+    await page.getByRole("heading", { name: "Vertical Bar Math" }).waitFor();
     await page.locator(".math-inline .katex").first().waitFor();
     await page.locator(".math-inline .mfrac").first().waitFor();
     await page
@@ -37,6 +38,9 @@ export async function applyMarkdownScenario(context) {
       .first()
       .waitFor();
     await page.getByRole("heading", { name: "Invalid Fallback" }).waitFor();
+    await page
+      .getByRole("heading", { name: "Vertical Bar Math" })
+      .scrollIntoViewIfNeeded();
   } else if (scenario === "viewer-external-images-security-policy") {
     await page.locator("text=external-images.md").click();
     await page

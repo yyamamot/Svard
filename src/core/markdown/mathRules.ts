@@ -23,21 +23,6 @@ function isNonAsciiProseBoundary(value: string | undefined) {
   );
 }
 
-function hasUnescapedPipe(value: string) {
-  let escaped = false;
-  for (const char of value) {
-    if (char === "\\" && !escaped) {
-      escaped = true;
-      continue;
-    }
-    if (char === "|" && !escaped) {
-      return true;
-    }
-    escaped = false;
-  }
-  return false;
-}
-
 function isProseCharacter(value: string | undefined) {
   return value !== undefined && /[\p{L}\p{M}\p{N}]/u.test(value);
 }
@@ -216,7 +201,6 @@ export function registerMathRules(markdown: MarkdownIt) {
     const source = state.src.slice(state.pos + 1, cursor).trim();
     if (
       !source ||
-      hasUnescapedPipe(source) ||
       looksLikeCurrencyFragment(source, state.src, state.pos, cursor)
     ) {
       return false;

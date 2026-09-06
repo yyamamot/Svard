@@ -759,6 +759,47 @@ $not rendered in source$
     );
   });
 
+  it("preserves pipe math and source metadata after sanitization and rerendering", async () => {
+    const result =
+      renderMarkdownCore(String.raw`距離は$\Delta=|n-m|$、確率は$P(A|B)$です。
+
+| Kind | Value |
+| --- | --- |
+| Named | $\lvert x\rvert$ |
+| Escaped | $\|x\|$ |
+`);
+    const html = await prepareDocumentHtml(
+      result.html,
+      {
+        ...documentPayload,
+        path: "/workspace/docs/example.md",
+        format: "markdown",
+      },
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      result,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const math = Array.from(doc.querySelectorAll(".math-inline .katex"));
+
+    expect(math).toHaveLength(4);
+    expect(
+      math.map((element) => element.getAttribute("data-math-source")),
+    ).toEqual([
+      String.raw`\Delta=|n-m|`,
+      "P(A|B)",
+      String.raw`\lvert x\rvert`,
+      "|x|",
+    ]);
+    expect(
+      math.every(
+        (element) => element.getAttribute("data-math-display") === "inline",
+      ),
+    ).toBe(true);
+    expect(doc.querySelectorAll("table .math-inline .katex")).toHaveLength(2);
+    expect(doc.querySelector(".math-render-error")).toBeNull();
+    expect(doc.body.textContent).not.toContain("$");
+  });
+
   it("preserves numeric table math after document sanitization", async () => {
     const result = renderMarkdownCore(`| Before | After |
 | --- | --- |

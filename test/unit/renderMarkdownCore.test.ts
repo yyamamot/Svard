@@ -1092,6 +1092,80 @@ $$
     expect(result.html).toContain("not rendered inside source");
   });
 
+  it.each([
+    [String.raw`距離は$\Delta=|n-m|$です。`, String.raw`\Delta=|n-m|`],
+    ["絶対値$|x|$とします。", "|x|"],
+    ["確率$P(A|B)$です。", "P(A|B)"],
+    [String.raw`$\lvert x\rvert$`, String.raw`\lvert x\rvert`],
+    [String.raw`$\|x\|$`, String.raw`\|x\|`],
+    ["$cat | wc$", "cat | wc"],
+    ["| Broken | $a | b$ |", "a | b"],
+  ])("renders pipe math in prose: %s", (source, tex) => {
+    const result = renderMarkdownCore(source);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    const math = doc.querySelector(".math-inline");
+
+    expect(doc.querySelectorAll(".math-inline .katex")).toHaveLength(1);
+    expect(math?.getAttribute("data-math-source")).toBe(tex);
+    expect(doc.querySelector(".math-render-error")).toBeNull();
+    expect(doc.body.textContent).not.toContain("$");
+  });
+
+  it("keeps pipe math literal in code and escaped dollar text", () => {
+    const source = [
+      "`$|x|$`",
+      "",
+      "```tex",
+      "$P(A|B)$",
+      "```",
+      "",
+      String.raw`\$|x|\$`,
+    ].join("\n");
+    const result = renderMarkdownCore(source);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(doc.querySelector(".math-inline")).toBeNull();
+    expect(doc.querySelector("p code")?.textContent).toBe("$|x|$");
+    expect(doc.querySelector("pre code")?.textContent).toContain("$P(A|B)$");
+    expect(doc.body.textContent).toContain("$|x|$");
+  });
+
+  it("uses the existing error fallback for invalid pipe math", () => {
+    const result = renderMarkdownCore(String.raw`$\frac{|x|}{$`);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+
+    expect(doc.querySelector(".math-render-error")?.textContent).toBe(
+      String.raw`\frac{|x|}{`,
+    );
+  });
+
+  it("renders escaped and named table bars without joining cells", () => {
+    const result = renderMarkdownCore(String.raw`| Item | Formula | Notes |
+| --- | --- | --- |
+| Named | $\lvert x\rvert$ | absolute value |
+| Escaped | $\|x\|$ | Markdown escapes single bars |
+| Broken | $a | b$ |
+| Raw | $|x|$ | raw bars split cells |
+`);
+    const doc = new DOMParser().parseFromString(result.html, "text/html");
+    const rows = Array.from(doc.querySelectorAll("tbody tr"));
+
+    expect(rows.map((row) => row.querySelectorAll("td").length)).toEqual([
+      3, 3, 3, 3,
+    ]);
+    expect(doc.querySelectorAll("table .math-inline .katex")).toHaveLength(2);
+    expect(
+      rows[0].querySelector(".math-inline")?.getAttribute("data-math-source"),
+    ).toBe(String.raw`\lvert x\rvert`);
+    expect(
+      rows[1].querySelector(".math-inline")?.getAttribute("data-math-source"),
+    ).toBe("|x|");
+    expect(
+      Array.from(rows[2].querySelectorAll("td"), (cell) => cell.textContent),
+    ).toEqual(["Broken", "$a", "b$"]);
+    expect(rows[3].querySelector(".math-inline")).toBeNull();
+  });
+
   it("renders table cell math without matching across table pipes", () => {
     const result = renderMarkdownCore(`# Table Math
 
