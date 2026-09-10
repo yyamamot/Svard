@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { renderMarkdownCore } from "../../src/core/renderMarkdownCore";
 import { prepareDocumentHtml } from "../../src/ui/lib/documentHtml";
 import type { RenderResult } from "../../src/core/types";
 import {
   hydrateResolvedLocalRasterPayloads,
   localRasterPayloadSlotAttribute,
 } from "../../src/ui/lib/resolvedLocalRasterPayloads";
-import { documentPayload } from "./helpers/documentHtml";
+import { documentPayload, renderResult } from "./helpers/documentHtml";
 
 function rasterOwner(): RenderResult {
   return {
@@ -459,5 +460,104 @@ describe("prepareDocumentHtml image and link hydration", () => {
       "https://example.test/docs",
     ]);
     expect(doc.body.textContent).toContain("Next Local Web");
+  });
+});
+
+describe("prepareDocumentHtml", () => {
+  it("blocks external images by default without exposing the raw URL", async () => {
+    const html = await prepareDocumentHtml(
+      '<p><img src="https://example.test/rust-logo.svg" alt="Rust Logo"></p>',
+      documentPayload,
+      { security: { allowLocalImages: true, confirmExternalLinks: true } },
+      renderResult,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("img")).toBeNull();
+    expect(doc.querySelector(".image-placeholder")?.textContent).toBe(
+      "External image blocked: Rust Logo",
+    );
+    expect(html).not.toContain("https://example.test/rust-logo.svg");
+  });
+
+  it("keeps external images when explicitly enabled", async () => {
+    const html = await prepareDocumentHtml(
+      '<p><img src="https://example.test/rust-logo.svg" alt="Rust Logo"></p>',
+      documentPayload,
+      {
+        security: {
+          allowLocalImages: true,
+          showExternalImages: true,
+          confirmExternalLinks: true,
+        },
+      },
+      renderResult,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.test/rust-logo.svg",
+    );
+  });
+
+  it("keeps standard Markdown external images when explicitly enabled", async () => {
+    const source = "![Grid editor](https://example.test/readme-table-grid.png)";
+    const result = renderMarkdownCore(source);
+    const html = await prepareDocumentHtml(
+      result.html,
+      { ...documentPayload, format: "markdown", source },
+      {
+        security: {
+          allowLocalImages: true,
+          showExternalImages: true,
+          confirmExternalLinks: true,
+        },
+      },
+      result,
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    expect(doc.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.test/readme-table-grid.png",
+    );
+  });
+
+  it("deactivates unresolved document links without a resolver", async () => {
+    const events: Array<Record<string, unknown>> = [];
+    localStorage.setItem("SVARD_PERF_TRACE", "1");
+    const infoSpy = vi
+      .spyOn(console, "info")
+      .mockImplementation((label: unknown, payload: unknown) => {
+        if (label === "[perf]" && payload && typeof payload === "object") {
+          events.push(payload as Record<string, unknown>);
+        }
+      });
+
+    try {
+      const html = await prepareDocumentHtml(
+        '<p><a href="./next.md">Next</a><a href="javascript:alert(1)">bad</a></p>',
+        documentPayload,
+        { security: { allowLocalImages: true, confirmExternalLinks: true } },
+        { headings: [], sourceBlocks: [] },
+      );
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const links = Array.from(doc.querySelectorAll("a"));
+
+      expect(links[0]?.getAttribute("href")).toBeNull();
+      expect(links[1]?.getAttribute("href")).toBeNull();
+      expect(
+        events.find(
+          (event) => event.event === "render.prepareDocumentHtml.links",
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          skipped: false,
+          count: 2,
+        }),
+      );
+    } finally {
+      infoSpy.mockRestore();
+      localStorage.removeItem("SVARD_PERF_TRACE");
+    }
   });
 });
