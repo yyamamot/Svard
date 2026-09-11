@@ -11,6 +11,7 @@
 - Improved Main Viewer rendering latency for resolved local PNG, JPEG, and WebP images while preserving the existing image security and display behavior.
 - Fixed Viewer text and original-source reference copying so rendered text, source ranges, and AI Chat snapshots remain separate.
 - Fixed context-menu scroll handling, File Compare document drops, and File History repository headers.
+- Added reading position restoration when switching between open Markdown and AsciiDoc documents in the same window, including independent positions in split panes.
 
 ## 1.0.6
 

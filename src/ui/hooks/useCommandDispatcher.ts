@@ -62,6 +62,7 @@ function isDocumentDiffStreamCommand(commandId: CommandId) {
 }
 
 export interface UseCommandDispatcherOptions {
+  onCancelReadingPosition?: () => void;
   config: AppConfig | null;
   documentPayload: DocumentPayload | null;
   focusedPaneId: PaneId;
@@ -138,6 +139,7 @@ export interface UseCommandDispatcherOptions {
 }
 
 export function useCommandDispatcher({
+  onCancelReadingPosition,
   config,
   documentPayload,
   focusedPaneId,
@@ -372,6 +374,14 @@ export function useCommandDispatcher({
     }
 
     setLastCommand(commandId);
+
+    if (
+      !documentDiffPreviewActive &&
+      !documentDiffStreamActive &&
+      /^viewer\.(scroll|page|top|bottom|contentCursor)/.test(commandId)
+    ) {
+      onCancelReadingPosition?.();
+    }
 
     if (documentDiffStreamActive && isDocumentDiffStreamCommand(commandId)) {
       return {

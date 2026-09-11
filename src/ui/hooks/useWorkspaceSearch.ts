@@ -1,3 +1,4 @@
+import type { DocumentNavigationOptions } from "../lib/readingPositionController";
 import {
   useCallback,
   useEffect,
@@ -41,12 +42,15 @@ interface UseWorkspaceSearchInput {
   documentPayload: DocumentPayload | null;
   documentHtml: SafeHtml;
   host: Pick<HostAdapter, "searchWorkspace">;
-  openDocumentWorkspaceTab: (path: string) => Promise<void>;
+  openDocumentWorkspaceTab: (
+    path: string,
+    options?: DocumentNavigationOptions,
+  ) => Promise<void>;
   navigateToSourceLine: (line: number) => void;
   clearActiveContentCursor: () => void;
   setTabQueries: Dispatch<SetStateAction<Record<string, string>>>;
   setRightSidebarTab: (tab: RightSidebarTab) => void;
-  updateQuery: (value: string) => void;
+  updateQuery: (value: string, options?: { scroll?: boolean }) => void;
 }
 
 export function useWorkspaceSearch({
@@ -56,11 +60,9 @@ export function useWorkspaceSearch({
   workspaceSearchRefreshRevision = 0,
   config,
   activeDocumentPayload,
-  documentPayload,
-  documentHtml,
+
   host,
   openDocumentWorkspaceTab,
-  navigateToSourceLine,
   clearActiveContentCursor,
   setTabQueries,
   setRightSidebarTab,
@@ -74,10 +76,7 @@ export function useWorkspaceSearch({
     message: null,
   });
   const [workspaceSearchIndex, setWorkspaceSearchIndex] = useState(0);
-  const [pendingWorkspaceSearchJump, setPendingWorkspaceSearchJump] = useState<{
-    path: string;
-    line: number;
-  } | null>(null);
+
   const workspaceSearchRequestIdRef = useRef(0);
   const workspaceSearchCacheRef = useRef<{
     cachedAt: number;
@@ -287,24 +286,6 @@ export function useWorkspaceSearch({
     workspaceQuery,
   ]);
 
-  useEffect(() => {
-    if (
-      !pendingWorkspaceSearchJump ||
-      documentPayload?.path !== pendingWorkspaceSearchJump.path ||
-      !documentHtml
-    ) {
-      return;
-    }
-    const targetLine = pendingWorkspaceSearchJump.line;
-    requestAnimationFrame(() => navigateToSourceLine(targetLine));
-    setPendingWorkspaceSearchJump(null);
-  }, [
-    documentHtml,
-    documentPayload?.path,
-    navigateToSourceLine,
-    pendingWorkspaceSearchJump,
-  ]);
-
   const updateSearchQuery = useCallback(
     (value: string) => {
       if (searchScope === "workspace") {
@@ -360,9 +341,11 @@ export function useWorkspaceSearch({
         ...current,
         [result.path]: activeQuery,
       }));
-      setPendingWorkspaceSearchJump({ path: result.path, line: result.line });
-      await openDocumentWorkspaceTab(result.path);
-      updateQuery(activeQuery);
+      await openDocumentWorkspaceTab(result.path, {
+        navigation: "explicit",
+        target: { sourceLine: result.line },
+      });
+      updateQuery(activeQuery, { scroll: false });
       setRightSidebarTab("search");
       setSearchScope("workspace");
     },

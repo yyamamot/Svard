@@ -1,3 +1,7 @@
+import type {
+  DocumentNavigationOptions,
+  ReadingPositionController,
+} from "../lib/readingPositionController";
 import { useEffect, useRef } from "react";
 import { fileName } from "../lib/path";
 import { restoreSmartScrollAnchor } from "../lib/smartScrollRestore";
@@ -12,10 +16,11 @@ import { articleLayoutStateEvent } from "../lib/articleLayoutStability";
 
 export type ActivateTabForHistory = (
   path: string,
-  options?: { recordNavigation?: boolean },
+  options?: DocumentNavigationOptions,
 ) => Promise<void> | void;
 
 interface UseNavigationHistoryOptions {
+  readingPosition?: ReadingPositionController;
   activeHeadingId: string | null;
   activateTabRef: React.MutableRefObject<ActivateTabForHistory | null>;
   articleRef: React.RefObject<HTMLElement | null>;
@@ -42,6 +47,7 @@ interface UseNavigationHistoryOptions {
 }
 
 export function useNavigationHistory({
+  readingPosition,
   activeHeadingId,
   activateTabRef,
   articleRef,
@@ -190,6 +196,11 @@ export function useNavigationHistory({
   }, [documentPayload?.path, pendingNavigationLocation?.path]);
 
   function recordNavigation(nextLocation: NavigationLocation) {
+    if (
+      nextLocation.path === documentPayload?.path &&
+      (nextLocation.headingId || typeof nextLocation.scrollTop === "number")
+    )
+      readingPosition?.cancel();
     const current = currentNavigationLocation();
     if (!current || sameNavigationLocation(current, nextLocation)) {
       return;
@@ -200,11 +211,14 @@ export function useNavigationHistory({
   }
 
   async function restoreNavigationLocation(location: NavigationLocation) {
+    readingPosition?.cancel();
     if (location.path !== documentPayload?.path) {
-      setPendingNavigationLocation(location);
       await activateTabRef.current?.(location.path, {
         recordNavigation: false,
+        navigation: "explicit",
       });
+      // Focusing another pane loads its snapshot and clears the old pending jump.
+      setPendingNavigationLocation(location);
       return;
     }
 

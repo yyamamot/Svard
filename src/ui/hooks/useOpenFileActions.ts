@@ -1,3 +1,7 @@
+import type {
+  DocumentNavigationOptions,
+  ReadingPositionController,
+} from "../lib/readingPositionController";
 import type { Dispatch, SetStateAction } from "react";
 import {
   closeOtherOpenTabPaths,
@@ -24,6 +28,7 @@ import type {
 } from "../types";
 
 interface UseOpenFileActionsOptions {
+  readingPosition?: ReadingPositionController;
   config: AppConfig | null;
   documentPayload: DocumentPayload | null;
   focusedPaneId: PaneId;
@@ -66,11 +71,12 @@ interface UseOpenFileActionsOptions {
   tabs: DocumentPayload[];
   openDocument: (
     path: string,
-    options?: { recordNavigation?: boolean },
+    options?: DocumentNavigationOptions,
   ) => Promise<void>;
 }
 
 export function useOpenFileActions({
+  readingPosition,
   config,
   documentPayload,
   focusedPaneId,
@@ -109,11 +115,13 @@ export function useOpenFileActions({
 }: UseOpenFileActionsOptions) {
   async function activateTab(
     path: string,
-    options: { recordNavigation?: boolean } = {},
+    options: DocumentNavigationOptions = {},
   ) {
     const existingPane = snapshotForPath(path);
     if (existingPane && existingPane !== focusedPaneId) {
       focusPane(existingPane);
+      readingPosition?.prepare(existingPane, path, options);
+      setIsLoading(false);
       return;
     }
 
@@ -126,6 +134,10 @@ export function useOpenFileActions({
       if (options.recordNavigation !== false) {
         recordNavigation({ path, label: fileName(path) });
       }
+      readingPosition?.beginNavigation();
+      readingPosition?.prepare(focusedPaneId, path, options);
+      if (documentPayload?.path !== path) setRenderResult(null);
+      setIsLoading(false);
       setDocumentPayload(existing);
       setQuery(searchQueryForPath(path));
       const openTabs = tabs.map((tab) => tab.path);
@@ -146,6 +158,17 @@ export function useOpenFileActions({
   }
 
   function closeTab(path: string) {
+    readingPosition?.captureAll();
+    readingPosition?.beginNavigation();
+    if (documentPayload?.path === path) {
+      const index = tabs.findIndex((tab) => tab.path === path);
+      const remaining = tabs.filter((tab) => tab.path !== path);
+      const next = remaining[index] ?? remaining[index - 1];
+      if (next) readingPosition?.prepare(focusedPaneId, next.path);
+      setRenderResult(null);
+    }
+    readingPosition?.forget([path]);
+    setIsLoading(false);
     setTabs((currentTabs) => {
       const closedIndex = currentTabs.findIndex((tab) => tab.path === path);
       const closedTab = currentTabs[closedIndex];
@@ -222,10 +245,15 @@ export function useOpenFileActions({
     const removedPaths = tabs
       .map((tab) => tab.path)
       .filter((tabPath) => !remainingPaths.includes(tabPath));
+    readingPosition?.captureAll();
+    readingPosition?.beginNavigation();
+    setIsLoading(false);
+    if (target.path !== documentPayload?.path) setRenderResult(null);
     setDocumentPayload(target);
     setTabs(nextTabs);
     const nextQuery = searchQueryForPath(target.path);
     resetSplitToDocument(target, nextQuery);
+    readingPosition?.forget(removedPaths);
     setQuery(nextQuery);
     setTabMoreOpen(false);
     void persistWorkspace({
@@ -252,6 +280,8 @@ export function useOpenFileActions({
     if (tabs.length === 0) {
       return;
     }
+    readingPosition?.beginNavigation();
+    readingPosition?.forget(tabs.map((tab) => tab.path));
     const closedTabs = tabs;
     setLastClosedTabs((current) =>
       [
@@ -355,6 +385,10 @@ export function useOpenFileActions({
         : [...currentTabs, restored],
     );
     if (shouldActivate) {
+      readingPosition?.captureAll();
+      readingPosition?.cancel();
+      readingPosition?.beginNavigation();
+      setIsLoading(false);
       recordNavigation({
         path: restored.path,
         label: fileName(restored.path),

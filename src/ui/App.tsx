@@ -1,3 +1,4 @@
+import { useDocumentReadingPosition } from "./hooks/useDocumentReadingPosition";
 import { useEffect, useMemo } from "react";
 import { defaultConfig } from "../core/defaultConfig";
 import { AppMainShell } from "./components/AppMainShell";
@@ -13,6 +14,7 @@ import { panelPlacement } from "./agent/agentPanelTypes";
 import { agentChatHandoffPayload } from "./agent/agentChatHandoff";
 export function App() {
   const local = useAppLocalState();
+  const readingPosition = useDocumentReadingPosition();
   // prettier-ignore
   const { activeHeadingId, activateTabForHistoryRef, agentPanelPlacement, articleRef, captureAreaRequest, closeTabRef, codexPanelOpen, config, confirmedRemoteDiagramKeys, copyTextRef, diagramPreview, documentDiffPreview, documentHtml, documentHtmlRevision, documentPayload, documentRenderRevision, error, fileComparePickerOpen, isLoading, krokiFallbackDiagramKeys, lastMouseGesture, linkHoverDestination, linkPreview, navigationBackStack, navigationForwardStack, openFilesFilter, openFilesFilterInputRef, pendingSmartScrollAnchor, query, quickOpenInputRef, recentlyVisitedLocations, refreshSourceControlFromFileTreeRef, renderResult, rightSidebarTab, searchHits, searchIndex, searchInputRef, setActiveHeadingId, setAgentPanelPlacement, setCaptureAreaRequest, setCodexPanelOpen, setConfig, setConfirmedRemoteDiagramKeys, setDiagramPreview, setDocumentDiffPreview, setDocumentHtml, setDocumentHtmlRevision, setDocumentPayload, setDocumentRenderRevision, setError, setFileComparePickerOpen, setIsLoading, setKrokiFallbackDiagramKeys, setLastMouseGesture, setLinkHoverDestination, setLinkPreview, setNavigationBackStack, setNavigationForwardStack, setOpenFilesFilter, setPendingSmartScrollAnchor, setQuery, setRecentlyVisitedLocations, setRenderResult, setRightSidebarTab, setSearchHits, setSearchIndex, setTabQueries, setWindowSessionId, setWorkspaceBootComplete, setWorkspaceEnvironment, setWorkspaceFileChangeRevision, setZenModeActive, tabQueries, viewerRef, windowSessionId, workspaceBootComplete, workspaceEnvironment, workspaceFileChangeRevision, workspaceTreeGenerationRef, zenModeActive, } = local;
   const diffOverlayCommandRefs = useDiffOverlayCommandRefs();
@@ -114,6 +116,7 @@ export function App() {
   const searchQueryForPath = useSearchQueryForPath({ config, tabQueries });
   // prettier-ignore
   const { closeSplitView, focusedPaneId, focusPane, openSplitRight, paneSnapshots, pendingNavigationLocation, replaceClosedDocumentInPaneSnapshots, resetSplitToDocument, resetSplitToEmpty, setFocusedPaneId, setPaneSnapshots, setPendingNavigationLocation, setSplitEnabled, setSplitRatio, snapshotForPath, splitEnabled, splitRatio, } = useSplitViewState({
+    readingPosition, setIsLoading,
     activeHeadingId,
     documentHtml,
     documentPayload,
@@ -136,7 +139,9 @@ export function App() {
   });
   const { persistWorkspace } = useWorkspacePersistence({
     activeHeadingId,
-    canAutoPersist: !isLoading && workspaceBootComplete,
+    canAutoPersist:
+      !isLoading && workspaceBootComplete && !readingPosition.isRestoring(),
+    canCapturePosition: () => !readingPosition.isRestoring(),
     config,
     documentPayload,
     focusedPaneId,
@@ -273,7 +278,7 @@ export function App() {
   useDocumentRender({ confirmedRemoteDiagramKeys, config, documentPayload, host, krokiFallbackDiagramKeys, renderRevision: documentRenderRevision, setError, setDocumentHtml, setDocumentHtmlRevision, setDiagramRenderSnapshot, setRenderResult, });
   const { navigateHistory, openRecentlyVisitedLocation, recordNavigation } =
     // prettier-ignore
-    useNavigationHistory({ activeHeadingId, activateTabRef: activateTabForHistoryRef, articleRef, documentHtml, documentPayload, documentRenderRevision: documentHtmlRevision, navigationBackStack, navigationForwardStack, pendingNavigationLocation, pendingSmartScrollAnchor, setActiveHeadingId, setNavigationBackStack, setNavigationForwardStack, setRecentlyVisitedLocations, setPendingNavigationLocation, setPendingSmartScrollAnchor, viewerRef, });
+    useNavigationHistory({ readingPosition, activeHeadingId, activateTabRef: activateTabForHistoryRef, articleRef, documentHtml, documentPayload, documentRenderRevision: documentHtmlRevision, navigationBackStack, navigationForwardStack, pendingNavigationLocation, pendingSmartScrollAnchor, setActiveHeadingId, setNavigationBackStack, setNavigationForwardStack, setRecentlyVisitedLocations, setPendingNavigationLocation, setPendingSmartScrollAnchor, viewerRef, });
   const {
     openDirectory,
     openDocument,
@@ -281,6 +286,7 @@ export function App() {
     pickAndOpenDirectory,
     pickAndOpenDocument,
   } = useDocumentLifecycle({
+    readingPosition,
     canWatchDocuments: workspaceBootComplete,
     workspaceTreeGenerationRef,
     config,
@@ -388,6 +394,7 @@ export function App() {
     updateQuery,
     updateSearchIndex,
   } = useSearchState({
+    cancelReadingPosition: readingPosition.cancel,
     articleRef,
     config,
     documentPayload,
@@ -446,7 +453,7 @@ export function App() {
   // prettier-ignore
   const bookmarkActions = useBookmarksState({ config, documentPayload: activeDocumentPayload, openDirectory, openDocument, persistWorkspace, rootDirectory, setSidebarTab: sourceControl.setSidebarTab, showInlineNotice, });
   // prettier-ignore
-  const openFileActions = useOpenFileActions({ config, documentPayload, focusedPaneId, focusPane, lastClosedTabs, openDocument, openFileReloadStates, orderedTabs, persistWorkspace, recordNavigation, replaceClosedDocumentInPaneSnapshots, resetSplitToDocument, resetSplitToEmpty, searchQueryForPath, setActiveHeadingId, setDocumentHtml, setDocumentPayload, setError, setFocusedPaneId, setIsLoading, setLastClosedTabs, setNavigationBackStack, setNavigationForwardStack, setPendingNavigationLocation, setQuery, setRenderResult, setSearchHits, setSearchIndex, setSplitEnabled, setTabMoreOpen, setTabs, showInlineNotice, showLightweightActionFeedback, snapshotForPath, tabs, });
+  const openFileActions = useOpenFileActions({ readingPosition, config, documentPayload, focusedPaneId, focusPane, lastClosedTabs, openDocument, openFileReloadStates, orderedTabs, persistWorkspace, recordNavigation, replaceClosedDocumentInPaneSnapshots, resetSplitToDocument, resetSplitToEmpty, searchQueryForPath, setActiveHeadingId, setDocumentHtml, setDocumentPayload, setError, setFocusedPaneId, setIsLoading, setLastClosedTabs, setNavigationBackStack, setNavigationForwardStack, setPendingNavigationLocation, setQuery, setRenderResult, setSearchHits, setSearchIndex, setSplitEnabled, setTabMoreOpen, setTabs, showInlineNotice, showLightweightActionFeedback, snapshotForPath, tabs, });
   closeTabRef.current = openFileActions.closeTab;
   activateTabForHistoryRef.current = openFileActions.activateTab;
   const workspaceTabActions = useWorkspaceTabActions({
@@ -520,7 +527,8 @@ export function App() {
     showLightweightActionFeedback,
   });
   // prettier-ignore
-  const { dispatchCommand, isCommandEnabled } = useAppCommandWiring({ activeDocumentPayload, config, focusedPaneId, lastClosedTabs, lastMouseGesture, navigationBackStack, navigationForwardStack, preferencesOpen, quickOpenOpen, splitEnabled, tabs, zenModeActive, orderedTabs, canSelectAntoraContext: antoraContextSelection.canSelectContext, zenModeEscapeBlocked: zenModeBlockingOverlay, onActivateRelativeTab: workspaceTabActions.activateRelativeDocumentTab, onActivateTabByIndex: workspaceTabActions.activateDocumentTabByIndex, onClearSearch: clearSearch, onCloseAllTabs: workspaceTabActions.closeAllWorkspaceTabs, onCloseOtherTabs: openFileActions.closeOtherTabs, onCloseSplitView: closeSplitView, onCloseTab: openFileActions.closeTab, onCopyHeadingLink: documentLinks.copyHeadingLink, onBeginCaptureArea: (variant = "plain") => { if (documentDiffPreview) { diffOverlayCommandRefs.diffCaptureAreaCommandRef.current?.(variant); return; } beginViewerCaptureArea(variant); }, onClearContentCursor: contentCursor.clearActiveContentCursor, onFocusPane: focusPane, onMoveContentCursor: contentCursor.moveActiveContentCursor, onOpenFocusedLink: documentLinks.openFocusedLink, onOpenExternalUrl: (url) => host.openExternalUrl(url), onCompareActiveWithPickedDocument: compareActiveWithPickedDocument, onCompareGitRef: sourceControl.compareWithGitRef, onComparePickedDocuments: comparePickedDocuments, onShowGitDiff: sourceControl.showGitDiff, onShowGitFileHistory: sourceControl.showGitFileHistory, onShowViewerShortcuts: showViewerShortcuts, onOpenQuickOpen: openQuickOpen, onOpenNewWindow: windowActions.openNewWindow, onQuitApp: () => host.quitApp(), onDuplicateWindow: windowActions.duplicateWindow, onOpenDocument: openDocument, onOpenCurrentDocumentInNewWindow: windowActions.openCurrentDocumentInNewWindow, onPickAndOpenDirectory: pickAndOpenDirectory, onPickAndOpenDocument: pickAndOpenDocument, onSaveConfig: saveConfig, onSearchIndexChange: updateSearchIndex, onSetPreferencesOpen: workspaceTabActions.setPreferencesTabVisible, onSetRightSidebarTab: setRightSidebarTab, onSetSidebarTab: sourceControl.setSidebarTab, onSplitRight: openSplitRight, onToggleZenMode: toggleZenMode, onExitZenMode: exitZenMode, onToggleActiveBookmark: bookmarkActions.toggleActiveBookmark, onAddCurrentFolderBookmark: bookmarkActions.addRootBookmark, onTogglePinned: openFileActions.toggleActivePinnedTab, onNavigateHistory: navigateHistory, onRestoreClosedTab: workspaceTabActions.restoreClosedDocumentTab, onSelectAntoraContextCommand: () => { void sourceControl.setSidebarTab("files"); antoraContextSelection.openSelector(); }, diffStreamCommandRef: diffOverlayCommandRefs.diffStreamCommandRef, documentDiffPreviewActive: Boolean(documentDiffPreview), documentDiffStreamActive: Boolean(documentDiffStreamPreview), onActivateDocumentWorkspaceTab: workspaceTabActions.activateDocumentWorkspaceTab, searchInputRef, openFilesFilterInputRef, viewerRef, showInlineNotice, showLightweightActionFeedback, });
+  const { dispatchCommand, isCommandEnabled } = useAppCommandWiring({
+    onCancelReadingPosition: readingPosition.cancel, activeDocumentPayload, config, focusedPaneId, lastClosedTabs, lastMouseGesture, navigationBackStack, navigationForwardStack, preferencesOpen, quickOpenOpen, splitEnabled, tabs, zenModeActive, orderedTabs, canSelectAntoraContext: antoraContextSelection.canSelectContext, zenModeEscapeBlocked: zenModeBlockingOverlay, onActivateRelativeTab: workspaceTabActions.activateRelativeDocumentTab, onActivateTabByIndex: workspaceTabActions.activateDocumentTabByIndex, onClearSearch: clearSearch, onCloseAllTabs: workspaceTabActions.closeAllWorkspaceTabs, onCloseOtherTabs: openFileActions.closeOtherTabs, onCloseSplitView: closeSplitView, onCloseTab: openFileActions.closeTab, onCopyHeadingLink: documentLinks.copyHeadingLink, onBeginCaptureArea: (variant = "plain") => { if (documentDiffPreview) { diffOverlayCommandRefs.diffCaptureAreaCommandRef.current?.(variant); return; } beginViewerCaptureArea(variant); }, onClearContentCursor: contentCursor.clearActiveContentCursor, onFocusPane: focusPane, onMoveContentCursor: contentCursor.moveActiveContentCursor, onOpenFocusedLink: documentLinks.openFocusedLink, onOpenExternalUrl: (url) => host.openExternalUrl(url), onCompareActiveWithPickedDocument: compareActiveWithPickedDocument, onCompareGitRef: sourceControl.compareWithGitRef, onComparePickedDocuments: comparePickedDocuments, onShowGitDiff: sourceControl.showGitDiff, onShowGitFileHistory: sourceControl.showGitFileHistory, onShowViewerShortcuts: showViewerShortcuts, onOpenQuickOpen: openQuickOpen, onOpenNewWindow: windowActions.openNewWindow, onQuitApp: () => host.quitApp(), onDuplicateWindow: windowActions.duplicateWindow, onOpenDocument: openDocument, onOpenCurrentDocumentInNewWindow: windowActions.openCurrentDocumentInNewWindow, onPickAndOpenDirectory: pickAndOpenDirectory, onPickAndOpenDocument: pickAndOpenDocument, onSaveConfig: saveConfig, onSearchIndexChange: updateSearchIndex, onSetPreferencesOpen: workspaceTabActions.setPreferencesTabVisible, onSetRightSidebarTab: setRightSidebarTab, onSetSidebarTab: sourceControl.setSidebarTab, onSplitRight: openSplitRight, onToggleZenMode: toggleZenMode, onExitZenMode: exitZenMode, onToggleActiveBookmark: bookmarkActions.toggleActiveBookmark, onAddCurrentFolderBookmark: bookmarkActions.addRootBookmark, onTogglePinned: openFileActions.toggleActivePinnedTab, onNavigateHistory: navigateHistory, onRestoreClosedTab: workspaceTabActions.restoreClosedDocumentTab, onSelectAntoraContextCommand: () => { void sourceControl.setSidebarTab("files"); antoraContextSelection.openSelector(); }, diffStreamCommandRef: diffOverlayCommandRefs.diffStreamCommandRef, documentDiffPreviewActive: Boolean(documentDiffPreview), documentDiffStreamActive: Boolean(documentDiffStreamPreview), onActivateDocumentWorkspaceTab: workspaceTabActions.activateDocumentWorkspaceTab, searchInputRef, openFilesFilterInputRef, viewerRef, showInlineNotice, showLightweightActionFeedback, });
   const { navigateToSourceLine, openQuickOpenCandidate } = useQuickOpenActions({
     articleRef,
     clearActiveContentCursor: contentCursor.clearActiveContentCursor,
@@ -783,6 +791,7 @@ export function App() {
           : null
       }
       viewerPaneProps={{
+        readingPosition,
         articleRef, config, error, inlineNotice, lightweightActionFeedback,
         isLoading, mouseGestureTrail, splitEnabled, focusedPaneId,
         centeredContentWidth,

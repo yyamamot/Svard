@@ -1,3 +1,4 @@
+import type { DocumentNavigationOptions } from "../lib/readingPositionController";
 import type { WorkspaceTab } from "../types";
 
 interface UseWorkspaceTabActionsOptions {
@@ -6,7 +7,10 @@ interface UseWorkspaceTabActionsOptions {
   activateTabByIndex: (index: number) => void;
   closeAllTabs: () => void;
   closeTab: (path: string) => void;
-  openDocument: (path: string) => Promise<void> | void;
+  openDocument: (
+    path: string,
+    options?: DocumentNavigationOptions,
+  ) => Promise<void> | void;
   openPreferencesTab: () => void;
   restoreClosedTab: () => void;
   setActiveWorkspaceTabKind: (kind: "document" | "preferences") => void;
@@ -46,9 +50,12 @@ export function useWorkspaceTabActions({
     void activateTab(path);
   }
 
-  async function openDocumentWorkspaceTab(path: string) {
+  async function openDocumentWorkspaceTab(
+    path: string,
+    options?: DocumentNavigationOptions,
+  ) {
     setActiveWorkspaceTabKind("document");
-    await openDocument(path);
+    await openDocument(path, options);
   }
 
   function closeWorkspaceTab(tab: WorkspaceTab) {

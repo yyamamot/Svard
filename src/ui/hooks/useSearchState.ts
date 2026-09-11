@@ -22,6 +22,7 @@ import {
 } from "../lib/perfTrace";
 
 interface UseSearchStateOptions {
+  cancelReadingPosition?: () => void;
   articleRef: RefObject<HTMLElement | null>;
   config: AppConfig | null;
   documentPayload: DocumentPayload | null;
@@ -78,6 +79,7 @@ function mergeCurrentFileSearchTiming(
 }
 
 export function useSearchState({
+  cancelReadingPosition,
   articleRef,
   config,
   documentPayload,
@@ -256,8 +258,9 @@ export function useSearchState({
     });
   }, [articleRef, documentHtml, documentPath, matchCount, query, searchIndex]);
 
-  function updateQuery(value: string) {
-    shouldScrollSearchHitRef.current = true;
+  function updateQuery(value: string, options: { scroll?: boolean } = {}) {
+    if (options.scroll !== false) cancelReadingPosition?.();
+    shouldScrollSearchHitRef.current = options.scroll !== false;
     setQuery(value);
     setSearchIndex(0);
     if (documentPayload) {
@@ -291,6 +294,7 @@ export function useSearchState({
   }
 
   function updateSearchIndex(delta: number) {
+    cancelReadingPosition?.();
     shouldScrollSearchHitRef.current = true;
     setSearchIndex((current) =>
       matchCount > 0 ? (current + delta + matchCount) % matchCount : 0,
@@ -309,6 +313,7 @@ export function useSearchState({
   }
 
   function activateSearchHit(index: number) {
+    cancelReadingPosition?.();
     if (matchCount === 0) {
       return;
     }

@@ -476,6 +476,7 @@ describe("useWorkspaceSearch", () => {
     expect(enterEvent.preventDefault).toHaveBeenCalled();
     expect(openDocumentWorkspaceTab).toHaveBeenCalledWith(
       "/workspace/docs/b.md",
+      { navigation: "explicit", target: { sourceLine: 12 } },
     );
     expect(api().workspaceSearchIndex).toBe(1);
 
@@ -485,12 +486,13 @@ describe("useWorkspaceSearch", () => {
     expect(shiftEnterEvent.preventDefault).toHaveBeenCalled();
     expect(openDocumentWorkspaceTab).toHaveBeenLastCalledWith(
       "/workspace/docs/a.md",
+      { navigation: "explicit", target: { sourceLine: 7 } },
     );
     expect(api().workspaceSearchIndex).toBe(0);
     harness.cleanup();
   });
 
-  it("opens a workspace result and schedules the source-line jump after render", async () => {
+  it("passes the source-line target to document navigation without jumping on stale HTML", async () => {
     const {
       api,
       clearActiveContentCursor,
@@ -512,6 +514,7 @@ describe("useWorkspaceSearch", () => {
 
     expect(openDocumentWorkspaceTab).toHaveBeenCalledWith(
       "/workspace/docs/b.md",
+      { navigation: "explicit", target: { sourceLine: 12 } },
     );
     expect(clearActiveContentCursor).toHaveBeenCalled();
     expect(api().tabQueries["/workspace/docs/b.md"]).toBe("Graphviz");
@@ -528,7 +531,7 @@ describe("useWorkspaceSearch", () => {
       api().setDocumentHtml(markSafeHtml("<p>loaded</p>"));
     });
 
-    expect(navigateToSourceLine).toHaveBeenCalledWith(12);
+    expect(navigateToSourceLine).not.toHaveBeenCalled();
     act(() => api().setSearchScope("document"));
     harness.cleanup();
   });

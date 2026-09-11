@@ -1,4 +1,5 @@
 import { buildBookmarksAssertions } from "./filesBookmarks/bookmarks.mjs";
+import { buildDocumentPositionAssertions } from "./filesBookmarks/documentPosition.mjs";
 import { buildFilesAssertions } from "./filesBookmarks/files.mjs";
 import { buildOpenFilesAssertions } from "./filesBookmarks/openFiles.mjs";
 import { buildReaderActionsAssertions } from "./filesBookmarks/readerActions.mjs";
@@ -7,6 +8,7 @@ import { buildTabsStartAssertions } from "./filesBookmarks/tabsStart.mjs";
 import { buildWindowActionsAssertions } from "./filesBookmarks/windowActions.mjs";
 
 const filesBookmarksAssertionBuilders = [
+  buildDocumentPositionAssertions,
   buildFilesAssertions,
   buildBookmarksAssertions,
   buildOpenFilesAssertions,

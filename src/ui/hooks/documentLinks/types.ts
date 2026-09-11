@@ -1,3 +1,4 @@
+import type { DocumentNavigationOptions } from "../../lib/readingPositionController";
 import type { MouseEvent, RefObject } from "react";
 import type {
   AppConfig,
@@ -22,7 +23,7 @@ export interface UseDocumentLinksOptions {
   documentPayload: DocumentPayload | null;
   openDocument: (
     path: string,
-    options?: { recordNavigation?: boolean },
+    options?: DocumentNavigationOptions,
   ) => Promise<void>;
   openDocumentInNewWindow: (
     path: string,

@@ -150,6 +150,22 @@ describe("document link navigation boundary", () => {
     expect(options.navigateFragment).not.toHaveBeenCalled();
   });
 
+  it("passes a cross-document heading as an explicit render-ready destination", async () => {
+    const options = activationOptions();
+    await activateDocumentLinkIntent(
+      { kind: "document", href: "next.md#usage" },
+      options,
+    );
+    expect(options.openDocument).toHaveBeenCalledWith(
+      "/workspace/docs/next.md",
+      {
+        navigation: "explicit",
+        target: { headingId: "usage" },
+      },
+    );
+    expect(options.navigateFragment).not.toHaveBeenCalled();
+  });
+
   it("keeps only fragment and canonical HTTP(S) hrefs without a resolver", () => {
     const body = document.createElement("div");
     body.innerHTML = `<a href="next.md" target="_blank">Doc</a><a href=" https://example.test/docs ">Web</a><a href="#usage">Fragment</a><a href="mailto:user@example.test">Mail</a>`;

@@ -1,3 +1,5 @@
+import { usePaneReadingPosition } from "../hooks/useDocumentReadingPosition";
+import type { ReadingPositionController } from "../lib/readingPositionController";
 import { X } from "lucide-react";
 import {
   useCallback,
@@ -79,6 +81,7 @@ export const loadingMessageDelayMs = 200;
 const wheelZoomDeltaThreshold = 80;
 
 interface ViewerPaneProps {
+  readingPosition?: ReadingPositionController;
   articleRef?: RefObject<HTMLElement | null>;
   config: AppConfig | null;
   error: string | null;
@@ -142,6 +145,7 @@ interface ViewerPaneProps {
 }
 
 export function ViewerPane({
+  readingPosition,
   articleRef,
   config,
   error,
@@ -476,6 +480,18 @@ export function ViewerPane({
     html,
     result,
   ]);
+
+  usePaneReadingPosition({
+    controller: readingPosition,
+    paneId,
+    articleRef: articleNodeRef,
+    payload,
+    result,
+    html,
+    renderIdentity: articleRenderIdentity,
+    zoom: config?.zoom ?? 100,
+    error: isFocused ? error : null,
+  });
 
   useEffect(() => {
     if (!isLoading) {

@@ -100,6 +100,8 @@ Tail content.
         (heading) => heading.textContent?.trim() === "Target Section",
       );
       if (viewer instanceof HTMLElement && target instanceof HTMLElement) {
+        // Model the reader's input, which takes priority over switch correction.
+        viewer.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
         viewer.scrollTop = Math.max(0, target.offsetTop - 72);
         viewer.dispatchEvent(new Event("scroll", { bubbles: true }));
       }

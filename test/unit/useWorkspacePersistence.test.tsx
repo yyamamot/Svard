@@ -13,6 +13,68 @@ import { createEmptyPaneSnapshot } from "../../src/ui/lib/split";
 import { createReactRootHarness } from "./helpers/reactHarness";
 
 describe("useWorkspacePersistence", () => {
+  it("does not save provisional restore geometry or add writes for scroll events", async () => {
+    vi.useFakeTimers();
+    const harness = createReactRootHarness();
+    const viewer = document.createElement("section");
+    viewer.scrollTop = 1234;
+    const saveConfig = vi.fn(async () => {});
+    let captureAllowed = true;
+    function Probe({ enabled }: { enabled: boolean }) {
+      useWorkspacePersistence({
+        activeHeadingId: null,
+        canAutoPersist: enabled,
+        canCapturePosition: () => captureAllowed,
+        config: defaultConfig,
+        documentPayload: {
+          path: "/workspace/a.md",
+          basePath: "/workspace",
+          source: "# A",
+          format: "markdown",
+          updatedAt: "1",
+        },
+        focusedPaneId: "left",
+        host: {
+          loadConfig: async () => defaultConfig,
+          saveConfig,
+        } as unknown as HostAdapter,
+        paneSnapshots: {
+          left: createEmptyPaneSnapshot("left"),
+          right: createEmptyPaneSnapshot("right"),
+        },
+        setConfig: vi.fn(),
+        splitEnabled: false,
+        splitRatio: 0.5,
+        viewerRef: { current: viewer },
+        windowSessionId: "viewer-1",
+      });
+      return null;
+    }
+    try {
+      harness.render(<Probe enabled />);
+      captureAllowed = false; // Restoration starts after a save timer was scheduled.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+      expect(saveConfig).not.toHaveBeenCalled();
+      harness.render(<Probe enabled={false} />);
+      captureAllowed = true;
+      harness.render(<Probe enabled />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+      expect(saveConfig).toHaveBeenCalledOnce();
+      for (let i = 0; i < 30; i += 1) viewer.dispatchEvent(new Event("scroll"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(saveConfig).toHaveBeenCalledOnce();
+    } finally {
+      harness.cleanup();
+      vi.useRealTimers();
+    }
+  });
+
   it("saves only the current window session", async () => {
     const persistedConfig: AppConfig = {
       ...defaultConfig,

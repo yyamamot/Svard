@@ -12,6 +12,7 @@ import { mergeWorkspaceConfigForSave } from "../lib/windowConfig";
 import type { PaneId, ViewerPaneSnapshot } from "../types";
 
 interface UseWorkspacePersistenceOptions {
+  canCapturePosition?: () => boolean;
   activeHeadingId: string | null;
   canAutoPersist: boolean;
   config: AppConfig | null;
@@ -27,6 +28,7 @@ interface UseWorkspacePersistenceOptions {
 }
 
 export function useWorkspacePersistence({
+  canCapturePosition,
   activeHeadingId,
   canAutoPersist,
   config,
@@ -71,6 +73,7 @@ export function useWorkspacePersistence({
     }
 
     const timeoutId = window.setTimeout(() => {
+      if (canCapturePosition && !canCapturePosition()) return;
       const activePath = documentPayload?.path;
       const currentScrollTop = viewerRef.current?.scrollTop ?? 0;
       const nextScrollPositions = { ...config.workspace.scrollPositions };

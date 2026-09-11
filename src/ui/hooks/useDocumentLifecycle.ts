@@ -1,3 +1,7 @@
+import type {
+  DocumentNavigationOptions,
+  ReadingPositionController,
+} from "../lib/readingPositionController";
 import { useEffect, useMemo, useRef } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { isSupportedDocumentPath } from "../../core/documentFormat";
@@ -37,6 +41,7 @@ import type {
 } from "../types";
 
 interface UseDocumentLifecycleOptions {
+  readingPosition?: ReadingPositionController;
   activeHeadingId: string | null;
   articleRef: RefObject<HTMLElement | null>;
   canWatchDocuments?: boolean;
@@ -86,6 +91,7 @@ interface UseDocumentLifecycleOptions {
 }
 
 export function useDocumentLifecycle({
+  readingPosition,
   activeHeadingId,
   articleRef,
   canWatchDocuments = true,
@@ -122,6 +128,7 @@ export function useDocumentLifecycle({
   tabs,
   viewerRef,
 }: UseDocumentLifecycleOptions) {
+  const openGenerationRef = useRef(0);
   const desktopOpenHandlerRef = useRef<
     (request: DesktopOpenRequest) => Promise<void>
   >(async () => {});
@@ -201,6 +208,7 @@ export function useDocumentLifecycle({
         }
         const isActive = activePathRef.current === nextDocument.path;
         if (isActive) {
+          readingPosition?.cancel(focusedPaneId);
           if (reloadAnchor) {
             setPendingSmartScrollAnchor(reloadAnchor);
           }
@@ -318,8 +326,7 @@ export function useDocumentLifecycle({
 
   async function openDocument(
     path: string,
-    options: {
-      recordNavigation?: boolean;
+    options: DocumentNavigationOptions & {
       clearDocumentLinkCache?: boolean;
     } = {},
   ) {
@@ -328,6 +335,8 @@ export function useDocumentLifecycle({
     const existingPane = snapshotForPath(path);
     if (existingPane && existingPane !== focusedPaneId) {
       focusPane(existingPane);
+      readingPosition?.prepare(existingPane, path, options);
+      setIsLoading(false);
       tracePerf("openDocument.focusExistingPane", {
         basename,
         durationMs: perfDuration(totalStartedAt),
@@ -335,6 +344,12 @@ export function useDocumentLifecycle({
       return;
     }
 
+    const generation =
+      readingPosition?.beginNavigation() ?? ++openGenerationRef.current;
+    const isCurrent = () =>
+      readingPosition
+        ? readingPosition.isCurrentNavigation(generation)
+        : openGenerationRef.current === generation;
     setIsLoading(true);
     setError(null);
     let reloadAnchor: SmartScrollAnchor | null = null;
@@ -347,6 +362,7 @@ export function useDocumentLifecycle({
       const nextDocument = await host.openDocument(path, {
         antoraContextId: selectedAntoraContextId,
       });
+      if (!isCurrent()) return;
       tracePerf("openDocument.host.openDocument", {
         basename,
         format: nextDocument.format,
@@ -365,6 +381,9 @@ export function useDocumentLifecycle({
         format: nextDocument.format,
         durationMs: perfDuration(stateStartedAt),
       });
+      if (options.clearDocumentLinkCache)
+        readingPosition?.cancel(focusedPaneId);
+      else readingPosition?.prepare(focusedPaneId, nextDocument.path, options);
       const isSameActivePath = activePathRef.current === nextDocument.path;
       if (!isSameActivePath) {
         setRenderResult(null);
@@ -412,6 +431,7 @@ export function useDocumentLifecycle({
         durationMs: perfDuration(totalStartedAt),
       });
     } catch (openError) {
+      if (!isCurrent()) return;
       const message =
         openError instanceof Error ? openError.message : "Open document failed";
       tracePerf("openDocument.failed", {
@@ -421,7 +441,7 @@ export function useDocumentLifecycle({
       });
       showInlineNotice(`Open failed: ${message}`, { tone: "error" });
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   }
 

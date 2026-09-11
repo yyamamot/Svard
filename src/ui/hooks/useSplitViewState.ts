@@ -1,3 +1,4 @@
+import type { ReadingPositionController } from "../lib/readingPositionController";
 import { useEffect, useState } from "react";
 import { createEmptyPaneSnapshot } from "../lib/split";
 import type {
@@ -10,6 +11,8 @@ import type { DocumentPayload, RenderResult } from "../../core/types";
 import type { SafeHtml } from "../lib/safeHtml";
 
 export function useSplitViewState({
+  readingPosition,
+  setIsLoading,
   activeHeadingId,
   documentHtml,
   documentPayload,
@@ -30,6 +33,8 @@ export function useSplitViewState({
   setSearchHits,
   setSearchIndex,
 }: {
+  readingPosition?: ReadingPositionController;
+  setIsLoading?: (value: boolean) => void;
   activeHeadingId: string | null;
   documentHtml: SafeHtml;
   documentPayload: DocumentPayload | null;
@@ -99,6 +104,11 @@ export function useSplitViewState({
       return;
     }
 
+    readingPosition?.captureAll();
+    readingPosition?.preserve(focusedPaneId);
+    readingPosition?.preserve(paneId);
+    readingPosition?.beginNavigation();
+    setIsLoading?.(false);
     const currentSnapshot = currentPaneSnapshot(focusedPaneId);
     const targetSnapshot = paneSnapshots[paneId];
     setPaneSnapshots((current) => ({
@@ -141,6 +151,16 @@ export function useSplitViewState({
       left: leftSnapshot,
       right: rightSnapshot,
     });
+    readingPosition?.captureAll();
+    readingPosition?.preserve("left");
+    if (rightSnapshot.documentPayload)
+      readingPosition?.transfer(
+        focusedPaneId,
+        "right",
+        rightSnapshot.documentPayload.path,
+      );
+    readingPosition?.beginNavigation();
+    setIsLoading?.(false);
     setSplitEnabled(true);
     setFocusedPaneId("right");
     loadPaneSnapshot(rightSnapshot);
@@ -155,6 +175,16 @@ export function useSplitViewState({
       remainingPaneId === focusedPaneId
         ? currentPaneSnapshot("left")
         : paneSnapshots[remainingPaneId];
+    readingPosition?.captureAll();
+    readingPosition?.beginNavigation();
+    if (remainingSnapshot.documentPayload)
+      readingPosition?.transfer(
+        remainingPaneId,
+        "left",
+        remainingSnapshot.documentPayload.path,
+      );
+    readingPosition?.cancel("right");
+    setIsLoading?.(false);
     setSplitEnabled(false);
     setFocusedPaneId("left");
     setPaneSnapshots({
@@ -165,6 +195,7 @@ export function useSplitViewState({
   }
 
   function resetSplitToEmpty() {
+    readingPosition?.cancel();
     setSplitEnabled(false);
     setFocusedPaneId("left");
     setSplitRatio(0.5);
@@ -178,6 +209,12 @@ export function useSplitViewState({
     nextDocument: DocumentPayload,
     nextQuery: string,
   ) {
+    readingPosition?.captureAll();
+    const existingPane = snapshotForPath(nextDocument.path);
+    if (existingPane)
+      readingPosition?.transfer(existingPane, "left", nextDocument.path);
+    else readingPosition?.prepare("left", nextDocument.path);
+    readingPosition?.cancel("right");
     setSplitEnabled(false);
     setFocusedPaneId("left");
     setPaneSnapshots({

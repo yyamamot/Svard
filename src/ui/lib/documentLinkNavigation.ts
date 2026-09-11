@@ -1,3 +1,4 @@
+import type { DocumentNavigationOptions } from "./readingPositionController";
 import type { MouseEvent } from "react";
 import type { DocumentLinkResolution } from "../../core/types";
 import { isSupportedDocumentPath } from "../../core/documentFormat";
@@ -187,7 +188,10 @@ export function captureDocumentLinkActivation(
 export interface ActivateDocumentLinkOptions {
   documentPath: string | null;
   confirmExternalLink: (url: string) => Promise<boolean>;
-  openDocument: (path: string) => Promise<void>;
+  openDocument: (
+    path: string,
+    options?: DocumentNavigationOptions,
+  ) => Promise<void>;
   openExternalUrl: (url: string) => Promise<void>;
   resolveDocumentLink: (
     href: string,
@@ -246,13 +250,14 @@ export async function activateDocumentLinkIntent(
     );
     return;
   }
-  await options.openDocument(resolved.path);
   const fragment = resolved.hash ?? target.hash;
   if (fragment) {
-    window.setTimeout(
-      () => options.navigateFragment(fragment, { afterDocumentOpen: true }),
-      50,
-    );
+    await options.openDocument(resolved.path, {
+      navigation: "explicit",
+      target: { headingId: fragment },
+    });
+  } else {
+    await options.openDocument(resolved.path);
   }
 }
 
