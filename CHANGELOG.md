@@ -12,6 +12,7 @@
 - Fixed Viewer text and original-source reference copying so rendered text, source ranges, and AI Chat snapshots remain separate.
 - Fixed context-menu scroll handling, File Compare document drops, and File History repository headers.
 - Added reading position restoration when switching between open Markdown and AsciiDoc documents in the same window, including independent positions in split panes.
+- Added subtle current-file highlighting in the File Tree and a Reveal Current File action in the toolbar and Command Palette.
 
 ## 1.0.6
 

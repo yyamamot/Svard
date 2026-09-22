@@ -33,6 +33,7 @@ export const commandIds = [
   "bookmark.toggleActive",
   "bookmark.addCurrentFolder",
   "documents.revealCurrent",
+  "fileTree.revealCurrent",
   "documents.selectAntoraContext",
   "sidebar.showFiles",
   "sidebar.showBookmarks",
@@ -135,6 +136,11 @@ export const commandDefinitions: CommandDefinition[] = [
     id: "bookmark.addCurrentFolder",
     title: "Add Current Folder Bookmark",
     context: "global",
+  },
+  {
+    id: "fileTree.revealCurrent",
+    title: "Reveal Current File in File Tree",
+    context: "navigation",
   },
   {
     id: "documents.revealCurrent",

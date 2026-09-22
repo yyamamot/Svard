@@ -45,6 +45,11 @@
   box-shadow: inset 2px 0 0 #6f8792;
 }
 
+.theme-dark .file-tree .tree-row.file.active {
+  background: #161d21;
+  box-shadow: inset 2px 0 0 #3c4b53;
+}
+
 .theme-dark .open-file-row.git-status-modified .open-file-button,
 .theme-dark .tree-row.git-status-modified,
 .theme-dark .bookmark-row.git-status-modified .bookmark-open {

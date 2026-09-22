@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  fileTreeRevealPaths,
+  normalizeRevealPath,
+} from "../lib/fileTreeReveal";
 import type {
   AppConfig,
   DirectoryEntry,
@@ -28,6 +32,9 @@ interface FileTreeHost {
 
 interface UseFileTreeStateOptions {
   host: FileTreeHost;
+  activePath?: string;
+  revealDisabled?: boolean;
+  contextKey?: string;
   persistWorkspace: (partial: Partial<AppConfig["workspace"]>) => Promise<void>;
   workspacePerformanceMode?: WorkspacePerformanceMode;
   showInlineNotice: (
@@ -65,6 +72,9 @@ function updateFileTreeTiming(timing: FileTreeTiming): void {
 
 export function useFileTreeState({
   host,
+  activePath,
+  revealDisabled = false,
+  contextKey,
   persistWorkspace,
   workspacePerformanceMode = "normal",
   showInlineNotice,
@@ -84,6 +94,98 @@ export function useFileTreeState({
   const [directoryErrors, setDirectoryErrors] = useState<
     Record<string, string>
   >({});
+  const [revealRequest, setRevealRequest] = useState<{
+    id: number;
+    path: string;
+  } | null>(null);
+  const revealSequence = useRef(0);
+  const mounted = useRef(true);
+  const persistWorkspaceRef = useRef(persistWorkspace);
+  persistWorkspaceRef.current = persistWorkspace;
+  const acknowledgeReveal = useCallback((id: number) => {
+    setRevealRequest((current) => (current?.id === id ? null : current));
+  }, []);
+  const cancelReveal = useCallback(() => {
+    revealSequence.current += 1;
+    setRevealRequest(null);
+  }, []);
+  const revealContext = JSON.stringify([
+    rootDirectory,
+    activePath,
+    contextKey,
+    revealDisabled,
+  ]);
+  const liveContext = useRef(revealContext);
+  // Invalidate by generation as well as identity, including a switch away and back.
+  if (liveContext.current !== revealContext) {
+    liveContext.current = revealContext;
+    revealSequence.current += 1;
+  }
+  const expandedRef = useRef(expandedDirectories);
+  expandedRef.current = expandedDirectories;
+  const revealPaths = fileTreeRevealPaths(rootDirectory, activePath);
+  const canRevealCurrentFile = !revealDisabled && revealPaths !== null;
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      revealSequence.current += 1;
+    };
+  }, []);
+
+  async function revealCurrentFile(): Promise<void> {
+    if (!canRevealCurrentFile || !revealPaths || !activePath) return;
+    const id = ++revealSequence.current;
+    const isCurrent = () =>
+      mounted.current &&
+      revealSequence.current === id &&
+      liveContext.current === revealContext;
+    const listings: Record<string, DirectoryEntry[]> = {};
+    const ancestors: string[] = [];
+    let directory = rootDirectory;
+    try {
+      // Fresh listings verify each ancestor and the target even when cached.
+      for (let index = 0; index < revealPaths.length; index += 1) {
+        const entries = await host.listDirectory(directory);
+        if (!isCurrent()) return;
+        listings[directory] = entries;
+        const isFile = index === revealPaths.length - 1;
+        const entry = entries.find(
+          (candidate) =>
+            normalizeRevealPath(candidate.path) === revealPaths[index] &&
+            candidate.kind === (isFile ? "file" : "directory"),
+        );
+        if (!entry) throw new Error("Reveal target unavailable");
+        if (!isFile) {
+          directory = entry.path;
+          ancestors.push(directory);
+        }
+      }
+      if (!isCurrent()) return;
+      const nextExpanded = new Set([...expandedRef.current, ...ancestors]);
+      expandedRef.current = nextExpanded;
+      setChildrenByDirectory((current) => ({ ...current, ...listings }));
+      setExpandedDirectories(nextExpanded);
+      setDirectoryErrors((current) => {
+        const next = { ...current };
+        for (const path of Object.keys(listings)) delete next[path];
+        return next;
+      });
+      setRevealRequest({ id, path: activePath });
+      await persistWorkspaceRef.current({
+        expandedDirectories: [...nextExpanded],
+      });
+    } catch {
+      if (isCurrent()) {
+        showInlineNotice(
+          "Unable to reveal the current file in the file tree.",
+          { tone: "warning" },
+        );
+      }
+    }
+  }
+
   const watchedDirectories = useMemo(
     () =>
       [
@@ -387,6 +489,12 @@ export function useFileTreeState({
   return {
     rootDirectory,
     setRootDirectory,
+    cancelReveal,
+    acknowledgeReveal,
+    canRevealCurrentFile,
+    revealCurrentFile,
+    revealRequest:
+      revealRequest?.id === revealSequence.current ? revealRequest : null,
     childrenByDirectory,
     setChildrenByDirectory,
     expandedDirectories,

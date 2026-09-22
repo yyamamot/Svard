@@ -26,6 +26,9 @@ export async function buildCoreAssertions(context) {
               .locator('[data-review-id="document-viewer"]')
               .count()) === 1,
     hasDocument:
+      (scenario === "viewer-file-tree-reveal-current" &&
+        bodyText.includes("Reveal fixture") &&
+        bodyText.includes("stable reading position")) ||
       (scenario === "viewer-document-switch-scroll-restore" &&
         bodyText.includes("Position document 1") &&
         bodyText.includes("Reading section")) ||

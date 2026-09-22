@@ -1,4 +1,5 @@
 .file-toolbar {
+  container-type: inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -46,6 +47,41 @@
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.documents-mode-suggestion-icon {
+  display: none;
+}
+
+/* Keep every action reachable when Files is narrow, including detected Docs. */
+@container (max-width: 360px) {
+  .documents-mode-suggestion {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    padding: 4px;
+  }
+
+  .documents-mode-suggestion-icon {
+    display: block;
+  }
+
+  .documents-mode-suggestion-label {
+    display: none;
+  }
+}
+
+@container (max-width: 240px) {
+  .file-toolbar-actions {
+    gap: 2px;
+  }
+
+  .file-toolbar .icon-button,
+  .documents-mode-suggestion {
+    width: 24px;
+    padding: 3px;
+  }
 }
 
 .documents-mode-suggestion-menu {
@@ -548,6 +584,11 @@
 .tree-row.active,
 .tree-row:hover {
   background: #e7f0ef;
+}
+
+.file-tree .tree-row.file.active {
+  background: #f3f7f6;
+  box-shadow: inset 2px 0 0 #b2c9c3;
 }
 
 .tree-row-main:focus-visible {

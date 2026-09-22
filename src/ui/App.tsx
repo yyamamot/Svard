@@ -1,5 +1,6 @@
 import { useDocumentReadingPosition } from "./hooks/useDocumentReadingPosition";
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
+import { useFileTreeRevealAction } from "./hooks/useFileTreeRevealAction";
 import { defaultConfig } from "../core/defaultConfig";
 import { AppMainShell } from "./components/AppMainShell";
 import { AppAgentPanel } from "./components/AppAgentPanel";
@@ -166,7 +167,15 @@ export function App() {
     toggleDirectory,
     refreshTree,
     collapseTree,
+    canRevealCurrentFile,
+    revealCurrentFile,
+    revealRequest,
+    cancelReveal,
+    acknowledgeReveal,
   } = useFileTreeState({
+    activePath: documentPayload?.path,
+    contextKey: focusedPaneId,
+    revealDisabled: preferencesOpen || Boolean(documentDiffPreview),
     host,
     persistWorkspace,
     workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal",
@@ -527,7 +536,30 @@ export function App() {
     showLightweightActionFeedback,
   });
   // prettier-ignore
+  const fileTreeRevealEnabled = canRevealCurrentFile && !documentDiffStreamPreview;
+  useLayoutEffect(() => {
+    if (documentDiffStreamPreview) cancelReveal();
+  }, [Boolean(documentDiffStreamPreview), cancelReveal]);
+  const revealFileTree = useFileTreeRevealAction({
+    config,
+    contextKey: JSON.stringify([
+      rootDirectory,
+      documentPayload?.path,
+      focusedPaneId,
+    ]),
+    enabled: fileTreeRevealEnabled,
+    onShowFileTree: async () => {
+      sidebarWiring.showFileTree();
+      if (zenModeApplies && zenModeConfig.hideLeftSidebar) await exitZenMode();
+    },
+    onReveal: revealCurrentFile,
+    onCancelReveal: cancelReveal,
+    onSaveConfig: saveConfig,
+    showInlineNotice,
+  });
+  // prettier-ignore
   const { dispatchCommand, isCommandEnabled } = useAppCommandWiring({
+    canRevealCurrentFile: fileTreeRevealEnabled, onRevealCurrentFile: revealFileTree,
     onCancelReadingPosition: readingPosition.cancel, activeDocumentPayload, config, focusedPaneId, lastClosedTabs, lastMouseGesture, navigationBackStack, navigationForwardStack, preferencesOpen, quickOpenOpen, splitEnabled, tabs, zenModeActive, orderedTabs, canSelectAntoraContext: antoraContextSelection.canSelectContext, zenModeEscapeBlocked: zenModeBlockingOverlay, onActivateRelativeTab: workspaceTabActions.activateRelativeDocumentTab, onActivateTabByIndex: workspaceTabActions.activateDocumentTabByIndex, onClearSearch: clearSearch, onCloseAllTabs: workspaceTabActions.closeAllWorkspaceTabs, onCloseOtherTabs: openFileActions.closeOtherTabs, onCloseSplitView: closeSplitView, onCloseTab: openFileActions.closeTab, onCopyHeadingLink: documentLinks.copyHeadingLink, onBeginCaptureArea: (variant = "plain") => { if (documentDiffPreview) { diffOverlayCommandRefs.diffCaptureAreaCommandRef.current?.(variant); return; } beginViewerCaptureArea(variant); }, onClearContentCursor: contentCursor.clearActiveContentCursor, onFocusPane: focusPane, onMoveContentCursor: contentCursor.moveActiveContentCursor, onOpenFocusedLink: documentLinks.openFocusedLink, onOpenExternalUrl: (url) => host.openExternalUrl(url), onCompareActiveWithPickedDocument: compareActiveWithPickedDocument, onCompareGitRef: sourceControl.compareWithGitRef, onComparePickedDocuments: comparePickedDocuments, onShowGitDiff: sourceControl.showGitDiff, onShowGitFileHistory: sourceControl.showGitFileHistory, onShowViewerShortcuts: showViewerShortcuts, onOpenQuickOpen: openQuickOpen, onOpenNewWindow: windowActions.openNewWindow, onQuitApp: () => host.quitApp(), onDuplicateWindow: windowActions.duplicateWindow, onOpenDocument: openDocument, onOpenCurrentDocumentInNewWindow: windowActions.openCurrentDocumentInNewWindow, onPickAndOpenDirectory: pickAndOpenDirectory, onPickAndOpenDocument: pickAndOpenDocument, onSaveConfig: saveConfig, onSearchIndexChange: updateSearchIndex, onSetPreferencesOpen: workspaceTabActions.setPreferencesTabVisible, onSetRightSidebarTab: setRightSidebarTab, onSetSidebarTab: sourceControl.setSidebarTab, onSplitRight: openSplitRight, onToggleZenMode: toggleZenMode, onExitZenMode: exitZenMode, onToggleActiveBookmark: bookmarkActions.toggleActiveBookmark, onAddCurrentFolderBookmark: bookmarkActions.addRootBookmark, onTogglePinned: openFileActions.toggleActivePinnedTab, onNavigateHistory: navigateHistory, onRestoreClosedTab: workspaceTabActions.restoreClosedDocumentTab, onSelectAntoraContextCommand: () => { void sourceControl.setSidebarTab("files"); antoraContextSelection.openSelector(); }, diffStreamCommandRef: diffOverlayCommandRefs.diffStreamCommandRef, documentDiffPreviewActive: Boolean(documentDiffPreview), documentDiffStreamActive: Boolean(documentDiffStreamPreview), onActivateDocumentWorkspaceTab: workspaceTabActions.activateDocumentWorkspaceTab, searchInputRef, openFilesFilterInputRef, viewerRef, showInlineNotice, showLightweightActionFeedback, });
   const { navigateToSourceLine, openQuickOpenCandidate } = useQuickOpenActions({
     articleRef,
@@ -548,7 +580,7 @@ export function App() {
   const bookmarks = config?.workspace.bookmarks ?? [];
   // prettier-ignore
   // prettier-ignore
-  const sidebarWiring = useAppSidebarWiring({ activePath: preferencesOpen ? undefined : documentPayload?.path, bookmarks, childrenByDirectory, config, directoryErrors, documentReviewSession, documentOrderRefreshRevision: workspaceFileChangeRevision, expandedDirectories, gitSourceControl: { ...sourceControl, openSourceControlAllDiffs, }, gitStatusEnabled: workspaceBootComplete, hideOpenFiles: hideOpenFilesForSiteScreenshot, host, leftSidebarContentRef, loadingDirectories, openFileReloadStates, openFilesCollapsed: sidebarLayout.openFilesCollapsed, openFilesFilter, openFilesFilterInputRef, openFilesPaneRef, openFilesSplitResizeState, orderedTabs, pinnedTabs, preferencesActive: preferencesOpen, preferencesTabOpen, rootDirectory, rootEntries, sidebarResizeState, ...antoraContextSelection.sidebarProps, tabs, workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal", onActivateTab: workspaceTabActions.activateDocumentWorkspaceTab, onActivatePreferences: openPreferencesTab, onAddActiveBookmark: bookmarkActions.addActiveBookmark, onAddRootBookmark: bookmarkActions.addRootBookmark, onBeginOpenFilesSplitResize: beginOpenFilesSplitResize, onBeginSidebarResize: beginSidebarResize, onCloseTab: openFileActions.closeTab, onClosePreferences: workspaceTabActions.closePreferencesTab, onCollapseTree: collapseTree, onOpenBookmark: bookmarkActions.openBookmark, onOpenFile: workspaceTabActions.openDocumentWorkspaceTab, onPickDirectory: pickAndOpenDirectory, onPickDocument: pickAndOpenDocument, onRefreshTree: refreshTree, onRemoveBookmark: bookmarkActions.removeBookmarkEntry, onReorderBookmarks: bookmarkActions.moveBookmark, onReorderOpenTabs: openFileActions.reorderOpenTabs, onResetOpenFilesSplitHeight: resetOpenFilesSplitHeight, onResetSidebarWidth: resetSidebarWidth, onSelectSidebarTab: sourceControl.setSidebarTab, onSetOpenFilesFilter: setOpenFilesFilter, onToggleDirectory: toggleDirectory, onToggleOpenFilesCollapsed: toggleOpenFilesCollapsed, onTogglePinned: openFileActions.toggleActivePinnedTab, });
+  const sidebarWiring = useAppSidebarWiring({ onRevealConsumed: acknowledgeReveal, canRevealCurrentFile: fileTreeRevealEnabled, revealRequest: fileTreeRevealEnabled ? revealRequest : null, onRevealCurrentFile: () => { void dispatchCommand("fileTree.revealCurrent"); }, activePath: preferencesOpen ? undefined : documentPayload?.path, bookmarks, childrenByDirectory, config, directoryErrors, documentReviewSession, documentOrderRefreshRevision: workspaceFileChangeRevision, expandedDirectories, gitSourceControl: { ...sourceControl, openSourceControlAllDiffs, }, gitStatusEnabled: workspaceBootComplete, hideOpenFiles: hideOpenFilesForSiteScreenshot, host, leftSidebarContentRef, loadingDirectories, openFileReloadStates, openFilesCollapsed: sidebarLayout.openFilesCollapsed, openFilesFilter, openFilesFilterInputRef, openFilesPaneRef, openFilesSplitResizeState, orderedTabs, pinnedTabs, preferencesActive: preferencesOpen, preferencesTabOpen, rootDirectory, rootEntries, sidebarResizeState, ...antoraContextSelection.sidebarProps, tabs, workspacePerformanceMode: workspaceEnvironment?.performanceMode ?? "normal", onActivateTab: workspaceTabActions.activateDocumentWorkspaceTab, onActivatePreferences: openPreferencesTab, onAddActiveBookmark: bookmarkActions.addActiveBookmark, onAddRootBookmark: bookmarkActions.addRootBookmark, onBeginOpenFilesSplitResize: beginOpenFilesSplitResize, onBeginSidebarResize: beginSidebarResize, onCloseTab: openFileActions.closeTab, onClosePreferences: workspaceTabActions.closePreferencesTab, onCollapseTree: collapseTree, onOpenBookmark: bookmarkActions.openBookmark, onOpenFile: workspaceTabActions.openDocumentWorkspaceTab, onPickDirectory: pickAndOpenDirectory, onPickDocument: pickAndOpenDocument, onRefreshTree: refreshTree, onRemoveBookmark: bookmarkActions.removeBookmarkEntry, onReorderBookmarks: bookmarkActions.moveBookmark, onReorderOpenTabs: openFileActions.reorderOpenTabs, onResetOpenFilesSplitHeight: resetOpenFilesSplitHeight, onResetSidebarWidth: resetSidebarWidth, onSelectSidebarTab: sourceControl.setSidebarTab, onSetOpenFilesFilter: setOpenFilesFilter, onToggleDirectory: toggleDirectory, onToggleOpenFilesCollapsed: toggleOpenFilesCollapsed, onTogglePinned: openFileActions.toggleActivePinnedTab, });
   const {
     searchScope,
     setSearchScope,

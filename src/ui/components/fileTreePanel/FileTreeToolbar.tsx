@@ -1,5 +1,6 @@
 import {
   ChevronsUp,
+  Crosshair,
   FileText,
   FolderOpen,
   ListFilter,
@@ -23,6 +24,8 @@ interface FileTreeToolbarProps {
   collapseLabel: string;
   onPickDocument: () => void;
   onPickDirectory: () => void;
+  onRevealCurrentFile?: () => void;
+  canRevealCurrentFile?: boolean;
   onRefresh: () => void;
   onCollapse: () => void;
   onViewModeChange: (mode: FilesViewMode) => void;
@@ -43,6 +46,8 @@ export function FileTreeToolbar({
   collapseLabel,
   onPickDocument,
   onPickDirectory,
+  onRevealCurrentFile,
+  canRevealCurrentFile = false,
   onRefresh,
   onCollapse,
   onViewModeChange,
@@ -274,13 +279,21 @@ export function FileTreeToolbar({
               className="documents-mode-suggestion"
               data-review-id="documents-mode-suggestion"
               title={visibleSuggestedDocumentsMode.label}
+              aria-label={visibleSuggestedDocumentsMode.label}
               aria-haspopup={hasAntoraContextChoices ? "menu" : undefined}
               aria-expanded={
                 hasAntoraContextChoices ? suggestionMenuOpen : undefined
               }
               onClick={pickSuggestedDocumentsMode}
             >
-              {visibleSuggestedDocumentsMode.label}
+              <FileText
+                className="documents-mode-suggestion-icon"
+                size={15}
+                aria-hidden="true"
+              />
+              <span className="documents-mode-suggestion-label">
+                {visibleSuggestedDocumentsMode.label}
+              </span>
             </button>
             {suggestionMenuOpen && hasAntoraContextChoices ? (
               <div
@@ -316,6 +329,19 @@ export function FileTreeToolbar({
             ) : null}
           </div>
         ) : null}
+        {viewMode === "tree" && (
+          <button
+            type="button"
+            className="icon-button"
+            data-review-id="tree-reveal-current"
+            aria-label="Reveal Current File in File Tree"
+            title="Reveal Current File in File Tree"
+            disabled={!canRevealCurrentFile}
+            onClick={onRevealCurrentFile}
+          >
+            <Crosshair size={15} />
+          </button>
+        )}
         <button
           type="button"
           className="icon-button"

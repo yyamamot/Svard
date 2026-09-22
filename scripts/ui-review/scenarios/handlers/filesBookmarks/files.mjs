@@ -1,7 +1,11 @@
+import { applyRevealCurrentScenario } from "./revealCurrent.mjs";
+
 export async function applyFilesScenario(context) {
   const scenario = context.scenario;
   const page = context.page;
-  if (scenario === "viewer-files") {
+  if (scenario === "viewer-file-tree-reveal-current") {
+    await applyRevealCurrentScenario(page);
+  } else if (scenario === "viewer-files") {
     await page
       .locator('[data-review-id="file-tree-open-menu-trigger"]')
       .click();
@@ -64,6 +68,7 @@ export async function applyFilesScenario(context) {
         openMenu: action('[data-review-id="file-tree-open-menu"]'),
         openFile: action('[data-review-id="file-open-control"]'),
         openFolder: action('[data-review-id="directory-open-control"]'),
+        reveal: action('[data-review-id="tree-reveal-current"]'),
         refresh: action('[data-review-id="tree-refresh"]'),
         collapse: action('[data-review-id="tree-collapse-all"]'),
         itemOrder: [

@@ -32,6 +32,10 @@ import type { SuggestedDocumentsMode } from "./fileTreePanel/types";
 import type { OpenFileReloadState } from "../types";
 
 interface LeftSidebarProps {
+  canRevealCurrentFile?: boolean;
+  onRevealCurrentFile?: () => void;
+  revealRequest?: { id: number; path: string } | null;
+  onRevealConsumed?: (id: number) => void;
   activePath?: string;
   antoraContextSelectorOpenSignal: number;
   preferencesTabOpen: boolean;
@@ -138,6 +142,10 @@ interface LeftSidebarProps {
 }
 
 export function LeftSidebar({
+  canRevealCurrentFile,
+  onRevealCurrentFile,
+  revealRequest,
+  onRevealConsumed,
   activePath,
   antoraContextSelectorOpenSignal,
   preferencesTabOpen,
@@ -280,6 +288,10 @@ export function LeftSidebar({
           <div className="sidebar-tab-panel">
             {sidebarTab === "files" ? (
               <FileTreePanel
+                canRevealCurrentFile={canRevealCurrentFile}
+                onRevealCurrentFile={onRevealCurrentFile}
+                revealRequest={revealRequest}
+                onRevealConsumed={onRevealConsumed}
                 rootDirectory={rootDirectory}
                 rootEntries={rootEntries}
                 documentOrder={documentOrder}

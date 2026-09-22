@@ -4,7 +4,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultConfig } from "../../src/core/defaultConfig";
-import { useCommandDispatcher } from "../../src/ui/hooks/useCommandDispatcher";
+import {
+  useCommandDispatcher,
+  type UseCommandDispatcherOptions,
+} from "../../src/ui/hooks/useCommandDispatcher";
 import { registerDocumentsPanelCommandBridge } from "../../src/ui/lib/documentsPanelCommandBridge";
 
 describe("documents reveal current command", () => {
@@ -31,10 +34,12 @@ describe("documents reveal current command", () => {
     canSelectAntoraContext = false,
     onFeedback,
     onSelectAntoraContextCommand = vi.fn(),
+    overrides = {},
   }: {
     canSelectAntoraContext?: boolean;
     onFeedback: (message: string) => void;
     onSelectAntoraContextCommand?: () => void;
+    overrides?: Partial<UseCommandDispatcherOptions>;
   }) {
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     const openFilesFilterInputRef = useRef<HTMLInputElement | null>(null);
@@ -103,9 +108,61 @@ describe("documents reveal current command", () => {
       viewerRef,
       showInlineNotice: vi.fn(),
       showLightweightActionFeedback: onFeedback,
+      ...overrides,
     });
     return null;
   }
+
+  it("dispatches File Tree reveal independently of Docs order and blocks non-reader contexts", async () => {
+    const onRevealCurrentFile = vi.fn(async () => undefined);
+    for (const state of [
+      { canRevealCurrentFile: false },
+      { preferencesOpen: true },
+      { documentDiffPreviewActive: true },
+      { documentDiffStreamActive: true },
+    ]) {
+      await act(async () =>
+        root.render(
+          <Harness
+            onFeedback={vi.fn()}
+            overrides={{
+              canRevealCurrentFile: true,
+              onRevealCurrentFile,
+              ...state,
+            }}
+          />,
+        ),
+      );
+      expect(
+        window.__SVARD_COMMANDS__?.getCommandState("fileTree.revealCurrent")
+          .enabled,
+      ).toBe(false);
+      await expect(
+        window.__SVARD_COMMANDS__?.dispatch("fileTree.revealCurrent"),
+      ).resolves.toMatchObject({ status: "disabled" });
+    }
+    expect(onRevealCurrentFile).not.toHaveBeenCalled();
+    await act(async () =>
+      root.render(
+        <Harness
+          onFeedback={vi.fn()}
+          overrides={{ canRevealCurrentFile: true, onRevealCurrentFile }}
+        />,
+      ),
+    );
+    expect(
+      window.__SVARD_COMMANDS__?.getCommandState("fileTree.revealCurrent")
+        .enabled,
+    ).toBe(true);
+    await act(async () => {
+      await window.__SVARD_COMMANDS__?.dispatch("fileTree.revealCurrent");
+    });
+    expect(onRevealCurrentFile).toHaveBeenCalledOnce();
+    expect(
+      window.__SVARD_COMMANDS__?.getCommandState("documents.revealCurrent")
+        .enabled,
+    ).toBe(false);
+  });
 
   it("enables and dispatches reveal current only when Docs order can reveal", async () => {
     const onReveal = vi.fn(() => true);

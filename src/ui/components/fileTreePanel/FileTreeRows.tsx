@@ -235,6 +235,7 @@ function FileTreeRow({
           className="tree-row-main"
           style={{ paddingLeft: `${8 + depth * 14}px` }}
           aria-label={openLabel}
+          aria-current={!isDirectory && isActive ? "page" : undefined}
           aria-expanded={isDirectory ? isExpanded : undefined}
           draggable={canDragCompare}
           onPointerDown={(event) => {

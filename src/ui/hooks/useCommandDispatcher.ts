@@ -77,6 +77,8 @@ export interface UseCommandDispatcherOptions {
   zenModeActive: boolean;
   canSwitchToRecentTab: boolean;
   canSelectAntoraContext?: boolean;
+  canRevealCurrentFile?: boolean;
+  onRevealCurrentFile?: () => void | Promise<void>;
   documentDiffPreviewActive?: boolean;
   documentDiffStreamActive?: boolean;
   diffStreamCommandRef?: RefObject<DocumentDiffStreamCommandBridge | null>;
@@ -154,6 +156,8 @@ export function useCommandDispatcher({
   zenModeActive,
   canSwitchToRecentTab,
   canSelectAntoraContext = false,
+  canRevealCurrentFile = false,
+  onRevealCurrentFile,
   documentDiffPreviewActive = false,
   documentDiffStreamActive = false,
   diffStreamCommandRef,
@@ -295,6 +299,14 @@ export function useCommandDispatcher({
     }
     if (commandId === "documents.revealCurrent") {
       return canRevealCurrentDocument;
+    }
+    if (commandId === "fileTree.revealCurrent") {
+      return (
+        Boolean(canRevealCurrentFile && onRevealCurrentFile) &&
+        !preferencesOpen &&
+        !documentDiffPreviewActive &&
+        !documentDiffStreamActive
+      );
     }
     if (commandId === "documents.selectAntoraContext") {
       return canSelectAntoraContext;
@@ -553,6 +565,9 @@ export function useCommandDispatcher({
         if (getDocumentsPanelCommands()?.revealCurrentDocument()) {
           showLightweightActionFeedback("Revealed current document");
         }
+        break;
+      case "fileTree.revealCurrent":
+        await onRevealCurrentFile?.();
         break;
       case "documents.selectAntoraContext":
         await onSelectAntoraContextCommand();

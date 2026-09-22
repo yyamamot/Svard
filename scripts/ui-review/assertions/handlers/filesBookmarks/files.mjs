@@ -3,7 +3,62 @@ export async function buildFilesAssertions(context) {
   const page = context.page;
   const bodyText = context.bodyText;
   const consoleMessages = context.consoleMessages ?? [];
+  const revealChecks =
+    scenario === "viewer-file-tree-reveal-current"
+      ? await page.evaluate(() => {
+          const checks =
+            window.__SVARD_FILE_TREE_REVEAL_CURRENT_CHECK__?.checks ?? {};
+          return Object.fromEntries(
+            Object.entries(checks).map(([key, value]) => [
+              `fileTreeReveal_${key}`,
+              value === true,
+            ]),
+          );
+        })
+      : {};
   return {
+    ...revealChecks,
+    hasFileTreeRevealCurrent:
+      scenario === "viewer-file-tree-reveal-current"
+        ? await page.evaluate(() => {
+            const result = window.__SVARD_FILE_TREE_REVEAL_CURRENT_CHECK__;
+            const required = [
+              "markdownActive",
+              "asciidocActive",
+              "tabDoesNotFollow",
+              "toolbarReveals",
+              "hiddenSidebarPaletteReveals",
+              "zenPaletteReveals",
+              "docsPaletteReveals",
+              "docsSwitchedToTree",
+              "splitLeft",
+              "splitRight",
+              "keyboardFocus",
+              "offscreenBefore",
+              "readingPositionPreserved",
+              "offscreenRevealed",
+              "preferencesDisabled",
+              "diffDisabled",
+              "noDocumentDisabled",
+              "outsideWorkspaceDisabled",
+            ];
+            return (
+              required.every((key) => result?.checks?.[key] === true) &&
+              result?.layouts?.length === 6 &&
+              result.layouts.every(
+                (sample) =>
+                  Math.abs(sample.width - sample.sidebarWidth) <= 1 &&
+                  sample.toolbarContained &&
+                  sample.toolbarNoOverlap &&
+                  sample.badgePresent &&
+                  sample.longLabelContained &&
+                  sample.activeDistinctFromHover &&
+                  sample.activeHasTwoPixelBar &&
+                  sample.activePersistsWithoutTreeFocus,
+              )
+            );
+          })
+        : true,
     hasFileTree:
       scenario === "viewer-files" || scenario === "viewer-files-tree"
         ? (await page.locator('[data-review-id="file-tree"]').count()) > 0 &&
@@ -200,6 +255,10 @@ export async function buildFilesAssertions(context) {
               result?.openFile?.role === "menuitem" &&
               result?.openFolder?.text === "Open Folder..." &&
               result?.openFolder?.role === "menuitem" &&
+              result?.reveal?.ariaLabel ===
+                "Reveal Current File in File Tree" &&
+              result?.reveal?.title === "Reveal Current File in File Tree" &&
+              result?.reveal?.rect?.right <= result?.refresh?.rect?.x + 1 &&
               result?.refresh?.ariaLabel === "Refresh file tree" &&
               result?.refresh?.title === "Refresh file tree" &&
               result?.collapse?.ariaLabel === "Collapse all folders" &&

@@ -41,6 +41,10 @@ interface SuggestedDocumentsModeInput {
 }
 
 interface UseAppSidebarWiringOptions {
+  canRevealCurrentFile?: boolean;
+  onRevealCurrentFile?: () => void;
+  revealRequest?: { id: number; path: string } | null;
+  onRevealConsumed?: (id: number) => void;
   activePath?: string;
   antoraContextSelectorOpenSignal: number;
   bookmarks: BookmarkEntry[];
@@ -172,6 +176,10 @@ export function workspaceSearchOrderedPathsForCatalog({
 }
 
 export function useAppSidebarWiring({
+  canRevealCurrentFile,
+  onRevealCurrentFile,
+  revealRequest,
+  onRevealConsumed,
   activePath,
   antoraContextSelectorOpenSignal,
   bookmarks,
@@ -233,6 +241,7 @@ export function useAppSidebarWiring({
   leftSidebarProps: AppLeftSidebarProps;
   documentOrderNavigation: DocumentOrderNavigationState | null;
   workspaceSearchOrderedPaths?: string[];
+  showFileTree: () => void;
 } {
   const [documentOrder, setDocumentOrder] = useState<DocumentOrderCatalog>({
     orders: [],
@@ -320,6 +329,10 @@ export function useAppSidebarWiring({
   }, [documentOrder.antoraContexts, onAntoraContextsChange]);
 
   const leftSidebarProps: AppLeftSidebarProps = {
+    canRevealCurrentFile,
+    onRevealCurrentFile,
+    revealRequest,
+    onRevealConsumed,
     activePath,
     preferencesTabOpen,
     preferencesActive,
@@ -385,6 +398,7 @@ export function useAppSidebarWiring({
   };
 
   return {
+    showFileTree: () => setFilesViewMode("tree"),
     leftSidebarProps,
     documentOrderNavigation,
     workspaceSearchOrderedPaths,

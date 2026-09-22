@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   buildGitDirectoryStatusSummary,
   mergeGitStatusWithChanges,
@@ -57,6 +64,10 @@ interface FileTreePanelProps {
   onToggleDirectory: (path: string) => void;
   onPickDocument: () => void;
   onPickDirectory: () => void;
+  onRevealCurrentFile?: () => void;
+  onRevealConsumed?: (id: number) => void;
+  canRevealCurrentFile?: boolean;
+  revealRequest?: { id: number; path: string } | null;
   onRefresh: () => void;
   onCollapse: () => void;
 }
@@ -86,6 +97,10 @@ export function FileTreePanel({
   onToggleDirectory,
   onPickDocument,
   onPickDirectory,
+  onRevealCurrentFile,
+  onRevealConsumed,
+  canRevealCurrentFile = false,
+  revealRequest,
   onRefresh,
   onCollapse,
 }: FileTreePanelProps) {
@@ -94,6 +109,41 @@ export function FileTreePanel({
     useState<DocumentsFilter>("all");
   const documentsPanelCommandsRef = useRef<DocumentsPanelCommands | null>(null);
   const viewMode = filesViewMode ?? localViewMode;
+  const treeRef = useRef<HTMLDivElement | null>(null);
+  const consumedRevealIdRef = useRef<number | null>(null);
+
+  // A request is committed only after the loaded ancestors produce a visible row.
+  // Scroll the Files pane directly so reader and outer scroll positions stay put.
+  useLayoutEffect(() => {
+    if (
+      !revealRequest ||
+      consumedRevealIdRef.current === revealRequest.id ||
+      viewMode !== "tree" ||
+      revealRequest.path !== activePath ||
+      !canRevealCurrentFile
+    ) {
+      return;
+    }
+    const tree = treeRef.current;
+    const row = Array.from(
+      tree?.querySelectorAll<HTMLElement>('[data-review-id="tree-file"]') ?? [],
+    ).find((element) => element.dataset.path === revealRequest.path);
+    const button = row?.querySelector<HTMLButtonElement>(".tree-row-main");
+    if (!tree || !row || !button) return;
+    const scroller = tree.closest<HTMLElement>(".sidebar-tab-panel") ?? tree;
+    const viewport = scroller.getBoundingClientRect();
+    const bounds = row.getBoundingClientRect();
+    const top = viewport.top + scroller.clientTop;
+    const bottom = top + scroller.clientHeight;
+    if (bounds.top < top) {
+      scroller.scrollTop += bounds.top - top;
+    } else if (bounds.bottom > bottom) {
+      scroller.scrollTop += bounds.bottom - bottom;
+    }
+    button.focus({ preventScroll: true });
+    consumedRevealIdRef.current = revealRequest.id;
+    onRevealConsumed?.(revealRequest.id);
+  });
   const fileTreeGitStatusByPath = useMemo(
     () => mergeGitStatusWithChanges(gitStatusByPath, gitChanges),
     [gitChanges, gitStatusByPath],
@@ -298,6 +348,8 @@ export function FileTreePanel({
         antoraContextSelectorOpenSignal={antoraContextSelectorOpenSignal}
         onPickDocument={onPickDocument}
         onPickDirectory={onPickDirectory}
+        onRevealCurrentFile={onRevealCurrentFile}
+        canRevealCurrentFile={canRevealCurrentFile}
         onRefresh={onRefresh}
         collapseLabel={
           viewMode === "tree"
@@ -309,7 +361,7 @@ export function FileTreePanel({
         onSelectAntoraContext={onSelectAntoraContext}
       />
       {viewMode === "tree" ? (
-        <div className="file-tree" data-review-id="file-tree">
+        <div ref={treeRef} className="file-tree" data-review-id="file-tree">
           {rootEntries.length > 0 ? (
             <FileTreeRows
               rootDirectory={rootDirectory}
